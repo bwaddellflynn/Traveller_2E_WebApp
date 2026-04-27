@@ -45,11 +45,15 @@ type RollResult = {
 type TermHistoryEntry = {
   termNumber: number
   path: 'career' | 'education'
+  careerId?: string
+  assignmentId?: string
+  educationId?: string
   startAge: number
   endAge: number
   summary: string
   rolls: RollResult[]
 }
+type CreatorTab = 'creation' | `term-${number}`
 
 const characteristicOrder = characteristicsData.characteristics.map((item) => item.id as CharacteristicId)
 const statRolls = ref<StatRoll[]>(characteristicOrder.map((_, index) => ({
@@ -90,9 +94,12 @@ const selectedCareerSkillTableId = ref('personal-development')
 const hasRolledCharacteristics = ref(false)
 const showRerollConfirm = ref(false)
 const currentTermNumber = ref(1)
+const activeCreatorTab = ref<CreatorTab>('creation')
 const lifepathComplete = ref(false)
 const termHistory = ref<TermHistoryEntry[]>([])
 const appliedSkillRecords = reactive<Record<string, CharacterSkill>>({})
+const basicTrainingApplied = ref(false)
+const pendingBasicTrainingChoices = ref<Array<{ label: string; options: string[]; selected?: string }>>([])
 const careerSkillResult = ref<string | null>(null)
 const pendingSkillChoice = ref<{ label: string; source: string; options: string[] } | null>(null)
 const termRolls = reactive<Record<string, RollResult | null>>({
@@ -192,6 +199,16 @@ const currentAge = computed(() => 18 + ((currentTermNumber.value - 1) * 4))
 const endOfTermAge = computed(() => currentAge.value + 4)
 const educationAvailable = computed(() => currentTermNumber.value <= 3)
 const agingRequired = computed(() => currentTermNumber.value >= 4)
+const currentTermTabId = computed<CreatorTab>(() => `term-${currentTermNumber.value}` as CreatorTab)
+const termTabs = computed(() => Array.from({ length: currentTermNumber.value }, (_, index) => index + 1))
+const activeTermNumber = computed(() => {
+  if (activeCreatorTab.value === 'creation') return null
+  return Number(activeCreatorTab.value.replace('term-', ''))
+})
+const activeTermHistoryEntry = computed(() => {
+  if (!activeTermNumber.value) return null
+  return termHistory.value.find((entry) => entry.termNumber === activeTermNumber.value) ?? null
+})
 
 watch(currentTermNumber, (termNumber) => {
   if (termNumber > 3 && selectedTermPath.value === 'education') {
@@ -290,9 +307,26 @@ const selectedCareerSkillTable = computed(() => {
   return availableCareerSkillTables.value.find((table) => table.id === selectedCareerSkillTableId.value) ?? availableCareerSkillTables.value[0]
 })
 const selectedCareerSkillEntries = computed(() => selectedCareerSkillTable.value?.entries ?? [])
+const careerTermsCompleted = computed(() => {
+  return termHistory.value.filter((entry) => entry.path === 'career' && entry.careerId === selectedCareerId.value).length
+})
+const basicTrainingRequired = computed(() => selectedTermPath.value === 'career' && careerTermsCompleted.value === 0)
+const basicTrainingTableId = computed(() => currentCareerTableData.value?.basicTrainingUses === 'assignment' ? selectedAssignmentId.value : 'service-skills')
+const basicTrainingEntries = computed(() => {
+  const table = currentCareerSkillTables.value[basicTrainingTableId.value]
+  return table ? tableEntries(table as string[] | { entries?: string[] }) : []
+})
+const basicTrainingLabel = computed(() => `${skillTableLabel(basicTrainingTableId.value)} at level 0`)
 
 watch(selectedCareerId, () => {
   selectedAssignmentId.value = selectedCareer.value.assignments[0].id
+  basicTrainingApplied.value = false
+  pendingBasicTrainingChoices.value = []
+})
+
+watch(selectedAssignmentId, () => {
+  basicTrainingApplied.value = false
+  pendingBasicTrainingChoices.value = []
 })
 
 watch(availableCareerSkillTables, (tables) => {
@@ -458,6 +492,38 @@ const resolvePendingSkillChoice = (choice: string) => {
   applyTrainingResult(choice, pending.source)
 }
 
+const applyBasicTraining = () => {
+  pendingBasicTrainingChoices.value = []
+
+  for (const entry of basicTrainingEntries.value) {
+    const choice = splitChoiceResult(entry)
+    if (choice) {
+      pendingBasicTrainingChoices.value.push({
+        label: entry,
+        options: choice,
+      })
+      continue
+    }
+
+    setSkillMinimum(entry, 0, 'Basic Training')
+  }
+
+  basicTrainingApplied.value = pendingBasicTrainingChoices.value.length === 0
+}
+
+const resolveBasicTrainingChoice = (index: number, choice: string) => {
+  const pending = pendingBasicTrainingChoices.value[index]
+  if (!pending || pending.selected) return
+
+  setSkillMinimum(choice, 0, 'Basic Training')
+  pendingBasicTrainingChoices.value[index] = {
+    ...pending,
+    selected: choice,
+  }
+
+  basicTrainingApplied.value = pendingBasicTrainingChoices.value.every((item) => item.selected)
+}
+
 const currentTravellerSkills = computed<CharacterSkill[]>(() => {
   const skills = new Map<string, CharacterSkill>()
 
@@ -598,6 +664,8 @@ const resetTermRolls = () => {
   }
   careerSkillResult.value = null
   pendingSkillChoice.value = null
+  basicTrainingApplied.value = false
+  pendingBasicTrainingChoices.value = []
 }
 
 const agingEffect = computed(() => {
@@ -668,11 +736,36 @@ const canCompleteTerm = computed(() => {
 
   if (!termRolls.careerQualification) return false
   if (!termRolls.careerQualification.finalSuccess) return false
+  if (basicTrainingRequired.value && !basicTrainingApplied.value) return false
   if (!termRolls.careerSkill || pendingSkillChoice.value) return false
   if (!termRolls.careerSurvival) return false
   if (!termRolls.careerSurvival.finalSuccess) return true
   return Boolean(termRolls.careerAdvancement)
 })
+const canAddTermTab = computed(() => {
+  if (lifepathComplete.value) return false
+  if (activeCreatorTab.value === 'creation') return true
+  if (activeCreatorTab.value !== currentTermTabId.value) return false
+  return canCompleteTerm.value
+})
+const nextTermButtonLabel = computed(() => {
+  if (activeCreatorTab.value === 'creation') return 'Start Term 1'
+  return `Start Term ${currentTermNumber.value + 1}`
+})
+
+const selectTermTab = (termNumber: number) => {
+  activeCreatorTab.value = `term-${termNumber}` as CreatorTab
+}
+
+const addTermTab = () => {
+  if (activeCreatorTab.value === 'creation') {
+    activeCreatorTab.value = 'term-1'
+    return
+  }
+
+  if (!canCompleteTerm.value || activeCreatorTab.value !== currentTermTabId.value) return
+  completeCurrentTerm()
+}
 
 const completeCurrentTerm = () => {
   if (!canCompleteTerm.value) return
@@ -687,6 +780,9 @@ const completeCurrentTerm = () => {
     {
       termNumber: currentTermNumber.value,
       path: selectedTermPath.value,
+      careerId: selectedTermPath.value === 'career' ? selectedCareerId.value : undefined,
+      assignmentId: selectedTermPath.value === 'career' ? selectedAssignmentId.value : undefined,
+      educationId: selectedTermPath.value === 'education' ? selectedEducationId.value : undefined,
       startAge: currentAge.value,
       endAge: endOfTermAge.value,
       summary,
@@ -696,6 +792,7 @@ const completeCurrentTerm = () => {
 
   currentTermNumber.value += 1
   resetTermRolls()
+  activeCreatorTab.value = `term-${currentTermNumber.value}` as CreatorTab
 }
 
 const musterOut = () => {
@@ -775,6 +872,47 @@ const characteristicRows = computed(() => characteristicsData.characteristics.ma
 
     <div class="mx-auto grid w-full max-w-7xl gap-6 px-5 py-6 sm:px-8 lg:grid-cols-[1fr_24rem] lg:px-10">
       <section class="grid gap-6">
+        <div class="rounded-lg border border-zinc-300 bg-white shadow-sm">
+          <div class="flex flex-wrap items-center gap-2 border-b border-zinc-200 p-3">
+            <button
+              :class="[
+                'h-10 rounded-md px-3 text-sm font-semibold',
+                activeCreatorTab === 'creation'
+                  ? 'bg-zinc-950 text-white'
+                  : 'text-zinc-700 hover:bg-stone-100 hover:text-zinc-950'
+              ]"
+              type="button"
+              @click="activeCreatorTab = 'creation'"
+            >
+              Creation
+            </button>
+            <button
+              v-for="termNumber in termTabs"
+              :key="termNumber"
+              :class="[
+                'h-10 rounded-md px-3 text-sm font-semibold',
+                activeCreatorTab === `term-${termNumber}`
+                  ? 'bg-zinc-950 text-white'
+                  : 'text-zinc-700 hover:bg-stone-100 hover:text-zinc-950'
+              ]"
+              type="button"
+              @click="selectTermTab(termNumber)"
+            >
+              Term {{ termNumber }}
+            </button>
+            <button
+              class="ml-auto inline-flex h-10 w-10 items-center justify-center rounded-md border border-zinc-300 text-xl font-semibold text-zinc-700 hover:border-amber-600 disabled:cursor-not-allowed disabled:text-zinc-300"
+              :disabled="!canAddTermTab"
+              title="Add term"
+              type="button"
+              @click="addTermTab"
+            >
+              +
+            </button>
+          </div>
+
+          <div class="p-5">
+            <div v-if="activeCreatorTab === 'creation'" class="grid gap-6">
         <div class="rounded-lg border border-zinc-300 bg-white p-5 shadow-sm">
           <div class="flex flex-wrap items-center justify-between gap-3">
             <div>
@@ -887,8 +1025,38 @@ const characteristicRows = computed(() => characteristicsData.characteristics.ma
             </button>
           </div>
         </div>
+            </div>
 
-        <div class="rounded-lg border border-zinc-300 bg-white p-5 shadow-sm">
+            <div v-else-if="activeCreatorTab !== currentTermTabId" class="rounded-lg border border-zinc-300 bg-white p-5 shadow-sm">
+              <div v-if="activeTermHistoryEntry">
+                <div class="flex flex-wrap items-start justify-between gap-4">
+                  <div>
+                    <h2 class="text-xl font-semibold">Term {{ activeTermHistoryEntry.termNumber }}</h2>
+                    <p class="mt-1 text-sm text-zinc-600">{{ activeTermHistoryEntry.summary }}</p>
+                  </div>
+                  <span class="rounded-md bg-stone-100 px-3 py-2 text-sm font-semibold text-zinc-700">
+                    Age {{ activeTermHistoryEntry.startAge }}-{{ activeTermHistoryEntry.endAge }}
+                  </span>
+                </div>
+
+                <div class="mt-5 grid gap-2">
+                  <div
+                    v-for="roll in activeTermHistoryEntry.rolls"
+                    :key="`${activeTermHistoryEntry.termNumber}-${roll.label}`"
+                    class="flex flex-wrap items-center justify-between gap-3 rounded-md bg-stone-50 px-3 py-2 text-sm"
+                  >
+                    <span class="font-semibold text-zinc-800">{{ roll.label }}</span>
+                    <span class="text-zinc-600">{{ rollSummary(roll) }} · {{ roll.finalSuccess ? 'Success' : 'Failure' }}</span>
+                  </div>
+                </div>
+              </div>
+              <div v-else>
+                <h2 class="text-xl font-semibold">Term {{ activeTermNumber }}</h2>
+                <p class="mt-1 text-sm text-zinc-600">This term has not been completed yet.</p>
+              </div>
+            </div>
+
+        <div v-else class="rounded-lg border border-zinc-300 bg-white p-5 shadow-sm">
           <div class="flex flex-wrap items-start justify-between gap-4">
             <div>
               <h2 class="text-xl font-semibold">Term Direction</h2>
@@ -996,6 +1164,67 @@ const characteristicRows = computed(() => characteristicsData.characteristics.ma
               </div>
 
               <div v-if="termRolls.careerQualification?.finalSuccess" class="rounded-md border border-zinc-200 p-4">
+                <div class="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <p class="text-sm font-semibold">Basic Training</p>
+                    <p class="text-sm text-zinc-600">
+                      <template v-if="basicTrainingRequired">
+                        First term in {{ selectedCareer.name }}: gain {{ basicTrainingLabel }}.
+                      </template>
+                      <template v-else>
+                        Already completed for {{ selectedCareer.name }}.
+                      </template>
+                    </p>
+                  </div>
+                  <button
+                    class="h-10 rounded-md bg-zinc-950 px-4 text-sm font-semibold text-white hover:bg-zinc-800 disabled:cursor-not-allowed disabled:bg-zinc-300"
+                    :disabled="!basicTrainingRequired || basicTrainingApplied"
+                    type="button"
+                    @click="applyBasicTraining"
+                  >
+                    Apply
+                  </button>
+                </div>
+
+                <div class="mt-4 grid gap-2 sm:grid-cols-2">
+                  <div
+                    v-for="entry in basicTrainingEntries"
+                    :key="entry"
+                    class="rounded-md bg-stone-50 px-3 py-2 text-sm text-zinc-800"
+                  >
+                    {{ entry }}
+                  </div>
+                </div>
+
+                <div v-if="pendingBasicTrainingChoices.length" class="mt-3 grid gap-2 rounded-md bg-amber-50 p-3 text-sm">
+                  <div
+                    v-for="(choiceGroup, index) in pendingBasicTrainingChoices"
+                    :key="choiceGroup.label"
+                    class="flex flex-wrap items-center justify-between gap-3"
+                  >
+                    <p class="font-medium text-amber-950">
+                      {{ choiceGroup.selected ? `${choiceGroup.label}: ${choiceGroup.selected}` : `Choose for ${choiceGroup.label}` }}
+                    </p>
+                    <div v-if="!choiceGroup.selected" class="flex flex-wrap gap-2">
+                      <button
+                        v-for="choice in choiceGroup.options"
+                        :key="choice"
+                        class="h-9 rounded-md border border-amber-300 bg-white px-3 text-sm font-semibold text-amber-900 hover:border-amber-600"
+                        type="button"
+                        @click="resolveBasicTrainingChoice(index, choice)"
+                      >
+                        {{ choice }}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <p v-if="basicTrainingApplied" class="mt-3 rounded-md bg-stone-50 p-3 text-sm font-semibold text-zinc-700">
+                  Basic training applied to Current Traveller.
+                </p>
+              </div>
+
+              <div v-if="termRolls.careerQualification?.finalSuccess && (!basicTrainingRequired || basicTrainingApplied)" class="rounded-md border border-zinc-200 p-4">
                 <div class="flex flex-wrap items-start justify-between gap-3">
                   <div>
                     <p class="text-sm font-semibold">Skill Training</p>
@@ -1296,10 +1525,12 @@ const characteristicRows = computed(() => characteristicsData.characteristics.ma
               class="h-10 rounded-md bg-zinc-950 px-4 text-sm font-semibold text-white hover:bg-zinc-800 disabled:cursor-not-allowed disabled:bg-zinc-300"
               :disabled="!canCompleteTerm"
               type="button"
-              @click="completeCurrentTerm"
+              @click="addTermTab"
             >
-              Complete Term
+              {{ nextTermButtonLabel }}
             </button>
+          </div>
+        </div>
           </div>
         </div>
       </section>
