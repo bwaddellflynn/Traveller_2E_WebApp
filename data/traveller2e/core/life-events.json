@@ -1,0 +1,88 @@
+{
+  "source": {
+    "bookId": "mgt2e-core-2022",
+    "page": 46
+  },
+  "roll": "2D",
+  "events": [
+    {
+      "roll": 2,
+      "id": "sickness-or-injury",
+      "name": "Sickness or Injury",
+      "effects": [{ "type": "roll_table", "tableId": "injury" }]
+    },
+    {
+      "roll": 3,
+      "id": "birth-or-death",
+      "name": "Birth or Death",
+      "effects": [{ "type": "narrative_event" }]
+    },
+    {
+      "roll": 4,
+      "id": "ending-of-relationship",
+      "name": "Ending of Relationship",
+      "effects": [{ "type": "gain_associate", "associateTypes": ["rival", "enemy"], "count": 1 }]
+    },
+    {
+      "roll": 5,
+      "id": "improved-relationship",
+      "name": "Improved Relationship",
+      "effects": [{ "type": "gain_associate", "associateTypes": ["ally"], "count": 1 }]
+    },
+    {
+      "roll": 6,
+      "id": "new-relationship",
+      "name": "New Relationship",
+      "effects": [{ "type": "gain_associate", "associateTypes": ["ally"], "count": 1 }]
+    },
+    {
+      "roll": 7,
+      "id": "new-contact",
+      "name": "New Contact",
+      "effects": [{ "type": "gain_associate", "associateTypes": ["contact"], "count": 1 }]
+    },
+    {
+      "roll": 8,
+      "id": "betrayal",
+      "name": "Betrayal",
+      "effects": [{ "type": "convert_or_gain_associate", "from": ["contact", "ally"], "to": ["rival", "enemy"] }]
+    },
+    {
+      "roll": 9,
+      "id": "travel",
+      "name": "Travel",
+      "effects": [{ "type": "next_qualification_dm", "dm": 2 }]
+    },
+    {
+      "roll": 10,
+      "id": "good-fortune",
+      "name": "Good Fortune",
+      "effects": [{ "type": "one_benefit_roll_dm", "dm": 2 }]
+    },
+    {
+      "roll": 11,
+      "id": "crime",
+      "name": "Crime",
+      "effects": [{ "type": "choice", "options": [{ "type": "lose_benefit_roll", "count": 1 }, { "type": "next_career", "careerId": "prisoner" }] }]
+    },
+    {
+      "roll": 12,
+      "id": "unusual-event",
+      "name": "Unusual Event",
+      "effects": [{ "type": "roll_subtable", "tableId": "unusual-events" }]
+    }
+  ],
+  "subtables": {
+    "unusual-events": {
+      "roll": "1D",
+      "events": [
+        { "roll": 1, "id": "psionics", "name": "Psionics", "effects": [{ "type": "may_test_psionic_strength" }, { "type": "may_take_career_next_term", "careerId": "psion" }] },
+        { "roll": 2, "id": "aliens", "name": "Aliens", "effects": [{ "type": "set_skill", "skillId": "science", "level": 1 }, { "type": "gain_associate", "associateTypes": ["contact"], "tags": ["alien"] }] },
+        { "roll": 3, "id": "alien-artefact", "name": "Alien Artefact", "effects": [{ "type": "gain_item", "itemType": "alien-artefact" }] },
+        { "roll": 4, "id": "amnesia", "name": "Amnesia", "effects": [{ "type": "narrative_event" }] },
+        { "roll": 5, "id": "contact-with-government", "name": "Contact with Government", "effects": [{ "type": "narrative_event" }] },
+        { "roll": 6, "id": "ancient-technology", "name": "Ancient Technology", "effects": [{ "type": "gain_item", "itemType": "ancient-technology" }] }
+      ]
+    }
+  }
+}

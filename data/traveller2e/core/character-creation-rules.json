@@ -1,0 +1,217 @@
+{
+  "source": {
+    "bookId": "mgt2e-core-2022",
+    "pages": [8, 20, 46, 50]
+  },
+  "startingAge": 18,
+  "termLengthYears": 4,
+  "flow": [
+    "name",
+    "species",
+    "characteristics",
+    "background-skills",
+    "pre-career-education-or-career",
+    "career-terms",
+    "connections",
+    "benefits",
+    "skills-package",
+    "final-equipment"
+  ],
+  "checks": {
+    "defaultDice": "2D",
+    "defaultTarget": 8,
+    "naturalTwoFailsSurvival": true,
+    "careerCreationUsesOnlyListedModifiers": true
+  },
+  "preCareerEducation": [
+    {
+      "id": "university",
+      "name": "University",
+      "availableTerms": [1, 2, 3],
+      "entry": {
+        "characteristic": "edu",
+        "target": 6
+      },
+      "entryModifiers": [
+        {
+          "condition": "term == 2",
+          "dm": -1
+        },
+        {
+          "condition": "term == 3",
+          "dm": -2
+        },
+        {
+          "condition": "soc >= 9",
+          "dm": 1
+        }
+      ],
+      "skillChoices": [
+        {
+          "count": 1,
+          "level": 0
+        },
+        {
+          "count": 1,
+          "level": 1
+        }
+      ],
+      "skillOptions": [
+        "admin",
+        "advocate",
+        "animals/training",
+        "animals/veterinary",
+        "art/*",
+        "astrogation",
+        "electronics/*",
+        "engineer/*",
+        "language/*",
+        "medic",
+        "navigation",
+        "profession/*",
+        "science/*"
+      ],
+      "graduation": {
+        "characteristic": "int",
+        "target": 6,
+        "honoursTarget": 10
+      },
+      "graduationBenefits": [
+        {
+          "type": "increase_chosen_pre_career_skills",
+          "amount": 1
+        },
+        {
+          "type": "characteristic_increase",
+          "characteristic": "edu",
+          "amount": 1
+        },
+        {
+          "type": "qualification_dm",
+          "careers": ["agent", "army", "citizen-corporate", "entertainer-journalist", "marine", "navy", "scholar", "scout"],
+          "dm": 1,
+          "honoursDm": 2
+        },
+        {
+          "type": "first_military_career_commission_allowed",
+          "officerRankOnSuccess": 1,
+          "honoursCommissionDm": 2
+        }
+      ]
+    },
+    {
+      "id": "military-academy",
+      "name": "Military Academy",
+      "availableTerms": [1, 2, 3],
+      "variants": ["army", "marine", "navy"],
+      "entryByVariant": {
+        "army": {
+          "characteristic": "end",
+          "target": 7
+        },
+        "marine": {
+          "characteristic": "end",
+          "target": 8
+        },
+        "navy": {
+          "characteristic": "int",
+          "target": 8
+        }
+      },
+      "entryModifiers": [
+        {
+          "condition": "term == 2",
+          "dm": -2
+        },
+        {
+          "condition": "term == 3",
+          "dm": -4
+        }
+      ],
+      "skills": {
+        "type": "career_service_skills",
+        "level": 0
+      },
+      "graduation": {
+        "characteristic": "int",
+        "target": 7,
+        "honoursTarget": 11,
+        "modifiers": [
+          {
+            "condition": "end >= 8",
+            "dm": 1
+          },
+          {
+            "condition": "soc >= 8",
+            "dm": 1
+          }
+        ]
+      },
+      "graduationBenefits": [
+        {
+          "type": "same_military_career_service_skill_choices",
+          "count": 3,
+          "level": 1
+        },
+        {
+          "type": "characteristic_increase",
+          "characteristic": "edu",
+          "amount": 1
+        },
+        {
+          "type": "honours_characteristic_increase",
+          "characteristic": "soc",
+          "amount": 1
+        },
+        {
+          "type": "automatic_entry_same_military_career"
+        },
+        {
+          "type": "first_military_career_commission_allowed",
+          "dm": 2,
+          "honoursAutomaticSuccess": true,
+          "officerRankOnSuccess": 1
+        }
+      ]
+    }
+  ],
+  "draft": {
+    "lifetimeLimit": 1,
+    "roll": "1D",
+    "table": [
+      { "roll": 1, "careerId": "navy", "assignment": "any" },
+      { "roll": 2, "careerId": "army", "assignment": "any" },
+      { "roll": 3, "careerId": "marine", "assignment": "any" },
+      { "roll": 4, "careerId": "merchant", "assignment": "merchant-marine" },
+      { "roll": 5, "careerId": "scout", "assignment": "any" },
+      { "roll": 6, "careerId": "agent", "assignment": "law-enforcement" }
+    ]
+  },
+  "connections": {
+    "maximumFreeSkills": 2,
+    "mustUseDifferentTravellers": true,
+    "maximumSkillLevelFromConnection": 3,
+    "excludedSkills": ["jack-of-all-trades"]
+  },
+  "benefits": {
+    "cashRollMaximumAcrossAllCareers": 3,
+    "gamblerCashBenefitDm": 1,
+    "rankBonusBenefitRolls": [
+      { "highestRankMin": 1, "highestRankMax": 2, "bonusRolls": 1 },
+      { "highestRankMin": 3, "highestRankMax": 4, "bonusRolls": 2 },
+      { "highestRankMin": 5, "highestRankMax": 6, "bonusRolls": 3, "benefitRollDm": 1 }
+    ],
+    "startingPurchaseLimitCredits": 10000
+  },
+  "pensions": {
+    "excludedCareerIds": ["scout", "rogue", "prisoner", "drifter"],
+    "minimumTerms": 5,
+    "annualPayByTerms": [
+      { "terms": 5, "credits": 10000 },
+      { "terms": 6, "credits": 12000 },
+      { "terms": 7, "credits": 14000 },
+      { "terms": 8, "credits": 16000 },
+      { "termsMin": 9, "formula": "2000 * terms" }
+    ]
+  }
+}

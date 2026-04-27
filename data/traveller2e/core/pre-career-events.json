@@ -1,0 +1,30 @@
+{
+  "source": {
+    "bookId": "mgt2e-core-2022",
+    "page": 17
+  },
+  "roll": "2D",
+  "events": [
+    { "roll": 2, "id": "psionic-contact", "name": "Psionic Contact", "effects": [{ "type": "may_test_psi" }, { "type": "may_enter_career", "careerId": "psion" }] },
+    { "roll": 3, "id": "tragedy", "name": "Tragedy", "effects": [{ "type": "education_graduation", "result": "fail" }] },
+    { "roll": 4, "id": "prank-gone-wrong", "name": "Prank Gone Wrong", "effects": [{ "type": "check", "check": { "characteristic": "soc", "target": 8 }, "success": [{ "type": "gain_associate", "associateTypes": ["rival"] }], "failure": [{ "type": "gain_associate", "associateTypes": ["enemy"] }], "naturalTwo": [{ "type": "education_graduation", "result": "fail" }, { "type": "next_career", "careerId": "prisoner" }] }] },
+    { "roll": 5, "id": "party-years", "name": "Party Years", "effects": [{ "type": "set_skill", "skillId": "carouse", "level": 1 }] },
+    { "roll": 6, "id": "close-knit-group", "name": "Close-Knit Group", "effects": [{ "type": "gain_associate", "associateTypes": ["ally"], "count": "D3" }] },
+    { "roll": 7, "id": "life-event", "name": "Life Event", "effects": [{ "type": "roll_table", "tableId": "life-events" }] },
+    { "roll": 8, "id": "political-movement", "name": "Political Movement", "effects": [{ "type": "check", "check": { "characteristic": "soc", "target": 8 }, "success": [{ "type": "gain_associate", "associateTypes": ["ally"], "context": "movement" }], "always": [{ "type": "gain_associate", "associateTypes": ["enemy"], "context": "wider society" }] }] },
+    { "roll": 9, "id": "hobby-or-study", "name": "Hobby or Study", "effects": [{ "type": "choose_skill", "level": 0, "excludedSkills": ["jack-of-all-trades"] }] },
+    { "roll": 10, "id": "academic-rivalry", "name": "Academic Rivalry", "effects": [{ "type": "check_known_term_skill", "target": 9, "success": [{ "type": "increase_checked_skill", "amount": 1 }, { "type": "gain_associate", "associateTypes": ["rival"], "context": "tutor" }] }] },
+    { "roll": 11, "id": "wartime-draft", "name": "Wartime Draft", "effects": [{ "type": "choice", "options": [{ "type": "next_career", "careerId": "drifter" }, { "type": "roll_subtable", "tableId": "wartime-draft" }] }, { "type": "education_graduation", "result": "fail_unless_soc_check" }, { "type": "check", "check": { "characteristic": "soc", "target": 9 }, "success": [{ "type": "ignore_draft" }, { "type": "may_attempt_graduation" }] }] },
+    { "roll": 12, "id": "recognised-initiative", "name": "Recognised Initiative", "effects": [{ "type": "characteristic_increase", "characteristic": "soc", "amount": 1 }] }
+  ],
+  "subtables": {
+    "wartime-draft": {
+      "roll": "1D",
+      "entries": [
+        { "rolls": [1, 2, 3], "careerId": "army" },
+        { "rolls": [4, 5], "careerId": "marine" },
+        { "rolls": [6], "careerId": "navy" }
+      ]
+    }
+  }
+}

@@ -1,0 +1,294 @@
+{
+  "source": {
+    "bookId": "mgt2e-core-2022",
+    "pages": [22, 45]
+  },
+  "notes": [
+    "Event and mishap prose is compressed into short table labels and broad mechanical effects.",
+    "Use source page references for adjudication where a row has choices or conditional checks."
+  ],
+  "common": {
+    "event2": { "name": "Disaster", "effects": [{ "type": "roll_mishap", "ejected": false }] },
+    "event7": { "name": "Life Event", "effects": [{ "type": "roll_table", "tableId": "life-events" }] },
+    "mishap1": { "name": "Severely Injured", "effects": [{ "type": "injury", "severity": "severe_or_two_rolls_lowest" }] },
+    "mishap6": { "name": "Injured", "effects": [{ "type": "roll_table", "tableId": "injury" }] }
+  },
+  "careers": {
+    "agent": {
+      "mishaps": [
+        { "roll": 1, "ref": "common.mishap1" },
+        { "roll": 2, "name": "Compromise Offer", "effects": [{ "type": "choice" }, { "type": "possible_injury" }, { "type": "possible_enemy" }, { "type": "choose_skill_increase", "amount": 1 }] },
+        { "roll": 3, "name": "Investigation Ruined", "effects": [{ "type": "check", "check": { "skill": "advocate", "target": 8 } }, { "type": "possible_keep_benefit_roll" }, { "type": "natural_two_next_career", "careerId": "prisoner" }] },
+        { "roll": 4, "name": "Dangerous Secret", "effects": [{ "type": "gain_associate", "associateTypes": ["enemy"] }, { "type": "set_skill", "skillId": "deception", "level": 1 }] },
+        { "roll": 5, "name": "Collateral Harm", "effects": [{ "type": "associate_or_family_injury" }] },
+        { "roll": 6, "ref": "common.mishap6" }
+      ],
+      "events": [
+        { "roll": 2, "ref": "common.event2" },
+        { "roll": 3, "name": "Dangerous Investigation", "effects": [{ "type": "check_any", "checks": [{ "skill": "investigate", "target": 8 }, { "skill": "streetwise", "target": 8 }] }, { "type": "possible_mishap" }, { "type": "choose_skill_increase", "skills": ["deception", "jack-of-all-trades", "persuade", "tactics"] }] },
+        { "roll": 4, "name": "Rewarded Mission", "effects": [{ "type": "benefit_roll_dm", "dm": 1 }] },
+        { "roll": 5, "name": "Contact Network", "effects": [{ "type": "gain_associate", "associateTypes": ["contact"], "count": "D3" }] },
+        { "roll": 6, "name": "Specialist Training", "effects": [{ "type": "check", "check": { "characteristic": "edu", "target": 8 } }, { "type": "increase_existing_skill", "amount": 1 }] },
+        { "roll": 7, "ref": "common.event7" },
+        { "roll": 8, "name": "Undercover Operation", "effects": [{ "type": "check", "check": { "skill": "deception", "target": 8 } }, { "type": "roll_related_career_event_or_mishap" }] },
+        { "roll": 9, "name": "Above and Beyond", "effects": [{ "type": "next_advancement_dm", "dm": 2 }] },
+        { "roll": 10, "name": "Vehicle Training", "effects": [{ "type": "choose_skill_set", "skills": ["drive", "flyer", "pilot", "gunner"], "level": 1 }] },
+        { "roll": 11, "name": "Senior Agent Patron", "effects": [{ "type": "choice", "options": [{ "type": "increase_skill", "skillId": "investigate", "amount": 1 }, { "type": "next_advancement_dm", "dm": 4 }] }] },
+        { "roll": 12, "name": "Major Conspiracy", "effects": [{ "type": "automatic_promotion" }] }
+      ]
+    },
+    "army": {
+      "mishaps": [
+        { "roll": 1, "ref": "common.mishap1" },
+        { "roll": 2, "name": "Disastrous Battle", "effects": [{ "type": "gain_associate", "associateTypes": ["enemy"], "context": "commander" }, { "type": "forced_out" }] },
+        { "roll": 3, "name": "Unpleasant Campaign", "effects": [{ "type": "choose_skill_increase", "skills": ["recon", "survival"], "amount": 1 }, { "type": "gain_associate", "associateTypes": ["enemy"] }, { "type": "forced_out" }] },
+        { "roll": 4, "name": "Illegal Command Activity", "effects": [{ "type": "choice" }, { "type": "possible_ally" }, { "type": "possible_keep_benefit_roll" }, { "type": "forced_out" }] },
+        { "roll": 5, "name": "Quarrel With Soldier", "effects": [{ "type": "gain_associate", "associateTypes": ["rival"] }, { "type": "forced_out" }] },
+        { "roll": 6, "ref": "common.mishap6" }
+      ],
+      "events": [
+        { "roll": 2, "ref": "common.event2" },
+        { "roll": 3, "name": "Hostile Environment", "effects": [{ "type": "choose_skill_set", "skills": ["vacc-suit", "engineer", "animals/riding", "animals/training", "recon"], "level": 1 }] },
+        { "roll": 4, "name": "Urban Warzone", "effects": [{ "type": "choose_skill_set", "skills": ["stealth", "streetwise", "persuade", "recon"], "level": 1 }] },
+        { "roll": 5, "name": "Special Duty", "effects": [{ "type": "benefit_roll_dm", "dm": 1 }] },
+        { "roll": 6, "name": "Brutal Ground War", "effects": [{ "type": "check", "check": { "characteristic": "edu", "target": 8 } }, { "type": "possible_injury" }, { "type": "choose_skill_increase", "skills": ["gun-combat", "leadership"], "amount": 1 }] },
+        { "roll": 7, "ref": "common.event7" },
+        { "roll": 8, "name": "Advanced Training", "effects": [{ "type": "check", "check": { "characteristic": "edu", "target": 8 } }, { "type": "increase_existing_skill", "amount": 1 }] },
+        { "roll": 9, "name": "Held Until Relief", "effects": [{ "type": "next_advancement_dm", "dm": 2 }] },
+        { "roll": 10, "name": "Peacekeeping", "effects": [{ "type": "choose_skill_set", "skills": ["admin", "investigate", "deception", "recon"], "level": 1 }] },
+        { "roll": 11, "name": "Command Interest", "effects": [{ "type": "choice", "options": [{ "type": "set_skill", "skillId": "tactics/military", "level": 1 }, { "type": "next_advancement_dm", "dm": 4 }] }] },
+        { "roll": 12, "name": "Heroism", "effects": [{ "type": "choice", "options": [{ "type": "automatic_promotion" }, { "type": "automatic_commission" }] }] }
+      ]
+    },
+    "citizen": {
+      "mishaps": [
+        { "roll": 1, "ref": "common.mishap1" },
+        { "roll": 2, "name": "Criminal Harassment", "effects": [{ "type": "gain_associate", "associateTypes": ["enemy"] }] },
+        { "roll": 3, "name": "Hard Times", "effects": [{ "type": "characteristic_change", "characteristic": "soc", "amount": -1 }] },
+        { "roll": 4, "name": "Official Investigation", "effects": [{ "type": "choice" }, { "type": "next_qualification_dm", "dm": 2 }, { "type": "possible_ally" }] },
+        { "roll": 5, "name": "Planetary Chaos", "effects": [{ "type": "check", "check": { "skill": "streetwise", "target": 8 } }, { "type": "increase_any_existing_skill", "amount": 1 }] },
+        { "roll": 6, "ref": "common.mishap6" }
+      ],
+      "events": [
+        { "roll": 2, "ref": "common.event2" },
+        { "roll": 3, "name": "Political Upheaval", "effects": [{ "type": "choose_skill_set", "skills": ["advocate", "persuade", "explosives", "streetwise"], "level": 1 }, { "type": "check_chosen_skill", "target": 8 }, { "type": "possible_next_advancement_dm", "dm": 2 }, { "type": "possible_next_survival_dm", "dm": -2 }] },
+        { "roll": 4, "name": "Heavy Vehicle Experience", "effects": [{ "type": "choose_skill_increase", "skills": ["mechanic", "drive", "electronics", "flyer", "engineer"], "amount": 1 }] },
+        { "roll": 5, "name": "Enterprise Thrives", "effects": [{ "type": "benefit_roll_dm", "dm": 1 }] },
+        { "roll": 6, "name": "Advanced Training", "effects": [{ "type": "check", "check": { "characteristic": "edu", "target": 10 } }, { "type": "choose_skill", "level": 1 }] },
+        { "roll": 7, "ref": "common.event7" },
+        { "roll": 8, "name": "Profitable Secret", "effects": [{ "type": "choice" }, { "type": "benefit_roll_dm", "dm": 1 }, { "type": "choose_skill_or_contact", "skills": ["streetwise", "deception"] }] },
+        { "roll": 9, "name": "Rewarded Diligence", "effects": [{ "type": "next_advancement_dm", "dm": 2 }] },
+        { "roll": 10, "name": "Technical Experience", "effects": [{ "type": "choose_skill_increase", "skills": ["electronics", "engineer"], "amount": 1 }] },
+        { "roll": 11, "name": "Superior Ally", "effects": [{ "type": "gain_associate", "associateTypes": ["ally"] }, { "type": "choice", "options": [{ "type": "set_skill", "skillId": "diplomat", "level": 1 }, { "type": "next_advancement_dm", "dm": 4 }] }] },
+        { "roll": 12, "name": "Position of Power", "effects": [{ "type": "automatic_promotion" }] }
+      ]
+    },
+    "drifter": {
+      "mishaps": [
+        { "roll": 1, "ref": "common.mishap1" },
+        { "roll": 2, "ref": "common.mishap6" },
+        { "roll": 3, "name": "Powerful Foe", "effects": [{ "type": "gain_associate", "associateTypes": ["enemy"] }] },
+        { "roll": 4, "name": "Serious Illness", "effects": [{ "type": "characteristic_change", "characteristic": "end", "amount": -1 }] },
+        { "roll": 5, "name": "Betrayed", "effects": [{ "type": "convert_or_gain_associate", "from": ["contact", "ally"], "to": ["rival", "enemy"] }, { "type": "possible_next_career", "careerId": "prisoner" }] },
+        { "roll": 6, "name": "Memory Gap", "effects": [{ "type": "narrative_event" }] }
+      ],
+      "events": [
+        { "roll": 2, "ref": "common.event2" },
+        { "roll": 3, "name": "Patron Job", "effects": [{ "type": "choice" }, { "type": "next_qualification_dm", "dm": 4 }, { "type": "debt_favour" }] },
+        { "roll": 4, "name": "Useful Skills", "effects": [{ "type": "choose_skill_increase", "skills": ["jack-of-all-trades", "survival", "streetwise", "melee"], "amount": 1 }] },
+        { "roll": 5, "name": "Useful Salvage", "effects": [{ "type": "benefit_roll_dm", "dm": 1 }] },
+        { "roll": 6, "name": "Unusual Encounter", "effects": [{ "type": "roll_life_event_subtable", "subtable": "unusual-events" }] },
+        { "roll": 7, "ref": "common.event7" },
+        { "roll": 8, "name": "Attacked", "effects": [{ "type": "gain_associate", "associateTypes": ["enemy"] }, { "type": "check_any", "checks": [{ "skill": "melee", "target": 8 }, { "skill": "gun-combat", "target": 8 }, { "skill": "stealth", "target": 8 }] }, { "type": "possible_injury" }] },
+        { "roll": 9, "name": "Risky Adventure", "effects": [{ "type": "roll_subtable", "tableId": "risky-adventure" }] },
+        { "roll": 10, "name": "Edge Experience", "effects": [{ "type": "increase_existing_skill", "amount": 1 }] },
+        { "roll": 11, "name": "Forced Draft", "effects": [{ "type": "draft_next_term" }] },
+        { "roll": 12, "name": "Thrives on Adversity", "effects": [{ "type": "automatic_promotion" }] }
+      ]
+    },
+    "entertainer": {
+      "mishaps": [
+        { "roll": 1, "ref": "common.mishap1" },
+        { "roll": 2, "name": "Scandal", "effects": [{ "type": "narrative_event" }] },
+        { "roll": 3, "name": "Public Backlash", "effects": [{ "type": "characteristic_change", "characteristic": "soc", "amount": -1 }] },
+        { "roll": 4, "name": "Peer Betrayal", "effects": [{ "type": "convert_or_gain_associate", "from": ["contact", "ally"], "to": ["rival", "enemy"] }] },
+        { "roll": 5, "name": "Stranded", "effects": [{ "type": "choose_skill_set", "skills": ["survival", "pilot", "persuade", "streetwise"], "level": 1 }] },
+        { "roll": 6, "name": "Censorship or Controversy", "effects": [{ "type": "next_qualification_dm", "dm": 2 }] }
+      ],
+      "events": [
+        { "roll": 2, "ref": "common.event2" },
+        { "roll": 3, "name": "Controversial Work", "effects": [{ "type": "check_any", "checks": [{ "skill": "art", "target": 8 }, { "skill": "investigate", "target": 8 }] }, { "type": "possible_soc_change" }] },
+        { "roll": 4, "name": "Celebrity Circles", "effects": [{ "type": "choose_skill_or_contact", "skills": ["carouse", "persuade", "steward"] }] },
+        { "roll": 5, "name": "Popular Work", "effects": [{ "type": "benefit_roll_dm", "dm": 1 }] },
+        { "roll": 6, "name": "Patron", "effects": [{ "type": "next_advancement_dm", "dm": 2 }, { "type": "gain_associate", "associateTypes": ["ally"] }] },
+        { "roll": 7, "ref": "common.event7" },
+        { "roll": 8, "name": "Political Critique", "effects": [{ "type": "choice" }, { "type": "gain_associate", "associateTypes": ["enemy"] }, { "type": "check_any", "checks": [{ "skill": "art", "target": 8 }, { "skill": "persuade", "target": 8 }] }, { "type": "increase_existing_skill", "amount": 1 }, { "type": "possible_mishap" }] },
+        { "roll": 9, "name": "Sector Tour", "effects": [{ "type": "gain_associate", "associateTypes": ["contact"], "count": "D3" }] },
+        { "roll": 10, "name": "Stolen Work", "effects": [{ "type": "choose_skill_set", "skills": ["streetwise", "investigate", "recon", "stealth"], "level": 1 }] },
+        { "roll": 11, "name": "Strange Charmed Life", "effects": [{ "type": "roll_life_event_subtable", "subtable": "unusual-events" }] },
+        { "roll": 12, "name": "Prestigious Prize", "effects": [{ "type": "automatic_promotion" }] }
+      ]
+    },
+    "marine": {
+      "mishaps": [
+        { "roll": 1, "ref": "common.mishap1" },
+        { "roll": 2, "name": "Captured and Mistreated", "effects": [{ "type": "gain_associate", "associateTypes": ["enemy"] }, { "type": "characteristic_change", "characteristics": ["str", "dex"], "amount": -1 }, { "type": "forced_out" }] },
+        { "roll": 3, "name": "Stranded Behind Lines", "effects": [{ "type": "choose_skill_increase", "skills": ["stealth", "survival"], "amount": 1 }, { "type": "forced_out" }] },
+        { "roll": 4, "name": "Black Ops Conscience", "effects": [{ "type": "choice" }, { "type": "possible_enemy" }, { "type": "possible_forced_out" }] },
+        { "roll": 5, "name": "Quarrel With Marine", "effects": [{ "type": "gain_associate", "associateTypes": ["rival"] }, { "type": "forced_out" }] },
+        { "roll": 6, "ref": "common.mishap6" }
+      ],
+      "events": [
+        { "roll": 2, "ref": "common.event2" },
+        { "roll": 3, "name": "Behind Enemy Lines", "effects": [{ "type": "choose_skill_set", "skills": ["survival", "stealth", "deception", "streetwise"], "level": 1 }] },
+        { "roll": 4, "name": "Station Security", "effects": [{ "type": "choose_skill_increase", "skills": ["vacc-suit", "athletics/dexterity"], "amount": 1 }] },
+        { "roll": 5, "name": "Advanced Training", "effects": [{ "type": "check", "check": { "characteristic": "edu", "target": 8 } }, { "type": "choose_skill", "level": 1 }] },
+        { "roll": 6, "name": "Fortress Assault", "effects": [{ "type": "check_any", "checks": [{ "skill": "melee", "target": 8 }, { "skill": "gun-combat", "target": 8 }] }, { "type": "choose_skill_set", "skills": ["tactics/military", "leadership"] }, { "type": "possible_physical_characteristic_loss", "amount": -1 }] },
+        { "roll": 7, "ref": "common.event7" },
+        { "roll": 8, "name": "Planetary Assault", "effects": [{ "type": "choose_skill_set", "skills": ["recon", "gun-combat", "leadership", "electronics/comms"], "level": 1 }] },
+        { "roll": 9, "name": "Commander Error", "effects": [{ "type": "choice" }, { "type": "next_advancement_dm", "dm": 2 }, { "type": "possible_enemy" }, { "type": "possible_ally" }] },
+        { "roll": 10, "name": "Black Ops Mission", "effects": [{ "type": "next_advancement_dm", "dm": 2 }] },
+        { "roll": 11, "name": "Command Interest", "effects": [{ "type": "choice", "options": [{ "type": "set_skill", "skillId": "tactics", "level": 1 }, { "type": "next_advancement_dm", "dm": 4 }] }] },
+        { "roll": 12, "name": "Heroism", "effects": [{ "type": "choice", "options": [{ "type": "automatic_promotion" }, { "type": "automatic_commission" }] }] }
+      ]
+    },
+    "merchant": {
+      "mishaps": [
+        { "roll": 1, "ref": "common.mishap1" },
+        { "roll": 2, "name": "Bankrupted by Rival", "effects": [{ "type": "lose_all_career_benefits" }, { "type": "gain_associate", "associateTypes": ["rival"] }] },
+        { "roll": 3, "name": "War Destroys Routes", "effects": [{ "type": "choose_skill_set", "skills": ["gun-combat", "pilot"], "level": 1 }] },
+        { "roll": 4, "name": "Ship or Starport Destroyed", "effects": [{ "type": "gain_associate", "associateTypes": ["enemy"] }] },
+        { "roll": 5, "name": "Trade Restrictions", "effects": [{ "type": "may_enter_career_next_term", "careerId": "rogue", "qualificationRequired": false }] },
+        { "roll": 6, "name": "Bankruptcy Salvage", "effects": [{ "type": "keep_current_term_benefit_roll" }] }
+      ],
+      "events": [
+        { "roll": 2, "ref": "common.event2" },
+        { "roll": 3, "name": "Smuggling Offer", "effects": [{ "type": "choice" }, { "type": "check_any", "checks": [{ "skill": "deception", "target": 8 }, { "skill": "persuade", "target": 8 }] }, { "type": "set_skill", "skillId": "streetwise", "level": 1 }, { "type": "extra_benefit_roll" }, { "type": "possible_enemy" }] },
+        { "roll": 4, "name": "Supplier and Spacer Experience", "effects": [{ "type": "choose_skill_set", "skills": ["profession", "electronics", "engineer", "animals", "science"], "level": 1 }] },
+        { "roll": 5, "name": "Risky Deal", "effects": [{ "type": "wager_benefit_rolls" }, { "type": "check_any", "checks": [{ "skill": "gambler", "target": 8 }, { "skill": "broker", "target": 8 }] }] },
+        { "roll": 6, "name": "Unexpected Connection", "effects": [{ "type": "gain_associate", "associateTypes": ["contact"] }] },
+        { "roll": 7, "ref": "common.event7" },
+        { "roll": 8, "name": "Legal Trouble", "effects": [{ "type": "choose_skill_set", "skills": ["advocate", "admin", "diplomat", "investigate"], "level": 1 }, { "type": "possible_next_career", "careerId": "prisoner" }] },
+        { "roll": 9, "name": "Advanced Training", "effects": [{ "type": "check", "check": { "characteristic": "edu", "target": 8 } }, { "type": "increase_existing_skill", "amount": 1 }] },
+        { "roll": 10, "name": "High Life", "effects": [{ "type": "benefit_roll_dm", "dm": 1 }] },
+        { "roll": 11, "name": "Useful Ally", "effects": [{ "type": "gain_associate", "associateTypes": ["ally"] }, { "type": "choice", "options": [{ "type": "increase_skill", "skillId": "carouse", "amount": 1 }, { "type": "next_advancement_dm", "dm": 4 }] }] },
+        { "roll": 12, "name": "Business Thrives", "effects": [{ "type": "automatic_promotion" }] }
+      ]
+    },
+    "navy": {
+      "mishaps": [
+        { "roll": 1, "ref": "common.mishap1" },
+        { "roll": 2, "name": "Frozen Watch", "effects": [{ "type": "choose_characteristic_change", "characteristics": ["str", "dex", "end"], "amount": -1 }, { "type": "not_forced_out" }] },
+        { "roll": 3, "name": "Battle Responsibility", "effects": [{ "type": "assignment_skill_check" }, { "type": "possible_forced_out" }, { "type": "possible_keep_benefit_roll" }] },
+        { "roll": 4, "name": "Blamed for Accident", "effects": [{ "type": "choice" }, { "type": "free_skill_table_roll" }, { "type": "possible_enemy" }, { "type": "possible_keep_benefit_roll" }] },
+        { "roll": 5, "name": "Quarrel With Crew", "effects": [{ "type": "gain_associate", "associateTypes": ["rival"] }, { "type": "forced_out" }] },
+        { "roll": 6, "ref": "common.mishap6" }
+      ],
+      "events": [
+        { "roll": 2, "ref": "common.event2" },
+        { "roll": 3, "name": "Gambling Circle", "effects": [{ "type": "choose_skill_set", "skills": ["gambler", "deception"], "level": 1 }, { "type": "optional_check", "check": { "skill": "gambler", "target": 8 } }, { "type": "possible_benefit_roll_change" }] },
+        { "roll": 4, "name": "Special Assignment", "effects": [{ "type": "benefit_roll_dm", "dm": 1 }] },
+        { "roll": 5, "name": "Advanced Training", "effects": [{ "type": "check", "check": { "characteristic": "edu", "target": 8 } }, { "type": "increase_existing_skill", "amount": 1 }] },
+        { "roll": 6, "name": "Notable Engagement", "effects": [{ "type": "choose_skill_set", "skills": ["electronics", "engineer", "gunner", "pilot"], "level": 1 }] },
+        { "roll": 7, "ref": "common.event7" },
+        { "roll": 8, "name": "Diplomatic Mission", "effects": [{ "type": "choose_skill_or_contact", "skills": ["recon", "diplomat", "steward"] }] },
+        { "roll": 9, "name": "Foiled Crime", "effects": [{ "type": "gain_associate", "associateTypes": ["enemy"] }, { "type": "next_advancement_dm", "dm": 2, "careerId": "navy" }] },
+        { "roll": 10, "name": "Abuse Position", "effects": [{ "type": "choice" }, { "type": "extra_benefit_roll" }, { "type": "next_advancement_dm", "dm": 2 }] },
+        { "roll": 11, "name": "Command Interest", "effects": [{ "type": "choice", "options": [{ "type": "set_skill", "skillId": "tactics/naval", "level": 1 }, { "type": "next_advancement_dm", "dm": 4 }] }] },
+        { "roll": 12, "name": "Saves the Ship", "effects": [{ "type": "automatic_next_promotion_or_commission" }] }
+      ]
+    },
+    "noble": {
+      "mishaps": [
+        { "roll": 1, "ref": "common.mishap1" },
+        { "roll": 2, "name": "Family Scandal", "effects": [{ "type": "characteristic_change", "characteristic": "soc", "amount": -1 }] },
+        { "roll": 3, "name": "Disaster or War", "effects": [{ "type": "check_any", "checks": [{ "skill": "stealth", "target": 8 }, { "skill": "deception", "target": 8 }] }, { "type": "possible_injury" }] },
+        { "roll": 4, "name": "Political Manoeuvring", "effects": [{ "type": "choose_skill_increase", "skills": ["diplomat", "advocate"], "amount": 1 }, { "type": "gain_associate", "associateTypes": ["rival"] }] },
+        { "roll": 5, "name": "Assassin", "effects": [{ "type": "check", "check": { "characteristic": "end", "target": 8 } }, { "type": "possible_injury" }] },
+        { "roll": 6, "ref": "common.mishap6" }
+      ],
+      "events": [
+        { "roll": 2, "ref": "common.event2" },
+        { "roll": 3, "name": "Duel", "effects": [{ "type": "choice" }, { "type": "check", "check": { "skill": "melee/blade", "target": 8 } }, { "type": "possible_soc_change" }, { "type": "choose_skill_increase", "skills": ["melee/blade", "leadership", "tactics", "deception"], "amount": 1 }] },
+        { "roll": 4, "name": "Wide Experiences", "effects": [{ "type": "choose_skill_set", "skills": ["animals/riding", "art", "carouse", "streetwise"], "level": 1 }] },
+        { "roll": 5, "name": "Rich Relative Gift", "effects": [{ "type": "benefit_roll_dm", "dm": 1 }] },
+        { "roll": 6, "name": "Political Intrigue", "effects": [{ "type": "choose_skill_increase", "skills": ["advocate", "admin", "diplomat", "persuade"], "amount": 1 }, { "type": "gain_associate", "associateTypes": ["rival"] }] },
+        { "roll": 7, "ref": "common.event7" },
+        { "roll": 8, "name": "Noble Conspiracy", "effects": [{ "type": "choice" }, { "type": "gain_associate", "associateTypes": ["enemy"] }, { "type": "check_any", "checks": [{ "skill": "deception", "target": 8 }, { "skill": "persuade", "target": 8 }] }, { "type": "possible_mishap" }, { "type": "choose_skill_increase", "skills": ["deception", "persuade", "tactics", "carouse"], "amount": 1 }] },
+        { "roll": 9, "name": "Acclaimed Reign", "effects": [{ "type": "gain_associate", "associateTypes": ["enemy"] }, { "type": "next_advancement_dm", "dm": 2 }] },
+        { "roll": 10, "name": "High Society Manipulation", "effects": [{ "type": "choose_skill_increase", "skills": ["carouse", "diplomat", "persuade", "steward"], "amount": 1 }, { "type": "gain_associate", "associateTypes": ["rival", "ally"] }] },
+        { "roll": 11, "name": "Powerful Noble Ally", "effects": [{ "type": "gain_associate", "associateTypes": ["ally"] }, { "type": "choice", "options": [{ "type": "increase_skill", "skillId": "leadership", "amount": 1 }, { "type": "next_advancement_dm", "dm": 4 }] }] },
+        { "roll": 12, "name": "Imperial Notice", "effects": [{ "type": "automatic_promotion" }] }
+      ]
+    },
+    "rogue": {
+      "mishaps": [
+        { "roll": 1, "ref": "common.mishap1" },
+        { "roll": 2, "name": "Arrested", "effects": [{ "type": "next_career", "careerId": "prisoner" }] },
+        { "roll": 3, "name": "Betrayed", "effects": [{ "type": "convert_or_gain_associate", "from": ["contact", "ally"], "to": ["rival", "enemy"] }, { "type": "possible_next_career", "careerId": "prisoner" }] },
+        { "roll": 4, "name": "Job Goes Wrong", "effects": [{ "type": "choose_skill_set", "skills": ["deception", "pilot/small-craft", "pilot/spacecraft", "athletics/dexterity", "gunner"], "level": 1 }] },
+        { "roll": 5, "name": "Hunted", "effects": [{ "type": "gain_associate", "associateTypes": ["enemy"] }] },
+        { "roll": 6, "ref": "common.mishap6" }
+      ],
+      "events": [
+        { "roll": 2, "ref": "common.event2" },
+        { "roll": 3, "name": "Arrested and Charged", "effects": [{ "type": "choice" }, { "type": "check", "check": { "skill": "advocate", "target": 8 } }, { "type": "possible_next_career", "careerId": "prisoner" }, { "type": "possible_contact" }, { "type": "possible_lose_benefit_roll" }] },
+        { "roll": 4, "name": "Heist Planning", "effects": [{ "type": "choose_skill_set", "skills": ["electronics", "mechanic"], "level": 1 }] },
+        { "roll": 5, "name": "Crime Pays", "effects": [{ "type": "benefit_roll_dm", "dm": 2 }, { "type": "gain_associate", "associateTypes": ["enemy"] }] },
+        { "roll": 6, "name": "Backstab Opportunity", "effects": [{ "type": "choice" }, { "type": "next_advancement_dm", "dm": 4 }, { "type": "possible_ally" }] },
+        { "roll": 7, "ref": "common.event7" },
+        { "roll": 8, "name": "Underworld Months", "effects": [{ "type": "choose_skill_set", "skills": ["streetwise", "stealth", "melee", "gun-combat"], "level": 1 }] },
+        { "roll": 9, "name": "Criminal Feud", "effects": [{ "type": "check_any", "checks": [{ "skill": "stealth", "target": 8 }, { "skill": "gun-combat", "target": 8 }] }, { "type": "possible_injury" }, { "type": "possible_extra_benefit_roll" }] },
+        { "roll": 10, "name": "Gambling Ring", "effects": [{ "type": "set_skill", "skillId": "gambler", "level": 1 }, { "type": "wager_benefit_rolls" }] },
+        { "roll": 11, "name": "Crime Lord Mentor", "effects": [{ "type": "choice", "options": [{ "type": "set_skill", "skillId": "tactics/military", "level": 1 }, { "type": "next_advancement_dm", "dm": 4 }] }] },
+        { "roll": 12, "name": "Legendary Crime", "effects": [{ "type": "automatic_promotion" }] }
+      ]
+    },
+    "scholar": {
+      "mishaps": [
+        { "roll": 1, "ref": "common.mishap1" },
+        { "roll": 2, "name": "Blamed Disaster", "effects": [{ "type": "injury", "rolls": 2, "take": "higher" }, { "type": "gain_associate", "associateTypes": ["rival"] }, { "type": "forced_out" }] },
+        { "roll": 3, "name": "Political Interference", "effects": [{ "type": "choice" }, { "type": "increase_skill", "skillId": "science", "amount": 1 }, { "type": "possible_enemy" }, { "type": "possible_soc_change", "amount": -2 }, { "type": "not_forced_out" }] },
+        { "roll": 4, "name": "Stranded Expedition", "effects": [{ "type": "choose_skill_set", "skills": ["survival", "athletics/dexterity", "athletics/endurance"], "level": 1 }, { "type": "forced_out" }] },
+        { "roll": 5, "name": "Sabotaged Work", "effects": [{ "type": "choice" }, { "type": "possible_keep_current_benefit_roll" }, { "type": "possible_lose_all_career_benefits" }, { "type": "possible_not_forced_out" }] },
+        { "roll": 6, "name": "Rival Researcher", "effects": [{ "type": "gain_associate", "associateTypes": ["rival"] }, { "type": "not_forced_out" }] }
+      ],
+      "events": [
+        { "roll": 2, "ref": "common.event2" },
+        { "roll": 3, "name": "Unethical Research", "effects": [{ "type": "choice" }, { "type": "extra_benefit_roll" }, { "type": "science_speciality_levels", "count": 2 }, { "type": "gain_associate", "associateTypes": ["enemy"], "count": "D3" }] },
+        { "roll": 4, "name": "Secret Project", "effects": [{ "type": "choose_skill_set", "skills": ["medic", "science", "engineer", "electronics", "investigate"], "level": 1 }] },
+        { "roll": 5, "name": "Prestigious Prize", "effects": [{ "type": "benefit_roll_dm", "dm": 1 }] },
+        { "roll": 6, "name": "Specialist Training", "effects": [{ "type": "check", "check": { "characteristic": "edu", "target": 8 } }, { "type": "choose_skill", "level": 1 }] },
+        { "roll": 7, "ref": "common.event7" },
+        { "roll": 8, "name": "Academic Cheating", "effects": [{ "type": "choice" }, { "type": "check_any", "checks": [{ "skill": "deception", "target": 8 }, { "skill": "admin", "target": 8 }] }, { "type": "possible_benefit_roll_dm", "dm": 2 }, { "type": "possible_skill_increase" }, { "type": "gain_associate", "associateTypes": ["enemy"] }, { "type": "possible_lose_benefit_roll" }] },
+        { "roll": 9, "name": "Breakthrough", "effects": [{ "type": "next_advancement_dm", "dm": 2 }] },
+        { "roll": 10, "name": "Bureaucratic Morass", "effects": [{ "type": "choose_skill_set", "skills": ["admin", "advocate", "persuade", "diplomat"], "level": 1 }] },
+        { "roll": 11, "name": "Brilliant Mentor", "effects": [{ "type": "gain_associate", "associateTypes": ["ally"] }, { "type": "choice", "options": [{ "type": "increase_skill", "skillId": "science", "amount": 1 }, { "type": "next_advancement_dm", "dm": 4 }] }] },
+        { "roll": 12, "name": "Major Breakthrough", "effects": [{ "type": "automatic_promotion" }] }
+      ]
+    },
+    "scout": {
+      "mishaps": [
+        { "roll": 1, "ref": "common.mishap1" },
+        { "roll": 2, "name": "Psychological Damage", "effects": [{ "type": "choose_characteristic_change", "characteristics": ["int", "soc"], "amount": -1 }] },
+        { "roll": 3, "name": "Damaged Ship", "effects": [{ "type": "gain_associate", "associateTypes": ["contact"], "count": "1D" }, { "type": "gain_associate", "associateTypes": ["enemy"], "count": "D3" }] },
+        { "roll": 4, "name": "Caused Conflict", "effects": [{ "type": "gain_associate", "associateTypes": ["rival"] }, { "type": "set_skill", "skillId": "diplomat", "level": 1 }] },
+        { "roll": 5, "name": "Unknown Incident", "effects": [{ "type": "narrative_event" }] },
+        { "roll": 6, "ref": "common.mishap6" }
+      ],
+      "events": [
+        { "roll": 2, "ref": "common.event2" },
+        { "roll": 3, "name": "Ambushed Ship", "effects": [{ "type": "choice" }, { "type": "check_any", "checks": [{ "skill": "pilot", "target": 8 }, { "skill": "persuade", "target": 10 }] }, { "type": "possible_no_reenlist" }, { "type": "possible_set_skill", "skillId": "electronics/sensors", "level": 1 }, { "type": "gain_associate", "associateTypes": ["enemy"] }] },
+        { "roll": 4, "name": "Alien World Survey", "effects": [{ "type": "choose_skill_set", "skills": ["animals/riding", "animals/training", "survival", "recon", "science"], "level": 1 }] },
+        { "roll": 5, "name": "Exemplary Service", "effects": [{ "type": "benefit_roll_dm", "dm": 1 }] },
+        { "roll": 6, "name": "Years of Jumping", "effects": [{ "type": "choose_skill_set", "skills": ["astrogation", "electronics", "navigation", "pilot/small-craft", "mechanic"], "level": 1 }] },
+        { "roll": 7, "ref": "common.event7" },
+        { "roll": 8, "name": "Alien Intelligence", "effects": [{ "type": "check_any", "checks": [{ "skill": "electronics", "target": 8 }, { "skill": "deception", "target": 8 }] }, { "type": "possible_ally" }, { "type": "possible_next_advancement_dm", "dm": 2 }, { "type": "possible_mishap_not_ejected" }] },
+        { "roll": 9, "name": "Disaster Rescue", "effects": [{ "type": "check_any", "checks": [{ "skill": "medic", "target": 8 }, { "skill": "engineer", "target": 8 }] }, { "type": "possible_contact" }, { "type": "possible_next_advancement_dm", "dm": 2 }, { "type": "possible_enemy" }] },
+        { "roll": 10, "name": "Fringes of Space", "effects": [{ "type": "check_any", "checks": [{ "skill": "survival", "target": 8 }, { "skill": "pilot", "target": 8 }] }, { "type": "possible_alien_contact" }, { "type": "possible_choose_skill_increase" }, { "type": "possible_mishap_not_ejected" }] },
+        { "roll": 11, "name": "Imperial Courier", "effects": [{ "type": "choice", "options": [{ "type": "increase_skill", "skillId": "diplomat", "amount": 1 }, { "type": "next_advancement_dm", "dm": 4 }] }] },
+        { "roll": 12, "name": "Discovery of Value", "effects": [{ "type": "automatic_promotion" }] }
+      ]
+    }
+  }
+}

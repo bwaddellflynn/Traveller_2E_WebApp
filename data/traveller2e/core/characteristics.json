@@ -1,0 +1,110 @@
+{
+  "source": {
+    "bookId": "mgt2e-core-2022",
+    "pages": [8, 9]
+  },
+  "generation": {
+    "method": "roll_2d_six_times_assign",
+    "dice": "2D",
+    "allowAssignInAnyOrder": true,
+    "defaultOrder": ["str", "dex", "end", "int", "edu", "soc"],
+    "humanUnaugmentedMaximum": 15
+  },
+  "characteristics": [
+    {
+      "id": "str",
+      "name": "Strength",
+      "abbreviation": "STR",
+      "category": "physical"
+    },
+    {
+      "id": "dex",
+      "name": "Dexterity",
+      "abbreviation": "DEX",
+      "category": "physical"
+    },
+    {
+      "id": "end",
+      "name": "Endurance",
+      "abbreviation": "END",
+      "category": "physical"
+    },
+    {
+      "id": "int",
+      "name": "Intellect",
+      "abbreviation": "INT",
+      "category": "mental"
+    },
+    {
+      "id": "edu",
+      "name": "Education",
+      "abbreviation": "EDU",
+      "category": "mental"
+    },
+    {
+      "id": "soc",
+      "name": "Social Standing",
+      "abbreviation": "SOC",
+      "category": "mental"
+    }
+  ],
+  "diceModifiers": [
+    {
+      "min": 0,
+      "max": 0,
+      "dm": -3
+    },
+    {
+      "min": 1,
+      "max": 2,
+      "dm": -2
+    },
+    {
+      "min": 3,
+      "max": 5,
+      "dm": -1
+    },
+    {
+      "min": 6,
+      "max": 8,
+      "dm": 0
+    },
+    {
+      "min": 9,
+      "max": 11,
+      "dm": 1
+    },
+    {
+      "min": 12,
+      "max": 14,
+      "dm": 2
+    },
+    {
+      "min": 15,
+      "max": null,
+      "dm": 3
+    }
+  ],
+  "nobleTitles": [
+    {
+      "soc": 11,
+      "title": "Knight"
+    },
+    {
+      "soc": 12,
+      "title": "Baron"
+    },
+    {
+      "soc": 13,
+      "title": "Marquis"
+    },
+    {
+      "soc": 14,
+      "title": "Count"
+    },
+    {
+      "soc": 15,
+      "title": "Duke"
+    }
+  ]
+}

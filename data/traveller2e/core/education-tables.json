@@ -1,0 +1,254 @@
+{
+  "source": {
+    "bookId": "mgt2e-core-2022",
+    "pages": [16, 17],
+    "derivedFrom": [
+      "character-creation-rules.json",
+      "pre-career-events.json",
+      "career-tables.json"
+    ]
+  },
+  "rules": {
+    "availableTerms": [1, 2, 3],
+    "termLengthYears": 4,
+    "eventTableId": "pre-career-events",
+    "failedEntryFallback": "attempt_career_entry_same_term"
+  },
+  "options": [
+    {
+      "id": "university",
+      "name": "University",
+      "type": "university",
+      "entry": {
+        "characteristic": "edu",
+        "target": 6,
+        "modifiers": [
+          { "condition": "term == 2", "dm": -1 },
+          { "condition": "term == 3", "dm": -2 },
+          { "condition": "soc >= 9", "dm": 1 }
+        ]
+      },
+      "skills": {
+        "mode": "choose",
+        "choices": [
+          { "count": 1, "level": 0 },
+          { "count": 1, "level": 1 }
+        ],
+        "options": [
+          "admin",
+          "advocate",
+          "animals/training",
+          "animals/veterinary",
+          "art/*",
+          "astrogation",
+          "electronics/*",
+          "engineer/*",
+          "language/*",
+          "medic",
+          "navigation",
+          "profession/*",
+          "science/*"
+        ]
+      },
+      "event": {
+        "roll": "2D",
+        "tableId": "pre-career-events"
+      },
+      "graduation": {
+        "characteristic": "int",
+        "target": 6,
+        "honoursTarget": 10,
+        "modifiers": []
+      },
+      "graduationBenefits": [
+        { "type": "increase_chosen_education_skills", "amount": 1 },
+        { "type": "characteristic_increase", "characteristic": "edu", "amount": 1 },
+        {
+          "type": "qualification_dm",
+          "careers": [
+            "agent",
+            "army",
+            "citizen/corporate",
+            "entertainer/journalist",
+            "marine",
+            "navy",
+            "scholar",
+            "scout"
+          ],
+          "dm": 1,
+          "honoursDm": 2
+        },
+        {
+          "type": "first_military_career_commission_allowed",
+          "officerRankOnSuccess": 1,
+          "honoursCommissionDm": 2
+        }
+      ]
+    },
+    {
+      "id": "military-academy:army",
+      "name": "Army Academy",
+      "type": "military-academy",
+      "variant": "army",
+      "linkedCareerId": "army",
+      "entry": {
+        "characteristic": "end",
+        "target": 7,
+        "modifiers": [
+          { "condition": "term == 2", "dm": -2 },
+          { "condition": "term == 3", "dm": -4 }
+        ]
+      },
+      "skills": {
+        "mode": "grant_table",
+        "tableSource": "career-tables",
+        "careerId": "army",
+        "tableId": "service-skills",
+        "level": 0
+      },
+      "event": {
+        "roll": "2D",
+        "tableId": "pre-career-events"
+      },
+      "graduation": {
+        "characteristic": "int",
+        "target": 7,
+        "honoursTarget": 11,
+        "modifiers": [
+          { "condition": "end >= 8", "dm": 1 },
+          { "condition": "soc >= 8", "dm": 1 }
+        ]
+      },
+      "graduationBenefits": [
+        { "type": "same_military_career_service_skill_choices", "count": 3, "level": 1 },
+        { "type": "characteristic_increase", "characteristic": "edu", "amount": 1 },
+        { "type": "honours_characteristic_increase", "characteristic": "soc", "amount": 1 },
+        { "type": "automatic_entry_same_military_career", "careerId": "army" },
+        {
+          "type": "first_military_career_commission_allowed",
+          "dm": 2,
+          "honoursAutomaticSuccess": true,
+          "officerRankOnSuccess": 1
+        }
+      ],
+      "failedGraduationBenefits": [
+        {
+          "type": "may_enter_same_military_career",
+          "careerId": "army",
+          "condition": "graduation_roll_total > 2",
+          "commissionAllowed": false
+        }
+      ]
+    },
+    {
+      "id": "military-academy:marine",
+      "name": "Marine Academy",
+      "type": "military-academy",
+      "variant": "marine",
+      "linkedCareerId": "marine",
+      "entry": {
+        "characteristic": "end",
+        "target": 8,
+        "modifiers": [
+          { "condition": "term == 2", "dm": -2 },
+          { "condition": "term == 3", "dm": -4 }
+        ]
+      },
+      "skills": {
+        "mode": "grant_table",
+        "tableSource": "career-tables",
+        "careerId": "marine",
+        "tableId": "service-skills",
+        "level": 0
+      },
+      "event": {
+        "roll": "2D",
+        "tableId": "pre-career-events"
+      },
+      "graduation": {
+        "characteristic": "int",
+        "target": 7,
+        "honoursTarget": 11,
+        "modifiers": [
+          { "condition": "end >= 8", "dm": 1 },
+          { "condition": "soc >= 8", "dm": 1 }
+        ]
+      },
+      "graduationBenefits": [
+        { "type": "same_military_career_service_skill_choices", "count": 3, "level": 1 },
+        { "type": "characteristic_increase", "characteristic": "edu", "amount": 1 },
+        { "type": "honours_characteristic_increase", "characteristic": "soc", "amount": 1 },
+        { "type": "automatic_entry_same_military_career", "careerId": "marine" },
+        {
+          "type": "first_military_career_commission_allowed",
+          "dm": 2,
+          "honoursAutomaticSuccess": true,
+          "officerRankOnSuccess": 1
+        }
+      ],
+      "failedGraduationBenefits": [
+        {
+          "type": "may_enter_same_military_career",
+          "careerId": "marine",
+          "condition": "graduation_roll_total > 2",
+          "commissionAllowed": false
+        }
+      ]
+    },
+    {
+      "id": "military-academy:navy",
+      "name": "Navy Academy",
+      "type": "military-academy",
+      "variant": "navy",
+      "linkedCareerId": "navy",
+      "entry": {
+        "characteristic": "int",
+        "target": 8,
+        "modifiers": [
+          { "condition": "term == 2", "dm": -2 },
+          { "condition": "term == 3", "dm": -4 }
+        ]
+      },
+      "skills": {
+        "mode": "grant_table",
+        "tableSource": "career-tables",
+        "careerId": "navy",
+        "tableId": "service-skills",
+        "level": 0
+      },
+      "event": {
+        "roll": "2D",
+        "tableId": "pre-career-events"
+      },
+      "graduation": {
+        "characteristic": "int",
+        "target": 7,
+        "honoursTarget": 11,
+        "modifiers": [
+          { "condition": "end >= 8", "dm": 1 },
+          { "condition": "soc >= 8", "dm": 1 }
+        ]
+      },
+      "graduationBenefits": [
+        { "type": "same_military_career_service_skill_choices", "count": 3, "level": 1 },
+        { "type": "characteristic_increase", "characteristic": "edu", "amount": 1 },
+        { "type": "honours_characteristic_increase", "characteristic": "soc", "amount": 1 },
+        { "type": "automatic_entry_same_military_career", "careerId": "navy" },
+        {
+          "type": "first_military_career_commission_allowed",
+          "dm": 2,
+          "honoursAutomaticSuccess": true,
+          "officerRankOnSuccess": 1
+        }
+      ],
+      "failedGraduationBenefits": [
+        {
+          "type": "may_enter_same_military_career",
+          "careerId": "navy",
+          "condition": "graduation_roll_total > 2",
+          "commissionAllowed": false
+        }
+      ]
+    }
+  ]
+}

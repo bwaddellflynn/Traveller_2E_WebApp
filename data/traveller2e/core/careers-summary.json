@@ -1,0 +1,140 @@
+{
+  "source": {
+    "bookId": "mgt2e-core-2022",
+    "pages": [20, 44]
+  },
+  "careers": [
+    {
+      "id": "agent",
+      "name": "Agent",
+      "qualification": { "characteristic": "int", "target": 6 },
+      "page": 22,
+      "assignments": [
+        { "id": "law-enforcement", "name": "Law Enforcement", "survival": { "characteristic": "end", "target": 6 }, "advancement": { "characteristic": "int", "target": 6 } },
+        { "id": "intelligence", "name": "Intelligence", "survival": { "characteristic": "int", "target": 7 }, "advancement": { "characteristic": "int", "target": 5 } },
+        { "id": "corporate", "name": "Corporate", "survival": { "characteristic": "int", "target": 5 }, "advancement": { "characteristic": "int", "target": 7 } }
+      ]
+    },
+    {
+      "id": "army",
+      "name": "Army",
+      "qualification": { "characteristic": "end", "target": 5 },
+      "page": 24,
+      "assignments": [
+        { "id": "support", "name": "Support", "survival": { "characteristic": "end", "target": 5 }, "advancement": { "characteristic": "edu", "target": 7 } },
+        { "id": "infantry", "name": "Infantry", "survival": { "characteristic": "str", "target": 6 }, "advancement": { "characteristic": "edu", "target": 6 } },
+        { "id": "cavalry", "name": "Cavalry", "survival": { "characteristic": "dex", "target": 7 }, "advancement": { "characteristic": "int", "target": 5 } }
+      ]
+    },
+    {
+      "id": "citizen",
+      "name": "Citizen",
+      "qualification": { "characteristic": "edu", "target": 5 },
+      "page": 26,
+      "assignments": [
+        { "id": "corporate", "name": "Corporate", "survival": { "characteristic": "soc", "target": 6 }, "advancement": { "characteristic": "int", "target": 6 } },
+        { "id": "worker", "name": "Worker", "survival": { "characteristic": "end", "target": 4 }, "advancement": { "characteristic": "edu", "target": 8 } },
+        { "id": "colonist", "name": "Colonist", "survival": { "characteristic": "int", "target": 7 }, "advancement": { "characteristic": "end", "target": 5 } }
+      ]
+    },
+    {
+      "id": "drifter",
+      "name": "Drifter",
+      "qualification": { "automatic": true },
+      "page": 28,
+      "assignments": [
+        { "id": "barbarian", "name": "Barbarian", "survival": { "characteristic": "end", "target": 7 }, "advancement": { "characteristic": "str", "target": 7 } },
+        { "id": "wanderer", "name": "Wanderer", "survival": { "characteristic": "end", "target": 7 }, "advancement": { "characteristic": "int", "target": 7 } },
+        { "id": "scavenger", "name": "Scavenger", "survival": { "characteristic": "dex", "target": 7 }, "advancement": { "characteristic": "end", "target": 7 } }
+      ]
+    },
+    {
+      "id": "entertainer",
+      "name": "Entertainer",
+      "qualification": { "any": [{ "characteristic": "dex", "target": 5 }, { "characteristic": "int", "target": 5 }] },
+      "page": 30,
+      "assignments": [
+        { "id": "artist", "name": "Artist", "survival": { "characteristic": "soc", "target": 6 }, "advancement": { "characteristic": "int", "target": 6 } },
+        { "id": "journalist", "name": "Journalist", "survival": { "characteristic": "edu", "target": 7 }, "advancement": { "characteristic": "int", "target": 5 } },
+        { "id": "performer", "name": "Performer", "survival": { "characteristic": "int", "target": 5 }, "advancement": { "characteristic": "dex", "target": 7 } }
+      ]
+    },
+    {
+      "id": "marine",
+      "name": "Marine",
+      "qualification": { "characteristic": "end", "target": 6 },
+      "page": 32,
+      "assignments": [
+        { "id": "support", "name": "Support", "survival": { "characteristic": "end", "target": 5 }, "advancement": { "characteristic": "edu", "target": 7 } },
+        { "id": "star-marine", "name": "Star Marine", "survival": { "characteristic": "end", "target": 6 }, "advancement": { "characteristic": "edu", "target": 6 } },
+        { "id": "ground-assault", "name": "Ground Assault", "survival": { "characteristic": "end", "target": 7 }, "advancement": { "characteristic": "edu", "target": 5 } }
+      ]
+    },
+    {
+      "id": "merchant",
+      "name": "Merchant",
+      "qualification": { "characteristic": "int", "target": 4 },
+      "page": 34,
+      "assignments": [
+        { "id": "merchant-marine", "name": "Merchant Marine", "survival": { "characteristic": "edu", "target": 5 }, "advancement": { "characteristic": "int", "target": 7 } },
+        { "id": "free-trader", "name": "Free Trader", "survival": { "characteristic": "dex", "target": 6 }, "advancement": { "characteristic": "int", "target": 6 } },
+        { "id": "broker", "name": "Broker", "survival": { "characteristic": "edu", "target": 5 }, "advancement": { "characteristic": "int", "target": 7 } }
+      ]
+    },
+    {
+      "id": "navy",
+      "name": "Navy",
+      "qualification": { "characteristic": "int", "target": 6 },
+      "page": 36,
+      "assignments": [
+        { "id": "line-crew", "name": "Line/Crew", "survival": { "characteristic": "int", "target": 5 }, "advancement": { "characteristic": "edu", "target": 7 } },
+        { "id": "engineer-gunner", "name": "Engineer/Gunner", "survival": { "characteristic": "int", "target": 6 }, "advancement": { "characteristic": "edu", "target": 6 } },
+        { "id": "flight", "name": "Flight", "survival": { "characteristic": "dex", "target": 7 }, "advancement": { "characteristic": "edu", "target": 5 } }
+      ]
+    },
+    {
+      "id": "noble",
+      "name": "Noble",
+      "qualification": { "characteristic": "soc", "target": 10 },
+      "page": 38,
+      "assignments": [
+        { "id": "administrator", "name": "Administrator", "survival": { "characteristic": "int", "target": 4 }, "advancement": { "characteristic": "edu", "target": 6 } },
+        { "id": "diplomat", "name": "Diplomat", "survival": { "characteristic": "int", "target": 5 }, "advancement": { "characteristic": "soc", "target": 7 } },
+        { "id": "dilettante", "name": "Dilettante", "survival": { "characteristic": "soc", "target": 5 }, "advancement": { "characteristic": "int", "target": 8 } }
+      ]
+    },
+    {
+      "id": "rogue",
+      "name": "Rogue",
+      "qualification": { "characteristic": "dex", "target": 6 },
+      "page": 40,
+      "assignments": [
+        { "id": "thief", "name": "Thief", "survival": { "characteristic": "int", "target": 6 }, "advancement": { "characteristic": "dex", "target": 6 } },
+        { "id": "enforcer", "name": "Enforcer", "survival": { "characteristic": "end", "target": 6 }, "advancement": { "characteristic": "str", "target": 6 } },
+        { "id": "pirate", "name": "Pirate", "survival": { "characteristic": "dex", "target": 6 }, "advancement": { "characteristic": "int", "target": 6 } }
+      ]
+    },
+    {
+      "id": "scholar",
+      "name": "Scholar",
+      "qualification": { "characteristic": "int", "target": 6 },
+      "page": 42,
+      "assignments": [
+        { "id": "field-researcher", "name": "Field Researcher", "survival": { "characteristic": "end", "target": 6 }, "advancement": { "characteristic": "int", "target": 6 } },
+        { "id": "scientist", "name": "Scientist", "survival": { "characteristic": "edu", "target": 4 }, "advancement": { "characteristic": "int", "target": 8 } },
+        { "id": "physician", "name": "Physician", "survival": { "characteristic": "edu", "target": 4 }, "advancement": { "characteristic": "edu", "target": 8 } }
+      ]
+    },
+    {
+      "id": "scout",
+      "name": "Scout",
+      "qualification": { "characteristic": "int", "target": 5 },
+      "page": 44,
+      "assignments": [
+        { "id": "courier", "name": "Courier", "survival": { "characteristic": "end", "target": 5 }, "advancement": { "characteristic": "edu", "target": 9 } },
+        { "id": "surveyor", "name": "Surveyor", "survival": { "characteristic": "end", "target": 6 }, "advancement": { "characteristic": "int", "target": 8 } },
+        { "id": "explorer", "name": "Explorer", "survival": { "characteristic": "end", "target": 7 }, "advancement": { "characteristic": "edu", "target": 7 } }
+      ]
+    }
+  ]
+}

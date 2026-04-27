@@ -1,0 +1,56 @@
+{
+  "source": {
+    "bookId": "mgt2e-core-2022",
+    "pages": [48, 49]
+  },
+  "aging": {
+    "startsAtAge": 34,
+    "firstRollAtEndOfTerm": 4,
+    "repeatEveryTerms": 1,
+    "roll": "2D",
+    "dmFormula": "-total_terms",
+    "affectedCharacteristicChoice": "player",
+    "table": [
+      { "totalMax": -6, "effects": [{ "category": "physical", "count": 3, "amount": -2 }, { "category": "mental", "count": 1, "amount": -1 }] },
+      { "total": -5, "effects": [{ "category": "physical", "count": 3, "amount": -2 }] },
+      { "total": -4, "effects": [{ "category": "physical", "count": 2, "amount": -2 }, { "category": "physical", "count": 1, "amount": -1 }] },
+      { "total": -3, "effects": [{ "category": "physical", "count": 1, "amount": -2 }, { "category": "physical", "count": 2, "amount": -1 }] },
+      { "total": -2, "effects": [{ "category": "physical", "count": 3, "amount": -1 }] },
+      { "total": -1, "effects": [{ "category": "physical", "count": 2, "amount": -1 }] },
+      { "total": 0, "effects": [{ "category": "physical", "count": 1, "amount": -1 }] },
+      { "totalMin": 1, "effects": [] }
+    ],
+    "crisis": {
+      "trigger": "any_characteristic_reduced_to_0",
+      "medicalCareCost": "1D * 10000",
+      "restoredMinimum": 1,
+      "futureQualificationRollsAutomaticallyFail": true
+    },
+    "anagathics": {
+      "startCheck": { "characteristic": "soc", "target": 10 },
+      "naturalTwoEffect": { "type": "next_career", "careerId": "prisoner" },
+      "agingRollDmFormula": "terms_since_started",
+      "survivalChecksPerTerm": 2,
+      "termCostCredits": "1D * 25000"
+    }
+  },
+  "injury": {
+    "roll": "1D",
+    "table": [
+      { "roll": 1, "id": "nearly-killed", "effects": [{ "category": "physical", "count": 1, "amount": "-1D" }, { "category": "physical", "count": 2, "amount": -2 }] },
+      { "roll": 2, "id": "severely-injured", "effects": [{ "category": "physical", "count": 1, "amount": "-1D" }] },
+      { "roll": 3, "id": "missing-eye-or-limb", "effects": [{ "characteristics": ["str", "dex"], "count": 1, "amount": -2 }] },
+      { "roll": 4, "id": "scarred", "effects": [{ "category": "physical", "count": 1, "amount": -2 }] },
+      { "roll": 5, "id": "injured", "effects": [{ "category": "physical", "count": 1, "amount": -1 }] },
+      { "roll": 6, "id": "lightly-injured", "effects": [] }
+    ],
+    "medicalCare": {
+      "restoreCostPerCharacteristicPoint": 5000,
+      "medicalBillsTable": [
+        { "careerGroup": ["army", "navy", "marine"], "roll4PlusCoveredPercent": 75, "roll8PlusCoveredPercent": 100, "roll12PlusCoveredPercent": 100 },
+        { "careerGroup": ["agent", "noble", "scholar", "entertainer", "merchant", "citizen"], "roll4PlusCoveredPercent": 50, "roll8PlusCoveredPercent": 75, "roll12PlusCoveredPercent": 100 },
+        { "careerGroup": ["scout", "rogue", "drifter"], "roll4PlusCoveredPercent": 0, "roll8PlusCoveredPercent": 50, "roll12PlusCoveredPercent": 75 }
+      ]
+    }
+  }
+}

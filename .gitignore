@@ -1,0 +1,28 @@
+# Nuxt dev/build outputs
+.output
+.data
+.nuxt
+.nitro
+.cache
+dist
+
+# Node dependencies
+node_modules
+
+# Logs
+logs
+*.log
+
+# Misc
+.DS_Store
+.fleet
+.idea
+
+# Local reference PDFs
+MgT 2E Core/*
+!MgT 2E Core/.gitkeep
+
+# Local env files
+.env
+.env.*
+!.env.example

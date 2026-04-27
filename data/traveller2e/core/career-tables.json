@@ -1,0 +1,278 @@
+{
+  "source": {
+    "bookId": "mgt2e-core-2022",
+    "pages": [22, 45]
+  },
+  "notes": [
+    "Mechanical table data transcribed from the Core career pages.",
+    "Long event and mishap prose is intentionally compressed into names and effect summaries."
+  ],
+  "careers": {
+    "agent": {
+      "qualificationModifiers": [{ "condition": "previous_careers", "dmPer": -1 }],
+      "benefits": [
+        { "roll": 1, "cash": 1000, "benefit": "Scientific Equipment" },
+        { "roll": 2, "cash": 2000, "benefit": "INT +1" },
+        { "roll": 3, "cash": 5000, "benefit": "Ship Share" },
+        { "roll": 4, "cash": 7500, "benefit": "Weapon" },
+        { "roll": 5, "cash": 10000, "benefit": "Cybernetic Implant" },
+        { "roll": 6, "cash": 25000, "benefit": "SOC +1 or Cybernetic Implant" },
+        { "roll": 7, "cash": 50000, "benefit": "TAS Membership" }
+      ],
+      "skillTables": {
+        "personal-development": ["Gun Combat", "DEX +1", "END +1", "Melee", "INT +1", "Athletics"],
+        "service-skills": ["Streetwise", "Drive", "Investigate", "Flyer", "Recon", "Gun Combat"],
+        "advanced-education": { "requirement": "EDU 8+", "entries": ["Advocate", "Language", "Explosives", "Medic", "Vacc Suit", "Electronics"] },
+        "law-enforcement": ["Investigate", "Recon", "Streetwise", "Stealth", "Melee", "Advocate"],
+        "intelligence": ["Investigate", "Recon", "Electronics (comms)", "Stealth", "Persuade", "Deception"],
+        "corporate": ["Investigate", "Electronics (computers)", "Stealth", "Carouse", "Deception", "Streetwise"]
+      },
+      "ranks": {
+        "law-enforcement": [
+          { "rank": 0, "title": "Rookie" },
+          { "rank": 1, "title": "Corporal", "bonus": "Streetwise 1" },
+          { "rank": 2, "title": "Sergeant" },
+          { "rank": 3, "title": "Detective" },
+          { "rank": 4, "title": "Lieutenant", "bonus": "Investigate 1" },
+          { "rank": 5, "title": "Chief", "bonus": "Admin 1" },
+          { "rank": 6, "title": "Commissioner", "bonus": "SOC +1" }
+        ],
+        "intelligence-corporate": [
+          { "rank": 0 },
+          { "rank": 1, "title": "Agent", "bonus": "Deception 1" },
+          { "rank": 2, "title": "Field Agent", "bonus": "Investigate 1" },
+          { "rank": 3 },
+          { "rank": 4, "title": "Special Agent", "bonus": "Gun Combat 1" },
+          { "rank": 5, "title": "Assistant Director" },
+          { "rank": 6, "title": "Director" }
+        ]
+      }
+    },
+    "army": {
+      "commission": { "characteristic": "soc", "target": 8 },
+      "qualificationModifiers": [{ "condition": "previous_careers", "dmPer": -1 }, { "condition": "age >= 30", "dm": -2 }],
+      "benefits": [
+        { "roll": 1, "cash": 2000, "benefit": "Cybernetic Implant" },
+        { "roll": 2, "cash": 5000, "benefit": "INT +1" },
+        { "roll": 3, "cash": 10000, "benefit": "EDU +1" },
+        { "roll": 4, "cash": 10000, "benefit": "Weapon" },
+        { "roll": 5, "cash": 10000, "benefit": "Armour" },
+        { "roll": 6, "cash": 20000, "benefit": "END +1 or Cybernetic Implant" },
+        { "roll": 7, "cash": 30000, "benefit": "SOC +1" }
+      ],
+      "skillTables": {
+        "personal-development": ["STR +1", "DEX +1", "END +1", "Gambler", "Medic", "Melee"],
+        "service-skills": ["Drive or Vacc Suit", "Athletics", "Gun Combat", "Recon", "Melee", "Heavy Weapons"],
+        "advanced-education": { "requirement": "EDU 8+", "entries": ["Tactics (military)", "Electronics", "Navigation", "Explosives", "Engineer", "Survival"] },
+        "officer": { "requirement": "commissioned", "entries": ["Tactics (military)", "Leadership", "Advocate", "Diplomat", "Electronics", "Admin"] },
+        "support": ["Mechanic", "Drive or Flyer", "Profession", "Explosives", "Electronics (comms)", "Medic"],
+        "infantry": ["Gun Combat", "Melee", "Heavy Weapons", "Stealth", "Athletics", "Recon"],
+        "cavalry": ["Mechanic", "Drive", "Flyer", "Recon", "Heavy Weapons (vehicle)", "Electronics (sensors)"]
+      }
+    },
+    "citizen": {
+      "basicTrainingUses": "assignment",
+      "qualificationModifiers": [{ "condition": "previous_careers", "dmPer": -1 }],
+      "benefits": [
+        { "roll": 1, "cash": 2000, "benefit": "Ship Share" },
+        { "roll": 2, "cash": 5000, "benefit": "Ally" },
+        { "roll": 3, "cash": 10000, "benefit": "INT +1" },
+        { "roll": 4, "cash": 10000, "benefit": "Gun" },
+        { "roll": 5, "cash": 10000, "benefit": "EDU +1" },
+        { "roll": 6, "cash": 50000, "benefit": "Two Ship Shares" },
+        { "roll": 7, "cash": 100000, "benefit": "TAS Membership" }
+      ],
+      "skillTables": {
+        "personal-development": ["EDU +1", "INT +1", "Carouse", "Gambler", "Drive", "Jack-of-all-Trades"],
+        "service-skills": ["Drive", "Flyer", "Streetwise", "Melee", "Steward", "Profession"],
+        "advanced-education": { "requirement": "EDU 10+", "entries": ["Art", "Advocate", "Diplomat", "Language", "Electronics (computers)", "Medic"] },
+        "corporate": ["Advocate", "Admin", "Broker", "Electronics (computers)", "Diplomat", "Leadership"],
+        "worker": ["Drive", "Mechanic", "Electronics", "Engineer", "Profession", "Science"],
+        "colonist": ["Animals", "Athletics", "Jack-of-all-Trades", "Drive", "Survival", "Recon"]
+      }
+    },
+    "drifter": {
+      "basicTrainingUses": "assignment",
+      "benefits": [
+        { "roll": 1, "cash": 0, "benefit": "Contact" },
+        { "roll": 2, "cash": 0, "benefit": "Weapon" },
+        { "roll": 3, "cash": 1000, "benefit": "Ally" },
+        { "roll": 4, "cash": 2000, "benefit": "Weapon" },
+        { "roll": 5, "cash": 3000, "benefit": "EDU +1" },
+        { "roll": 6, "cash": 4000, "benefit": "Ship Share" },
+        { "roll": 7, "cash": 8000, "benefit": "Two Ship Shares" }
+      ],
+      "skillTables": {
+        "personal-development": ["STR +1", "END +1", "DEX +1", "Language", "Profession", "Jack-of-all-Trades"],
+        "service-skills": ["Athletics", "Melee (unarmed)", "Recon", "Streetwise", "Stealth", "Survival"],
+        "barbarian": ["Animals", "Carouse", "Melee (blade)", "Stealth", "Seafarer (personal or sail)", "Survival"],
+        "wanderer": ["Drive", "Deception", "Recon", "Stealth", "Streetwise", "Survival"],
+        "scavenger": ["Pilot (small craft)", "Mechanic", "Astrogation", "Vacc Suit", "Profession", "Gun Combat"]
+      }
+    },
+    "entertainer": {
+      "qualificationModifiers": [{ "condition": "previous_careers", "dmPer": -1 }],
+      "benefits": [
+        { "roll": 1, "cash": 0, "benefit": "Contact" },
+        { "roll": 2, "cash": 0, "benefit": "SOC +1" },
+        { "roll": 3, "cash": 10000, "benefit": "Contact" },
+        { "roll": 4, "cash": 10000, "benefit": "SOC +1" },
+        { "roll": 5, "cash": 40000, "benefit": "INT +1" },
+        { "roll": 6, "cash": 40000, "benefit": "Two Ship Shares" },
+        { "roll": 7, "cash": 80000, "benefit": "SOC +1 and EDU +1" }
+      ],
+      "skillTables": {
+        "personal-development": ["DEX +1", "INT +1", "SOC +1", "Language", "Carouse", "Jack-of-all-Trades"],
+        "service-skills": ["Art", "Carouse", "Deception", "Drive", "Persuade", "Steward"],
+        "advanced-education": { "requirement": "EDU 10+", "entries": ["Advocate", "Broker", "Deception", "Science", "Streetwise", "Diplomat"] },
+        "artist": ["Art", "Carouse", "Electronics (computers)", "Gambler", "Persuade", "Profession"],
+        "journalist": ["Art (holography or write)", "Electronics", "Drive", "Investigate", "Recon", "Streetwise"],
+        "performer": ["Art (performer or instrument)", "Athletics", "Carouse", "Deception", "Stealth", "Streetwise"]
+      }
+    },
+    "marine": {
+      "commission": { "characteristic": "soc", "target": 8 },
+      "qualificationModifiers": [{ "condition": "previous_careers", "dmPer": -1 }, { "condition": "age >= 30", "dm": -2 }],
+      "benefits": [
+        { "roll": 1, "cash": 2000, "benefit": "Armour" },
+        { "roll": 2, "cash": 5000, "benefit": "INT +1" },
+        { "roll": 3, "cash": 5000, "benefit": "EDU +1" },
+        { "roll": 4, "cash": 10000, "benefit": "Weapon" },
+        { "roll": 5, "cash": 20000, "benefit": "TAS Membership" },
+        { "roll": 6, "cash": 30000, "benefit": "Armour or END +1" },
+        { "roll": 7, "cash": 40000, "benefit": "SOC +2" }
+      ],
+      "skillTables": {
+        "personal-development": ["STR +1", "DEX +1", "END +1", "Gambler", "Melee (unarmed)", "Melee (blade)"],
+        "service-skills": ["Athletics", "Vacc Suit", "Tactics", "Heavy Weapons", "Gun Combat", "Stealth"],
+        "advanced-education": { "requirement": "EDU 8+", "entries": ["Medic", "Survival", "Explosives", "Engineer", "Pilot", "Navigation"] },
+        "officer": { "requirement": "commissioned", "entries": ["Electronics", "Tactics", "Admin", "Advocate", "Diplomat", "Leadership"] },
+        "support": ["Electronics", "Mechanic", "Drive or Flyer", "Medic", "Heavy Weapons", "Gun Combat"],
+        "star-marine": ["Vacc Suit", "Athletics", "Gunner", "Melee (blade)", "Electronics", "Gun Combat"],
+        "ground-assault": ["Vacc Suit", "Heavy Weapons", "Recon", "Melee (blade)", "Tactics (military)", "Gun Combat"]
+      }
+    },
+    "merchant": {
+      "qualificationModifiers": [{ "condition": "previous_careers", "dmPer": -1 }],
+      "benefits": [
+        { "roll": 1, "cash": 1000, "benefit": "Blade" },
+        { "roll": 2, "cash": 5000, "benefit": "INT +1" },
+        { "roll": 3, "cash": 10000, "benefit": "EDU +1" },
+        { "roll": 4, "cash": 20000, "benefit": "Gun" },
+        { "roll": 5, "cash": 20000, "benefit": "Ship Share" },
+        { "roll": 6, "cash": 40000, "benefit": "Free Trader" },
+        { "roll": 7, "cash": 40000, "benefit": "Free Trader" }
+      ],
+      "skillTables": {
+        "personal-development": ["STR +1", "DEX +1", "END +1", "INT +1", "Language", "Streetwise"],
+        "service-skills": ["Drive", "Vacc Suit", "Broker", "Steward", "Electronics", "Persuade"],
+        "advanced-education": { "requirement": "EDU 8+", "entries": ["Engineer", "Astrogation", "Electronics", "Pilot", "Admin", "Advocate"] },
+        "merchant-marine": ["Pilot", "Vacc Suit", "Athletics", "Mechanic", "Engineer", "Electronics"],
+        "free-trader": ["Pilot (spacecraft)", "Vacc Suit", "Deception", "Mechanic", "Streetwise", "Gunner"],
+        "broker": ["Admin", "Advocate", "Broker", "Streetwise", "Deception", "Persuade"]
+      }
+    },
+    "navy": {
+      "commission": { "characteristic": "soc", "target": 8 },
+      "qualificationModifiers": [{ "condition": "previous_careers", "dmPer": -1 }, { "condition": "age >= 34", "dm": -2 }],
+      "benefits": [
+        { "roll": 1, "cash": 1000, "benefit": "Personal Vehicle or Ship Share" },
+        { "roll": 2, "cash": 5000, "benefit": "INT +1" },
+        { "roll": 3, "cash": 5000, "benefit": "EDU +1 or two Ship Shares" },
+        { "roll": 4, "cash": 10000, "benefit": "Weapon" },
+        { "roll": 5, "cash": 20000, "benefit": "TAS Membership" },
+        { "roll": 6, "cash": 50000, "benefit": "Ship's Boat or two Ship Shares" },
+        { "roll": 7, "cash": 50000, "benefit": "SOC +2" }
+      ],
+      "skillTables": {
+        "personal-development": ["STR +1", "DEX +1", "END +1", "INT +1", "EDU +1", "SOC +1"],
+        "service-skills": ["Pilot", "Vacc Suit", "Athletics", "Gunner", "Mechanic", "Gun Combat"],
+        "advanced-education": { "requirement": "EDU 8+", "entries": ["Electronics", "Astrogation", "Engineer", "Flyer", "Medic", "Admin"] },
+        "officer": { "requirement": "commissioned", "entries": ["Leadership", "Electronics", "Pilot", "Melee (blade)", "Admin", "Tactics (naval)"] },
+        "line-crew": ["Electronics", "Mechanic", "Gun Combat", "Flyer", "Melee", "Vacc Suit"],
+        "engineer-gunner": ["Engineer", "Mechanic", "Electronics", "Engineer", "Gunner", "Flyer"],
+        "flight": ["Pilot", "Flyer", "Gunner", "Pilot (small craft)", "Astrogation", "Electronics"]
+      }
+    },
+    "noble": {
+      "qualificationModifiers": [{ "condition": "previous_careers", "dmPer": -1 }, { "condition": "soc >= 10", "automatic": true }],
+      "benefits": [
+        { "roll": 1, "cash": 10000, "benefit": "Ship Share" },
+        { "roll": 2, "cash": 10000, "benefit": "Two Ship Shares" },
+        { "roll": 3, "cash": 50000, "benefit": "Blade" },
+        { "roll": 4, "cash": 50000, "benefit": "SOC +1" },
+        { "roll": 5, "cash": 100000, "benefit": "TAS Membership" },
+        { "roll": 6, "cash": 100000, "benefit": "Yacht" },
+        { "roll": 7, "cash": 200000, "benefit": "SOC +1 and Yacht" }
+      ],
+      "skillTables": {
+        "personal-development": ["STR +1", "DEX +1", "END +1", "Gambler", "Gun Combat", "Melee"],
+        "service-skills": ["Admin", "Advocate", "Electronics", "Diplomat", "Investigate", "Persuade"],
+        "advanced-education": { "requirement": "EDU 8+", "entries": ["Science", "Advocate", "Language", "Leadership", "Diplomat", "Art"] },
+        "administrator": ["Admin", "Advocate", "Broker", "Diplomat", "Leadership", "Persuade"],
+        "diplomat": ["Advocate", "Carouse", "Electronics", "Steward", "Diplomat", "Deception"],
+        "dilettante": ["Carouse", "Deception", "Flyer", "Streetwise", "Gambler", "Jack-of-all-Trades"]
+      }
+    },
+    "rogue": {
+      "qualificationModifiers": [{ "condition": "previous_careers", "dmPer": -1 }],
+      "benefits": [
+        { "roll": 1, "cash": 0, "benefit": "Ship Share" },
+        { "roll": 2, "cash": 0, "benefit": "Weapon" },
+        { "roll": 3, "cash": 10000, "benefit": "INT +1" },
+        { "roll": 4, "cash": 10000, "benefit": "1D Ship Shares" },
+        { "roll": 5, "cash": 50000, "benefit": "Armour" },
+        { "roll": 6, "cash": 100000, "benefit": "DEX +1" },
+        { "roll": 7, "cash": 100000, "benefit": "2D Ship Shares" }
+      ],
+      "skillTables": {
+        "personal-development": ["Carouse", "DEX +1", "END +1", "Gambler", "Melee", "Gun Combat"],
+        "service-skills": ["Deception", "Recon", "Athletics", "Gun Combat", "Stealth", "Streetwise"],
+        "advanced-education": { "requirement": "EDU 10+", "entries": ["Electronics", "Navigation", "Medic", "Investigate", "Broker", "Advocate"] },
+        "thief": ["Stealth", "Electronics", "Recon", "Streetwise", "Deception", "Athletics"],
+        "enforcer": ["Gun Combat", "Melee", "Streetwise", "Persuade", "Athletics", "Drive"],
+        "pirate": ["Pilot", "Astrogation", "Gunner", "Engineer", "Vacc Suit", "Melee"]
+      }
+    },
+    "scholar": {
+      "qualificationModifiers": [{ "condition": "previous_careers", "dmPer": -1 }],
+      "benefits": [
+        { "roll": 1, "cash": 5000, "benefit": "INT +1" },
+        { "roll": 2, "cash": 10000, "benefit": "EDU +1" },
+        { "roll": 3, "cash": 20000, "benefit": "Two Ship Shares" },
+        { "roll": 4, "cash": 30000, "benefit": "SOC +1" },
+        { "roll": 5, "cash": 40000, "benefit": "Scientific Equipment" },
+        { "roll": 6, "cash": 60000, "benefit": "Lab Ship" },
+        { "roll": 7, "cash": 100000, "benefit": "Lab Ship" }
+      ],
+      "skillTables": {
+        "personal-development": ["INT +1", "EDU +1", "SOC +1", "DEX +1", "END +1", "Language"],
+        "service-skills": ["Drive or Flyer", "Electronics", "Diplomat", "Medic", "Investigate", "Science"],
+        "advanced-education": { "requirement": "EDU 10+", "entries": ["Art", "Advocate", "Electronics", "Language", "Engineer", "Science"] },
+        "field-researcher": ["Electronics", "Vacc Suit", "Navigation", "Survival", "Investigate", "Science"],
+        "scientist": ["Admin", "Engineer", "Science", "Science", "Electronics", "Science"],
+        "physician": ["Medic", "Electronics", "Investigate", "Medic", "Persuade", "Science"]
+      }
+    },
+    "scout": {
+      "qualificationModifiers": [{ "condition": "previous_careers", "dmPer": -1 }],
+      "benefits": [
+        { "roll": 1, "cash": 20000, "benefit": "Ship Share" },
+        { "roll": 2, "cash": 20000, "benefit": "INT +1" },
+        { "roll": 3, "cash": 30000, "benefit": "EDU +1" },
+        { "roll": 4, "cash": 30000, "benefit": "Weapon" },
+        { "roll": 5, "cash": 50000, "benefit": "Weapon" },
+        { "roll": 6, "cash": 50000, "benefit": "Scout Ship" },
+        { "roll": 7, "cash": 50000, "benefit": "Scout Ship" }
+      ],
+      "skillTables": {
+        "personal-development": ["STR +1", "DEX +1", "END +1", "INT +1", "EDU +1", "Jack-of-all-Trades"],
+        "service-skills": ["Pilot (small craft or spacecraft)", "Survival", "Mechanic", "Astrogation", "Vacc Suit", "Gun Combat"],
+        "advanced-education": { "requirement": "EDU 8+", "entries": ["Medic", "Language", "Seafarer", "Explosives", "Science", "Jack-of-all-Trades"] },
+        "courier": ["Electronics", "Flyer", "Pilot (spacecraft)", "Engineer", "Athletics", "Astrogation"],
+        "surveyor": ["Electronics", "Persuade", "Pilot", "Navigation", "Diplomat", "Streetwise"],
+        "explorer": ["Electronics", "Pilot", "Engineer", "Science", "Stealth", "Recon"]
+      }
+    }
+  }
+}

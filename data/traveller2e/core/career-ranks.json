@@ -1,0 +1,292 @@
+{
+  "source": {
+    "bookId": "mgt2e-core-2022",
+    "pages": [22, 45]
+  },
+  "careers": {
+    "agent": {
+      "law-enforcement": [
+        { "rank": 0, "title": "Rookie" },
+        { "rank": 1, "title": "Corporal", "bonus": "Streetwise 1" },
+        { "rank": 2, "title": "Sergeant" },
+        { "rank": 3, "title": "Detective" },
+        { "rank": 4, "title": "Lieutenant", "bonus": "Investigate 1" },
+        { "rank": 5, "title": "Chief", "bonus": "Admin 1" },
+        { "rank": 6, "title": "Commissioner", "bonus": "SOC +1" }
+      ],
+      "intelligence": [
+        { "rank": 0 },
+        { "rank": 1, "title": "Agent", "bonus": "Deception 1" },
+        { "rank": 2, "title": "Field Agent", "bonus": "Investigate 1" },
+        { "rank": 3 },
+        { "rank": 4, "title": "Special Agent", "bonus": "Gun Combat 1" },
+        { "rank": 5, "title": "Assistant Director" },
+        { "rank": 6, "title": "Director" }
+      ],
+      "corporate": "agent.intelligence"
+    },
+    "army": {
+      "enlisted": [
+        { "rank": 0, "title": "Private", "bonus": "Gun Combat 1" },
+        { "rank": 1, "title": "Lance Corporal", "bonus": "Recon 1" },
+        { "rank": 2, "title": "Corporal" },
+        { "rank": 3, "title": "Lance Sergeant", "bonus": "Leadership 1" },
+        { "rank": 4, "title": "Sergeant" },
+        { "rank": 5, "title": "Gunnery Sergeant" },
+        { "rank": 6, "title": "Sergeant Major" }
+      ],
+      "officer": [
+        { "rank": 1, "title": "Lieutenant", "bonus": "Leadership 1" },
+        { "rank": 2, "title": "Captain" },
+        { "rank": 3, "title": "Major", "bonus": "Tactics (military) 1" },
+        { "rank": 4, "title": "Lieutenant Colonel" },
+        { "rank": 5, "title": "Colonel" },
+        { "rank": 6, "title": "General", "bonus": "SOC 10 or SOC +1, whichever is higher" }
+      ]
+    },
+    "citizen": {
+      "corporate": [
+        { "rank": 0 },
+        { "rank": 1 },
+        { "rank": 2, "title": "Manager", "bonus": "Admin 1" },
+        { "rank": 3 },
+        { "rank": 4, "title": "Senior Manager", "bonus": "Advocate 1" },
+        { "rank": 5 },
+        { "rank": 6, "title": "Director", "bonus": "SOC +1" }
+      ],
+      "worker": [
+        { "rank": 0 },
+        { "rank": 1 },
+        { "rank": 2, "title": "Technician", "bonus": "Profession 1" },
+        { "rank": 3 },
+        { "rank": 4, "title": "Craftsman", "bonus": "Mechanic 1" },
+        { "rank": 5 },
+        { "rank": 6, "title": "Master Technician", "bonus": "Engineer 1" }
+      ],
+      "colonist": [
+        { "rank": 0 },
+        { "rank": 1 },
+        { "rank": 2, "title": "Settler", "bonus": "Survival 1" },
+        { "rank": 3 },
+        { "rank": 4, "title": "Explorer", "bonus": "Navigation 1" },
+        { "rank": 5 },
+        { "rank": 6, "bonus": "Gun Combat 1" }
+      ]
+    },
+    "drifter": {
+      "barbarian": [
+        { "rank": 0 },
+        { "rank": 1, "bonus": "Survival 1" },
+        { "rank": 2, "title": "Warrior", "bonus": "Melee (blade) 1" },
+        { "rank": 3 },
+        { "rank": 4, "title": "Chieftain", "bonus": "Leadership 1" },
+        { "rank": 5 },
+        { "rank": 6, "title": "Warlord" }
+      ],
+      "wanderer": [
+        { "rank": 0 },
+        { "rank": 1, "bonus": "Streetwise 1" },
+        { "rank": 2 },
+        { "rank": 3, "bonus": "Deception 1" },
+        { "rank": 4 },
+        { "rank": 5 },
+        { "rank": 6 }
+      ],
+      "scavenger": [
+        { "rank": 0 },
+        { "rank": 1, "bonus": "Vacc Suit 1" },
+        { "rank": 2 },
+        { "rank": 3, "bonus": "Profession (belter) 1 or Mechanic 1" },
+        { "rank": 4 },
+        { "rank": 5 },
+        { "rank": 6 }
+      ]
+    },
+    "entertainer": {
+      "artist": [
+        { "rank": 0 },
+        { "rank": 1, "bonus": "Art 1" },
+        { "rank": 2 },
+        { "rank": 3, "bonus": "Investigate 1" },
+        { "rank": 4 },
+        { "rank": 5, "title": "Famous Artist", "bonus": "SOC +1" },
+        { "rank": 6 }
+      ],
+      "journalist": [
+        { "rank": 0 },
+        { "rank": 1, "title": "Freelancer", "bonus": "Electronics (comms) 1" },
+        { "rank": 2, "title": "Staff Writer", "bonus": "Investigate 1" },
+        { "rank": 3 },
+        { "rank": 4, "title": "Correspondent", "bonus": "Persuade 1" },
+        { "rank": 5 },
+        { "rank": 6, "title": "Senior Correspondent", "bonus": "SOC +1" }
+      ],
+      "performer": [
+        { "rank": 0 },
+        { "rank": 1, "bonus": "DEX +1" },
+        { "rank": 2 },
+        { "rank": 3, "bonus": "STR +1" },
+        { "rank": 4 },
+        { "rank": 5, "title": "Famous Performer", "bonus": "SOC +1" },
+        { "rank": 6 }
+      ]
+    },
+    "marine": {
+      "enlisted": [
+        { "rank": 0, "title": "Marine", "bonus": "Gun Combat (any) 1 or Melee (blade) 1" },
+        { "rank": 1, "title": "Lance Corporal", "bonus": "Gun Combat (any) 1" },
+        { "rank": 2, "title": "Corporal" },
+        { "rank": 3, "title": "Lance Sergeant", "bonus": "Leadership 1" },
+        { "rank": 4, "title": "Sergeant" },
+        { "rank": 5, "title": "Gunnery Sergeant", "bonus": "END +1" },
+        { "rank": 6, "title": "Sergeant Major" }
+      ],
+      "officer": [
+        { "rank": 1, "title": "Lieutenant", "bonus": "Leadership 1" },
+        { "rank": 2, "title": "Captain" },
+        { "rank": 3, "title": "Force Commander", "bonus": "Tactics 1" },
+        { "rank": 4, "title": "Lieutenant Colonel" },
+        { "rank": 5, "title": "Colonel", "bonus": "SOC 10 or SOC +1, whichever is higher" },
+        { "rank": 6, "title": "Brigadier" }
+      ]
+    },
+    "merchant": {
+      "merchant-marine": [
+        { "rank": 0, "title": "Crewman" },
+        { "rank": 1, "title": "Senior Crewman", "bonus": "Mechanic 1" },
+        { "rank": 2, "title": "4th Officer" },
+        { "rank": 3, "title": "3rd Officer" },
+        { "rank": 4, "title": "2nd Officer", "bonus": "Pilot 1" },
+        { "rank": 5, "title": "1st Officer", "bonus": "SOC +1" },
+        { "rank": 6, "title": "Captain" }
+      ],
+      "free-trader": [
+        { "rank": 0 },
+        { "rank": 1, "bonus": "Persuade 1" },
+        { "rank": 2 },
+        { "rank": 3, "title": "Experienced Trader", "bonus": "Jack-of-all-Trades 1" },
+        { "rank": 4 },
+        { "rank": 5 },
+        { "rank": 6 }
+      ],
+      "broker": [
+        { "rank": 0 },
+        { "rank": 1, "bonus": "Broker 1" },
+        { "rank": 2 },
+        { "rank": 3, "title": "Experienced Broker", "bonus": "Streetwise 1" },
+        { "rank": 4 },
+        { "rank": 5 },
+        { "rank": 6 }
+      ]
+    },
+    "navy": {
+      "enlisted": [
+        { "rank": 0, "title": "Crewman" },
+        { "rank": 1, "title": "Able Spacehand", "bonus": "Mechanic 1" },
+        { "rank": 2, "title": "Petty Officer, 3rd class", "bonus": "Vacc Suit 1" },
+        { "rank": 3, "title": "Petty Officer, 2nd class" },
+        { "rank": 4, "title": "Petty Officer, 1st class", "bonus": "END +1" },
+        { "rank": 5, "title": "Chief Petty Officer" },
+        { "rank": 6, "title": "Master Chief" }
+      ],
+      "officer": [
+        { "rank": 1, "title": "Ensign", "bonus": "Melee (blade) 1" },
+        { "rank": 2, "title": "Sublieutenant", "bonus": "Leadership 1" },
+        { "rank": 3, "title": "Lieutenant" },
+        { "rank": 4, "title": "Commander", "bonus": "Tactics (naval) 1" },
+        { "rank": 5, "title": "Captain", "bonus": "SOC 10 or SOC +1, whichever is higher" },
+        { "rank": 6, "title": "Admiral", "bonus": "SOC 12 or SOC +1, whichever is higher" }
+      ]
+    },
+    "noble": {
+      "administrator": [
+        { "rank": 0, "title": "Assistant" },
+        { "rank": 1, "title": "Clerk", "bonus": "Admin 1" },
+        { "rank": 2, "title": "Supervisor" },
+        { "rank": 3, "title": "Manager", "bonus": "Advocate 1" },
+        { "rank": 4, "title": "Chief" },
+        { "rank": 5, "title": "Director", "bonus": "Leadership 1" },
+        { "rank": 6, "title": "Minister" }
+      ],
+      "diplomat": [
+        { "rank": 0, "title": "Intern" },
+        { "rank": 1, "title": "3rd Secretary", "bonus": "Admin 1" },
+        { "rank": 2, "title": "2nd Secretary" },
+        { "rank": 3, "title": "1st Secretary", "bonus": "Advocate 1" },
+        { "rank": 4, "title": "Counsellor" },
+        { "rank": 5, "title": "Minister", "bonus": "Diplomat 1" },
+        { "rank": 6, "title": "Ambassador" }
+      ],
+      "dilettante": [
+        { "rank": 0, "title": "Wastrel" },
+        { "rank": 1 },
+        { "rank": 2, "title": "Ingrate", "bonus": "Carouse 1" },
+        { "rank": 3 },
+        { "rank": 4, "title": "Black Sheep", "bonus": "Persuade 1" },
+        { "rank": 5 },
+        { "rank": 6, "title": "Scoundrel", "bonus": "Jack-of-all-Trades 1" }
+      ]
+    },
+    "rogue": {
+      "thief": [
+        { "rank": 0 },
+        { "rank": 1, "bonus": "Stealth 1" },
+        { "rank": 2 },
+        { "rank": 3, "bonus": "Streetwise 1" },
+        { "rank": 4 },
+        { "rank": 5, "bonus": "Recon 1" },
+        { "rank": 6 }
+      ],
+      "enforcer": [
+        { "rank": 0 },
+        { "rank": 1, "bonus": "Persuade 1" },
+        { "rank": 2 },
+        { "rank": 3, "bonus": "Gun Combat 1 or Melee 1" },
+        { "rank": 4 },
+        { "rank": 5, "bonus": "Streetwise 1" },
+        { "rank": 6 }
+      ],
+      "pirate": [
+        { "rank": 0, "title": "Lackey" },
+        { "rank": 1, "title": "Henchman", "bonus": "Pilot 1 or Gunner 1" },
+        { "rank": 2, "title": "Corporal" },
+        { "rank": 3, "title": "Sergeant", "bonus": "Gun Combat 1 or Melee 1" },
+        { "rank": 4, "title": "Lieutenant" },
+        { "rank": 5, "title": "Leader", "bonus": "Leadership 1" },
+        { "rank": 6, "title": "Captain" }
+      ]
+    },
+    "scholar": {
+      "field-researcher": [
+        { "rank": 0 },
+        { "rank": 1, "bonus": "Science 1" },
+        { "rank": 2, "bonus": "Electronics (computers) 1" },
+        { "rank": 3, "bonus": "Investigate 1" },
+        { "rank": 4 },
+        { "rank": 5, "bonus": "Science 2" },
+        { "rank": 6 }
+      ],
+      "scientist": "scholar.field-researcher",
+      "physician": [
+        { "rank": 0 },
+        { "rank": 1, "bonus": "Medic 1" },
+        { "rank": 2 },
+        { "rank": 3, "bonus": "Science 1" },
+        { "rank": 4 },
+        { "rank": 5, "bonus": "Science 2" },
+        { "rank": 6 }
+      ]
+    },
+    "scout": {
+      "all": [
+        { "rank": 0 },
+        { "rank": 1, "title": "Scout", "bonus": "Vacc Suit 1" },
+        { "rank": 2 },
+        { "rank": 3, "title": "Senior Scout", "bonus": "Pilot 1" },
+        { "rank": 4 },
+        { "rank": 5 },
+        { "rank": 6 }
+      ]
+    }
+  }
+}

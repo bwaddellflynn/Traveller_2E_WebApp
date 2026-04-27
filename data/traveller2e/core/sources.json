@@ -1,0 +1,12 @@
+{
+  "books": [
+    {
+      "id": "mgt2e-core-2022",
+      "title": "Traveller Core Rulebook",
+      "edition": "Mongoose Traveller Second Edition",
+      "revision": "Update 2022",
+      "publisher": "Mongoose Publishing",
+      "pdf": "MgT 2E Core/Traveller Core Rulebook.pdf"
+    }
+  ]
+}
