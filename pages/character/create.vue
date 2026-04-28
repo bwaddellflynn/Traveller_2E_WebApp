@@ -11,7 +11,6 @@ import { useCharacterCreatorStore } from '~/stores/characterCreator'
 
 const characterCreator = useCharacterCreatorStore()
 const {
-  careersData,
   formatDm,
   skillOptionLabel,
   resolvePendingSkillChoice,
@@ -77,6 +76,9 @@ const {
   militaryAcademyServiceSkills,
   selectedCareer,
   selectedAssignment,
+  careerOptions,
+  careerConstraintMessages,
+  careerPathLocked,
   careerEvent,
   careerMishap,
   availableCareerSkillTables,
@@ -158,11 +160,11 @@ const {
                 'h-10 rounded px-4 text-sm font-semibold',
                 selectedTermPath === 'education'
                   ? 'bg-zinc-950 text-white shadow-sm'
-                  : educationAvailable
+                  : educationAvailable && !careerPathLocked
                     ? 'text-zinc-700 hover:text-zinc-950'
                     : 'cursor-not-allowed text-zinc-400'
               ]"
-              :disabled="!educationAvailable"
+              :disabled="!educationAvailable || careerPathLocked"
               type="button"
               @click="selectedTermPath = 'education'"
             >
@@ -185,8 +187,8 @@ const {
                   v-model="selectedCareerId"
                   class="h-11 rounded-md border border-zinc-300 bg-white px-3 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200"
                 >
-                  <option v-for="career in careersData.careers" :key="career.id" :value="career.id">
-                    {{ career.name }}
+                  <option v-for="career in careerOptions" :key="career.id" :disabled="career.disabled" :value="career.id">
+                    {{ career.name }}{{ career.disabledReason ? ` - ${career.disabledReason}` : '' }}
                   </option>
                 </select>
               </label>
@@ -201,6 +203,15 @@ const {
                   </option>
                 </select>
               </label>
+            </div>
+
+            <div v-if="careerConstraintMessages.length" class="mt-4 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950">
+              <p class="font-semibold">Career requirement</p>
+              <ul class="mt-2 list-disc space-y-1 pl-5">
+                <li v-for="message in careerConstraintMessages" :key="message">
+                  {{ message }}
+                </li>
+              </ul>
             </div>
 
             <div class="mt-5 grid gap-3 sm:grid-cols-3">
@@ -237,6 +248,7 @@ const {
                 </div>
                 <div v-if="termRolls.careerQualification" class="mt-3 rounded-md bg-stone-50 p-3 text-sm">
                   <p class="font-semibold">{{ rollSummary(termRolls.careerQualification) }} · {{ termRolls.careerQualification.finalSuccess ? 'Success' : 'Failure' }}</p>
+                  <p v-if="termRolls.careerQualification.notes" class="mt-1 text-zinc-600">{{ termRolls.careerQualification.notes }}</p>
                   <button class="mt-2 text-xs font-semibold text-amber-700 hover:text-amber-900" type="button" @click="toggleRollOverride('careerQualification')">
                     {{ termRolls.careerQualification.overridden ? 'Remove override' : 'Override outcome' }}
                   </button>
@@ -402,6 +414,7 @@ const {
                 </div>
                 <div v-if="termRolls.careerSurvival" class="mt-3 rounded-md bg-stone-50 p-3 text-sm">
                   <p class="font-semibold">{{ rollSummary(termRolls.careerSurvival) }} · {{ termRolls.careerSurvival.finalSuccess ? 'Survived' : 'Mishap' }}</p>
+                  <p v-if="termRolls.careerSurvival.notes" class="mt-1 text-zinc-600">{{ termRolls.careerSurvival.notes }}</p>
                   <p v-if="!termRolls.careerSurvival.finalSuccess" class="mt-1 text-zinc-600">Roll 1D on the {{ selectedCareer.name }} mishap table.</p>
                   <button class="mt-2 text-xs font-semibold text-amber-700 hover:text-amber-900" type="button" @click="toggleRollOverride('careerSurvival')">
                     {{ termRolls.careerSurvival.overridden ? 'Remove override' : 'Override outcome' }}
@@ -544,6 +557,7 @@ const {
                 </div>
                 <div v-if="termRolls.careerAdvancement" class="mt-3 rounded-md bg-stone-50 p-3 text-sm">
                   <p class="font-semibold">{{ rollSummary(termRolls.careerAdvancement) }} · {{ termRolls.careerAdvancement.finalSuccess ? 'Advanced' : 'No advancement' }}</p>
+                  <p v-if="termRolls.careerAdvancement.notes" class="mt-1 text-zinc-600">{{ termRolls.careerAdvancement.notes }}</p>
                   <button class="mt-2 text-xs font-semibold text-amber-700 hover:text-amber-900" type="button" @click="toggleRollOverride('careerAdvancement')">
                     {{ termRolls.careerAdvancement.overridden ? 'Remove override' : 'Override outcome' }}
                   </button>

@@ -6,7 +6,7 @@ import careersData from '~/data/traveller2e/core/careers-summary.json'
 import creationRulesData from '~/data/traveller2e/core/character-creation-rules.json'
 import agingData from '~/data/traveller2e/core/aging-and-injuries.json'
 import careerTablesData from '~/data/traveller2e/core/career-tables.json'
-import { getCareerEvent, getCareerMishap, getEducationEvent, getEventFromTable, type TravellerEvent, type TravellerEventEffect } from '~/utils/traveller/events'
+import { getCareerEvent, getCareerMishap, getEducationEvent, getEventFromTable, normalizeTravellerEventEffect, type TravellerEvent, type TravellerEventEffect } from '~/utils/traveller/events'
 
 type CharacteristicId = 'str' | 'dex' | 'end' | 'int' | 'edu' | 'soc'
 type StatRoll = {
@@ -56,7 +56,12 @@ type TermHistoryEntry = {
   rolls: RollResult[]
 }
 type CreatorTab = 'creation' | `term-${number}`
-type EventResolutionKind = 'manual' | 'skill_choice' | 'table_roll'
+type EventResolutionKind = 'manual' | 'skill_choice' | 'table_roll' | 'check' | 'choice' | 'associate'
+type EventChoiceOption = {
+  id: string
+  label: string
+  effects: TravellerEventEffect[]
+}
 type PendingEventResolution = {
   id: string
   kind: EventResolutionKind
@@ -64,8 +69,18 @@ type PendingEventResolution = {
   source: string
   effect: TravellerEventEffect
   options?: string[]
+  choiceOptions?: EventChoiceOption[]
+  associateTypes?: string[]
+  associateCount?: number | string
+  associateContext?: string
+  associateTags?: string[]
   tableId?: string
   diceCount?: 1 | 2
+  check?: {
+    label: string
+    target: number
+    dm: number
+  }
   level?: number
   increase?: boolean
   resolved?: boolean
@@ -74,11 +89,11 @@ type PendingEventResolution = {
 type TravellerAssociate = {
   id: string
   source: string
-  label: string
-  associateTypes: string[]
-  count?: number | string
+  type: string
+  name: string
+  notes?: string
+  context?: string
   tags?: string[]
-  resolved?: boolean
 }
 type TravellerRollModifier = {
   id: string
@@ -97,14 +112,24 @@ type BenefitRollAdjustment = {
   dm?: number
   scope: 'current-term' | 'career' | 'one-roll' | 'any'
 }
+type BenefitRollLedgerEntry = {
+  id: string
+  termNumber: number
+  source: string
+  label: string
+  count: number
+}
 type CareerConstraint = {
   id: string
   source: string
   label: string
+  effectType: string
+  appliesTermNumber: number
   careerId?: string
   assignmentId?: string
   forcedOut?: boolean
   draftNextTerm?: boolean
+  used?: boolean
 }
 type EventOutcomeLogEntry = {
   id: string
@@ -178,6 +203,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
   const associates = ref<TravellerAssociate[]>([])
   const rollModifiers = ref<TravellerRollModifier[]>([])
   const benefitRollAdjustments = ref<BenefitRollAdjustment[]>([])
+  const benefitRollLedger = ref<BenefitRollLedgerEntry[]>([])
   const careerConstraints = ref<CareerConstraint[]>([])
   const pendingSkillChoice = ref<{ label: string; source: string; options: string[]; level?: number; increase?: boolean } | null>(null)
   const termRolls = reactive<Record<string, RollResult | null>>({
@@ -365,6 +391,48 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     const assignment = selectedCareer.value.assignments.find((item) => item.id === selectedAssignmentId.value)
     return assignment ?? selectedCareer.value.assignments[0]
   })
+  const knownCareerIds = computed(() => new Set(careersData.careers.map((career) => career.id)))
+  const activeCareerConstraints = computed(() => careerConstraints.value.filter((constraint) => {
+    if (constraint.used) return false
+    return constraint.appliesTermNumber <= currentTermNumber.value
+  }))
+  const forcedCareerConstraint = computed(() => {
+    return [...activeCareerConstraints.value]
+      .reverse()
+      .find((constraint) => {
+        if (!constraint.careerId || !knownCareerIds.value.has(constraint.careerId)) return false
+        return constraint.effectType === 'next_career' || constraint.effectType === 'draft_assignment'
+      })
+  })
+  const careerPathLocked = computed(() => activeCareerConstraints.value.some((constraint) => {
+    return constraint.effectType === 'next_career' || constraint.effectType === 'draft_assignment' || constraint.effectType === 'draft_next_term'
+  }))
+  const forcedOutCareerIds = computed(() => new Set(activeCareerConstraints.value
+    .filter((constraint) => constraint.forcedOut && constraint.careerId)
+    .map((constraint) => constraint.careerId as string)))
+  const careerOptions = computed(() => careersData.careers.map((career) => {
+    const forcedCareerId = forcedCareerConstraint.value?.careerId
+    const forcedOut = forcedOutCareerIds.value.has(career.id)
+    const disabled = Boolean((forcedCareerId && career.id !== forcedCareerId) || forcedOut)
+    const disabledReason = forcedCareerId && career.id !== forcedCareerId
+      ? `Must enter ${forcedCareerConstraint.value?.label ?? forcedCareerId}`
+      : forcedOut
+        ? 'Forced out of this career'
+        : ''
+
+    return {
+      ...career,
+      disabled,
+      disabledReason,
+    }
+  }))
+  const careerConstraintMessages = computed(() => activeCareerConstraints.value.map((constraint) => {
+    if (constraint.careerId && !knownCareerIds.value.has(constraint.careerId)) {
+      return `${constraint.label}: ${constraint.careerId} is not in the current Core career list. Resolve manually.`
+    }
+
+    return constraint.label
+  }))
   const currentCareerTableData = computed(() => {
     return (careerTablesData.careers as Record<string, any>)[selectedCareerId.value] ?? null
   })
@@ -430,6 +498,31 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     basicTrainingApplied.value = false
     pendingBasicTrainingChoices.value = []
   })
+
+  watch([currentTermNumber, forcedCareerConstraint], () => {
+    const constraint = forcedCareerConstraint.value
+    if (!constraint?.careerId || !knownCareerIds.value.has(constraint.careerId)) return
+
+    selectedTermPath.value = 'career'
+    selectedCareerId.value = constraint.careerId
+    if (constraint.assignmentId && constraint.assignmentId !== 'any') {
+      const assignmentExists = selectedCareer.value.assignments.some((assignment) => assignment.id === constraint.assignmentId)
+      if (assignmentExists) selectedAssignmentId.value = constraint.assignmentId
+    }
+  }, { immediate: true })
+
+  watch([currentTermNumber, careerOptions], () => {
+    if (forcedCareerConstraint.value) return
+    const selectedOption = careerOptions.value.find((career) => career.id === selectedCareerId.value)
+    if (!selectedOption?.disabled) return
+
+    const nextAvailableCareer = careerOptions.value.find((career) => !career.disabled)
+    if (nextAvailableCareer) selectedCareerId.value = nextAvailableCareer.id
+  }, { immediate: true })
+
+  watch([currentTermNumber, careerPathLocked], () => {
+    if (careerPathLocked.value) selectedTermPath.value = 'career'
+  }, { immediate: true })
 
   watch(selectedAssignmentId, () => {
     basicTrainingApplied.value = false
@@ -530,6 +623,11 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
 
   const skillOptionLabel = (label: string) => skillFromLabel(label).name
   const safeSkillOptionLabel = (label?: string) => label ? skillOptionLabel(label) : 'Skill'
+
+  const skillLevel = (label: string) => {
+    const skill = skillFromLabel(label)
+    return appliedSkillRecords[skill.id]?.level ?? -3
+  }
 
   const addSkillSource = (skill: CharacterSkill, source: string) => {
     if (!skill.sources.includes(source)) {
@@ -873,9 +971,131 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     recordEventOutcome(source, effect, label, 'pending')
   }
 
+  const eventCheckLabel = (effect: TravellerEventEffect) => {
+    const check = effect.check as Record<string, any> | undefined
+    if (check?.characteristic) return `${String(check.characteristic).toUpperCase()} ${check.target ?? 8}+`
+    if (check?.skill) return `${skillOptionLabel(String(check.skill))} ${check.target ?? 8}+`
+    if (effect.type === 'check_known_term_skill') return `Known term skill ${effect.target ?? 8}+`
+    return `Check ${check?.target ?? effect.target ?? 8}+`
+  }
+
+  const eventCheckTarget = (effect: TravellerEventEffect) => {
+    const check = effect.check as Record<string, any> | undefined
+    return Number(check?.target ?? effect.target ?? 8)
+  }
+
+  const eventCheckDm = (effect: TravellerEventEffect) => {
+    const check = effect.check as Record<string, any> | undefined
+    if (check?.characteristic) return diceModifier(values[String(check.characteristic) as CharacteristicId] ?? 0)
+    if (check?.skill) return skillLevel(String(check.skill))
+    return 0
+  }
+
+  const addCheckResolution = (effect: TravellerEventEffect, source: string, label = tableEffectLabel(effect)) => {
+    addPendingEventResolution({
+      kind: 'check',
+      label,
+      source,
+      effect,
+      check: {
+        label: eventCheckLabel(effect),
+        target: eventCheckTarget(effect),
+        dm: eventCheckDm(effect),
+      },
+    })
+    recordEventOutcome(source, effect, label, 'pending')
+  }
+
+  const normalizeEffectInput = (effect: unknown): TravellerEventEffect | null => {
+    if (!effect || typeof effect !== 'object' || !('type' in effect)) return null
+    return normalizeTravellerEventEffect({ ...(effect as TravellerEventEffect) })
+  }
+
+  const normalizeBranchEffects = (effects?: unknown) => Array.isArray(effects)
+    ? effects.map((effect) => normalizeEffectInput(effect)).filter((effect): effect is TravellerEventEffect => Boolean(effect))
+    : []
+
+  const eventChoiceOptionLabel = (effect: TravellerEventEffect, index = 0) => {
+    if (effect.label && typeof effect.label === 'string') return effect.label
+    return tableEffectLabel(effect) || `Option ${index + 1}`
+  }
+
+  const eventChoiceOptions = (effect: TravellerEventEffect): EventChoiceOption[] => {
+    if (!Array.isArray(effect.options)) return []
+
+    return effect.options.map((option, index) => {
+      const optionRecord = option as Record<string, unknown>
+      const effects = Array.isArray(optionRecord.effects)
+        ? normalizeBranchEffects(optionRecord.effects)
+        : [normalizeEffectInput(option)].filter((nestedEffect): nestedEffect is TravellerEventEffect => Boolean(nestedEffect))
+      const label = typeof optionRecord.label === 'string'
+        ? optionRecord.label
+        : effects.map((nestedEffect, nestedIndex) => eventChoiceOptionLabel(nestedEffect, nestedIndex)).join(', ')
+
+      return {
+        id: `${index}-${label}`,
+        label,
+        effects,
+      }
+    })
+  }
+
+  const addChoiceResolution = (effect: TravellerEventEffect, source: string, label = tableEffectLabel(effect)) => {
+    const choiceOptions = eventChoiceOptions(effect)
+    if (!choiceOptions.length) {
+      addManualEventResolution(effect, source, label)
+      return
+    }
+
+    addPendingEventResolution({
+      kind: 'choice',
+      label,
+      source,
+      effect,
+      choiceOptions,
+    })
+    recordEventOutcome(source, effect, label, 'pending')
+  }
+
+  const associateTypeOptions = (effect: TravellerEventEffect) => Array.isArray(effect.associateTypes)
+    ? effect.associateTypes.map(String)
+    : ['associate']
+
+  const addAssociateResolution = (effect: TravellerEventEffect, source: string, label = tableEffectLabel(effect)) => {
+    const count = typeof effect.count === 'number' ? Math.max(1, effect.count) : 1
+    const associateCount = typeof effect.count === 'number' || typeof effect.count === 'string' ? effect.count : 1
+    const associateTypes = associateTypeOptions(effect)
+    const associateTags = Array.isArray(effect.tags) ? effect.tags.map(String) : undefined
+    const associateContext = typeof effect.context === 'string' ? effect.context : undefined
+
+    for (let index = 0; index < count; index += 1) {
+      addPendingEventResolution({
+        kind: 'associate',
+        label: count > 1 ? `${label} (${index + 1} of ${count})` : label,
+        source,
+        effect,
+        associateTypes,
+        associateCount,
+        associateTags,
+        associateContext,
+      })
+    }
+    recordEventOutcome(source, effect, label, 'pending')
+  }
+
   const applyEventEffect = (effect: TravellerEventEffect, event: TravellerEvent, sourcePrefix = 'Event') => {
     const source = `${sourcePrefix}: ${event.name}`
     const normalizedType = effect.normalizedType ?? effect.type
+
+    if (normalizedType === 'check') {
+      addCheckResolution(effect, source)
+      return
+    }
+
+    if (normalizedType === 'choice') {
+      addChoiceResolution(effect, source)
+      return
+    }
 
     if (effect.type === 'set_skill' && effect.skillId && typeof effect.level === 'number') {
       setSkillMinimum(String(effect.skillId), effect.level, source)
@@ -936,19 +1156,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     }
 
     if (normalizedType === 'associate_gain') {
-      const label = tableEffectLabel(effect)
-      associates.value = [
-        ...associates.value,
-        {
-          id: makeEventOutcomeId('associate'),
-          source,
-          label,
-          associateTypes: Array.isArray(effect.associateTypes) ? effect.associateTypes.map(String) : ['associate'],
-          count: typeof effect.count === 'number' || typeof effect.count === 'string' ? effect.count : 1,
-          tags: Array.isArray(effect.tags) ? effect.tags.map(String) : undefined,
-        },
-      ]
-      addManualEventResolution(effect, source, label)
+      addAssociateResolution(effect, source)
       return
     }
 
@@ -976,6 +1184,8 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     if (normalizedType === 'table_roll' || normalizedType === 'injury') {
       const tableId = typeof effect.tableId === 'string'
         ? effect.tableId
+        : typeof effect.subtable === 'string'
+          ? effect.subtable
         : effect.type === 'injury'
           ? 'injury'
           : ''
@@ -993,7 +1203,13 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
           id: makeEventOutcomeId('career-constraint'),
           source,
           label,
-          careerId: typeof effect.careerId === 'string' ? effect.careerId : undefined,
+          effectType: effect.type,
+          appliesTermNumber: currentTermNumber.value + 1,
+          careerId: typeof effect.careerId === 'string'
+            ? effect.careerId
+            : effect.type === 'forced_out'
+              ? selectedCareerId.value
+              : undefined,
           assignmentId: typeof effect.assignmentId === 'string' ? effect.assignmentId : undefined,
           forcedOut: effect.type === 'forced_out' ? true : effect.type === 'not_forced_out' ? false : undefined,
           draftNextTerm: effect.type === 'draft_next_term',
@@ -1074,13 +1290,63 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     makePreCareerEventRoll([manualTotal], 'manual')
   }
 
+  const rollModifierTargetForKey = (key: string): TravellerRollModifier['target'] => {
+    const targets: Record<string, TravellerRollModifier['target']> = {
+      careerAdvancement: 'advancement',
+      careerQualification: 'qualification',
+      careerSurvival: 'survival',
+    }
+
+    return targets[key] ?? 'any'
+  }
+
+  const activeRollModifiersFor = (key: string) => {
+    const target = rollModifierTargetForKey(key)
+    return rollModifiers.value.filter((modifier) => {
+      if (modifier.used) return false
+      if (modifier.target !== target && modifier.target !== 'any') return false
+      return modifier.scope === 'one' || modifier.scope === 'next' || modifier.scope === 'any' || modifier.scope === 'career' || modifier.scope === 'term'
+    })
+  }
+
+  const consumeRollModifiers = (modifiers: TravellerRollModifier[], rollLabel: string) => {
+    const consumedIds = modifiers
+      .filter((modifier) => modifier.scope === 'one' || modifier.scope === 'next')
+      .map((modifier) => modifier.id)
+
+    if (!consumedIds.length) return
+
+    rollModifiers.value = rollModifiers.value.map((modifier) => consumedIds.includes(modifier.id)
+      ? { ...modifier, used: true }
+      : modifier)
+
+    for (const modifier of modifiers.filter((modifier) => consumedIds.includes(modifier.id))) {
+      eventOutcomeLog.value = [
+        {
+          id: makeEventOutcomeId('roll-modifier-used'),
+          source: modifier.source,
+          label: `${modifier.label} applied to ${rollLabel}`,
+          effectType: 'roll_modifier',
+          normalizedType: 'roll_modifier',
+          status: 'automatic',
+        },
+        ...eventOutcomeLog.value,
+      ].slice(0, 24)
+    }
+  }
+
   const makeRollResult = (key: string, label: string, check: CheckRule, dice: number[], source: 'rolled' | 'manual') => {
     const rule = preferredCheckRule(check)
-    const dm = checkDm(check)
+    const matchingModifiers = activeRollModifiersFor(key)
+    const modifierDm = matchingModifiers.reduce((sum, modifier) => sum + modifier.dm, 0)
+    const dm = checkDm(check) + modifierDm
     const diceTotal = dice.reduce((sum, value) => sum + value, 0)
     const total = diceTotal + dm
     const target = rule.target
     const success = rule.automatic ? true : total >= target
+    const modifierNotes = matchingModifiers.length
+      ? `Applied modifiers: ${matchingModifiers.map((modifier) => modifier.label).join(', ')}`
+      : undefined
 
     termRolls[key] = {
       label,
@@ -1092,7 +1358,9 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
       success,
       finalSuccess: success,
       source,
+      notes: modifierNotes,
     }
+    consumeRollModifiers(matchingModifiers, label)
 
     if (key === 'educationEntry') handleEducationEntryOutcome()
   }
@@ -1163,6 +1431,24 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     applyTravellerEventEffects(event, sourcePrefix)
   }
 
+  const syntheticEventForResolution = (source: string): TravellerEvent => ({
+    id: source.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+    source: 'subtable',
+    tableId: 'resolved-effects',
+    roll: 0,
+    name: 'Outcome',
+    text: '',
+    effects: [],
+    raw: {},
+  })
+
+  const applyResolvedEffects = (effects: TravellerEventEffect[], source: string) => {
+    const syntheticEvent = syntheticEventForResolution(source)
+    for (const effect of effects) {
+      applyEventEffect(normalizeTravellerEventEffect({ ...effect }), syntheticEvent, source)
+    }
+  }
+
   const resolveEventTableRoll = (resolution: PendingEventResolution, total: number, source: 'rolled' | 'manual') => {
     if (!resolution.tableId || resolution.resolved) return
 
@@ -1182,6 +1468,106 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     for (const effect of nestedEvent.effects) {
       applyEventEffect(effect, nestedEvent, nestedEvent.name)
     }
+  }
+
+  const checkBranchEffects = (effect: TravellerEventEffect, diceTotal: number, finalTotal: number) => {
+    const target = eventCheckTarget(effect)
+    const effects = [
+      ...normalizeBranchEffects(effect.always),
+      ...(diceTotal === 2 ? normalizeBranchEffects(effect.naturalTwo) : []),
+      ...(finalTotal >= target ? normalizeBranchEffects(effect.success) : normalizeBranchEffects(effect.failure)),
+    ]
+
+    return effects
+  }
+
+  const resolveEventCheck = (resolution: PendingEventResolution, diceTotal: number, source: 'rolled' | 'manual') => {
+    if (resolution.kind !== 'check' || !resolution.check || resolution.resolved) return
+
+    const finalTotal = diceTotal + resolution.check.dm
+    const succeeded = finalTotal >= resolution.check.target
+    const selected = `${diceTotal} ${formatDm(resolution.check.dm)} = ${finalTotal} (${succeeded ? 'success' : 'failure'}, ${source})`
+    const branchEffects = checkBranchEffects(resolution.effect, diceTotal, finalTotal)
+
+    pendingEventResolutions.value = pendingEventResolutions.value.map((item) => {
+      if (item.id !== resolution.id) return item
+      return {
+        ...item,
+        resolved: true,
+        selected,
+      }
+    })
+    recordEventOutcome(resolution.source, resolution.effect, `${resolution.label}: ${selected}`, 'manual')
+
+    if (branchEffects.length) applyResolvedEffects(branchEffects, resolution.source)
+  }
+
+  const rollEventResolutionCheck = (resolutionId: string) => {
+    const resolution = pendingEventResolutions.value.find((item) => item.id === resolutionId)
+    if (!resolution || resolution.kind !== 'check') return
+
+    resolveEventCheck(resolution, Math.ceil(Math.random() * 6) + Math.ceil(Math.random() * 6), 'rolled')
+  }
+
+  const enterManualEventResolutionCheck = (resolutionId: string, total: number) => {
+    const resolution = pendingEventResolutions.value.find((item) => item.id === resolutionId)
+    if (!resolution || resolution.kind !== 'check') return
+    if (Number.isNaN(total) || total < 2 || total > 12) return
+
+    resolveEventCheck(resolution, total, 'manual')
+  }
+
+  const resolveEventOutcomeChoice = (resolutionId: string, optionId: string) => {
+    const resolution = pendingEventResolutions.value.find((item) => item.id === resolutionId)
+    if (!resolution || resolution.kind !== 'choice' || resolution.resolved) return
+
+    const option = resolution.choiceOptions?.find((item) => item.id === optionId)
+    if (!option) return
+
+    pendingEventResolutions.value = pendingEventResolutions.value.map((item) => {
+      if (item.id !== resolutionId) return item
+      return {
+        ...item,
+        resolved: true,
+        selected: option.label,
+      }
+    })
+    recordEventOutcome(resolution.source, resolution.effect, `${resolution.label}: ${option.label}`, 'manual')
+    applyResolvedEffects(option.effects, resolution.source)
+  }
+
+  const resolveEventAssociate = (resolutionId: string, associateType: string, name: string, notes = '') => {
+    const resolution = pendingEventResolutions.value.find((item) => item.id === resolutionId)
+    if (!resolution || resolution.kind !== 'associate' || resolution.resolved) return
+
+    const type = associateType || resolution.associateTypes?.[0] || 'associate'
+    const trimmedName = name.trim()
+    const fallbackName = `${type.charAt(0).toUpperCase()}${type.slice(1)} from ${resolution.source}`
+    const associateName = trimmedName || fallbackName
+    const trimmedNotes = notes.trim()
+
+    associates.value = [
+      ...associates.value,
+      {
+        id: makeEventOutcomeId('associate'),
+        source: resolution.source,
+        type,
+        name: associateName,
+        notes: trimmedNotes || undefined,
+        context: resolution.associateContext,
+        tags: resolution.associateTags,
+      },
+    ]
+
+    pendingEventResolutions.value = pendingEventResolutions.value.map((item) => {
+      if (item.id !== resolutionId) return item
+      return {
+        ...item,
+        resolved: true,
+        selected: `${type}: ${associateName}`,
+      }
+    })
+    recordEventOutcome(resolution.source, resolution.effect, `Gained ${type}: ${associateName}`, 'manual')
   }
 
   const rollEventResolutionTable = (resolutionId: string) => {
@@ -1228,6 +1614,23 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     })
 
     recordEventOutcome(resolution.source, resolution.effect, `${resolution.label}: ${skillOptionLabel(choice)}`, 'manual')
+  }
+
+  const eventResolutionSelectedLabel = (resolution: PendingEventResolution) => {
+    if (!resolution.selected) return ''
+    if (resolution.kind === 'skill_choice') return skillOptionLabel(resolution.selected)
+    return resolution.selected
+  }
+
+  const associateTypeLabel = (type: string) => {
+    const labels: Record<string, string> = {
+      ally: 'Ally',
+      contact: 'Contact',
+      enemy: 'Enemy',
+      rival: 'Rival',
+    }
+
+    return labels[type] ?? `${type.charAt(0).toUpperCase()}${type.slice(1)}`
   }
 
   const resolveManualEventResolution = (resolutionId: string) => {
@@ -1455,6 +1858,20 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
       },
     ]
 
+    if (selectedTermPath.value === 'career') {
+      const earnedBenefitRoll = termRolls.careerSurvival?.finalSuccess ? 1 : 0
+      benefitRollLedger.value = [
+        ...benefitRollLedger.value,
+        {
+          id: makeEventOutcomeId('benefit-roll'),
+          termNumber: currentTermNumber.value,
+          source: `${selectedCareer.value.name} - ${selectedAssignment.value.name}`,
+          label: earnedBenefitRoll ? 'Completed career term' : 'No benefit roll: mishap term',
+          count: earnedBenefitRoll,
+        },
+      ]
+    }
+
     currentTermNumber.value += 1
     resetTermRolls()
     activeCreatorTab.value = `term-${currentTermNumber.value}` as CreatorTab
@@ -1463,6 +1880,10 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
   const musterOut = () => {
     lifepathComplete.value = true
   }
+
+  const totalBenefitRollsEarned = computed(() => benefitRollLedger.value.reduce((sum, entry) => sum + entry.count, 0))
+  const totalBenefitRollAdjustments = computed(() => benefitRollAdjustments.value.reduce((sum, adjustment) => sum + adjustment.adjustment, 0))
+  const totalAvailableBenefitRolls = computed(() => Math.max(0, totalBenefitRollsEarned.value + totalBenefitRollAdjustments.value))
 
   const modifierLabel = (modifier: { condition: string; dm: number }) => {
     const conditionLabels: Record<string, string> = {
@@ -1523,6 +1944,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     if (effect.type === 'may_attempt_graduation') return 'May attempt graduation'
     if (effect.type === 'roll_mishap') return 'Roll on mishap table'
     if (effect.type === 'roll_table') return `Roll on ${effect.tableId}`
+    if (effect.type === 'check_known_term_skill') return `Check known term skill ${effect.target ?? 8}+`
     if (effect.type === 'check') {
       return effect.check?.characteristic
         ? `${effect.check.characteristic.toUpperCase()} ${effect.check.target}+`
@@ -1615,6 +2037,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     associates,
     rollModifiers,
     benefitRollAdjustments,
+    benefitRollLedger,
     careerConstraints,
     pendingSkillChoice,
     termRolls,
@@ -1654,6 +2077,9 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     militaryAcademyServiceSkills,
     selectedCareer,
     selectedAssignment,
+    careerOptions,
+    careerConstraintMessages,
+    careerPathLocked,
     currentCareerTableData,
     careerEvent,
     careerMishap,
@@ -1709,10 +2135,16 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     applyEventEffect,
     applyTravellerEventEffects,
     applyCareerTableEffects,
+    rollEventResolutionCheck,
+    enterManualEventResolutionCheck,
     rollEventResolutionTable,
     enterManualEventResolutionTable,
     resolveEventChoice,
+    resolveEventOutcomeChoice,
+    resolveEventAssociate,
     resolveManualEventResolution,
+    eventResolutionSelectedLabel,
+    associateTypeLabel,
     makeCareerEventRoll,
     rollCareerEvent,
     enterManualCareerEvent,
@@ -1730,6 +2162,9 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     addTermTab,
     completeCurrentTerm,
     musterOut,
+    totalBenefitRollsEarned,
+    totalBenefitRollAdjustments,
+    totalAvailableBenefitRolls,
     modifierLabel,
     educationBenefitLabel,
     preCareerEventEffectLabel,

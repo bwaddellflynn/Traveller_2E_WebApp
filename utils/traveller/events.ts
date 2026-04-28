@@ -124,6 +124,8 @@ const normalizeEffect = (effect: TravellerEventEffect): TravellerEventEffect => 
   }
 }
 
+export const normalizeTravellerEventEffect = (effect: TravellerEventEffect): TravellerEventEffect => normalizeEffect(effect)
+
 const cloneEffects = (effects?: TravellerEventEffect[]) => (effects ?? []).map((effect) => normalizeEffect({ ...effect }))
 
 const toTitle = (value: string) => value

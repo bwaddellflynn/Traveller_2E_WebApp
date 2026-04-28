@@ -915,7 +915,7 @@
           "effects": [
             {
               "type": "roll_life_event_subtable",
-              "subtable": "unusual-events"
+              "tableId": "unusual-events"
             }
           ],
           "text": "You encounter something unusual. Go to the Life Events table and have an Unusual Event."
@@ -1224,7 +1224,7 @@
           "effects": [
             {
               "type": "roll_life_event_subtable",
-              "subtable": "unusual-events"
+              "tableId": "unusual-events"
             }
           ],
           "text": "As an artist, you lead a strange and charmed life. Go to the Life Events Table and have an Unusual Event."
