@@ -6,8 +6,7 @@ import careersData from '~/data/traveller2e/core/careers-summary.json'
 import creationRulesData from '~/data/traveller2e/core/character-creation-rules.json'
 import agingData from '~/data/traveller2e/core/aging-and-injuries.json'
 import careerTablesData from '~/data/traveller2e/core/career-tables.json'
-import preCareerEventsData from '~/data/traveller2e/core/pre-career-events.json'
-import careerEventsData from '~/data/traveller2e/core/career-events-mishaps.json'
+import { getCareerEvent, getCareerMishap, getEducationEvent, getEventFromTable, type TravellerEvent, type TravellerEventEffect } from '~/utils/traveller/events'
 
 type CharacteristicId = 'str' | 'dex' | 'end' | 'int' | 'edu' | 'soc'
 type StatRoll = {
@@ -57,6 +56,64 @@ type TermHistoryEntry = {
   rolls: RollResult[]
 }
 type CreatorTab = 'creation' | `term-${number}`
+type EventResolutionKind = 'manual' | 'skill_choice' | 'table_roll'
+type PendingEventResolution = {
+  id: string
+  kind: EventResolutionKind
+  label: string
+  source: string
+  effect: TravellerEventEffect
+  options?: string[]
+  tableId?: string
+  diceCount?: 1 | 2
+  level?: number
+  increase?: boolean
+  resolved?: boolean
+  selected?: string
+}
+type TravellerAssociate = {
+  id: string
+  source: string
+  label: string
+  associateTypes: string[]
+  count?: number | string
+  tags?: string[]
+  resolved?: boolean
+}
+type TravellerRollModifier = {
+  id: string
+  source: string
+  label: string
+  target: 'advancement' | 'qualification' | 'benefit' | 'survival' | 'career' | 'any'
+  dm: number
+  scope: 'next' | 'one' | 'career' | 'term' | 'any'
+  used?: boolean
+}
+type BenefitRollAdjustment = {
+  id: string
+  source: string
+  label: string
+  adjustment: number
+  dm?: number
+  scope: 'current-term' | 'career' | 'one-roll' | 'any'
+}
+type CareerConstraint = {
+  id: string
+  source: string
+  label: string
+  careerId?: string
+  assignmentId?: string
+  forcedOut?: boolean
+  draftNextTerm?: boolean
+}
+type EventOutcomeLogEntry = {
+  id: string
+  source: string
+  label: string
+  effectType: string
+  normalizedType?: string
+  status: 'automatic' | 'pending' | 'manual'
+}
 
 
 export const useCharacterCreatorStore = defineStore('characterCreator', () => {
@@ -115,8 +172,13 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
   const careerEventExpanded = ref(false)
   const careerMishapExpanded = ref(false)
   const careerSkillResult = ref<string | null>(null)
-  const careerEventResolutionNotes = ref<string[]>([])
-  const pendingCareerEventSkillChoice = ref<{ label: string; source: string; options: string[]; level?: number; increase?: boolean } | null>(null)
+  const activeEvent = ref<TravellerEvent | null>(null)
+  const pendingEventResolutions = ref<PendingEventResolution[]>([])
+  const eventOutcomeLog = ref<EventOutcomeLogEntry[]>([])
+  const associates = ref<TravellerAssociate[]>([])
+  const rollModifiers = ref<TravellerRollModifier[]>([])
+  const benefitRollAdjustments = ref<BenefitRollAdjustment[]>([])
+  const careerConstraints = ref<CareerConstraint[]>([])
   const pendingSkillChoice = ref<{ label: string; source: string; options: string[]; level?: number; increase?: boolean } | null>(null)
   const termRolls = reactive<Record<string, RollResult | null>>({
     educationEntry: null,
@@ -291,7 +353,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
   const preCareerEvent = computed(() => {
     const roll = termRolls.educationEvent
     if (!roll) return null
-    return preCareerEventsData.events.find((event) => event.roll === roll.total) ?? null
+    return getEducationEvent(roll.total)
   })
   const militaryAcademyCareerId = computed(() => selectedEducationVariant.value === 'marine' ? 'marine' : selectedEducationVariant.value === 'navy' ? 'navy' : 'army')
   const militaryAcademyServiceSkills = computed(() => {
@@ -306,31 +368,15 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
   const currentCareerTableData = computed(() => {
     return (careerTablesData.careers as Record<string, any>)[selectedCareerId.value] ?? null
   })
-  const currentCareerEventData = computed(() => {
-    return (careerEventsData.careers as Record<string, any>)[selectedCareerId.value] ?? null
-  })
-  const resolveCareerTableRow = (row: Record<string, any>) => {
-    if (!row.ref) return row
-
-    const [scope, key] = row.ref.split('.')
-    if (scope !== 'common') return row
-
-    return {
-      ...((careerEventsData.common as Record<string, any>)[key] ?? {}),
-      roll: row.roll,
-    }
-  }
   const careerEvent = computed(() => {
     const roll = termRolls.careerEvent
     if (!roll) return null
-    const row = currentCareerEventData.value?.events?.find((item: Record<string, any>) => item.roll === roll.total)
-    return row ? resolveCareerTableRow(row) : null
+    return getCareerEvent(selectedCareerId.value, roll.total)
   })
   const careerMishap = computed(() => {
     const roll = termRolls.careerMishap
     if (!roll) return null
-    const row = currentCareerEventData.value?.mishaps?.find((item: Record<string, any>) => item.roll === roll.total)
-    return row ? resolveCareerTableRow(row) : null
+    return getCareerMishap(selectedCareerId.value, roll.total)
   })
   const currentCareerSkillTables = computed<Record<string, any>>(() => currentCareerTableData.value?.skillTables ?? {})
   const tableEntries = (table: string[] | { entries?: string[] }) => Array.isArray(table) ? table : table.entries ?? []
@@ -746,27 +792,244 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     }
   }
 
-  const applyPreCareerEvent = (event: { name: string; effects?: Array<Record<string, any>> }) => {
-    for (const effect of event.effects ?? []) {
-      if (effect.type === 'set_skill' && effect.skillId && typeof effect.level === 'number') {
-        setSkillMinimum(skillName(effect.skillId), effect.level, `Pre-Career Event: ${event.name}`)
-      }
+  const resetEventResolutionState = (event: TravellerEvent | null) => {
+    activeEvent.value = event
+    pendingEventResolutions.value = []
+  }
 
-      if (effect.type === 'characteristic_increase' && effect.characteristic && typeof effect.amount === 'number') {
-        const characteristicId = effect.characteristic as CharacteristicId
-        characteristicAdjustments[characteristicId] += effect.amount
-        applyAssignedScores()
+  const addPendingEventResolution = (resolution: Omit<PendingEventResolution, 'id'>) => {
+    const id = `${resolution.source}-${resolution.kind}-${pendingEventResolutions.value.length}`
+    pendingEventResolutions.value = [
+      ...pendingEventResolutions.value,
+      {
+        id,
+        ...resolution,
+      },
+    ]
+    return id
+  }
+
+  const makeEventOutcomeId = (prefix = 'event-outcome') => `${prefix}-${Date.now()}-${eventOutcomeLog.value.length}`
+
+  const recordEventOutcome = (
+    source: string,
+    effect: TravellerEventEffect,
+    label = tableEffectLabel(effect),
+    status: EventOutcomeLogEntry['status'] = 'automatic',
+  ) => {
+    const entry = {
+      id: makeEventOutcomeId(),
+      source,
+      label,
+      effectType: effect.type,
+      normalizedType: effect.normalizedType,
+      status,
+    }
+
+    eventOutcomeLog.value = [entry, ...eventOutcomeLog.value].slice(0, 24)
+    return entry.id
+  }
+
+  const rollModifierTarget = (effect: TravellerEventEffect): TravellerRollModifier['target'] => {
+    if (effect.type.includes('advancement')) return 'advancement'
+    if (effect.type.includes('qualification')) return 'qualification'
+    if (effect.type.includes('benefit')) return 'benefit'
+    if (effect.type.includes('survival')) return 'survival'
+    return 'any'
+  }
+
+  const rollModifierScope = (effect: TravellerEventEffect): TravellerRollModifier['scope'] => {
+    if (effect.type.startsWith('next_')) return 'next'
+    if (effect.type.startsWith('one_')) return 'one'
+    if (effect.type.includes('career')) return 'career'
+    return 'any'
+  }
+
+  const addManualEventResolution = (effect: TravellerEventEffect, source: string, label = tableEffectLabel(effect)) => {
+    addPendingEventResolution({
+      kind: 'manual',
+      label,
+      source,
+      effect,
+    })
+    recordEventOutcome(source, effect, label, 'pending')
+  }
+
+  const tableRollDiceCount = (tableId: string): 1 | 2 => {
+    if (tableId === 'life-events') return 2
+    if (tableId === 'events') return 2
+    return 1
+  }
+
+  const addTableRollResolution = (effect: TravellerEventEffect, source: string, tableId: string, label = tableEffectLabel(effect)) => {
+    addPendingEventResolution({
+      kind: 'table_roll',
+      label,
+      source,
+      effect,
+      tableId,
+      diceCount: tableRollDiceCount(tableId),
+    })
+    recordEventOutcome(source, effect, label, 'pending')
+  }
+
+  const applyEventEffect = (effect: TravellerEventEffect, event: TravellerEvent, sourcePrefix = 'Event') => {
+    const source = `${sourcePrefix}: ${event.name}`
+    const normalizedType = effect.normalizedType ?? effect.type
+
+    if (effect.type === 'set_skill' && effect.skillId && typeof effect.level === 'number') {
+      setSkillMinimum(String(effect.skillId), effect.level, source)
+      recordEventOutcome(source, effect)
+      return
+    }
+
+    if (effect.type === 'increase_skill' && effect.skillId) {
+      const amount = typeof effect.amount === 'number' ? effect.amount : 1
+      for (let count = 0; count < amount; count += 1) increaseSkill(String(effect.skillId), source)
+      recordEventOutcome(source, effect)
+      return
+    }
+
+    if ((effect.type === 'characteristic_change' || effect.type === 'characteristic_increase') && effect.characteristic && typeof effect.amount === 'number') {
+      const characteristicId = effect.characteristic as CharacteristicId
+      characteristicAdjustments[characteristicId] += effect.amount
+      applyAssignedScores()
+      recordEventOutcome(source, effect)
+      return
+    }
+
+    if ((effect.type === 'choose_skill_set' || effect.type === 'choose_skill_increase') && Array.isArray(effect.skills) && effect.skills.length) {
+      const label = tableEffectLabel(effect)
+      addPendingEventResolution({
+        kind: 'skill_choice',
+        label,
+        source,
+        effect,
+        options: effect.skills.map(String),
+        level: effect.type === 'choose_skill_set' ? (typeof effect.level === 'number' ? effect.level : 1) : undefined,
+        increase: effect.type === 'choose_skill_increase',
+      })
+      recordEventOutcome(source, effect, label, 'pending')
+      return
+    }
+
+    if (effect.type === 'education_graduation') {
+      recordEventOutcome(source, effect)
+      return
+    }
+
+    if (normalizedType === 'roll_modifier' && typeof effect.dm === 'number') {
+      const label = tableEffectLabel(effect)
+      rollModifiers.value = [
+        ...rollModifiers.value,
+        {
+          id: makeEventOutcomeId('roll-modifier'),
+          source,
+          label,
+          target: rollModifierTarget(effect),
+          dm: effect.dm,
+          scope: rollModifierScope(effect),
+        },
+      ]
+      recordEventOutcome(source, effect, label)
+      return
+    }
+
+    if (normalizedType === 'associate_gain') {
+      const label = tableEffectLabel(effect)
+      associates.value = [
+        ...associates.value,
+        {
+          id: makeEventOutcomeId('associate'),
+          source,
+          label,
+          associateTypes: Array.isArray(effect.associateTypes) ? effect.associateTypes.map(String) : ['associate'],
+          count: typeof effect.count === 'number' || typeof effect.count === 'string' ? effect.count : 1,
+          tags: Array.isArray(effect.tags) ? effect.tags.map(String) : undefined,
+        },
+      ]
+      addManualEventResolution(effect, source, label)
+      return
+    }
+
+    if (normalizedType === 'benefit_roll_change') {
+      const label = tableEffectLabel(effect)
+      const amount = typeof effect.count === 'number' ? effect.count : 1
+      const adjustment = effect.type.includes('lose') ? -amount : amount
+      benefitRollAdjustments.value = [
+        ...benefitRollAdjustments.value,
+        {
+          id: makeEventOutcomeId('benefit-adjustment'),
+          source,
+          label,
+          adjustment,
+          dm: typeof effect.dm === 'number' ? effect.dm : undefined,
+          scope: effect.type.includes('current_term') || effect.type.includes('current-term') ? 'current-term' : 'any',
+        },
+      ]
+
+      if (effect.resolution === 'manual') addManualEventResolution(effect, source, label)
+      else recordEventOutcome(source, effect, label)
+      return
+    }
+
+    if (normalizedType === 'table_roll' || normalizedType === 'injury') {
+      const tableId = typeof effect.tableId === 'string'
+        ? effect.tableId
+        : effect.type === 'injury'
+          ? 'injury'
+          : ''
+      if (tableId) {
+        addTableRollResolution(effect, source, tableId)
+        return
       }
+    }
+
+    if (normalizedType === 'forced_out' || normalizedType === 'career_transition' || normalizedType === 'career_permission') {
+      const label = tableEffectLabel(effect)
+      careerConstraints.value = [
+        ...careerConstraints.value,
+        {
+          id: makeEventOutcomeId('career-constraint'),
+          source,
+          label,
+          careerId: typeof effect.careerId === 'string' ? effect.careerId : undefined,
+          assignmentId: typeof effect.assignmentId === 'string' ? effect.assignmentId : undefined,
+          forcedOut: effect.type === 'forced_out' ? true : effect.type === 'not_forced_out' ? false : undefined,
+          draftNextTerm: effect.type === 'draft_next_term',
+        },
+      ]
+
+      if (effect.resolution === 'manual' || effect.resolution === 'table') addManualEventResolution(effect, source, label)
+      else recordEventOutcome(source, effect, label)
+      return
+    }
+
+    const label = effect.type === 'choose_skill' || effect.type === 'increase_existing_skill' || effect.type === 'increase_any_existing_skill'
+      ? `${tableEffectLabel(effect)} manually.`
+      : tableEffectLabel(effect)
+
+    addManualEventResolution(effect, source, label)
+  }
+
+  const applyTravellerEventEffects = (event: TravellerEvent, sourcePrefix: string) => {
+    resetEventResolutionState(event)
+    for (const effect of event.effects) {
+      applyEventEffect(effect, event, sourcePrefix)
     }
   }
 
-  const eventForcesGraduationFailure = (event: { effects?: Array<Record<string, any>> }) => {
+  const applyPreCareerEvent = (event: TravellerEvent) => {
+    applyTravellerEventEffects(event, 'Pre-Career Event')
+  }
+
+  const eventForcesGraduationFailure = (event: { effects?: Array<Record<string, any>> | TravellerEventEffect[] }) => {
     return (event.effects ?? []).some((effect) => effect.type === 'education_graduation' && effect.result === 'fail')
   }
 
   const makePreCareerEventRoll = (dice: number[], source: 'rolled' | 'manual') => {
     const total = dice.reduce((sum, value) => sum + value, 0)
-    const event = preCareerEventsData.events.find((item) => item.roll === total)
+    const event = getEducationEvent(total)
     if (!event) return
 
     termRolls.educationEvent = {
@@ -896,84 +1159,98 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     makeCareerSkillRoll(manualTotal, 'manual')
   }
 
-  const noteCareerEventEffect = (note: string) => {
-    if (!careerEventResolutionNotes.value.includes(note)) {
-      careerEventResolutionNotes.value = [...careerEventResolutionNotes.value, note]
+  const applyCareerTableEffects = (event: TravellerEvent, sourcePrefix: string) => {
+    applyTravellerEventEffects(event, sourcePrefix)
+  }
+
+  const resolveEventTableRoll = (resolution: PendingEventResolution, total: number, source: 'rolled' | 'manual') => {
+    if (!resolution.tableId || resolution.resolved) return
+
+    const nestedEvent = getEventFromTable(resolution.tableId, total, selectedCareerId.value)
+    if (!nestedEvent) return
+
+    pendingEventResolutions.value = pendingEventResolutions.value.map((item) => {
+      if (item.id !== resolution.id) return item
+      return {
+        ...item,
+        resolved: true,
+        selected: `${nestedEvent.name} (${source})`,
+      }
+    })
+    recordEventOutcome(resolution.source, resolution.effect, `${resolution.label}: ${nestedEvent.name}`, 'manual')
+
+    for (const effect of nestedEvent.effects) {
+      applyEventEffect(effect, nestedEvent, nestedEvent.name)
     }
   }
 
-  const applyCareerTableEffects = (row: { name: string; effects?: Array<Record<string, any>> }, sourcePrefix: string) => {
-    careerEventResolutionNotes.value = []
-    pendingCareerEventSkillChoice.value = null
-    const source = `${sourcePrefix}: ${row.name}`
+  const rollEventResolutionTable = (resolutionId: string) => {
+    const resolution = pendingEventResolutions.value.find((item) => item.id === resolutionId)
+    if (!resolution || resolution.kind !== 'table_roll' || !resolution.tableId) return
 
-    for (const effect of row.effects ?? []) {
-      if (effect.type === 'set_skill' && effect.skillId && typeof effect.level === 'number') {
-        setSkillMinimum(effect.skillId, effect.level, source)
-        continue
-      }
-
-      if (effect.type === 'increase_skill' && effect.skillId) {
-        const amount = typeof effect.amount === 'number' ? effect.amount : 1
-        for (let count = 0; count < amount; count += 1) increaseSkill(effect.skillId, source)
-        continue
-      }
-
-      if (effect.type === 'characteristic_change' && effect.characteristic && typeof effect.amount === 'number') {
-        const characteristicId = effect.characteristic as CharacteristicId
-        characteristicAdjustments[characteristicId] += effect.amount
-        applyAssignedScores()
-        continue
-      }
-
-      if ((effect.type === 'choose_skill_set' || effect.type === 'choose_skill_increase') && effect.skills?.length && !pendingCareerEventSkillChoice.value) {
-        pendingCareerEventSkillChoice.value = {
-          label: tableEffectLabel(effect),
-          source,
-          options: effect.skills,
-          level: effect.type === 'choose_skill_set' ? (effect.level ?? 1) : undefined,
-          increase: effect.type === 'choose_skill_increase',
-        }
-        continue
-      }
-
-      if (effect.type === 'choose_skill' || effect.type === 'increase_existing_skill' || effect.type === 'increase_any_existing_skill') {
-        noteCareerEventEffect(`${tableEffectLabel(effect)} manually.`)
-        continue
-      }
-
-      if (effect.type === 'benefit_roll_dm' || effect.type === 'next_advancement_dm' || effect.type === 'next_qualification_dm') {
-        noteCareerEventEffect(tableEffectLabel(effect))
-        continue
-      }
-
-      if (effect.type === 'gain_associate' || effect.type === 'extra_benefit_roll' || effect.type === 'forced_out' || effect.type === 'roll_mishap' || effect.type === 'roll_table' || effect.type === 'injury' || effect.type === 'choice') {
-        noteCareerEventEffect(tableEffectLabel(effect))
-      }
-    }
+    const total = resolution.diceCount === 2
+      ? Math.ceil(Math.random() * 6) + Math.ceil(Math.random() * 6)
+      : Math.ceil(Math.random() * 6)
+    resolveEventTableRoll(resolution, total, 'rolled')
   }
 
-  const resolvePendingCareerEventSkillChoice = (choice: string) => {
-    const pending = pendingCareerEventSkillChoice.value
-    if (!pending) return
+  const enterManualEventResolutionTable = (resolutionId: string, total: number) => {
+    const resolution = pendingEventResolutions.value.find((item) => item.id === resolutionId)
+    if (!resolution || resolution.kind !== 'table_roll' || !resolution.tableId) return
+    if (Number.isNaN(total)) return
 
-    pendingCareerEventSkillChoice.value = null
-    if (typeof pending.level === 'number') {
-      setSkillMinimum(choice, pending.level, pending.source)
-      return
+    const min = resolution.diceCount === 2 ? 2 : 1
+    const max = resolution.diceCount === 2 ? 12 : 6
+    if (total < min || total > max) return
+
+    resolveEventTableRoll(resolution, total, 'manual')
+  }
+
+  const resolveEventChoice = (resolutionId: string, choice: string) => {
+    const resolution = pendingEventResolutions.value.find((item) => item.id === resolutionId)
+    if (!resolution || resolution.resolved) return
+
+    if (resolution.kind === 'skill_choice') {
+      if (typeof resolution.level === 'number') {
+        setSkillMinimum(choice, resolution.level, resolution.source)
+      } else if (resolution.increase) {
+        increaseSkill(choice, resolution.source)
+      }
     }
 
-    if (pending.increase) {
-      increaseSkill(choice, pending.source)
-    }
+    pendingEventResolutions.value = pendingEventResolutions.value.map((item) => {
+      if (item.id !== resolutionId) return item
+      return {
+        ...item,
+        resolved: true,
+        selected: choice,
+      }
+    })
+
+    recordEventOutcome(resolution.source, resolution.effect, `${resolution.label}: ${skillOptionLabel(choice)}`, 'manual')
+  }
+
+  const resolveManualEventResolution = (resolutionId: string) => {
+    const resolution = pendingEventResolutions.value.find((item) => item.id === resolutionId)
+    if (!resolution || resolution.resolved || resolution.kind !== 'manual') return
+
+    pendingEventResolutions.value = pendingEventResolutions.value.map((item) => {
+      if (item.id !== resolutionId) return item
+      return {
+        ...item,
+        resolved: true,
+        selected: 'Acknowledged',
+      }
+    })
+
+    recordEventOutcome(resolution.source, resolution.effect, resolution.label, 'manual')
   }
 
   const makeCareerEventRoll = (dice: number[], source: 'rolled' | 'manual') => {
     const total = dice.reduce((sum, value) => sum + value, 0)
-    const row = currentCareerEventData.value?.events?.find((item: Record<string, any>) => item.roll === total)
-    if (!row) return
+    const event = getCareerEvent(selectedCareerId.value, total)
+    if (!event) return
 
-    const event = resolveCareerTableRow(row)
     termRolls.careerEvent = {
       label: 'Career Event',
       dice,
@@ -1002,10 +1279,9 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
   }
 
   const makeCareerMishapRoll = (die: number, source: 'rolled' | 'manual') => {
-    const row = currentCareerEventData.value?.mishaps?.find((item: Record<string, any>) => item.roll === die)
-    if (!row) return
+    const mishap = getCareerMishap(selectedCareerId.value, die)
+    if (!mishap) return
 
-    const mishap = resolveCareerTableRow(row)
     termRolls.careerMishap = {
       label: 'Career Mishap',
       dice: [die],
@@ -1045,10 +1321,10 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     educationEventExpanded.value = false
     careerSkillResult.value = null
     pendingSkillChoice.value = null
-    pendingCareerEventSkillChoice.value = null
+    activeEvent.value = null
+    pendingEventResolutions.value = []
     careerEventExpanded.value = false
     careerMishapExpanded.value = false
-    careerEventResolutionNotes.value = []
     basicTrainingApplied.value = false
     pendingBasicTrainingChoices.value = []
   }
@@ -1126,9 +1402,9 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     if (basicTrainingRequired.value && !basicTrainingApplied.value) return false
     if (!termRolls.careerSkill || pendingSkillChoice.value) return false
     if (!termRolls.careerSurvival) return false
-    if (!termRolls.careerSurvival.finalSuccess) return Boolean(termRolls.careerMishap) && !pendingCareerEventSkillChoice.value
+    if (!termRolls.careerSurvival.finalSuccess) return Boolean(termRolls.careerMishap) && !pendingEventResolutions.value.some((resolution) => !resolution.resolved)
     if (!termRolls.careerEvent) return false
-    if (pendingCareerEventSkillChoice.value) return false
+    if (pendingEventResolutions.value.some((resolution) => !resolution.resolved)) return false
     return Boolean(termRolls.careerAdvancement)
   })
   const canAddTermTab = computed(() => {
@@ -1236,6 +1512,15 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
   }
 
   const tableEffectLabel = (effect: Record<string, any>) => {
+    if (effect.type === 'may_test_psi') return 'May test PSI'
+    if (effect.type === 'may_test_psionic_strength') return 'May test PSI'
+    if (effect.type === 'may_enter_career') return `May enter ${effect.careerId ?? 'specified'} career`
+    if (effect.type === 'may_take_career_next_term') return `May enter ${effect.careerId ?? 'specified'} next term`
+    if (effect.type === 'next_career') return `Next career: ${effect.careerId}`
+    if (effect.type === 'draft_assignment') return `Drafted into ${effect.careerId}${effect.assignmentId && effect.assignmentId !== 'any' ? ` - ${effect.assignmentId}` : ''}`
+    if (effect.type === 'roll_subtable') return `Roll on ${effect.tableId}`
+    if (effect.type === 'ignore_draft') return 'Ignore draft'
+    if (effect.type === 'may_attempt_graduation') return 'May attempt graduation'
     if (effect.type === 'roll_mishap') return 'Roll on mishap table'
     if (effect.type === 'roll_table') return `Roll on ${effect.tableId}`
     if (effect.type === 'check') {
@@ -1253,6 +1538,8 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     if (effect.type === 'increase_any_existing_skill') return `Increase any existing skill by ${effect.amount ?? 1}`
     if (effect.type === 'gain_associate') return `Gain ${effect.count ? `${effect.count} ` : ''}${effect.associateTypes?.join(' or ') ?? 'associate'}`
     if (effect.type === 'benefit_roll_dm') return `Benefit roll DM ${formatDm(effect.dm ?? 0)}`
+    if (effect.type === 'one_benefit_roll_dm') return `One benefit roll DM ${formatDm(effect.dm ?? 0)}`
+    if (effect.type === 'lose_benefit_roll') return `Lose ${effect.count ?? 1} benefit roll`
     if (effect.type === 'next_advancement_dm') return `Next advancement DM ${formatDm(effect.dm ?? 0)}`
     if (effect.type === 'next_qualification_dm') return `Next qualification DM ${formatDm(effect.dm ?? 0)}`
     if (effect.type === 'automatic_promotion') return 'Automatic promotion'
@@ -1267,6 +1554,11 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     if (effect.type === 'forced_out') return 'Forced out'
     if (effect.type === 'not_forced_out') return 'Not forced out'
     if (effect.type === 'characteristic_change') return `${effect.characteristic?.toUpperCase() ?? 'Characteristic'} ${effect.amount ?? 0}`
+    if (effect.type === 'injury_characteristic_loss') {
+      if (effect.characteristics) return `Injury: reduce ${effect.characteristics.join(' or ').toUpperCase()} by ${effect.amount}`
+      return `Injury: reduce ${effect.category ?? 'characteristic'} by ${effect.amount}`
+    }
+    if (effect.type === 'gain_item') return `Gain ${String(effect.itemType ?? 'item').replace(/-/g, ' ')}`
 
     return effect.type
   }
@@ -1317,8 +1609,13 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     careerEventExpanded,
     careerMishapExpanded,
     careerSkillResult,
-    careerEventResolutionNotes,
-    pendingCareerEventSkillChoice,
+    activeEvent,
+    pendingEventResolutions,
+    eventOutcomeLog,
+    associates,
+    rollModifiers,
+    benefitRollAdjustments,
+    careerConstraints,
     pendingSkillChoice,
     termRolls,
     manualRollTotals,
@@ -1358,8 +1655,6 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     selectedCareer,
     selectedAssignment,
     currentCareerTableData,
-    currentCareerEventData,
-    resolveCareerTableRow,
     careerEvent,
     careerMishap,
     currentCareerSkillTables,
@@ -1411,9 +1706,13 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     makeCareerSkillRoll,
     rollCareerSkillTable,
     enterManualCareerSkillTable,
-    noteCareerEventEffect,
+    applyEventEffect,
+    applyTravellerEventEffects,
     applyCareerTableEffects,
-    resolvePendingCareerEventSkillChoice,
+    rollEventResolutionTable,
+    enterManualEventResolutionTable,
+    resolveEventChoice,
+    resolveManualEventResolution,
     makeCareerEventRoll,
     rollCareerEvent,
     enterManualCareerEvent,
