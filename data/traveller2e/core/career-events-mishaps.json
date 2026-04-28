@@ -64,17 +64,40 @@
           "name": "Compromise Offer",
           "effects": [
             {
-              "type": "choice"
-            },
-            {
-              "type": "possible_injury"
-            },
-            {
-              "type": "possible_enemy"
-            },
-            {
-              "type": "choose_skill_increase",
-              "amount": 1
+              "type": "choice",
+              "options": [
+                {
+                  "label": "Accept the deal",
+                  "effects": [
+                    {
+                      "type": "lose_benefit_roll",
+                      "count": 1
+                    }
+                  ]
+                },
+                {
+                  "label": "Refuse the deal",
+                  "effects": [
+                    {
+                      "type": "roll_table",
+                      "tableId": "injury",
+                      "rolls": 2,
+                      "take": "lower"
+                    },
+                    {
+                      "type": "gain_associate",
+                      "associateTypes": [
+                        "enemy"
+                      ],
+                      "count": 1
+                    },
+                    {
+                      "type": "choose_skill_increase",
+                      "amount": 1
+                    }
+                  ]
+                }
+              ]
             }
           ],
           "text": "A criminal or other figure under investigation offers you a deal. Accept and you leave this career without further penalty (although you lose the Benefit roll as normal). Refuse and you must roll twice on the Injury table and take the lower result. You gain an Enemy and one level in any skill you choose."
@@ -88,14 +111,18 @@
               "check": {
                 "skill": "advocate",
                 "target": 8
-              }
-            },
-            {
-              "type": "possible_keep_benefit_roll"
-            },
-            {
-              "type": "natural_two_next_career",
-              "careerId": "prisoner"
+              },
+              "success": [
+                {
+                  "type": "keep_current_term_benefit_roll"
+                }
+              ],
+              "naturalTwo": [
+                {
+                  "type": "next_career",
+                  "careerId": "prisoner"
+                }
+              ]
             }
           ],
           "text": "An investigation goes critically wrong or leads to the top, ruining your career. Roll Advocate 8+. If you succeed, you may keep the Benefit roll from this term. If you roll 2, you must take the Prisoner career in your next term."
@@ -153,18 +180,23 @@
                   "skill": "streetwise",
                   "target": 8
                 }
-              ]
-            },
-            {
-              "type": "possible_mishap"
-            },
-            {
-              "type": "choose_skill_increase",
-              "skills": [
-                "deception",
-                "jack-of-all-trades",
-                "persuade",
-                "tactics"
+              ],
+              "success": [
+                {
+                  "type": "choose_skill_increase",
+                  "skills": [
+                    "deception",
+                    "jack-of-all-trades",
+                    "persuade",
+                    "tactics"
+                  ]
+                }
+              ],
+              "failure": [
+                {
+                  "type": "roll_table",
+                  "tableId": "mishaps"
+                }
               ]
             }
           ],
@@ -347,16 +379,35 @@
           "name": "Illegal Command Activity",
           "effects": [
             {
-              "type": "choice"
-            },
-            {
-              "type": "possible_ally"
-            },
-            {
-              "type": "possible_keep_benefit_roll"
-            },
-            {
-              "type": "forced_out"
+              "type": "choice",
+              "options": [
+                {
+                  "label": "Join the illegal ring",
+                  "effects": [
+                    {
+                      "type": "gain_associate",
+                      "associateTypes": [
+                        "ally"
+                      ],
+                      "count": 1
+                    },
+                    {
+                      "type": "forced_out"
+                    }
+                  ]
+                },
+                {
+                  "label": "Co-operate with military police",
+                  "effects": [
+                    {
+                      "type": "keep_current_term_benefit_roll"
+                    },
+                    {
+                      "type": "forced_out"
+                    }
+                  ]
+                }
+              ]
             }
           ],
           "text": "You discover that your commanding officer is engaged in some illegal activity, such as weapon smuggling. You can join their ring and gain them as an Ally before the inevitable investigation gets you discharged or you can co-operate with the military police - the official whitewash gets you discharged anyway but you may keep your Benefit roll from this term of service."
@@ -442,18 +493,23 @@
               "check": {
                 "characteristic": "edu",
                 "target": 8
-              }
-            },
-            {
-              "type": "possible_injury"
-            },
-            {
-              "type": "choose_skill_increase",
-              "skills": [
-                "gun-combat",
-                "leadership"
+              },
+              "success": [
+                {
+                  "type": "choose_skill_increase",
+                  "skills": [
+                    "gun-combat",
+                    "leadership"
+                  ],
+                  "amount": 1
+                }
               ],
-              "amount": 1
+              "failure": [
+                {
+                  "type": "roll_table",
+                  "tableId": "injury"
+                }
+              ]
             }
           ],
           "text": "You are thrown into a brutal ground war. Roll EDU 8+ to avoid injury; if you succeed, you gain one level in Gun Combat or Leadership."
@@ -585,14 +641,30 @@
           "name": "Official Investigation",
           "effects": [
             {
-              "type": "choice"
-            },
-            {
-              "type": "next_qualification_dm",
-              "dm": 2
-            },
-            {
-              "type": "possible_ally"
+              "type": "choice",
+              "options": [
+                {
+                  "label": "Co-operate",
+                  "effects": [
+                    {
+                      "type": "next_qualification_dm",
+                      "dm": 2
+                    }
+                  ]
+                },
+                {
+                  "label": "Refuse",
+                  "effects": [
+                    {
+                      "type": "gain_associate",
+                      "associateTypes": [
+                        "ally"
+                      ],
+                      "count": 1
+                    }
+                  ]
+                }
+              ]
             }
           ],
           "text": "Your business is investigated by the planetary authorities (or your colony suffers interference from interests offworld). Co-operate and the business or colony is shut down but you gain DM+2 to the qualification roll for your next career as a reward for your aid. Refuse and gain an Ally."
@@ -630,26 +702,125 @@
           "name": "Political Upheaval",
           "effects": [
             {
-              "type": "choose_skill_set",
-              "skills": [
-                "advocate",
-                "persuade",
-                "explosives",
-                "streetwise"
-              ],
-              "level": 1
-            },
-            {
-              "type": "check_chosen_skill",
-              "target": 8
-            },
-            {
-              "type": "possible_next_advancement_dm",
-              "dm": 2
-            },
-            {
-              "type": "possible_next_survival_dm",
-              "dm": -2
+              "type": "choice",
+              "options": [
+                {
+                  "label": "Advocate 1, then roll Advocate 8+",
+                  "effects": [
+                    {
+                      "type": "set_skill",
+                      "skillId": "advocate",
+                      "level": 1
+                    },
+                    {
+                      "type": "check",
+                      "check": {
+                        "skill": "advocate",
+                        "target": 8
+                      },
+                      "success": [
+                        {
+                          "type": "next_advancement_dm",
+                          "dm": 2
+                        }
+                      ],
+                      "failure": [
+                        {
+                          "type": "next_survival_dm",
+                          "dm": -2
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "label": "Persuade 1, then roll Persuade 8+",
+                  "effects": [
+                    {
+                      "type": "set_skill",
+                      "skillId": "persuade",
+                      "level": 1
+                    },
+                    {
+                      "type": "check",
+                      "check": {
+                        "skill": "persuade",
+                        "target": 8
+                      },
+                      "success": [
+                        {
+                          "type": "next_advancement_dm",
+                          "dm": 2
+                        }
+                      ],
+                      "failure": [
+                        {
+                          "type": "next_survival_dm",
+                          "dm": -2
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "label": "Explosives 1, then roll Explosives 8+",
+                  "effects": [
+                    {
+                      "type": "set_skill",
+                      "skillId": "explosives",
+                      "level": 1
+                    },
+                    {
+                      "type": "check",
+                      "check": {
+                        "skill": "explosives",
+                        "target": 8
+                      },
+                      "success": [
+                        {
+                          "type": "next_advancement_dm",
+                          "dm": 2
+                        }
+                      ],
+                      "failure": [
+                        {
+                          "type": "next_survival_dm",
+                          "dm": -2
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "label": "Streetwise 1, then roll Streetwise 8+",
+                  "effects": [
+                    {
+                      "type": "set_skill",
+                      "skillId": "streetwise",
+                      "level": 1
+                    },
+                    {
+                      "type": "check",
+                      "check": {
+                        "skill": "streetwise",
+                        "target": 8
+                      },
+                      "success": [
+                        {
+                          "type": "next_advancement_dm",
+                          "dm": 2
+                        }
+                      ],
+                      "failure": [
+                        {
+                          "type": "next_survival_dm",
+                          "dm": -2
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
             }
           ],
           "text": "Political upheaval strikes your homeworld and you are caught up in the revolution. Gain either Advocate 1, Persuade 1, Explosives 1 or Streetwise 1. Roll whichever skill you chose 8+. If you succeed you come out on the winning side and gain DM+2 to your next advancement roll. Fail and you suffer DM-2 to your next Survival roll."
@@ -710,17 +881,28 @@
           "name": "Profitable Secret",
           "effects": [
             {
-              "type": "choice"
-            },
-            {
-              "type": "benefit_roll_dm",
-              "dm": 1
-            },
-            {
-              "type": "choose_skill_or_contact",
-              "skills": [
-                "streetwise",
-                "deception"
+              "type": "choice",
+              "options": [
+                {
+                  "label": "Profit from the secret",
+                  "effects": [
+                    {
+                      "type": "benefit_roll_dm",
+                      "dm": 1
+                    },
+                    {
+                      "type": "choose_skill_or_contact",
+                      "skills": [
+                        "streetwise",
+                        "deception"
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "label": "Refuse",
+                  "effects": []
+                }
               ]
             }
           ],
@@ -842,8 +1024,16 @@
               ]
             },
             {
-              "type": "possible_next_career",
-              "careerId": "prisoner"
+              "type": "check",
+              "check": {
+                "target": 3
+              },
+              "failure": [
+                {
+                  "type": "next_career",
+                  "careerId": "prisoner"
+                }
+              ]
             }
           ],
           "text": "Betrayed by a friend. One of your Contacts or Allies betrays you, ending your career. That Contact or Ally becomes a Rival or Enemy. If you have no Contacts or Allies, then you are betrayed by someone you never saw coming and still gain a Rival or Enemy. In addition, roll 2D. If you roll 2, you must take the Prisoner career in your next term."
@@ -869,14 +1059,25 @@
           "name": "Patron Job",
           "effects": [
             {
-              "type": "choice"
-            },
-            {
-              "type": "next_qualification_dm",
-              "dm": 4
-            },
-            {
-              "type": "debt_favour"
+              "type": "choice",
+              "options": [
+                {
+                  "label": "Accept the patron job",
+                  "effects": [
+                    {
+                      "type": "next_qualification_dm",
+                      "dm": 4
+                    },
+                    {
+                      "type": "debt_favour"
+                    }
+                  ]
+                },
+                {
+                  "label": "Refuse",
+                  "effects": []
+                }
+              ]
             }
           ],
           "text": "A patron offers you a chance at a job. If you accept, you gain DM+4 to your next qualification roll but you owe that patron a favour."
@@ -949,10 +1150,13 @@
                   "skill": "stealth",
                   "target": 8
                 }
+              ],
+              "failure": [
+                {
+                  "type": "roll_table",
+                  "tableId": "injury"
+                }
               ]
-            },
-            {
-              "type": "possible_injury"
             }
           ],
           "text": "You are attacked by enemies. Gain an Enemy if you do not have one already and roll either Melee 8+, Gun Combat 8+ or Stealth 8+ to avoid a roll on the Injury table."
@@ -1096,10 +1300,21 @@
                   "skill": "investigate",
                   "target": 8
                 }
+              ],
+              "success": [
+                {
+                  "type": "characteristic_change",
+                  "characteristic": "soc",
+                  "amount": 1
+                }
+              ],
+              "failure": [
+                {
+                  "type": "characteristic_change",
+                  "characteristic": "soc",
+                  "amount": -1
+                }
               ]
-            },
-            {
-              "type": "possible_soc_change"
             }
           ],
           "text": "You are invited to take part in a controversial event or exhibition. Roll Art or Investigate 8+. If you succeed, gain one SOC. If you fail, lose one SOC."
@@ -1156,33 +1371,53 @@
           "name": "Political Critique",
           "effects": [
             {
-              "type": "choice"
-            },
-            {
-              "type": "gain_associate",
-              "associateTypes": [
-                "enemy"
-              ]
-            },
-            {
-              "type": "check_any",
-              "checks": [
+              "type": "choice",
+              "options": [
                 {
-                  "skill": "art",
-                  "target": 8
+                  "label": "Refuse and support the leader",
+                  "effects": []
                 },
                 {
-                  "skill": "persuade",
-                  "target": 8
+                  "label": "Criticise the leader",
+                  "effects": [
+                    {
+                      "type": "gain_associate",
+                      "associateTypes": [
+                        "enemy"
+                      ]
+                    },
+                    {
+                      "type": "check_any",
+                      "checks": [
+                        {
+                          "skill": "art",
+                          "target": 8
+                        },
+                        {
+                          "skill": "persuade",
+                          "target": 8
+                        }
+                      ],
+                      "success": [
+                        {
+                          "type": "increase_existing_skill",
+                          "amount": 1
+                        }
+                      ],
+                      "failure": [
+                        {
+                          "type": "increase_existing_skill",
+                          "amount": 1
+                        },
+                        {
+                          "type": "roll_table",
+                          "tableId": "mishaps"
+                        }
+                      ]
+                    }
+                  ]
                 }
               ]
-            },
-            {
-              "type": "increase_existing_skill",
-              "amount": 1
-            },
-            {
-              "type": "possible_mishap"
             }
           ],
           "text": "You have the opportunity to criticise or even bring down a questionable political leader on your homeworld. If you refuse and support the leader, you gain nothing. If you accept, gain an Enemy and roll Art or Persuade 8+. If you succeed, gain one level in any skill you already have. If you fail, increase a skill anyway and roll on the Mishap table."
@@ -1294,13 +1529,31 @@
           "name": "Black Ops Conscience",
           "effects": [
             {
-              "type": "choice"
-            },
-            {
-              "type": "possible_enemy"
-            },
-            {
-              "type": "possible_forced_out"
+              "type": "choice",
+              "options": [
+                {
+                  "label": "Refuse the mission",
+                  "effects": [
+                    {
+                      "type": "forced_out"
+                    }
+                  ]
+                },
+                {
+                  "label": "Accept the mission",
+                  "effects": [
+                    {
+                      "type": "not_forced_out"
+                    },
+                    {
+                      "type": "gain_associate",
+                      "associateTypes": [
+                        "enemy"
+                      ]
+                    }
+                  ]
+                }
+              ]
             }
           ],
           "text": "You are ordered to take part in a black ops mission that goes against your conscience. If you refuse you are ejected from the service. If you accept you may stay with the marines but gain the lone survivor as an Enemy."
@@ -1396,18 +1649,28 @@
                   "skill": "gun-combat",
                   "target": 8
                 }
+              ],
+              "success": [
+                {
+                  "type": "choose_skill_set",
+                  "skills": [
+                    "tactics/military",
+                    "leadership"
+                  ]
+                }
+              ],
+              "failure": [
+                {
+                  "type": "roll_table",
+                  "tableId": "injury"
+                },
+                {
+                  "type": "injury_characteristic_loss",
+                  "category": "physical",
+                  "count": 1,
+                  "amount": -1
+                }
               ]
-            },
-            {
-              "type": "choose_skill_set",
-              "skills": [
-                "tactics/military",
-                "leadership"
-              ]
-            },
-            {
-              "type": "possible_physical_characteristic_loss",
-              "amount": -1
             }
           ],
           "text": "You are assigned to an assault on an enemy fortress. Roll Melee or Gun Combat 8+ and gain Tactics (military) or Leadership if you succeed. If you fail, you are injured and lose 1 point from any physical characteristic."
@@ -1438,17 +1701,35 @@
           "name": "Commander Error",
           "effects": [
             {
-              "type": "choice"
-            },
-            {
-              "type": "next_advancement_dm",
-              "dm": 2
-            },
-            {
-              "type": "possible_enemy"
-            },
-            {
-              "type": "possible_ally"
+              "type": "choice",
+              "options": [
+                {
+                  "label": "Report the commanding officer",
+                  "effects": [
+                    {
+                      "type": "next_advancement_dm",
+                      "dm": 2
+                    },
+                    {
+                      "type": "gain_associate",
+                      "associateTypes": [
+                        "enemy"
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "label": "Protect the commanding officer",
+                  "effects": [
+                    {
+                      "type": "gain_associate",
+                      "associateTypes": [
+                        "ally"
+                      ]
+                    }
+                  ]
+                }
+              ]
             }
           ],
           "text": "A mission goes disastrously wrong due to your commander’s error or incompetence but you survive. If you report your commanding officer for their failure then you gain DM+2 to your next advancement roll and gain the officer as an Enemy. If you say nothing and protect them, gain them as an Ally."
@@ -1588,31 +1869,48 @@
           "name": "Smuggling Offer",
           "effects": [
             {
-              "type": "choice"
-            },
-            {
-              "type": "check_any",
-              "checks": [
+              "type": "choice",
+              "options": [
                 {
-                  "skill": "deception",
-                  "target": 8
+                  "label": "Accept the smuggling offer",
+                  "effects": [
+                    {
+                      "type": "check_any",
+                      "checks": [
+                        {
+                          "skill": "deception",
+                          "target": 8
+                        },
+                        {
+                          "skill": "persuade",
+                          "target": 8
+                        }
+                      ],
+                      "success": [
+                        {
+                          "type": "set_skill",
+                          "skillId": "streetwise",
+                          "level": 1
+                        },
+                        {
+                          "type": "extra_benefit_roll"
+                        }
+                      ]
+                    }
+                  ]
                 },
                 {
-                  "skill": "persuade",
-                  "target": 8
+                  "label": "Refuse",
+                  "effects": [
+                    {
+                      "type": "gain_associate",
+                      "associateTypes": [
+                        "enemy"
+                      ]
+                    }
+                  ]
                 }
               ]
-            },
-            {
-              "type": "set_skill",
-              "skillId": "streetwise",
-              "level": 1
-            },
-            {
-              "type": "extra_benefit_roll"
-            },
-            {
-              "type": "possible_enemy"
             }
           ],
           "text": "You are offered the opportunity to smuggle illegal items onto a planet. If you accept, roll Deception 8+ or Persuade 8+ to gain Streetwise 1 and an extra Benefit roll. If you refuse, you gain an Enemy in the criminal sphere."
@@ -1640,10 +1938,7 @@
           "name": "Risky Deal",
           "effects": [
             {
-              "type": "wager_benefit_rolls"
-            },
-            {
-              "type": "check_any",
+              "type": "wager_benefit_rolls",
               "checks": [
                 {
                   "skill": "gambler",
@@ -1653,7 +1948,8 @@
                   "skill": "broker",
                   "target": 8
                 }
-              ]
+              ],
+              "increaseUsedSkill": true
             }
           ],
           "text": "You have a chance to risk your fortune on a possibility lucrative deal. You may gamble a number of Benefit rolls and roll Gambler 8+ or Broker 8+. If you succeed, you gain half as many Benefit rolls as you risked, rounding up. If you fail, you lose all the rolls risked. Either way, gain one level in whichever skill you used."
@@ -1690,8 +1986,16 @@
               "level": 1
             },
             {
-              "type": "possible_next_career",
-              "careerId": "prisoner"
+              "type": "check",
+              "check": {
+                "target": 3
+              },
+              "failure": [
+                {
+                  "type": "next_career",
+                  "careerId": "prisoner"
+                }
+              ]
             }
           ],
           "text": "You are embroiled in legal trouble. Gain one of Advocate 1, Admin 1, Diplomat 1 or Investigate 1, then roll 2D. If you roll 2, you must take the Prisoner career in your next term."
@@ -1794,13 +2098,17 @@
           "name": "Battle Responsibility",
           "effects": [
             {
-              "type": "assignment_skill_check"
-            },
-            {
-              "type": "possible_forced_out"
-            },
-            {
-              "type": "possible_keep_benefit_roll"
+              "type": "assignment_skill_check",
+              "success": [
+                {
+                  "type": "keep_current_term_benefit_roll"
+                }
+              ],
+              "failure": [
+                {
+                  "type": "forced_out"
+                }
+              ]
             }
           ],
           "text": "During a battle, defeat or victory depends on your actions. You must make an 8+ roll using a skill that depends on your branch: Electronics (sensors) or Gunner if you are crew, Mechanic or Vacc Suit if you are engineer/gunner and Pilot (small craft or spacecraft) or Tactics (naval) if you are flight. If you fail, the ship suffers severe damage and you are blamed for the disaster. You are court-martialled and discharged. If you succeed, your efforts ensure that you are honourably discharged. You still leave the career but may keep your Benefit roll from this term."
@@ -1810,16 +2118,37 @@
           "name": "Blamed for Accident",
           "effects": [
             {
-              "type": "choice"
-            },
-            {
-              "type": "free_skill_table_roll"
-            },
-            {
-              "type": "possible_enemy"
-            },
-            {
-              "type": "possible_keep_benefit_roll"
+              "type": "choice",
+              "options": [
+                {
+                  "label": "You were responsible",
+                  "effects": [
+                    {
+                      "type": "free_skill_table_roll"
+                    },
+                    {
+                      "type": "forced_out"
+                    }
+                  ]
+                },
+                {
+                  "label": "You were not responsible",
+                  "effects": [
+                    {
+                      "type": "gain_associate",
+                      "associateTypes": [
+                        "enemy"
+                      ]
+                    },
+                    {
+                      "type": "keep_current_term_benefit_roll"
+                    },
+                    {
+                      "type": "forced_out"
+                    }
+                  ]
+                }
+              ]
             }
           ],
           "text": "You are blamed for an accident that causes the death of several crew members. If you were responsible, then you gain one free roll on the Skills and Training tables before you are ejected from this career as your guilt drives you to excel. If you were not, then gain the officer who blamed you as an Enemy but you keep your Benefit roll from this term."
@@ -1863,14 +2192,36 @@
               "level": 1
             },
             {
-              "type": "optional_check",
-              "check": {
-                "skill": "gambler",
-                "target": 8
-              }
-            },
-            {
-              "type": "possible_benefit_roll_change"
+              "type": "choice",
+              "options": [
+                {
+                  "label": "Throw Gambler 8+",
+                  "effects": [
+                    {
+                      "type": "check",
+                      "check": {
+                        "skill": "gambler",
+                        "target": 8
+                      },
+                      "success": [
+                        {
+                          "type": "extra_benefit_roll"
+                        }
+                      ],
+                      "failure": [
+                        {
+                          "type": "lose_benefit_roll",
+                          "count": 1
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "label": "Do not gamble",
+                  "effects": []
+                }
+              ]
             }
           ],
           "text": "You join a gambling circle on board. Gain Gambler 1 or Deception 1. If you wish, throw Gambler 8+. If you succeed, gain an extra Benefit roll from this career; if you fail, you lose one Benefit roll from this career."
@@ -1963,14 +2314,26 @@
           "name": "Abuse Position",
           "effects": [
             {
-              "type": "choice"
-            },
-            {
-              "type": "extra_benefit_roll"
-            },
-            {
-              "type": "next_advancement_dm",
-              "dm": 2
+              "type": "choice",
+              "options": [
+                {
+                  "label": "Abuse your position",
+                  "effects": [
+                    {
+                      "type": "extra_benefit_roll"
+                    }
+                  ]
+                },
+                {
+                  "label": "Refuse",
+                  "effects": [
+                    {
+                      "type": "next_advancement_dm",
+                      "dm": 2
+                    }
+                  ]
+                }
+              ]
             }
           ],
           "text": "You have the opportunity to abuse your position for profit. If you do so, gain an extra Benefit roll from this term. Refuse and you get DM+2 to your next advancement roll."
@@ -2041,10 +2404,13 @@
                   "skill": "deception",
                   "target": 8
                 }
+              ],
+              "failure": [
+                {
+                  "type": "roll_table",
+                  "tableId": "injury"
+                }
               ]
-            },
-            {
-              "type": "possible_injury"
             }
           ],
           "text": "A disaster or war strikes. Roll Stealth 8+ or Deception 8+ to escape unhurt. If you fail, roll on the Injury table."
@@ -2079,10 +2445,13 @@
               "check": {
                 "characteristic": "end",
                 "target": 8
-              }
-            },
-            {
-              "type": "possible_injury"
+              },
+              "failure": [
+                {
+                  "type": "roll_table",
+                  "tableId": "injury"
+                }
+              ]
             }
           ],
           "text": "An assassin attempts to end your life. Roll END 8+. If you fail, roll on the Injury table."
@@ -2102,27 +2471,69 @@
           "name": "Duel",
           "effects": [
             {
-              "type": "choice"
-            },
-            {
-              "type": "check",
-              "check": {
-                "skill": "melee/blade",
-                "target": 8
-              }
-            },
-            {
-              "type": "possible_soc_change"
-            },
-            {
-              "type": "choose_skill_increase",
-              "skills": [
-                "melee/blade",
-                "leadership",
-                "tactics",
-                "deception"
-              ],
-              "amount": 1
+              "type": "choice",
+              "options": [
+                {
+                  "label": "Refuse the duel",
+                  "effects": [
+                    {
+                      "type": "characteristic_change",
+                      "characteristic": "soc",
+                      "amount": -1
+                    },
+                    {
+                      "type": "choose_skill_increase",
+                      "skills": [
+                        "melee/blade",
+                        "leadership",
+                        "tactics",
+                        "deception"
+                      ],
+                      "amount": 1
+                    }
+                  ]
+                },
+                {
+                  "label": "Accept the duel",
+                  "effects": [
+                    {
+                      "type": "check",
+                      "check": {
+                        "skill": "melee/blade",
+                        "target": 8
+                      },
+                      "success": [
+                        {
+                          "type": "characteristic_change",
+                          "characteristic": "soc",
+                          "amount": 1
+                        }
+                      ],
+                      "failure": [
+                        {
+                          "type": "roll_table",
+                          "tableId": "injury"
+                        },
+                        {
+                          "type": "characteristic_change",
+                          "characteristic": "soc",
+                          "amount": -1
+                        }
+                      ]
+                    },
+                    {
+                      "type": "choose_skill_increase",
+                      "skills": [
+                        "melee/blade",
+                        "leadership",
+                        "tactics",
+                        "deception"
+                      ],
+                      "amount": 1
+                    }
+                  ]
+                }
+              ]
             }
           ],
           "text": "You are challenged to a duel for your honour and standing. If you refuse, reduce your SOC by 1. If you accept, roll Melee (blade) 8+. If you succeed, gain one SOC. If you fail, roll on the Injury table and reduce your SOC by one. Either way, gain one level in Melee (blade), Leadership, Tactics (any) or Deception."
@@ -2187,39 +2598,56 @@
           "name": "Noble Conspiracy",
           "effects": [
             {
-              "type": "choice"
-            },
-            {
-              "type": "gain_associate",
-              "associateTypes": [
-                "enemy"
-              ]
-            },
-            {
-              "type": "check_any",
-              "checks": [
+              "type": "choice",
+              "options": [
                 {
-                  "skill": "deception",
-                  "target": 8
+                  "label": "Refuse the conspiracy",
+                  "effects": [
+                    {
+                      "type": "gain_associate",
+                      "associateTypes": [
+                        "enemy"
+                      ]
+                    }
+                  ]
                 },
                 {
-                  "skill": "persuade",
-                  "target": 8
+                  "label": "Accept the conspiracy",
+                  "effects": [
+                    {
+                      "type": "check_any",
+                      "checks": [
+                        {
+                          "skill": "deception",
+                          "target": 8
+                        },
+                        {
+                          "skill": "persuade",
+                          "target": 8
+                        }
+                      ],
+                      "success": [
+                        {
+                          "type": "choose_skill_increase",
+                          "skills": [
+                            "deception",
+                            "persuade",
+                            "tactics",
+                            "carouse"
+                          ],
+                          "amount": 1
+                        }
+                      ],
+                      "failure": [
+                        {
+                          "type": "roll_table",
+                          "tableId": "mishaps"
+                        }
+                      ]
+                    }
+                  ]
                 }
               ]
-            },
-            {
-              "type": "possible_mishap"
-            },
-            {
-              "type": "choose_skill_increase",
-              "skills": [
-                "deception",
-                "persuade",
-                "tactics",
-                "carouse"
-              ],
-              "amount": 1
             }
           ],
           "text": "A conspiracy of nobles attempts to recruit you. If you refuse, gain the conspiracy as an Enemy. If you accept, roll Deception 8+ or Persuade 8+. If you fail, roll on the Mishap table as the conspiracy collapses. If you succeed, Gain one level of Deception, Persuade, Tactics or Carouse."
@@ -2337,8 +2765,16 @@
               ]
             },
             {
-              "type": "possible_next_career",
-              "careerId": "prisoner"
+              "type": "check",
+              "check": {
+                "target": 3
+              },
+              "failure": [
+                {
+                  "type": "next_career",
+                  "careerId": "prisoner"
+                }
+              ]
             }
           ],
           "text": "Betrayed by a friend. One of your Contacts or Allies betrays you, ending your career. That Contact or Ally becomes a Rival or Enemy. If you have no Contacts or Allies, then you are betrayed by someone you never saw coming and still gain a Rival or Enemy. In addition, roll 2D. If you roll 2, you must take the Prisoner career in your next term."
@@ -2389,24 +2825,48 @@
           "name": "Arrested and Charged",
           "effects": [
             {
-              "type": "choice"
-            },
-            {
-              "type": "check",
-              "check": {
-                "skill": "advocate",
-                "target": 8
-              }
-            },
-            {
-              "type": "possible_next_career",
-              "careerId": "prisoner"
-            },
-            {
-              "type": "possible_contact"
-            },
-            {
-              "type": "possible_lose_benefit_roll"
+              "type": "choice",
+              "options": [
+                {
+                  "label": "Defend yourself",
+                  "effects": [
+                    {
+                      "type": "check",
+                      "check": {
+                        "skill": "advocate",
+                        "target": 8
+                      },
+                      "failure": [
+                        {
+                          "type": "gain_associate",
+                          "associateTypes": [
+                            "enemy"
+                          ]
+                        },
+                        {
+                          "type": "next_career",
+                          "careerId": "prisoner"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "label": "Hire a lawyer",
+                  "effects": [
+                    {
+                      "type": "gain_associate",
+                      "associateTypes": [
+                        "contact"
+                      ]
+                    },
+                    {
+                      "type": "lose_benefit_roll",
+                      "count": 1
+                    }
+                  ]
+                }
+              ]
             }
           ],
           "text": "You are arrested and charged. You can choose to defend yourself or hire a lawyer. If you defend yourself, roll Advocate 8+. If you succeed, the charges are dropped. If you fail, gain an Enemy and take the Prisoner career in your next term. If you hired a lawyer, gain the lawyer as a Contact and lose a Benefit roll."
@@ -2448,14 +2908,29 @@
           "name": "Backstab Opportunity",
           "effects": [
             {
-              "type": "choice"
-            },
-            {
-              "type": "next_advancement_dm",
-              "dm": 4
-            },
-            {
-              "type": "possible_ally"
+              "type": "choice",
+              "options": [
+                {
+                  "label": "Backstab them",
+                  "effects": [
+                    {
+                      "type": "next_advancement_dm",
+                      "dm": 4
+                    }
+                  ]
+                },
+                {
+                  "label": "Refuse",
+                  "effects": [
+                    {
+                      "type": "gain_associate",
+                      "associateTypes": [
+                        "ally"
+                      ]
+                    }
+                  ]
+                }
+              ]
             }
           ],
           "text": "You have the opportunity to backstab a fellow rogue for personal gain. If you do so, gain DM+4 to your next advancement roll. If you refuse, gain them as an Ally."
@@ -2496,13 +2971,18 @@
                   "skill": "gun-combat",
                   "target": 8
                 }
+              ],
+              "success": [
+                {
+                  "type": "extra_benefit_roll"
+                }
+              ],
+              "failure": [
+                {
+                  "type": "roll_table",
+                  "tableId": "injury"
+                }
               ]
-            },
-            {
-              "type": "possible_injury"
-            },
-            {
-              "type": "possible_extra_benefit_roll"
             }
           ],
           "text": "You become involved in a feud with a rival criminal organisation. Roll Stealth or Gun Combat 8+. If you fail, roll on the Injury Table. If you succeed, gain an extra Benefit roll."
@@ -2517,7 +2997,13 @@
               "level": 1
             },
             {
-              "type": "wager_benefit_rolls"
+              "type": "wager_benefit_rolls",
+              "checks": [
+                {
+                  "skill": "gambler",
+                  "target": 8
+                }
+              ]
             }
           ],
           "text": "You are involved in a gambling ring. Gain Gambler 1. You may wager any number of Benefit rolls. Roll Gambler 8+; if you fail, lose all the wagered Benefit rolls. If you succeed, gain half as many Benefit rolls as you wagered (round up)."
@@ -2587,22 +3073,46 @@
           "name": "Political Interference",
           "effects": [
             {
-              "type": "choice"
-            },
-            {
-              "type": "increase_skill",
-              "skillId": "science",
-              "amount": 1
-            },
-            {
-              "type": "possible_enemy"
-            },
-            {
-              "type": "possible_soc_change",
-              "amount": -2
-            },
-            {
-              "type": "not_forced_out"
+              "type": "choice",
+              "options": [
+                {
+                  "label": "Continue openly",
+                  "effects": [
+                    {
+                      "type": "increase_skill",
+                      "skillId": "science",
+                      "amount": 1
+                    },
+                    {
+                      "type": "gain_associate",
+                      "associateTypes": [
+                        "enemy"
+                      ]
+                    },
+                    {
+                      "type": "not_forced_out"
+                    }
+                  ]
+                },
+                {
+                  "label": "Continue secretly",
+                  "effects": [
+                    {
+                      "type": "increase_skill",
+                      "skillId": "science",
+                      "amount": 1
+                    },
+                    {
+                      "type": "choose_characteristic_change",
+                      "characteristic": "soc",
+                      "amount": -2
+                    },
+                    {
+                      "type": "not_forced_out"
+                    }
+                  ]
+                }
+              ]
             }
           ],
           "text": "The planetary government interferes with your research for political or religious reasons. If you continue with your work openly, increase Science by one level and gain an Enemy. If you continue with your work secretly, increase Science by one level and reduce your SOC by 2. This mishap does not cause you to leave this career."
@@ -2631,16 +3141,31 @@
           "name": "Sabotaged Work",
           "effects": [
             {
-              "type": "choice"
-            },
-            {
-              "type": "possible_keep_current_benefit_roll"
-            },
-            {
-              "type": "possible_lose_all_career_benefits"
-            },
-            {
-              "type": "possible_not_forced_out"
+              "type": "choice",
+              "options": [
+                {
+                  "label": "Salvage what you can and give up",
+                  "effects": [
+                    {
+                      "type": "keep_current_term_benefit_roll"
+                    },
+                    {
+                      "type": "forced_out"
+                    }
+                  ]
+                },
+                {
+                  "label": "Start again from scratch",
+                  "effects": [
+                    {
+                      "type": "lose_all_career_benefits"
+                    },
+                    {
+                      "type": "not_forced_out"
+                    }
+                  ]
+                }
+              ]
             }
           ],
           "text": "Your work is sabotaged by unknown parties. You may salvage what you can and give up (leave the career but retain this term’s Benefit roll) or start again from scratch (lose all Benefit rolls from this career but you do not have to leave)."
@@ -2672,21 +3197,32 @@
           "name": "Unethical Research",
           "effects": [
             {
-              "type": "choice"
-            },
-            {
-              "type": "extra_benefit_roll"
-            },
-            {
-              "type": "science_speciality_levels",
-              "count": 2
-            },
-            {
-              "type": "gain_associate",
-              "associateTypes": [
-                "enemy"
-              ],
-              "count": "D3"
+              "type": "choice",
+              "options": [
+                {
+                  "label": "Accept the research",
+                  "effects": [
+                    {
+                      "type": "extra_benefit_roll"
+                    },
+                    {
+                      "type": "science_speciality_levels",
+                      "count": 2
+                    },
+                    {
+                      "type": "gain_associate",
+                      "associateTypes": [
+                        "enemy"
+                      ],
+                      "count": "D3"
+                    }
+                  ]
+                },
+                {
+                  "label": "Refuse",
+                  "effects": []
+                }
+              ]
             }
           ],
           "text": "You are called upon to perform research that goes against your conscience. Accept and you gain an extra Benefit roll, a level in each of any two Science skill specialties and D3 Enemies."
@@ -2747,36 +3283,59 @@
           "name": "Academic Cheating",
           "effects": [
             {
-              "type": "choice"
-            },
-            {
-              "type": "check_any",
-              "checks": [
+              "type": "choice",
+              "options": [
                 {
-                  "skill": "deception",
-                  "target": 8
+                  "label": "Refuse",
+                  "effects": []
                 },
                 {
-                  "skill": "admin",
-                  "target": 8
+                  "label": "Cheat",
+                  "effects": [
+                    {
+                      "type": "check_any",
+                      "checks": [
+                        {
+                          "skill": "deception",
+                          "target": 8
+                        },
+                        {
+                          "skill": "admin",
+                          "target": 8
+                        }
+                      ],
+                      "success": [
+                        {
+                          "type": "benefit_roll_dm",
+                          "dm": 2
+                        },
+                        {
+                          "type": "choose_skill_increase",
+                          "amount": 1
+                        },
+                        {
+                          "type": "gain_associate",
+                          "associateTypes": [
+                            "enemy"
+                          ]
+                        }
+                      ],
+                      "failure": [
+                        {
+                          "type": "gain_associate",
+                          "associateTypes": [
+                            "enemy"
+                          ]
+                        },
+                        {
+                          "type": "lose_benefit_roll",
+                          "count": 1
+                        }
+                      ]
+                    }
+                  ]
                 }
               ]
-            },
-            {
-              "type": "possible_benefit_roll_dm",
-              "dm": 2
-            },
-            {
-              "type": "possible_skill_increase"
-            },
-            {
-              "type": "gain_associate",
-              "associateTypes": [
-                "enemy"
-              ]
-            },
-            {
-              "type": "possible_lose_benefit_roll"
             }
           ],
           "text": "You have the opportunity to cheat in some fashion, advancing your career and research by stealing another’s work, using an alien device, taking a shortcut and so forth. If you refuse, you gain nothing. If you accept, roll Deception 8+ or Admin 8+. If you succeed, you gain DM+2 to any one Benefit roll and may increase any skill by one level but also gain an Enemy. If you fail, gain an Enemy and lose one Benefit roll from this career."
@@ -2933,33 +3492,68 @@
           "name": "Ambushed Ship",
           "effects": [
             {
-              "type": "choice"
-            },
-            {
-              "type": "check_any",
-              "checks": [
+              "type": "choice",
+              "options": [
                 {
-                  "skill": "pilot",
-                  "target": 8
+                  "label": "Run",
+                  "effects": [
+                    {
+                      "type": "check",
+                      "check": {
+                        "skill": "pilot",
+                        "target": 8
+                      },
+                      "success": [
+                        {
+                          "type": "set_skill",
+                          "skillId": "electronics/sensors",
+                          "level": 1
+                        }
+                      ],
+                      "failure": [
+                        {
+                          "type": "forced_out"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "gain_associate",
+                      "associateTypes": [
+                        "enemy"
+                      ]
+                    }
+                  ]
                 },
                 {
-                  "skill": "persuade",
-                  "target": 10
+                  "label": "Treat with them",
+                  "effects": [
+                    {
+                      "type": "check",
+                      "check": {
+                        "skill": "persuade",
+                        "target": 10
+                      },
+                      "success": [
+                        {
+                          "type": "set_skill",
+                          "skillId": "electronics/sensors",
+                          "level": 1
+                        }
+                      ],
+                      "failure": [
+                        {
+                          "type": "forced_out"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "gain_associate",
+                      "associateTypes": [
+                        "enemy"
+                      ]
+                    }
+                  ]
                 }
-              ]
-            },
-            {
-              "type": "possible_no_reenlist"
-            },
-            {
-              "type": "possible_set_skill",
-              "skillId": "electronics/sensors",
-              "level": 1
-            },
-            {
-              "type": "gain_associate",
-              "associateTypes": [
-                "enemy"
               ]
             }
           ],
@@ -3031,17 +3625,26 @@
                   "skill": "deception",
                   "target": 8
                 }
+              ],
+              "success": [
+                {
+                  "type": "gain_associate",
+                  "associateTypes": [
+                    "ally"
+                  ]
+                },
+                {
+                  "type": "next_advancement_dm",
+                  "dm": 2
+                }
+              ],
+              "failure": [
+                {
+                  "type": "roll_table",
+                  "tableId": "mishaps",
+                  "ejected": false
+                }
               ]
-            },
-            {
-              "type": "possible_ally"
-            },
-            {
-              "type": "possible_next_advancement_dm",
-              "dm": 2
-            },
-            {
-              "type": "possible_mishap_not_ejected"
             }
           ],
           "text": "When dealing with an alien species, you have an opportunity to gather extra intelligence about them. Roll either Electronics 8+ or Deception 8+. If you succeed, gain an Ally in the Imperium and DM+2 to your next advancement roll. If you fail, roll on the Mishap table but you are not ejected from this career."
@@ -3061,17 +3664,27 @@
                   "skill": "engineer",
                   "target": 8
                 }
+              ],
+              "success": [
+                {
+                  "type": "gain_associate",
+                  "associateTypes": [
+                    "contact"
+                  ]
+                },
+                {
+                  "type": "next_advancement_dm",
+                  "dm": 2
+                }
+              ],
+              "failure": [
+                {
+                  "type": "gain_associate",
+                  "associateTypes": [
+                    "enemy"
+                  ]
+                }
               ]
-            },
-            {
-              "type": "possible_contact"
-            },
-            {
-              "type": "possible_next_advancement_dm",
-              "dm": 2
-            },
-            {
-              "type": "possible_enemy"
             }
           ],
           "text": "Your scout ship is one of the first on the scene to rescue the survivors of a disaster. Roll either Medic 8+ or Engineer 8+. If you succeed, gain a Contact and DM+2 to your next advancement roll. If you fail, gain an Enemy."
@@ -3091,16 +3704,29 @@
                   "skill": "pilot",
                   "target": 8
                 }
+              ],
+              "success": [
+                {
+                  "type": "gain_associate",
+                  "associateTypes": [
+                    "contact"
+                  ],
+                  "tags": [
+                    "alien"
+                  ]
+                },
+                {
+                  "type": "choose_skill_increase",
+                  "amount": 1
+                }
+              ],
+              "failure": [
+                {
+                  "type": "roll_table",
+                  "tableId": "mishaps",
+                  "ejected": false
+                }
               ]
-            },
-            {
-              "type": "possible_alien_contact"
-            },
-            {
-              "type": "possible_choose_skill_increase"
-            },
-            {
-              "type": "possible_mishap_not_ejected"
             }
           ],
           "text": "You spend a great deal of time on the fringes of Charted Space. Roll Survival 8+ or Pilot 8+. If you succeed, gain a Contact in an alien species and one level in any skill of your choice. If you fail, roll on the Mishap table but you are not ejected from this career."

@@ -1,7 +1,11 @@
 <script setup lang="ts">
 import { storeToRefs } from 'pinia'
-import { reactive } from 'vue'
+import { computed, reactive } from 'vue'
 import { useCharacterCreatorStore } from '~/stores/characterCreator'
+
+const props = defineProps<{
+  sourcePrefix?: string
+}>()
 
 const characterCreator = useCharacterCreatorStore()
 const {
@@ -12,6 +16,11 @@ const {
   resolveManualEventResolution,
   rollEventResolutionCheck,
   enterManualEventResolutionCheck,
+  rollEventResolutionSkillTable,
+  enterManualEventResolutionSkillTable,
+  rollEventResolutionBenefitWager,
+  enterManualEventResolutionBenefitWager,
+  declineEventResolutionBenefitWager,
   rollEventResolutionTable,
   enterManualEventResolutionTable,
   eventResolutionSelectedLabel,
@@ -23,8 +32,17 @@ const {
   pendingEventResolutions,
 } = storeToRefs(characterCreator)
 
+const visibleEventResolutions = computed(() => {
+  if (!props.sourcePrefix) return pendingEventResolutions.value
+
+  return pendingEventResolutions.value.filter((resolution) => {
+    return resolution.source === props.sourcePrefix || resolution.source.startsWith(`${props.sourcePrefix}:`)
+  })
+})
+
 const manualTableRolls = reactive<Record<string, number | null>>({})
 const manualCheckRolls = reactive<Record<string, number | null>>({})
+const benefitWagerForms = reactive<Record<string, { skill: string; wagered: number | null; total: number | null }>>({})
 const manualCharacteristicAmounts = reactive<Record<string, number | null>>({})
 const medicalRestorePoints = reactive<Record<string, number | null>>({})
 const associateForms = reactive<Record<string, { type: string; name: string; notes: string }>>({})
@@ -40,12 +58,24 @@ const associateForm = (resolution: { id: string; associateTypes?: string[] }) =>
 
   return associateForms[resolution.id]
 }
+
+const benefitWagerForm = (resolution: { id: string; wagerChecks?: Array<{ skill: string }> }) => {
+  if (!benefitWagerForms[resolution.id]) {
+    benefitWagerForms[resolution.id] = {
+      skill: resolution.wagerChecks?.[0]?.skill ?? '',
+      wagered: null,
+      total: null,
+    }
+  }
+
+  return benefitWagerForms[resolution.id]
+}
 </script>
 
 <template>
-  <div v-if="pendingEventResolutions.length" class="mt-3 grid gap-3">
+  <div v-if="visibleEventResolutions.length" class="mt-3 grid gap-3">
     <div
-      v-for="resolution in pendingEventResolutions"
+      v-for="resolution in visibleEventResolutions"
       :key="resolution.id"
       :class="[
         'rounded-md p-3 text-sm',
@@ -254,6 +284,87 @@ const associateForm = (resolution: { id: string; associateTypes?: string[] }) =>
         >
           Apply
         </button>
+      </div>
+
+      <div v-if="resolution.kind === 'skill_table_roll' && !resolution.resolved" class="mt-3 flex flex-wrap items-center gap-2">
+        <button
+          class="h-9 rounded-md border border-amber-300 bg-white px-3 text-sm font-semibold text-amber-900 hover:border-amber-600"
+          type="button"
+          @click="rollEventResolutionSkillTable(resolution.id)"
+        >
+          Roll 1D
+        </button>
+        <input
+          v-model.number="manualTableRolls[resolution.id]"
+          class="h-9 w-20 rounded-md border border-amber-300 bg-white px-2 text-sm text-amber-950"
+          max="6"
+          min="1"
+          type="number"
+        >
+        <button
+          class="h-9 rounded-md border border-amber-300 bg-white px-3 text-sm font-semibold text-amber-900 hover:border-amber-600"
+          type="button"
+          @click="enterManualEventResolutionSkillTable(resolution.id, manualTableRolls[resolution.id] ?? Number.NaN)"
+        >
+          Apply
+        </button>
+      </div>
+
+      <div v-if="resolution.kind === 'benefit_wager' && !resolution.resolved" class="mt-3 grid gap-3">
+        <div class="flex flex-wrap gap-2">
+          <button
+            v-for="check in resolution.wagerChecks"
+            :key="check.skill"
+            :class="[
+              'h-9 rounded-md border px-3 text-sm font-semibold',
+              benefitWagerForm(resolution).skill === check.skill
+                ? 'border-amber-700 bg-amber-700 text-white'
+                : 'border-amber-300 bg-white text-amber-900 hover:border-amber-600'
+            ]"
+            type="button"
+            @click="benefitWagerForm(resolution).skill = check.skill"
+          >
+            {{ check.label }} · DM {{ check.dm >= 0 ? `+${check.dm}` : check.dm }}
+          </button>
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+          <input
+            v-model.number="benefitWagerForm(resolution).wagered"
+            class="h-9 w-28 rounded-md border border-amber-300 bg-white px-2 text-sm text-amber-950"
+            min="1"
+            placeholder="Wager"
+            type="number"
+          >
+          <button
+            class="h-9 rounded-md border border-amber-300 bg-white px-3 text-sm font-semibold text-amber-900 hover:border-amber-600"
+            type="button"
+            @click="rollEventResolutionBenefitWager(resolution.id, benefitWagerForm(resolution).skill, benefitWagerForm(resolution).wagered ?? Number.NaN)"
+          >
+            Roll 2D
+          </button>
+          <input
+            v-model.number="benefitWagerForm(resolution).total"
+            class="h-9 w-20 rounded-md border border-amber-300 bg-white px-2 text-sm text-amber-950"
+            max="12"
+            min="2"
+            placeholder="2D"
+            type="number"
+          >
+          <button
+            class="h-9 rounded-md border border-amber-300 bg-white px-3 text-sm font-semibold text-amber-900 hover:border-amber-600"
+            type="button"
+            @click="enterManualEventResolutionBenefitWager(resolution.id, benefitWagerForm(resolution).skill, benefitWagerForm(resolution).wagered ?? Number.NaN, benefitWagerForm(resolution).total ?? Number.NaN)"
+          >
+            Apply
+          </button>
+          <button
+            class="h-9 rounded-md border border-amber-300 bg-white px-3 text-sm font-semibold text-amber-900 hover:border-amber-600"
+            type="button"
+            @click="declineEventResolutionBenefitWager(resolution.id)"
+          >
+            Decline
+          </button>
+        </div>
       </div>
     </div>
   </div>

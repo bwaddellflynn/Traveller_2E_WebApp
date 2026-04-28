@@ -56,7 +56,7 @@ type TermHistoryEntry = {
   rolls: RollResult[]
 }
 type CreatorTab = 'creation' | `term-${number}`
-type EventResolutionKind = 'manual' | 'skill_choice' | 'table_roll' | 'check' | 'choice' | 'associate' | 'characteristic_adjustment' | 'medical_care'
+type EventResolutionKind = 'manual' | 'skill_choice' | 'skill_table_roll' | 'benefit_wager' | 'table_roll' | 'check' | 'choice' | 'associate' | 'characteristic_adjustment' | 'medical_care'
 type EventChoiceOption = {
   id: string
   label: string
@@ -81,7 +81,14 @@ type PendingEventResolution = {
   medicalCostPerPoint?: number
   medicalCrisis?: boolean
   tableId?: string
+  skillTableId?: string
   diceCount?: 1 | 2
+  wagerChecks?: Array<{
+    label: string
+    skill: string
+    target: number
+    dm: number
+  }>
   check?: {
     label: string
     target: number
@@ -894,6 +901,12 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
   const existingSkillOptions = computed(() => currentTravellerSkills.value
     .map((skill) => skill.id)
     .sort((left, right) => skillOptionLabel(left).localeCompare(skillOptionLabel(right))))
+  const scienceSpecialityOptions = computed(() => {
+    const science = skillsData.skills.find((skill) => skill.id === 'science')
+    return (science?.specialities ?? [])
+      .map((speciality) => `science/${speciality}`)
+      .sort((left, right) => skillOptionLabel(left).localeCompare(skillOptionLabel(right)))
+  })
 
   const checkLabel = (check: CheckRule) => {
     if (check.automatic) return 'Automatic'
@@ -1088,7 +1101,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
   const addChoiceResolution = (effect: TravellerEventEffect, source: string, label = tableEffectLabel(effect)) => {
     const choiceOptions = eventChoiceOptions(effect)
     if (!choiceOptions.length) {
-      addManualEventResolution(effect, source, label)
+      recordEventOutcome(source, effect, label, 'manual')
       return
     }
 
@@ -1100,6 +1113,132 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
       choiceOptions,
     })
     recordEventOutcome(source, effect, label, 'pending')
+  }
+
+  const addCheckAnyChoiceResolution = (effect: TravellerEventEffect, source: string) => {
+    if (!Array.isArray(effect.checks) || !effect.checks.length) {
+      addCheckResolution(effect, source)
+      return
+    }
+
+    const sharedBranches = {
+      always: effect.always,
+      success: effect.success,
+      failure: effect.failure,
+      naturalTwo: effect.naturalTwo,
+    }
+
+    addChoiceResolution({
+      ...effect,
+      type: 'choice',
+      options: effect.checks.map((check) => ({
+        label: tableEffectLabel({ type: 'check', check }),
+        effects: [
+          {
+            type: 'check',
+            check,
+            ...sharedBranches,
+          },
+        ],
+      })),
+    }, source, tableEffectLabel(effect))
+  }
+
+  const assignmentSkillChecks = (effect: TravellerEventEffect) => {
+    if (selectedCareerId.value === 'navy') {
+      const checksByAssignment: Record<string, Array<Record<string, unknown>>> = {
+        'line-crew': [
+          { skill: 'electronics/sensors', target: effect.target ?? 8 },
+          { skill: 'gunner', target: effect.target ?? 8 },
+        ],
+        'engineer-gunner': [
+          { skill: 'mechanic', target: effect.target ?? 8 },
+          { skill: 'vacc-suit', target: effect.target ?? 8 },
+        ],
+        flight: [
+          { skill: 'pilot/small-craft', target: effect.target ?? 8 },
+          { skill: 'pilot/spacecraft', target: effect.target ?? 8 },
+          { skill: 'tactics/naval', target: effect.target ?? 8 },
+        ],
+      }
+
+      return checksByAssignment[selectedAssignmentId.value] ?? []
+    }
+
+    return []
+  }
+
+  const addAssignmentSkillCheckResolution = (effect: TravellerEventEffect, source: string) => {
+    const checks = assignmentSkillChecks(effect)
+    if (!checks.length) {
+      addManualEventResolution(effect, source, tableEffectLabel(effect))
+      return
+    }
+
+    addCheckAnyChoiceResolution({
+      ...effect,
+      type: 'check_any',
+      checks,
+    }, source)
+  }
+
+  const conditionalConcreteEffect = (effect: TravellerEventEffect): TravellerEventEffect | null => {
+    const dm = typeof effect.dm === 'number' ? effect.dm : undefined
+    const mappings: Record<string, TravellerEventEffect> = {
+      possible_ally: { type: 'gain_associate', associateTypes: ['ally'], count: 1 },
+      possible_alien_contact: { type: 'gain_associate', associateTypes: ['contact'], count: 1, tags: ['alien'] },
+      possible_contact: { type: 'gain_associate', associateTypes: ['contact'], count: 1 },
+      possible_choose_skill_increase: { type: 'choose_skill_increase', amount: 1 },
+      possible_enemy: { type: 'gain_associate', associateTypes: ['enemy'], count: 1 },
+      possible_extra_benefit_roll: { type: 'extra_benefit_roll', count: 1 },
+      possible_forced_out: { type: 'forced_out' },
+      possible_injury: { type: 'roll_table', tableId: 'injury' },
+      possible_keep_benefit_roll: { type: 'keep_current_term_benefit_roll' },
+      possible_keep_current_benefit_roll: { type: 'keep_current_term_benefit_roll' },
+      possible_lose_all_career_benefits: { type: 'lose_all_career_benefits' },
+      possible_lose_benefit_roll: { type: 'lose_benefit_roll', count: 1 },
+      possible_mishap: { type: 'roll_table', tableId: 'mishaps' },
+      possible_mishap_not_ejected: { type: 'roll_table', tableId: 'mishaps', ejected: false },
+      possible_next_career: { type: 'next_career', careerId: typeof effect.careerId === 'string' ? effect.careerId : 'prisoner' },
+      possible_no_reenlist: { type: 'forced_out' },
+      possible_not_forced_out: { type: 'not_forced_out' },
+      possible_skill_increase: { type: 'choose_skill_increase', amount: 1 },
+    }
+
+    if (effect.type === 'possible_benefit_roll_change') return { type: 'extra_benefit_roll', count: 1 }
+    if (effect.type === 'possible_benefit_roll_dm') return { type: 'benefit_roll_dm', dm: dm ?? 1 }
+    if (effect.type === 'possible_next_advancement_dm') return { type: 'next_advancement_dm', dm: dm ?? 1 }
+    if (effect.type === 'possible_next_survival_dm') return { type: 'next_survival_dm', dm: dm ?? 1 }
+    if (effect.type === 'possible_physical_characteristic_loss') return { type: 'injury_characteristic_loss', category: 'physical', count: 1, amount: -1 }
+    if (effect.type === 'possible_set_skill' && effect.skillId) {
+      return { type: 'set_skill', skillId: effect.skillId, level: typeof effect.level === 'number' ? effect.level : 1 }
+    }
+    if (effect.type === 'possible_soc_change') return { type: 'choose_characteristic_change', characteristic: 'soc', amount: typeof effect.amount === 'number' ? effect.amount : 1 }
+
+    return mappings[effect.type] ? { ...mappings[effect.type] } : null
+  }
+
+  const addConditionalEffectResolution = (effect: TravellerEventEffect, source: string, label = tableEffectLabel(effect)) => {
+    const concreteEffect = conditionalConcreteEffect(effect)
+    if (!concreteEffect) {
+      addManualEventResolution(effect, source, label)
+      return
+    }
+
+    addChoiceResolution({
+      ...effect,
+      type: 'choice',
+      options: [
+        {
+          label: `Apply: ${tableEffectLabel(concreteEffect)}`,
+          effects: [concreteEffect],
+        },
+        {
+          label: 'Skip',
+          effects: [],
+        },
+      ],
+    }, source, label)
   }
 
   const addSkillChoiceResolution = (
@@ -1213,9 +1352,136 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     recordEventOutcome(source, effect, label, 'pending')
   }
 
+  const addAssociateConversionResolution = (effect: TravellerEventEffect, source: string, label = tableEffectLabel(effect)) => {
+    const fromTypes = Array.isArray(effect.from) ? effect.from.map(String) : ['contact', 'ally']
+    const toTypes = Array.isArray(effect.to) ? effect.to.map(String) : ['rival', 'enemy']
+    const convertibleAssociates = associates.value.filter((associate) => fromTypes.includes(associate.type))
+    const conversionOptions = convertibleAssociates.flatMap((associate) => toTypes.map((toType) => ({
+      label: `Convert ${associate.name} (${associateTypeLabel(associate.type)}) to ${associateTypeLabel(toType)}`,
+      effects: [
+        {
+          type: 'convert_associate',
+          associateId: associate.id,
+          associateName: associate.name,
+          fromType: associate.type,
+          toType,
+        },
+      ],
+    })))
+    const gainOptions = toTypes.map((toType) => ({
+      label: `Gain a new ${associateTypeLabel(toType)}`,
+      effects: [
+        {
+          type: 'gain_associate',
+          associateTypes: [toType],
+          count: 1,
+        },
+      ],
+    }))
+
+    addChoiceResolution({
+      ...effect,
+      type: 'choice',
+      options: [
+        ...conversionOptions,
+        ...gainOptions,
+      ],
+    }, source, label)
+  }
+
+  const addSkillTableRollResolution = (effect: TravellerEventEffect, source: string, label = tableEffectLabel(effect)) => {
+    const tableId = typeof effect.tableId === 'string' ? effect.tableId : ''
+    const table = availableCareerSkillTables.value.find((item) => item.id === tableId)
+    if (!table) {
+      addManualEventResolution(effect, source, `${label} manually.`)
+      return
+    }
+
+    addPendingEventResolution({
+      kind: 'skill_table_roll',
+      label: `${label}: ${table.label}`,
+      source,
+      effect,
+      skillTableId: table.id,
+      diceCount: 1,
+    })
+    recordEventOutcome(source, effect, `${label}: ${table.label}`, 'pending')
+  }
+
+  const addFreeSkillTableRollResolution = (effect: TravellerEventEffect, source: string, label = tableEffectLabel(effect)) => {
+    const tableOptions = availableCareerSkillTables.value.map((table) => ({
+      label: table.label,
+      effects: [
+        {
+          type: 'skill_table_roll',
+          tableId: table.id,
+        },
+      ],
+    }))
+
+    if (!tableOptions.length) {
+      addManualEventResolution(effect, source, `${label} manually.`)
+      return
+    }
+
+    addChoiceResolution({
+      ...effect,
+      type: 'choice',
+      options: tableOptions,
+    }, source, label)
+  }
+
+  const addBenefitWagerResolution = (effect: TravellerEventEffect, source: string, label = tableEffectLabel(effect)) => {
+    const checks = Array.isArray(effect.checks) && effect.checks.length
+      ? effect.checks
+      : [{ skill: 'gambler', target: 8 }]
+    const wagerChecks = checks
+      .map((check) => check && typeof check === 'object' ? check as Record<string, unknown> : null)
+      .filter((check): check is Record<string, unknown> => Boolean(check?.skill))
+      .map((check) => {
+        const skill = String(check.skill)
+        const target = Number(check.target ?? 8)
+        return {
+          label: `${skillOptionLabel(skill)} ${target}+`,
+          skill,
+          target,
+          dm: skillLevel(skill),
+        }
+      })
+
+    if (!wagerChecks.length) {
+      addManualEventResolution(effect, source, `${label} manually.`)
+      return
+    }
+
+    addPendingEventResolution({
+      kind: 'benefit_wager',
+      label,
+      source,
+      effect,
+      wagerChecks,
+    })
+    recordEventOutcome(source, effect, label, 'pending')
+  }
+
   const applyEventEffect = (effect: TravellerEventEffect, event: TravellerEvent, sourcePrefix = 'Event') => {
     const source = `${sourcePrefix}: ${event.name}`
     const normalizedType = effect.normalizedType ?? effect.type
+
+    if (effect.type.startsWith('possible_')) {
+      addConditionalEffectResolution(effect, source)
+      return
+    }
+
+    if (effect.type === 'check_any') {
+      addCheckAnyChoiceResolution(effect, source)
+      return
+    }
+
+    if (effect.type === 'assignment_skill_check') {
+      addAssignmentSkillCheckResolution(effect, source)
+      return
+    }
 
     if (normalizedType === 'check') {
       addCheckResolution(effect, source)
@@ -1224,6 +1490,103 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
 
     if (normalizedType === 'choice') {
       addChoiceResolution(effect, source)
+      return
+    }
+
+    if (effect.type === 'convert_or_gain_associate') {
+      addAssociateConversionResolution(effect, source)
+      return
+    }
+
+    if (effect.type === 'convert_associate' && effect.associateId && effect.toType) {
+      const label = tableEffectLabel(effect)
+      let converted = false
+      associates.value = associates.value.map((associate) => {
+        if (associate.id !== effect.associateId) return associate
+        converted = true
+        return {
+          ...associate,
+          type: String(effect.toType),
+          notes: [
+            associate.notes,
+            `Converted from ${associateTypeLabel(associate.type)} by ${source}`,
+          ].filter(Boolean).join(' | '),
+        }
+      })
+
+      if (converted) recordEventOutcome(source, effect, label)
+      else addAssociateResolution({
+        type: 'gain_associate',
+        associateTypes: [String(effect.toType)],
+        count: 1,
+      }, source, label)
+      return
+    }
+
+    if (effect.type === 'free_skill_table_roll') {
+      addFreeSkillTableRollResolution(effect, source)
+      return
+    }
+
+    if (effect.type === 'skill_table_roll') {
+      addSkillTableRollResolution(effect, source)
+      return
+    }
+
+    if (effect.type === 'wager_benefit_rolls') {
+      addBenefitWagerResolution(effect, source)
+      return
+    }
+
+    if (effect.type === 'choose_skill_or_contact') {
+      const skillEffects = Array.isArray(effect.skills)
+        ? effect.skills.map((skill) => ({
+            label: `${skillOptionLabel(String(skill))} 1`,
+            effects: [
+              {
+                type: 'set_skill',
+                skillId: String(skill),
+                level: typeof effect.level === 'number' ? effect.level : 1,
+              },
+            ],
+          }))
+        : []
+
+      addChoiceResolution({
+        ...effect,
+        type: 'choice',
+        options: [
+          ...skillEffects,
+          {
+            label: effect.contactLabel && typeof effect.contactLabel === 'string'
+              ? effect.contactLabel
+              : 'Gain a Contact',
+            effects: [
+              {
+                type: 'gain_associate',
+                associateTypes: ['contact'],
+                count: 1,
+                context: typeof effect.context === 'string' ? effect.context : undefined,
+              },
+            ],
+          },
+        ],
+      }, source, tableEffectLabel(effect))
+      return
+    }
+
+    if (effect.type === 'science_speciality_levels') {
+      const count = typeof effect.count === 'number' ? Math.max(1, effect.count) : 1
+      for (let index = 0; index < count; index += 1) {
+        addSkillChoiceResolution(
+          effect,
+          source,
+          scienceSpecialityOptions.value,
+          `Choose Science specialty increase (${index + 1} of ${count})`,
+          undefined,
+          true,
+        )
+      }
       return
     }
 
@@ -1261,6 +1624,20 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
         tableEffectLabel(effect),
         effect.type === 'choose_skill_set' ? (typeof effect.level === 'number' ? effect.level : 1) : undefined,
         effect.type === 'choose_skill_increase',
+      )
+      return
+    }
+
+    if (effect.type === 'choose_skill_increase') {
+      const excludedSkills = Array.isArray(effect.excludedSkills) ? effect.excludedSkills.map(String) : []
+      const options = generalSkillOptions.value.filter((skillId) => !excludedSkills.includes(skillId))
+      addSkillChoiceResolution(
+        effect,
+        source,
+        options,
+        tableEffectLabel(effect),
+        undefined,
+        true,
       )
       return
     }
@@ -1722,6 +2099,116 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
       }
     })
     recordEventOutcome(resolution.source, resolution.effect, `Gained ${type}: ${associateName}`, 'manual')
+  }
+
+  const resolveEventSkillTableRoll = (resolution: PendingEventResolution, die: number, source: 'rolled' | 'manual') => {
+    if (resolution.kind !== 'skill_table_roll' || !resolution.skillTableId || resolution.resolved) return
+    if (die < 1 || die > 6) return
+
+    const table = availableCareerSkillTables.value.find((item) => item.id === resolution.skillTableId)
+    const result = table?.entries[die - 1]
+    if (!table || !result) return
+
+    applyTrainingResult(result, resolution.source)
+    pendingEventResolutions.value = pendingEventResolutions.value.map((item) => {
+      if (item.id !== resolution.id) return item
+      return {
+        ...item,
+        resolved: true,
+        selected: `${die} (${source}): ${result}`,
+      }
+    })
+    recordEventOutcome(resolution.source, resolution.effect, `${resolution.label}: ${die} = ${result}`, 'manual')
+  }
+
+  const rollEventResolutionSkillTable = (resolutionId: string) => {
+    const resolution = pendingEventResolutions.value.find((item) => item.id === resolutionId)
+    if (!resolution || resolution.kind !== 'skill_table_roll') return
+
+    resolveEventSkillTableRoll(resolution, Math.ceil(Math.random() * 6), 'rolled')
+  }
+
+  const enterManualEventResolutionSkillTable = (resolutionId: string, die: number) => {
+    const resolution = pendingEventResolutions.value.find((item) => item.id === resolutionId)
+    if (!resolution || resolution.kind !== 'skill_table_roll') return
+    if (Number.isNaN(die) || die < 1 || die > 6) return
+
+    resolveEventSkillTableRoll(resolution, die, 'manual')
+  }
+
+  const resolveEventBenefitWager = (
+    resolutionId: string,
+    skill: string,
+    wagered: number,
+    diceTotal: number,
+    source: 'rolled' | 'manual',
+  ) => {
+    const resolution = pendingEventResolutions.value.find((item) => item.id === resolutionId)
+    if (!resolution || resolution.kind !== 'benefit_wager' || resolution.resolved) return
+    if (Number.isNaN(wagered) || wagered < 1) return
+    if (Number.isNaN(diceTotal) || diceTotal < 2 || diceTotal > 12) return
+
+    const check = resolution.wagerChecks?.find((item) => item.skill === skill) ?? resolution.wagerChecks?.[0]
+    if (!check) return
+
+    const finalTotal = diceTotal + check.dm
+    const succeeded = finalTotal >= check.target
+    const adjustment = succeeded ? Math.ceil(wagered / 2) : -wagered
+    const selected = `${wagered} wagered; ${diceTotal} ${formatDm(check.dm)} = ${finalTotal} (${succeeded ? 'success' : 'failure'}, ${source})`
+
+    benefitRollAdjustments.value = [
+      ...benefitRollAdjustments.value,
+      {
+        id: makeEventOutcomeId('benefit-wager'),
+        source: resolution.source,
+        label: `${resolution.label}: ${selected}`,
+        adjustment,
+        scope: 'career',
+      },
+    ]
+
+    if (resolution.effect.increaseUsedSkill !== false) {
+      increaseSkill(check.skill, resolution.source)
+    }
+
+    pendingEventResolutions.value = pendingEventResolutions.value.map((item) => {
+      if (item.id !== resolutionId) return item
+      return {
+        ...item,
+        resolved: true,
+        selected,
+      }
+    })
+    recordEventOutcome(resolution.source, resolution.effect, `${resolution.label}: ${selected}`, 'manual')
+  }
+
+  const rollEventResolutionBenefitWager = (resolutionId: string, skill: string, wagered: number) => {
+    resolveEventBenefitWager(
+      resolutionId,
+      skill,
+      wagered,
+      Math.ceil(Math.random() * 6) + Math.ceil(Math.random() * 6),
+      'rolled',
+    )
+  }
+
+  const enterManualEventResolutionBenefitWager = (resolutionId: string, skill: string, wagered: number, total: number) => {
+    resolveEventBenefitWager(resolutionId, skill, wagered, total, 'manual')
+  }
+
+  const declineEventResolutionBenefitWager = (resolutionId: string) => {
+    const resolution = pendingEventResolutions.value.find((item) => item.id === resolutionId)
+    if (!resolution || resolution.kind !== 'benefit_wager' || resolution.resolved) return
+
+    pendingEventResolutions.value = pendingEventResolutions.value.map((item) => {
+      if (item.id !== resolutionId) return item
+      return {
+        ...item,
+        resolved: true,
+        selected: 'No wager',
+      }
+    })
+    recordEventOutcome(resolution.source, resolution.effect, `${resolution.label}: No wager`, 'manual')
   }
 
   const rollEventResolutionTable = (resolutionId: string) => {
@@ -2363,25 +2850,37 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     if (effect.type === 'roll_mishap') return 'Roll on mishap table'
     if (effect.type === 'roll_table') return `Roll on ${effect.tableId}`
     if (effect.type === 'check_known_term_skill') return `Check known term skill ${effect.target ?? 8}+`
+    if (effect.type === 'assignment_skill_check') return `${selectedAssignment.value.name} skill check ${effect.target ?? 8}+`
     if (effect.type === 'check') {
-      return effect.check?.characteristic
-        ? `${effect.check.characteristic.toUpperCase()} ${effect.check.target}+`
-        : `${safeSkillOptionLabel(effect.check?.skill)} ${effect.check?.target ?? 8}+`
+      if (effect.check?.characteristic) return `${effect.check.characteristic.toUpperCase()} ${effect.check.target}+`
+      if (effect.check?.skill) return `${safeSkillOptionLabel(effect.check.skill)} ${effect.check.target ?? 8}+`
+      return `2D ${effect.check?.target ?? effect.target ?? 8}+`
     }
     if (effect.type === 'check_any') return `Check ${effect.checks?.map((check: Record<string, any>) => `${safeSkillOptionLabel(check.skill ?? check.characteristic)} ${check.target}+`).join(' or ')}`
-    if (effect.type === 'choose_skill_increase') return `Choose skill increase${effect.skills ? `: ${effect.skills.map((skill: string) => skillOptionLabel(skill)).join(', ')}` : ''}`
+    if (effect.type === 'choose_skill_increase') return effect.skills
+      ? `Choose skill increase: ${effect.skills.map((skill: string) => skillOptionLabel(skill)).join(', ')}`
+      : 'Choose any skill to increase'
     if (effect.type === 'choose_skill_set') return `Choose skill at level ${effect.level ?? 1}: ${effect.skills?.map((skill: string) => skillOptionLabel(skill)).join(', ')}`
+    if (effect.type === 'choose_skill_or_contact') return `Choose skill or contact: ${effect.skills?.map((skill: string) => skillOptionLabel(skill)).join(', ') ?? 'skill'}`
     if (effect.type === 'choose_skill') return `Choose any skill at level ${effect.level ?? 0}`
     if (effect.type === 'set_skill') return `${safeSkillOptionLabel(effect.skillId)} ${effect.level}`
     if (effect.type === 'increase_skill') return `Increase ${safeSkillOptionLabel(effect.skillId)} by ${effect.amount ?? 1}`
     if (effect.type === 'increase_existing_skill') return `Increase an existing skill by ${effect.amount ?? 1}`
     if (effect.type === 'increase_any_existing_skill') return `Increase any existing skill by ${effect.amount ?? 1}`
+    if (effect.type === 'science_speciality_levels') return `Choose ${effect.count ?? 1} Science specialty increase${effect.count === 1 ? '' : 's'}`
+    if (effect.type === 'free_skill_table_roll') return 'Free skill table roll'
+    if (effect.type === 'skill_table_roll') return `Roll on ${skillTableLabel(effect.tableId ?? selectedCareerSkillTableId.value)}`
+    if (effect.type === 'wager_benefit_rolls') return 'Wager benefit rolls'
     if (effect.type === 'gain_associate') return `Gain ${effect.count ? `${effect.count} ` : ''}${effect.associateTypes?.join(' or ') ?? 'associate'}`
+    if (effect.type === 'convert_or_gain_associate') return `Convert ${effect.from?.join(' or ') ?? 'contact or ally'} to ${effect.to?.join(' or ') ?? 'rival or enemy'}`
+    if (effect.type === 'convert_associate') return `Convert ${effect.associateName ?? 'associate'} to ${associateTypeLabel(String(effect.toType))}`
     if (effect.type === 'benefit_roll_dm') return `Benefit roll DM ${formatDm(effect.dm ?? 0)}`
     if (effect.type === 'one_benefit_roll_dm') return `One benefit roll DM ${formatDm(effect.dm ?? 0)}`
     if (effect.type === 'lose_benefit_roll') return `Lose ${effect.count ?? 1} benefit roll`
+    if (effect.type === 'possible_no_reenlist') return 'May not re-enlist'
     if (effect.type === 'next_advancement_dm') return `Next advancement DM ${formatDm(effect.dm ?? 0)}`
     if (effect.type === 'next_qualification_dm') return `Next qualification DM ${formatDm(effect.dm ?? 0)}`
+    if (effect.type === 'next_survival_dm') return `Next survival DM ${formatDm(effect.dm ?? 0)}`
     if (effect.type === 'automatic_promotion') return 'Automatic promotion'
     if (effect.type === 'automatic_commission') return 'Automatic commission'
     if (effect.type === 'automatic_next_promotion_or_commission') return 'Automatic next promotion or commission'
@@ -2562,6 +3061,11 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     applyCareerTableEffects,
     rollEventResolutionCheck,
     enterManualEventResolutionCheck,
+    rollEventResolutionSkillTable,
+    enterManualEventResolutionSkillTable,
+    rollEventResolutionBenefitWager,
+    enterManualEventResolutionBenefitWager,
+    declineEventResolutionBenefitWager,
     rollEventResolutionTable,
     enterManualEventResolutionTable,
     resolveEventChoice,

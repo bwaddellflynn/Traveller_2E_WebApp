@@ -94,6 +94,7 @@ const effectTypeMap: Record<string, Pick<TravellerEventEffect, 'normalizedType' 
   next_advancement_dm: { normalizedType: 'roll_modifier', resolution: 'automatic' },
   next_career: { normalizedType: 'career_transition', resolution: 'automatic' },
   next_qualification_dm: { normalizedType: 'roll_modifier', resolution: 'automatic' },
+  next_survival_dm: { normalizedType: 'roll_modifier', resolution: 'automatic' },
   one_benefit_roll_dm: { normalizedType: 'roll_modifier', resolution: 'automatic' },
   not_forced_out: { normalizedType: 'forced_out', resolution: 'automatic' },
   optional_check: { normalizedType: 'check', resolution: 'check' },

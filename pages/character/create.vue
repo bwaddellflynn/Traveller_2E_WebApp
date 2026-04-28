@@ -490,7 +490,7 @@ const {
                       </li>
                     </ul>
                   </div>
-                  <EventResolutionList />
+                  <EventResolutionList source-prefix="Career Mishap" />
                 </div>
               </div>
 
@@ -549,7 +549,7 @@ const {
                       </li>
                     </ul>
                   </div>
-                  <EventResolutionList />
+                  <EventResolutionList source-prefix="Career Event" />
                 </div>
               </div>
 
@@ -794,7 +794,7 @@ const {
                         </li>
                       </ul>
                     </div>
-                    <EventResolutionList />
+                    <EventResolutionList source-prefix="Pre-Career Event" />
                   </div>
                 </div>
 
@@ -850,7 +850,7 @@ const {
             <div v-if="termRolls.aging" class="mt-3 rounded-md bg-white p-3 text-sm">
               <p class="font-semibold">{{ rollSummary(termRolls.aging) }} · {{ agingEffect }}</p>
               <p class="mt-1 text-zinc-600">Resolve any characteristic reductions below.</p>
-              <EventResolutionList />
+              <EventResolutionList source-prefix="Aging" />
             </div>
           </div>
 
