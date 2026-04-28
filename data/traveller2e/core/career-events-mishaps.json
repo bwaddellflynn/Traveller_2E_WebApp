@@ -1,293 +1,3141 @@
 {
   "source": {
     "bookId": "mgt2e-core-2022",
-    "pages": [22, 45]
+    "pages": [
+      22,
+      45
+    ]
   },
   "notes": [
-    "Event and mishap prose is compressed into short table labels and broad mechanical effects.",
-    "Use source page references for adjudication where a row has choices or conditional checks."
+    "Event and mishap rows keep a short name for UI display, full source text for details, and broad mechanical effects for assisted resolution.",
+    "Use source page references for adjudication where a row has choices, conditional checks, or delayed consequences."
   ],
   "common": {
-    "event2": { "name": "Disaster", "effects": [{ "type": "roll_mishap", "ejected": false }] },
-    "event7": { "name": "Life Event", "effects": [{ "type": "roll_table", "tableId": "life-events" }] },
-    "mishap1": { "name": "Severely Injured", "effects": [{ "type": "injury", "severity": "severe_or_two_rolls_lowest" }] },
-    "mishap6": { "name": "Injured", "effects": [{ "type": "roll_table", "tableId": "injury" }] }
+    "event2": {
+      "name": "Disaster",
+      "effects": [
+        {
+          "type": "roll_mishap",
+          "ejected": false
+        }
+      ],
+      "text": "Disaster! Roll on the Mishap table but you are not ejected from this career."
+    },
+    "event7": {
+      "name": "Life Event",
+      "effects": [
+        {
+          "type": "roll_table",
+          "tableId": "life-events"
+        }
+      ],
+      "text": "Life Event. Roll on the Life Events table (see page 46)."
+    },
+    "mishap1": {
+      "name": "Severely Injured",
+      "effects": [
+        {
+          "type": "injury",
+          "severity": "severe_or_two_rolls_lowest"
+        }
+      ],
+      "text": "Severely injured (this is the same as a result of 2 on the Injury table). Alternatively, roll twice on the Injury table and take the lower result."
+    },
+    "mishap6": {
+      "name": "Injured",
+      "effects": [
+        {
+          "type": "roll_table",
+          "tableId": "injury"
+        }
+      ],
+      "text": "Injured. Roll on the Injury table (see page 49)."
+    }
   },
   "careers": {
     "agent": {
       "mishaps": [
-        { "roll": 1, "ref": "common.mishap1" },
-        { "roll": 2, "name": "Compromise Offer", "effects": [{ "type": "choice" }, { "type": "possible_injury" }, { "type": "possible_enemy" }, { "type": "choose_skill_increase", "amount": 1 }] },
-        { "roll": 3, "name": "Investigation Ruined", "effects": [{ "type": "check", "check": { "skill": "advocate", "target": 8 } }, { "type": "possible_keep_benefit_roll" }, { "type": "natural_two_next_career", "careerId": "prisoner" }] },
-        { "roll": 4, "name": "Dangerous Secret", "effects": [{ "type": "gain_associate", "associateTypes": ["enemy"] }, { "type": "set_skill", "skillId": "deception", "level": 1 }] },
-        { "roll": 5, "name": "Collateral Harm", "effects": [{ "type": "associate_or_family_injury" }] },
-        { "roll": 6, "ref": "common.mishap6" }
+        {
+          "roll": 1,
+          "ref": "common.mishap1"
+        },
+        {
+          "roll": 2,
+          "name": "Compromise Offer",
+          "effects": [
+            {
+              "type": "choice"
+            },
+            {
+              "type": "possible_injury"
+            },
+            {
+              "type": "possible_enemy"
+            },
+            {
+              "type": "choose_skill_increase",
+              "amount": 1
+            }
+          ],
+          "text": "A criminal or other figure under investigation offers you a deal. Accept and you leave this career without further penalty (although you lose the Benefit roll as normal). Refuse and you must roll twice on the Injury table and take the lower result. You gain an Enemy and one level in any skill you choose."
+        },
+        {
+          "roll": 3,
+          "name": "Investigation Ruined",
+          "effects": [
+            {
+              "type": "check",
+              "check": {
+                "skill": "advocate",
+                "target": 8
+              }
+            },
+            {
+              "type": "possible_keep_benefit_roll"
+            },
+            {
+              "type": "natural_two_next_career",
+              "careerId": "prisoner"
+            }
+          ],
+          "text": "An investigation goes critically wrong or leads to the top, ruining your career. Roll Advocate 8+. If you succeed, you may keep the Benefit roll from this term. If you roll 2, you must take the Prisoner career in your next term."
+        },
+        {
+          "roll": 4,
+          "name": "Dangerous Secret",
+          "effects": [
+            {
+              "type": "gain_associate",
+              "associateTypes": [
+                "enemy"
+              ]
+            },
+            {
+              "type": "set_skill",
+              "skillId": "deception",
+              "level": 1
+            }
+          ],
+          "text": "You learn something you should not know and people want to kill you for it. Gain an Enemy and Deception 1."
+        },
+        {
+          "roll": 5,
+          "name": "Collateral Harm",
+          "effects": [
+            {
+              "type": "associate_or_family_injury"
+            }
+          ],
+          "text": "Your work ends up coming home with you and someone gets hurt. Choose one of your Contacts, Allies or family members and roll twice on the Injury table for them, taking the lower result."
+        },
+        {
+          "roll": 6,
+          "ref": "common.mishap6"
+        }
       ],
       "events": [
-        { "roll": 2, "ref": "common.event2" },
-        { "roll": 3, "name": "Dangerous Investigation", "effects": [{ "type": "check_any", "checks": [{ "skill": "investigate", "target": 8 }, { "skill": "streetwise", "target": 8 }] }, { "type": "possible_mishap" }, { "type": "choose_skill_increase", "skills": ["deception", "jack-of-all-trades", "persuade", "tactics"] }] },
-        { "roll": 4, "name": "Rewarded Mission", "effects": [{ "type": "benefit_roll_dm", "dm": 1 }] },
-        { "roll": 5, "name": "Contact Network", "effects": [{ "type": "gain_associate", "associateTypes": ["contact"], "count": "D3" }] },
-        { "roll": 6, "name": "Specialist Training", "effects": [{ "type": "check", "check": { "characteristic": "edu", "target": 8 } }, { "type": "increase_existing_skill", "amount": 1 }] },
-        { "roll": 7, "ref": "common.event7" },
-        { "roll": 8, "name": "Undercover Operation", "effects": [{ "type": "check", "check": { "skill": "deception", "target": 8 } }, { "type": "roll_related_career_event_or_mishap" }] },
-        { "roll": 9, "name": "Above and Beyond", "effects": [{ "type": "next_advancement_dm", "dm": 2 }] },
-        { "roll": 10, "name": "Vehicle Training", "effects": [{ "type": "choose_skill_set", "skills": ["drive", "flyer", "pilot", "gunner"], "level": 1 }] },
-        { "roll": 11, "name": "Senior Agent Patron", "effects": [{ "type": "choice", "options": [{ "type": "increase_skill", "skillId": "investigate", "amount": 1 }, { "type": "next_advancement_dm", "dm": 4 }] }] },
-        { "roll": 12, "name": "Major Conspiracy", "effects": [{ "type": "automatic_promotion" }] }
+        {
+          "roll": 2,
+          "ref": "common.event2"
+        },
+        {
+          "roll": 3,
+          "name": "Dangerous Investigation",
+          "effects": [
+            {
+              "type": "check_any",
+              "checks": [
+                {
+                  "skill": "investigate",
+                  "target": 8
+                },
+                {
+                  "skill": "streetwise",
+                  "target": 8
+                }
+              ]
+            },
+            {
+              "type": "possible_mishap"
+            },
+            {
+              "type": "choose_skill_increase",
+              "skills": [
+                "deception",
+                "jack-of-all-trades",
+                "persuade",
+                "tactics"
+              ]
+            }
+          ],
+          "text": "An investigation takes on a dangerous turn. Roll Investigate 8+ or Streetwise 8+. If you fail, roll on the Mishap table. If you succeed, increase one of these skills by one level: Deception, Jack-of-all-Trades, Persuade or Tactics."
+        },
+        {
+          "roll": 4,
+          "name": "Rewarded Mission",
+          "effects": [
+            {
+              "type": "benefit_roll_dm",
+              "dm": 1
+            }
+          ],
+          "text": "You complete a mission for your superiors and are suitably rewarded. Gain DM+1 to any one Benefit roll from this career."
+        },
+        {
+          "roll": 5,
+          "name": "Contact Network",
+          "effects": [
+            {
+              "type": "gain_associate",
+              "associateTypes": [
+                "contact"
+              ],
+              "count": "D3"
+            }
+          ],
+          "text": "You establish a network of contacts. Gain D3 Contacts."
+        },
+        {
+          "roll": 6,
+          "name": "Specialist Training",
+          "effects": [
+            {
+              "type": "check",
+              "check": {
+                "characteristic": "edu",
+                "target": 8
+              }
+            },
+            {
+              "type": "increase_existing_skill",
+              "amount": 1
+            }
+          ],
+          "text": "You are given advanced training in a specialist field. Roll EDU 8+ to increase any one skill you already have by one level."
+        },
+        {
+          "roll": 7,
+          "ref": "common.event7"
+        },
+        {
+          "roll": 8,
+          "name": "Undercover Operation",
+          "effects": [
+            {
+              "type": "check",
+              "check": {
+                "skill": "deception",
+                "target": 8
+              }
+            },
+            {
+              "type": "roll_related_career_event_or_mishap"
+            }
+          ],
+          "text": "You go undercover to investigate an enemy. Roll Deception 8+. If you succeed, roll immediately on the Rogue or Citizen Events table and make one roll on any Specialist skill table for that career. If you fail, roll immediately on the Rogue or Citizen Mishap table."
+        },
+        {
+          "roll": 9,
+          "name": "Above and Beyond",
+          "effects": [
+            {
+              "type": "next_advancement_dm",
+              "dm": 2
+            }
+          ],
+          "text": "You go above and beyond the call of duty. Gain DM+2 to your next advancement roll."
+        },
+        {
+          "roll": 10,
+          "name": "Vehicle Training",
+          "effects": [
+            {
+              "type": "choose_skill_set",
+              "skills": [
+                "drive",
+                "flyer",
+                "pilot",
+                "gunner"
+              ],
+              "level": 1
+            }
+          ],
+          "text": "You are given specialist training in vehicles. Gain one of Drive 1, Flyer 1, Pilot 1 or Gunner 1."
+        },
+        {
+          "roll": 11,
+          "name": "Senior Agent Patron",
+          "effects": [
+            {
+              "type": "choice",
+              "options": [
+                {
+                  "type": "increase_skill",
+                  "skillId": "investigate",
+                  "amount": 1
+                },
+                {
+                  "type": "next_advancement_dm",
+                  "dm": 4
+                }
+              ]
+            }
+          ],
+          "text": "You are befriended by a senior agent. Either increase Investigate by one level or DM+4 to an advancement roll thanks to their aid."
+        },
+        {
+          "roll": 12,
+          "name": "Major Conspiracy",
+          "effects": [
+            {
+              "type": "automatic_promotion"
+            }
+          ],
+          "text": "Your efforts uncover a major conspiracy against your employers. You are automatically promoted."
+        }
       ]
     },
     "army": {
       "mishaps": [
-        { "roll": 1, "ref": "common.mishap1" },
-        { "roll": 2, "name": "Disastrous Battle", "effects": [{ "type": "gain_associate", "associateTypes": ["enemy"], "context": "commander" }, { "type": "forced_out" }] },
-        { "roll": 3, "name": "Unpleasant Campaign", "effects": [{ "type": "choose_skill_increase", "skills": ["recon", "survival"], "amount": 1 }, { "type": "gain_associate", "associateTypes": ["enemy"] }, { "type": "forced_out" }] },
-        { "roll": 4, "name": "Illegal Command Activity", "effects": [{ "type": "choice" }, { "type": "possible_ally" }, { "type": "possible_keep_benefit_roll" }, { "type": "forced_out" }] },
-        { "roll": 5, "name": "Quarrel With Soldier", "effects": [{ "type": "gain_associate", "associateTypes": ["rival"] }, { "type": "forced_out" }] },
-        { "roll": 6, "ref": "common.mishap6" }
+        {
+          "roll": 1,
+          "ref": "common.mishap1"
+        },
+        {
+          "roll": 2,
+          "name": "Disastrous Battle",
+          "effects": [
+            {
+              "type": "gain_associate",
+              "associateTypes": [
+                "enemy"
+              ],
+              "context": "commander"
+            },
+            {
+              "type": "forced_out"
+            }
+          ],
+          "text": "Your unit is slaughtered in a disastrous battle, for which you blame your commander. Gain them as an Enemy as they have you removed from the service."
+        },
+        {
+          "roll": 3,
+          "name": "Unpleasant Campaign",
+          "effects": [
+            {
+              "type": "choose_skill_increase",
+              "skills": [
+                "recon",
+                "survival"
+              ],
+              "amount": 1
+            },
+            {
+              "type": "gain_associate",
+              "associateTypes": [
+                "enemy"
+              ]
+            },
+            {
+              "type": "forced_out"
+            }
+          ],
+          "text": "You are sent to a very unpleasant region (jungle, swamp, desert, icecap, urban) to battle against guerrilla fighters and rebels. You are discharged because of stress, injury or because the government wishes to bury the whole incident. Increase Recon or Survival by one level but also gain the rebels as an Enemy."
+        },
+        {
+          "roll": 4,
+          "name": "Illegal Command Activity",
+          "effects": [
+            {
+              "type": "choice"
+            },
+            {
+              "type": "possible_ally"
+            },
+            {
+              "type": "possible_keep_benefit_roll"
+            },
+            {
+              "type": "forced_out"
+            }
+          ],
+          "text": "You discover that your commanding officer is engaged in some illegal activity, such as weapon smuggling. You can join their ring and gain them as an Ally before the inevitable investigation gets you discharged or you can co-operate with the military police - the official whitewash gets you discharged anyway but you may keep your Benefit roll from this term of service."
+        },
+        {
+          "roll": 5,
+          "name": "Quarrel With Soldier",
+          "effects": [
+            {
+              "type": "gain_associate",
+              "associateTypes": [
+                "rival"
+              ]
+            },
+            {
+              "type": "forced_out"
+            }
+          ],
+          "text": "You are tormented by or quarrel with an officer or fellow soldier. Gain that officer as a Rival as they drive you out of the service."
+        },
+        {
+          "roll": 6,
+          "ref": "common.mishap6"
+        }
       ],
       "events": [
-        { "roll": 2, "ref": "common.event2" },
-        { "roll": 3, "name": "Hostile Environment", "effects": [{ "type": "choose_skill_set", "skills": ["vacc-suit", "engineer", "animals/riding", "animals/training", "recon"], "level": 1 }] },
-        { "roll": 4, "name": "Urban Warzone", "effects": [{ "type": "choose_skill_set", "skills": ["stealth", "streetwise", "persuade", "recon"], "level": 1 }] },
-        { "roll": 5, "name": "Special Duty", "effects": [{ "type": "benefit_roll_dm", "dm": 1 }] },
-        { "roll": 6, "name": "Brutal Ground War", "effects": [{ "type": "check", "check": { "characteristic": "edu", "target": 8 } }, { "type": "possible_injury" }, { "type": "choose_skill_increase", "skills": ["gun-combat", "leadership"], "amount": 1 }] },
-        { "roll": 7, "ref": "common.event7" },
-        { "roll": 8, "name": "Advanced Training", "effects": [{ "type": "check", "check": { "characteristic": "edu", "target": 8 } }, { "type": "increase_existing_skill", "amount": 1 }] },
-        { "roll": 9, "name": "Held Until Relief", "effects": [{ "type": "next_advancement_dm", "dm": 2 }] },
-        { "roll": 10, "name": "Peacekeeping", "effects": [{ "type": "choose_skill_set", "skills": ["admin", "investigate", "deception", "recon"], "level": 1 }] },
-        { "roll": 11, "name": "Command Interest", "effects": [{ "type": "choice", "options": [{ "type": "set_skill", "skillId": "tactics/military", "level": 1 }, { "type": "next_advancement_dm", "dm": 4 }] }] },
-        { "roll": 12, "name": "Heroism", "effects": [{ "type": "choice", "options": [{ "type": "automatic_promotion" }, { "type": "automatic_commission" }] }] }
+        {
+          "roll": 2,
+          "ref": "common.event2"
+        },
+        {
+          "roll": 3,
+          "name": "Hostile Environment",
+          "effects": [
+            {
+              "type": "choose_skill_set",
+              "skills": [
+                "vacc-suit",
+                "engineer",
+                "animals/riding",
+                "animals/training",
+                "recon"
+              ],
+              "level": 1
+            }
+          ],
+          "text": "You are assigned to a planet with a hostile or wild environment. Gain one of Vacc Suit 1, Engineer 1, Animals (riding or training) 1 or Recon 1."
+        },
+        {
+          "roll": 4,
+          "name": "Urban Warzone",
+          "effects": [
+            {
+              "type": "choose_skill_set",
+              "skills": [
+                "stealth",
+                "streetwise",
+                "persuade",
+                "recon"
+              ],
+              "level": 1
+            }
+          ],
+          "text": "You are assigned to an urbanised planet torn by war. Gain one of Stealth 1, Streetwise 1, Persuade 1 or Recon 1."
+        },
+        {
+          "roll": 5,
+          "name": "Special Duty",
+          "effects": [
+            {
+              "type": "benefit_roll_dm",
+              "dm": 1
+            }
+          ],
+          "text": "You are given a special assignment or duty in your unit. Gain DM+1 to any one Benefit roll."
+        },
+        {
+          "roll": 6,
+          "name": "Brutal Ground War",
+          "effects": [
+            {
+              "type": "check",
+              "check": {
+                "characteristic": "edu",
+                "target": 8
+              }
+            },
+            {
+              "type": "possible_injury"
+            },
+            {
+              "type": "choose_skill_increase",
+              "skills": [
+                "gun-combat",
+                "leadership"
+              ],
+              "amount": 1
+            }
+          ],
+          "text": "You are thrown into a brutal ground war. Roll EDU 8+ to avoid injury; if you succeed, you gain one level in Gun Combat or Leadership."
+        },
+        {
+          "roll": 7,
+          "ref": "common.event7"
+        },
+        {
+          "roll": 8,
+          "name": "Advanced Training",
+          "effects": [
+            {
+              "type": "check",
+              "check": {
+                "characteristic": "edu",
+                "target": 8
+              }
+            },
+            {
+              "type": "increase_existing_skill",
+              "amount": 1
+            }
+          ],
+          "text": "You are given advanced training in a specialist field. Roll EDU 8+ to increase any one skill you already have by one level."
+        },
+        {
+          "roll": 9,
+          "name": "Held Until Relief",
+          "effects": [
+            {
+              "type": "next_advancement_dm",
+              "dm": 2
+            }
+          ],
+          "text": "Surrounded and outnumbered by the enemy, you hold out until relief arrives. Gain DM+2 to your next advancement roll."
+        },
+        {
+          "roll": 10,
+          "name": "Peacekeeping",
+          "effects": [
+            {
+              "type": "choose_skill_set",
+              "skills": [
+                "admin",
+                "investigate",
+                "deception",
+                "recon"
+              ],
+              "level": 1
+            }
+          ],
+          "text": "You are assigned to a peacekeeping role. Gain one of Admin 1, Investigate 1, Deception 1 or Recon 1."
+        },
+        {
+          "roll": 11,
+          "name": "Command Interest",
+          "effects": [
+            {
+              "type": "choice",
+              "options": [
+                {
+                  "type": "set_skill",
+                  "skillId": "tactics/military",
+                  "level": 1
+                },
+                {
+                  "type": "next_advancement_dm",
+                  "dm": 4
+                }
+              ]
+            }
+          ],
+          "text": "Your commanding officer takes an interest in your career. Either gain Tactics (military) 1 or DM+4 to your next advancement roll thanks to their aid."
+        },
+        {
+          "roll": 12,
+          "name": "Heroism",
+          "effects": [
+            {
+              "type": "choice",
+              "options": [
+                {
+                  "type": "automatic_promotion"
+                },
+                {
+                  "type": "automatic_commission"
+                }
+              ]
+            }
+          ],
+          "text": "You display heroism in battle. You may gain a promotion or a commission automatically."
+        }
       ]
     },
     "citizen": {
       "mishaps": [
-        { "roll": 1, "ref": "common.mishap1" },
-        { "roll": 2, "name": "Criminal Harassment", "effects": [{ "type": "gain_associate", "associateTypes": ["enemy"] }] },
-        { "roll": 3, "name": "Hard Times", "effects": [{ "type": "characteristic_change", "characteristic": "soc", "amount": -1 }] },
-        { "roll": 4, "name": "Official Investigation", "effects": [{ "type": "choice" }, { "type": "next_qualification_dm", "dm": 2 }, { "type": "possible_ally" }] },
-        { "roll": 5, "name": "Planetary Chaos", "effects": [{ "type": "check", "check": { "skill": "streetwise", "target": 8 } }, { "type": "increase_any_existing_skill", "amount": 1 }] },
-        { "roll": 6, "ref": "common.mishap6" }
+        {
+          "roll": 1,
+          "ref": "common.mishap1"
+        },
+        {
+          "roll": 2,
+          "name": "Criminal Harassment",
+          "effects": [
+            {
+              "type": "gain_associate",
+              "associateTypes": [
+                "enemy"
+              ]
+            }
+          ],
+          "text": "You are harassed and your life ruined by a criminal gang. Gain the gang as an Enemy."
+        },
+        {
+          "roll": 3,
+          "name": "Hard Times",
+          "effects": [
+            {
+              "type": "characteristic_change",
+              "characteristic": "soc",
+              "amount": -1
+            }
+          ],
+          "text": "Hard times caused by a lack of interstellar trade costs you your job. Lose one SOC."
+        },
+        {
+          "roll": 4,
+          "name": "Official Investigation",
+          "effects": [
+            {
+              "type": "choice"
+            },
+            {
+              "type": "next_qualification_dm",
+              "dm": 2
+            },
+            {
+              "type": "possible_ally"
+            }
+          ],
+          "text": "Your business is investigated by the planetary authorities (or your colony suffers interference from interests offworld). Co-operate and the business or colony is shut down but you gain DM+2 to the qualification roll for your next career as a reward for your aid. Refuse and gain an Ally."
+        },
+        {
+          "roll": 5,
+          "name": "Planetary Chaos",
+          "effects": [
+            {
+              "type": "check",
+              "check": {
+                "skill": "streetwise",
+                "target": 8
+              }
+            },
+            {
+              "type": "increase_any_existing_skill",
+              "amount": 1
+            }
+          ],
+          "text": "A revolution, attack or other unusual event throws your life into chaos, forcing you to leave the planet. Roll Streetwise 8+. If you succeed, increase any skill you have by one level."
+        },
+        {
+          "roll": 6,
+          "ref": "common.mishap6"
+        }
       ],
       "events": [
-        { "roll": 2, "ref": "common.event2" },
-        { "roll": 3, "name": "Political Upheaval", "effects": [{ "type": "choose_skill_set", "skills": ["advocate", "persuade", "explosives", "streetwise"], "level": 1 }, { "type": "check_chosen_skill", "target": 8 }, { "type": "possible_next_advancement_dm", "dm": 2 }, { "type": "possible_next_survival_dm", "dm": -2 }] },
-        { "roll": 4, "name": "Heavy Vehicle Experience", "effects": [{ "type": "choose_skill_increase", "skills": ["mechanic", "drive", "electronics", "flyer", "engineer"], "amount": 1 }] },
-        { "roll": 5, "name": "Enterprise Thrives", "effects": [{ "type": "benefit_roll_dm", "dm": 1 }] },
-        { "roll": 6, "name": "Advanced Training", "effects": [{ "type": "check", "check": { "characteristic": "edu", "target": 10 } }, { "type": "choose_skill", "level": 1 }] },
-        { "roll": 7, "ref": "common.event7" },
-        { "roll": 8, "name": "Profitable Secret", "effects": [{ "type": "choice" }, { "type": "benefit_roll_dm", "dm": 1 }, { "type": "choose_skill_or_contact", "skills": ["streetwise", "deception"] }] },
-        { "roll": 9, "name": "Rewarded Diligence", "effects": [{ "type": "next_advancement_dm", "dm": 2 }] },
-        { "roll": 10, "name": "Technical Experience", "effects": [{ "type": "choose_skill_increase", "skills": ["electronics", "engineer"], "amount": 1 }] },
-        { "roll": 11, "name": "Superior Ally", "effects": [{ "type": "gain_associate", "associateTypes": ["ally"] }, { "type": "choice", "options": [{ "type": "set_skill", "skillId": "diplomat", "level": 1 }, { "type": "next_advancement_dm", "dm": 4 }] }] },
-        { "roll": 12, "name": "Position of Power", "effects": [{ "type": "automatic_promotion" }] }
+        {
+          "roll": 2,
+          "ref": "common.event2"
+        },
+        {
+          "roll": 3,
+          "name": "Political Upheaval",
+          "effects": [
+            {
+              "type": "choose_skill_set",
+              "skills": [
+                "advocate",
+                "persuade",
+                "explosives",
+                "streetwise"
+              ],
+              "level": 1
+            },
+            {
+              "type": "check_chosen_skill",
+              "target": 8
+            },
+            {
+              "type": "possible_next_advancement_dm",
+              "dm": 2
+            },
+            {
+              "type": "possible_next_survival_dm",
+              "dm": -2
+            }
+          ],
+          "text": "Political upheaval strikes your homeworld and you are caught up in the revolution. Gain either Advocate 1, Persuade 1, Explosives 1 or Streetwise 1. Roll whichever skill you chose 8+. If you succeed you come out on the winning side and gain DM+2 to your next advancement roll. Fail and you suffer DM-2 to your next Survival roll."
+        },
+        {
+          "roll": 4,
+          "name": "Heavy Vehicle Experience",
+          "effects": [
+            {
+              "type": "choose_skill_increase",
+              "skills": [
+                "mechanic",
+                "drive",
+                "electronics",
+                "flyer",
+                "engineer"
+              ],
+              "amount": 1
+            }
+          ],
+          "text": "You spend time maintaining and using heavy vehicles, either as part of your job or as a hobby. Increase Mechanic, Drive, Electronics, Flyer or Engineer by one level."
+        },
+        {
+          "roll": 5,
+          "name": "Enterprise Thrives",
+          "effects": [
+            {
+              "type": "benefit_roll_dm",
+              "dm": 1
+            }
+          ],
+          "text": "Your business expands, your corporation grows or the colony thrives. Gain DM+1 to any one Benefit roll."
+        },
+        {
+          "roll": 6,
+          "name": "Advanced Training",
+          "effects": [
+            {
+              "type": "check",
+              "check": {
+                "characteristic": "edu",
+                "target": 10
+              }
+            },
+            {
+              "type": "choose_skill",
+              "level": 1
+            }
+          ],
+          "text": "You are given advanced training in a specialist field. Roll EDU 10+ to gain any one skill of your choice at level 1."
+        },
+        {
+          "roll": 7,
+          "ref": "common.event7"
+        },
+        {
+          "roll": 8,
+          "name": "Profitable Secret",
+          "effects": [
+            {
+              "type": "choice"
+            },
+            {
+              "type": "benefit_roll_dm",
+              "dm": 1
+            },
+            {
+              "type": "choose_skill_or_contact",
+              "skills": [
+                "streetwise",
+                "deception"
+              ]
+            }
+          ],
+          "text": "You learn something you should not have - a corporate secret, a political scandal - which you can profit from illegally. If you choose to do so, then you gain DM+1 to a Benefit roll from this career and gain Streetwise 1, Deception 1 or a criminal Contact. If you refuse, you gain nothing."
+        },
+        {
+          "roll": 9,
+          "name": "Rewarded Diligence",
+          "effects": [
+            {
+              "type": "next_advancement_dm",
+              "dm": 2
+            }
+          ],
+          "text": "You are rewarded for your diligence or cunning. Gain DM+2 to your next advancement roll."
+        },
+        {
+          "roll": 10,
+          "name": "Technical Experience",
+          "effects": [
+            {
+              "type": "choose_skill_increase",
+              "skills": [
+                "electronics",
+                "engineer"
+              ],
+              "amount": 1
+            }
+          ],
+          "text": "You gain experience in a technical field as a computer operator or surveyor. Increase Electronics or Engineer by one level."
+        },
+        {
+          "roll": 11,
+          "name": "Superior Ally",
+          "effects": [
+            {
+              "type": "gain_associate",
+              "associateTypes": [
+                "ally"
+              ]
+            },
+            {
+              "type": "choice",
+              "options": [
+                {
+                  "type": "set_skill",
+                  "skillId": "diplomat",
+                  "level": 1
+                },
+                {
+                  "type": "next_advancement_dm",
+                  "dm": 4
+                }
+              ]
+            }
+          ],
+          "text": "You befriend a superior in the corporation or the colony. Gain an Ally. Either gain Diplomat 1 or DM+4 to your next advancement roll thanks to their aid."
+        },
+        {
+          "roll": 12,
+          "name": "Position of Power",
+          "effects": [
+            {
+              "type": "automatic_promotion"
+            }
+          ],
+          "text": "You rise to a position of power in your colony or corporation. You are automatically promoted."
+        }
       ]
     },
     "drifter": {
       "mishaps": [
-        { "roll": 1, "ref": "common.mishap1" },
-        { "roll": 2, "ref": "common.mishap6" },
-        { "roll": 3, "name": "Powerful Foe", "effects": [{ "type": "gain_associate", "associateTypes": ["enemy"] }] },
-        { "roll": 4, "name": "Serious Illness", "effects": [{ "type": "characteristic_change", "characteristic": "end", "amount": -1 }] },
-        { "roll": 5, "name": "Betrayed", "effects": [{ "type": "convert_or_gain_associate", "from": ["contact", "ally"], "to": ["rival", "enemy"] }, { "type": "possible_next_career", "careerId": "prisoner" }] },
-        { "roll": 6, "name": "Memory Gap", "effects": [{ "type": "narrative_event" }] }
+        {
+          "roll": 1,
+          "ref": "common.mishap1"
+        },
+        {
+          "roll": 2,
+          "ref": "common.mishap6"
+        },
+        {
+          "roll": 3,
+          "name": "Powerful Foe",
+          "effects": [
+            {
+              "type": "gain_associate",
+              "associateTypes": [
+                "enemy"
+              ]
+            }
+          ],
+          "text": "You run afoul of a criminal gang, corrupt bureaucrat or other foe. Gain an Enemy."
+        },
+        {
+          "roll": 4,
+          "name": "Serious Illness",
+          "effects": [
+            {
+              "type": "characteristic_change",
+              "characteristic": "end",
+              "amount": -1
+            }
+          ],
+          "text": "You suffer from a life-threatening illness. Reduce your END by 1."
+        },
+        {
+          "roll": 5,
+          "name": "Betrayed",
+          "effects": [
+            {
+              "type": "convert_or_gain_associate",
+              "from": [
+                "contact",
+                "ally"
+              ],
+              "to": [
+                "rival",
+                "enemy"
+              ]
+            },
+            {
+              "type": "possible_next_career",
+              "careerId": "prisoner"
+            }
+          ],
+          "text": "Betrayed by a friend. One of your Contacts or Allies betrays you, ending your career. That Contact or Ally becomes a Rival or Enemy. If you have no Contacts or Allies, then you are betrayed by someone you never saw coming and still gain a Rival or Enemy. In addition, roll 2D. If you roll 2, you must take the Prisoner career in your next term."
+        },
+        {
+          "roll": 6,
+          "name": "Memory Gap",
+          "effects": [
+            {
+              "type": "narrative_event"
+            }
+          ],
+          "text": "You do not know what happened to you. There is a gap in your memory."
+        }
       ],
       "events": [
-        { "roll": 2, "ref": "common.event2" },
-        { "roll": 3, "name": "Patron Job", "effects": [{ "type": "choice" }, { "type": "next_qualification_dm", "dm": 4 }, { "type": "debt_favour" }] },
-        { "roll": 4, "name": "Useful Skills", "effects": [{ "type": "choose_skill_increase", "skills": ["jack-of-all-trades", "survival", "streetwise", "melee"], "amount": 1 }] },
-        { "roll": 5, "name": "Useful Salvage", "effects": [{ "type": "benefit_roll_dm", "dm": 1 }] },
-        { "roll": 6, "name": "Unusual Encounter", "effects": [{ "type": "roll_life_event_subtable", "subtable": "unusual-events" }] },
-        { "roll": 7, "ref": "common.event7" },
-        { "roll": 8, "name": "Attacked", "effects": [{ "type": "gain_associate", "associateTypes": ["enemy"] }, { "type": "check_any", "checks": [{ "skill": "melee", "target": 8 }, { "skill": "gun-combat", "target": 8 }, { "skill": "stealth", "target": 8 }] }, { "type": "possible_injury" }] },
-        { "roll": 9, "name": "Risky Adventure", "effects": [{ "type": "roll_subtable", "tableId": "risky-adventure" }] },
-        { "roll": 10, "name": "Edge Experience", "effects": [{ "type": "increase_existing_skill", "amount": 1 }] },
-        { "roll": 11, "name": "Forced Draft", "effects": [{ "type": "draft_next_term" }] },
-        { "roll": 12, "name": "Thrives on Adversity", "effects": [{ "type": "automatic_promotion" }] }
+        {
+          "roll": 2,
+          "ref": "common.event2"
+        },
+        {
+          "roll": 3,
+          "name": "Patron Job",
+          "effects": [
+            {
+              "type": "choice"
+            },
+            {
+              "type": "next_qualification_dm",
+              "dm": 4
+            },
+            {
+              "type": "debt_favour"
+            }
+          ],
+          "text": "A patron offers you a chance at a job. If you accept, you gain DM+4 to your next qualification roll but you owe that patron a favour."
+        },
+        {
+          "roll": 4,
+          "name": "Useful Skills",
+          "effects": [
+            {
+              "type": "choose_skill_increase",
+              "skills": [
+                "jack-of-all-trades",
+                "survival",
+                "streetwise",
+                "melee"
+              ],
+              "amount": 1
+            }
+          ],
+          "text": "You pick up a few useful skills here and there. Gain one level of Jack-of-all-Trades, Survival, Streetwise or Melee (any)."
+        },
+        {
+          "roll": 5,
+          "name": "Useful Salvage",
+          "effects": [
+            {
+              "type": "benefit_roll_dm",
+              "dm": 1
+            }
+          ],
+          "text": "You manage to scavenge something of use. Gain DM+1 to any one Benefit roll."
+        },
+        {
+          "roll": 6,
+          "name": "Unusual Encounter",
+          "effects": [
+            {
+              "type": "roll_life_event_subtable",
+              "subtable": "unusual-events"
+            }
+          ],
+          "text": "You encounter something unusual. Go to the Life Events table and have an Unusual Event."
+        },
+        {
+          "roll": 7,
+          "ref": "common.event7"
+        },
+        {
+          "roll": 8,
+          "name": "Attacked",
+          "effects": [
+            {
+              "type": "gain_associate",
+              "associateTypes": [
+                "enemy"
+              ]
+            },
+            {
+              "type": "check_any",
+              "checks": [
+                {
+                  "skill": "melee",
+                  "target": 8
+                },
+                {
+                  "skill": "gun-combat",
+                  "target": 8
+                },
+                {
+                  "skill": "stealth",
+                  "target": 8
+                }
+              ]
+            },
+            {
+              "type": "possible_injury"
+            }
+          ],
+          "text": "You are attacked by enemies. Gain an Enemy if you do not have one already and roll either Melee 8+, Gun Combat 8+ or Stealth 8+ to avoid a roll on the Injury table."
+        },
+        {
+          "roll": 9,
+          "name": "Risky Adventure",
+          "effects": [
+            {
+              "type": "roll_subtable",
+              "tableId": "risky-adventure"
+            }
+          ],
+          "text": "You are offered a chance to take part in a risky but rewarding adventure. If you accept, roll 1D: On a 1-2, you are injured or arrested; either roll on the Injury table or take the Prisoner career in your next term. On 3-4, you survive, but gain nothing. On a 5-6, you succeed. Gain DM+4 to one Benefit roll."
+        },
+        {
+          "roll": 10,
+          "name": "Edge Experience",
+          "effects": [
+            {
+              "type": "increase_existing_skill",
+              "amount": 1
+            }
+          ],
+          "text": "Life on the edge hones your abilities. Increase any skill you already have by one level."
+        },
+        {
+          "roll": 11,
+          "name": "Forced Draft",
+          "effects": [
+            {
+              "type": "draft_next_term"
+            }
+          ],
+          "text": "You are forcibly drafted. Roll for the Draft next term."
+        },
+        {
+          "roll": 12,
+          "name": "Thrives on Adversity",
+          "effects": [
+            {
+              "type": "automatic_promotion"
+            }
+          ],
+          "text": "You thrive on adversity. You are automatically promoted."
+        }
       ]
     },
     "entertainer": {
       "mishaps": [
-        { "roll": 1, "ref": "common.mishap1" },
-        { "roll": 2, "name": "Scandal", "effects": [{ "type": "narrative_event" }] },
-        { "roll": 3, "name": "Public Backlash", "effects": [{ "type": "characteristic_change", "characteristic": "soc", "amount": -1 }] },
-        { "roll": 4, "name": "Peer Betrayal", "effects": [{ "type": "convert_or_gain_associate", "from": ["contact", "ally"], "to": ["rival", "enemy"] }] },
-        { "roll": 5, "name": "Stranded", "effects": [{ "type": "choose_skill_set", "skills": ["survival", "pilot", "persuade", "streetwise"], "level": 1 }] },
-        { "roll": 6, "name": "Censorship or Controversy", "effects": [{ "type": "next_qualification_dm", "dm": 2 }] }
+        {
+          "roll": 1,
+          "ref": "common.mishap1"
+        },
+        {
+          "roll": 2,
+          "name": "Scandal",
+          "effects": [
+            {
+              "type": "narrative_event"
+            }
+          ],
+          "text": "You expose or are involved in a scandal of some sort."
+        },
+        {
+          "roll": 3,
+          "name": "Public Backlash",
+          "effects": [
+            {
+              "type": "characteristic_change",
+              "characteristic": "soc",
+              "amount": -1
+            }
+          ],
+          "text": "Public opinion turns on you. Reduce your SOC by 1."
+        },
+        {
+          "roll": 4,
+          "name": "Peer Betrayal",
+          "effects": [
+            {
+              "type": "convert_or_gain_associate",
+              "from": [
+                "contact",
+                "ally"
+              ],
+              "to": [
+                "rival",
+                "enemy"
+              ]
+            }
+          ],
+          "text": "You are betrayed by a peer. One of your Contacts or Allies betrays you, ending your career. That Contact or Ally becomes a Rival or Enemy. If you have no Contacts or Allies, then you are betrayed by someone you never saw coming and still gain a Rival or Enemy."
+        },
+        {
+          "roll": 5,
+          "name": "Stranded",
+          "effects": [
+            {
+              "type": "choose_skill_set",
+              "skills": [
+                "survival",
+                "pilot",
+                "persuade",
+                "streetwise"
+              ],
+              "level": 1
+            }
+          ],
+          "text": "An investigation, tour, project or expedition goes wrong, stranding you far from home. Gain one of Survival 1, Pilot 1, Persuade 1 or Streetwise 1."
+        },
+        {
+          "roll": 6,
+          "name": "Censorship or Controversy",
+          "effects": [
+            {
+              "type": "next_qualification_dm",
+              "dm": 2
+            }
+          ],
+          "text": "You are forced out because of censorship or controversy. What truth did you get too close to? You gain DM+2 to the qualification roll for your next career."
+        }
       ],
       "events": [
-        { "roll": 2, "ref": "common.event2" },
-        { "roll": 3, "name": "Controversial Work", "effects": [{ "type": "check_any", "checks": [{ "skill": "art", "target": 8 }, { "skill": "investigate", "target": 8 }] }, { "type": "possible_soc_change" }] },
-        { "roll": 4, "name": "Celebrity Circles", "effects": [{ "type": "choose_skill_or_contact", "skills": ["carouse", "persuade", "steward"] }] },
-        { "roll": 5, "name": "Popular Work", "effects": [{ "type": "benefit_roll_dm", "dm": 1 }] },
-        { "roll": 6, "name": "Patron", "effects": [{ "type": "next_advancement_dm", "dm": 2 }, { "type": "gain_associate", "associateTypes": ["ally"] }] },
-        { "roll": 7, "ref": "common.event7" },
-        { "roll": 8, "name": "Political Critique", "effects": [{ "type": "choice" }, { "type": "gain_associate", "associateTypes": ["enemy"] }, { "type": "check_any", "checks": [{ "skill": "art", "target": 8 }, { "skill": "persuade", "target": 8 }] }, { "type": "increase_existing_skill", "amount": 1 }, { "type": "possible_mishap" }] },
-        { "roll": 9, "name": "Sector Tour", "effects": [{ "type": "gain_associate", "associateTypes": ["contact"], "count": "D3" }] },
-        { "roll": 10, "name": "Stolen Work", "effects": [{ "type": "choose_skill_set", "skills": ["streetwise", "investigate", "recon", "stealth"], "level": 1 }] },
-        { "roll": 11, "name": "Strange Charmed Life", "effects": [{ "type": "roll_life_event_subtable", "subtable": "unusual-events" }] },
-        { "roll": 12, "name": "Prestigious Prize", "effects": [{ "type": "automatic_promotion" }] }
+        {
+          "roll": 2,
+          "ref": "common.event2"
+        },
+        {
+          "roll": 3,
+          "name": "Controversial Work",
+          "effects": [
+            {
+              "type": "check_any",
+              "checks": [
+                {
+                  "skill": "art",
+                  "target": 8
+                },
+                {
+                  "skill": "investigate",
+                  "target": 8
+                }
+              ]
+            },
+            {
+              "type": "possible_soc_change"
+            }
+          ],
+          "text": "You are invited to take part in a controversial event or exhibition. Roll Art or Investigate 8+. If you succeed, gain one SOC. If you fail, lose one SOC."
+        },
+        {
+          "roll": 4,
+          "name": "Celebrity Circles",
+          "effects": [
+            {
+              "type": "choose_skill_or_contact",
+              "skills": [
+                "carouse",
+                "persuade",
+                "steward"
+              ]
+            }
+          ],
+          "text": "You are a part of your homeworld’s celebrity circles. Gain one of Carouse 1, Persuade 1, Steward 1 or a Contact."
+        },
+        {
+          "roll": 5,
+          "name": "Popular Work",
+          "effects": [
+            {
+              "type": "benefit_roll_dm",
+              "dm": 1
+            }
+          ],
+          "text": "One of your works is especially well received and popular, making you a minor celebrity. Gain DM+1 to any one Benefit roll."
+        },
+        {
+          "roll": 6,
+          "name": "Patron",
+          "effects": [
+            {
+              "type": "next_advancement_dm",
+              "dm": 2
+            },
+            {
+              "type": "gain_associate",
+              "associateTypes": [
+                "ally"
+              ]
+            }
+          ],
+          "text": "You gain a patron in the arts. Gain DM+2 to your next advancement roll and an Ally."
+        },
+        {
+          "roll": 7,
+          "ref": "common.event7"
+        },
+        {
+          "roll": 8,
+          "name": "Political Critique",
+          "effects": [
+            {
+              "type": "choice"
+            },
+            {
+              "type": "gain_associate",
+              "associateTypes": [
+                "enemy"
+              ]
+            },
+            {
+              "type": "check_any",
+              "checks": [
+                {
+                  "skill": "art",
+                  "target": 8
+                },
+                {
+                  "skill": "persuade",
+                  "target": 8
+                }
+              ]
+            },
+            {
+              "type": "increase_existing_skill",
+              "amount": 1
+            },
+            {
+              "type": "possible_mishap"
+            }
+          ],
+          "text": "You have the opportunity to criticise or even bring down a questionable political leader on your homeworld. If you refuse and support the leader, you gain nothing. If you accept, gain an Enemy and roll Art or Persuade 8+. If you succeed, gain one level in any skill you already have. If you fail, increase a skill anyway and roll on the Mishap table."
+        },
+        {
+          "roll": 9,
+          "name": "Sector Tour",
+          "effects": [
+            {
+              "type": "gain_associate",
+              "associateTypes": [
+                "contact"
+              ],
+              "count": "D3"
+            }
+          ],
+          "text": "You go on a tour of the sector, visiting several worlds. Gain D3 Contacts."
+        },
+        {
+          "roll": 10,
+          "name": "Stolen Work",
+          "effects": [
+            {
+              "type": "choose_skill_set",
+              "skills": [
+                "streetwise",
+                "investigate",
+                "recon",
+                "stealth"
+              ],
+              "level": 1
+            }
+          ],
+          "text": "One of your pieces of art is stolen and the investigation brings you into the criminal underworld. Gain one of Streetwise 1, Investigate 1, Recon 1 or Stealth 1."
+        },
+        {
+          "roll": 11,
+          "name": "Strange Charmed Life",
+          "effects": [
+            {
+              "type": "roll_life_event_subtable",
+              "subtable": "unusual-events"
+            }
+          ],
+          "text": "As an artist, you lead a strange and charmed life. Go to the Life Events Table and have an Unusual Event."
+        },
+        {
+          "roll": 12,
+          "name": "Prestigious Prize",
+          "effects": [
+            {
+              "type": "automatic_promotion"
+            }
+          ],
+          "text": "You win a prestigious prize. You are automatically promoted."
+        }
       ]
     },
     "marine": {
       "mishaps": [
-        { "roll": 1, "ref": "common.mishap1" },
-        { "roll": 2, "name": "Captured and Mistreated", "effects": [{ "type": "gain_associate", "associateTypes": ["enemy"] }, { "type": "characteristic_change", "characteristics": ["str", "dex"], "amount": -1 }, { "type": "forced_out" }] },
-        { "roll": 3, "name": "Stranded Behind Lines", "effects": [{ "type": "choose_skill_increase", "skills": ["stealth", "survival"], "amount": 1 }, { "type": "forced_out" }] },
-        { "roll": 4, "name": "Black Ops Conscience", "effects": [{ "type": "choice" }, { "type": "possible_enemy" }, { "type": "possible_forced_out" }] },
-        { "roll": 5, "name": "Quarrel With Marine", "effects": [{ "type": "gain_associate", "associateTypes": ["rival"] }, { "type": "forced_out" }] },
-        { "roll": 6, "ref": "common.mishap6" }
+        {
+          "roll": 1,
+          "ref": "common.mishap1"
+        },
+        {
+          "roll": 2,
+          "name": "Captured and Mistreated",
+          "effects": [
+            {
+              "type": "gain_associate",
+              "associateTypes": [
+                "enemy"
+              ]
+            },
+            {
+              "type": "characteristic_change",
+              "characteristics": [
+                "str",
+                "dex"
+              ],
+              "amount": -1
+            },
+            {
+              "type": "forced_out"
+            }
+          ],
+          "text": "A mission goes wrong; you and several others are captured and mistreated by the enemy. Due to your injuries, you are discharged early. Gain your jailer as an Enemy and reduce your STR and DEX by one because of your injuries."
+        },
+        {
+          "roll": 3,
+          "name": "Stranded Behind Lines",
+          "effects": [
+            {
+              "type": "choose_skill_increase",
+              "skills": [
+                "stealth",
+                "survival"
+              ],
+              "amount": 1
+            },
+            {
+              "type": "forced_out"
+            }
+          ],
+          "text": "A mission goes wrong and you are stranded behind enemy lines. Increase Stealth or Survival by one level but, due to the mission’s failure, you are ejected from the service."
+        },
+        {
+          "roll": 4,
+          "name": "Black Ops Conscience",
+          "effects": [
+            {
+              "type": "choice"
+            },
+            {
+              "type": "possible_enemy"
+            },
+            {
+              "type": "possible_forced_out"
+            }
+          ],
+          "text": "You are ordered to take part in a black ops mission that goes against your conscience. If you refuse you are ejected from the service. If you accept you may stay with the marines but gain the lone survivor as an Enemy."
+        },
+        {
+          "roll": 5,
+          "name": "Quarrel With Marine",
+          "effects": [
+            {
+              "type": "gain_associate",
+              "associateTypes": [
+                "rival"
+              ]
+            },
+            {
+              "type": "forced_out"
+            }
+          ],
+          "text": "You are tormented by or quarrel with an officer or fellow marine. Gain that character as a Rival as they drive you out of the service."
+        },
+        {
+          "roll": 6,
+          "ref": "common.mishap6"
+        }
       ],
       "events": [
-        { "roll": 2, "ref": "common.event2" },
-        { "roll": 3, "name": "Behind Enemy Lines", "effects": [{ "type": "choose_skill_set", "skills": ["survival", "stealth", "deception", "streetwise"], "level": 1 }] },
-        { "roll": 4, "name": "Station Security", "effects": [{ "type": "choose_skill_increase", "skills": ["vacc-suit", "athletics/dexterity"], "amount": 1 }] },
-        { "roll": 5, "name": "Advanced Training", "effects": [{ "type": "check", "check": { "characteristic": "edu", "target": 8 } }, { "type": "choose_skill", "level": 1 }] },
-        { "roll": 6, "name": "Fortress Assault", "effects": [{ "type": "check_any", "checks": [{ "skill": "melee", "target": 8 }, { "skill": "gun-combat", "target": 8 }] }, { "type": "choose_skill_set", "skills": ["tactics/military", "leadership"] }, { "type": "possible_physical_characteristic_loss", "amount": -1 }] },
-        { "roll": 7, "ref": "common.event7" },
-        { "roll": 8, "name": "Planetary Assault", "effects": [{ "type": "choose_skill_set", "skills": ["recon", "gun-combat", "leadership", "electronics/comms"], "level": 1 }] },
-        { "roll": 9, "name": "Commander Error", "effects": [{ "type": "choice" }, { "type": "next_advancement_dm", "dm": 2 }, { "type": "possible_enemy" }, { "type": "possible_ally" }] },
-        { "roll": 10, "name": "Black Ops Mission", "effects": [{ "type": "next_advancement_dm", "dm": 2 }] },
-        { "roll": 11, "name": "Command Interest", "effects": [{ "type": "choice", "options": [{ "type": "set_skill", "skillId": "tactics", "level": 1 }, { "type": "next_advancement_dm", "dm": 4 }] }] },
-        { "roll": 12, "name": "Heroism", "effects": [{ "type": "choice", "options": [{ "type": "automatic_promotion" }, { "type": "automatic_commission" }] }] }
+        {
+          "roll": 2,
+          "ref": "common.event2"
+        },
+        {
+          "roll": 3,
+          "name": "Behind Enemy Lines",
+          "effects": [
+            {
+              "type": "choose_skill_set",
+              "skills": [
+                "survival",
+                "stealth",
+                "deception",
+                "streetwise"
+              ],
+              "level": 1
+            }
+          ],
+          "text": "Trapped behind enemy lines, you have to survive on your own. Gain one of Survival 1, Stealth 1, Deception 1 or Streetwise 1."
+        },
+        {
+          "roll": 4,
+          "name": "Station Security",
+          "effects": [
+            {
+              "type": "choose_skill_increase",
+              "skills": [
+                "vacc-suit",
+                "athletics/dexterity"
+              ],
+              "amount": 1
+            }
+          ],
+          "text": "You are assigned to the security staff of a space station. Increase Vacc Suit or Athletics (dexterity) by one level."
+        },
+        {
+          "roll": 5,
+          "name": "Advanced Training",
+          "effects": [
+            {
+              "type": "check",
+              "check": {
+                "characteristic": "edu",
+                "target": 8
+              }
+            },
+            {
+              "type": "choose_skill",
+              "level": 1
+            }
+          ],
+          "text": "You are given advanced training in a specialist field. Roll EDU 8+ to gain any one skill of your choice at level 1."
+        },
+        {
+          "roll": 6,
+          "name": "Fortress Assault",
+          "effects": [
+            {
+              "type": "check_any",
+              "checks": [
+                {
+                  "skill": "melee",
+                  "target": 8
+                },
+                {
+                  "skill": "gun-combat",
+                  "target": 8
+                }
+              ]
+            },
+            {
+              "type": "choose_skill_set",
+              "skills": [
+                "tactics/military",
+                "leadership"
+              ]
+            },
+            {
+              "type": "possible_physical_characteristic_loss",
+              "amount": -1
+            }
+          ],
+          "text": "You are assigned to an assault on an enemy fortress. Roll Melee or Gun Combat 8+ and gain Tactics (military) or Leadership if you succeed. If you fail, you are injured and lose 1 point from any physical characteristic."
+        },
+        {
+          "roll": 7,
+          "ref": "common.event7"
+        },
+        {
+          "roll": 8,
+          "name": "Planetary Assault",
+          "effects": [
+            {
+              "type": "choose_skill_set",
+              "skills": [
+                "recon",
+                "gun-combat",
+                "leadership",
+                "electronics/comms"
+              ],
+              "level": 1
+            }
+          ],
+          "text": "You are on the front lines of a planetary assault and occupation. Gain one of Recon 1, Gun Combat 1, Leadership 1 or Electronics (comms) 1."
+        },
+        {
+          "roll": 9,
+          "name": "Commander Error",
+          "effects": [
+            {
+              "type": "choice"
+            },
+            {
+              "type": "next_advancement_dm",
+              "dm": 2
+            },
+            {
+              "type": "possible_enemy"
+            },
+            {
+              "type": "possible_ally"
+            }
+          ],
+          "text": "A mission goes disastrously wrong due to your commander’s error or incompetence but you survive. If you report your commanding officer for their failure then you gain DM+2 to your next advancement roll and gain the officer as an Enemy. If you say nothing and protect them, gain them as an Ally."
+        },
+        {
+          "roll": 10,
+          "name": "Black Ops Mission",
+          "effects": [
+            {
+              "type": "next_advancement_dm",
+              "dm": 2
+            }
+          ],
+          "text": "You are assigned to a black ops mission. Gain DM+2 to your next advancement roll."
+        },
+        {
+          "roll": 11,
+          "name": "Command Interest",
+          "effects": [
+            {
+              "type": "choice",
+              "options": [
+                {
+                  "type": "set_skill",
+                  "skillId": "tactics",
+                  "level": 1
+                },
+                {
+                  "type": "next_advancement_dm",
+                  "dm": 4
+                }
+              ]
+            }
+          ],
+          "text": "Your commanding officer takes an interest in your career. Either gain Tactics 1 or DM+4 to your next advancement roll thanks to their aid."
+        },
+        {
+          "roll": 12,
+          "name": "Heroism",
+          "effects": [
+            {
+              "type": "choice",
+              "options": [
+                {
+                  "type": "automatic_promotion"
+                },
+                {
+                  "type": "automatic_commission"
+                }
+              ]
+            }
+          ],
+          "text": "You display heroism in battle. You may gain a promotion or a commission automatically."
+        }
       ]
     },
     "merchant": {
       "mishaps": [
-        { "roll": 1, "ref": "common.mishap1" },
-        { "roll": 2, "name": "Bankrupted by Rival", "effects": [{ "type": "lose_all_career_benefits" }, { "type": "gain_associate", "associateTypes": ["rival"] }] },
-        { "roll": 3, "name": "War Destroys Routes", "effects": [{ "type": "choose_skill_set", "skills": ["gun-combat", "pilot"], "level": 1 }] },
-        { "roll": 4, "name": "Ship or Starport Destroyed", "effects": [{ "type": "gain_associate", "associateTypes": ["enemy"] }] },
-        { "roll": 5, "name": "Trade Restrictions", "effects": [{ "type": "may_enter_career_next_term", "careerId": "rogue", "qualificationRequired": false }] },
-        { "roll": 6, "name": "Bankruptcy Salvage", "effects": [{ "type": "keep_current_term_benefit_roll" }] }
+        {
+          "roll": 1,
+          "ref": "common.mishap1"
+        },
+        {
+          "roll": 2,
+          "name": "Bankrupted by Rival",
+          "effects": [
+            {
+              "type": "lose_all_career_benefits"
+            },
+            {
+              "type": "gain_associate",
+              "associateTypes": [
+                "rival"
+              ]
+            }
+          ],
+          "text": "You are bankrupted by a rival. You lose all Benefits from this career and gain the other trader as a Rival."
+        },
+        {
+          "roll": 3,
+          "name": "War Destroys Routes",
+          "effects": [
+            {
+              "type": "choose_skill_set",
+              "skills": [
+                "gun-combat",
+                "pilot"
+              ],
+              "level": 1
+            }
+          ],
+          "text": "A sudden war destroys your trade routes and contacts, forcing you to flee that region of space. Gain Gun Combat 1 or Pilot 1."
+        },
+        {
+          "roll": 4,
+          "name": "Ship or Starport Destroyed",
+          "effects": [
+            {
+              "type": "gain_associate",
+              "associateTypes": [
+                "enemy"
+              ]
+            }
+          ],
+          "text": "Your ship or starport is destroyed by criminals. Gain them as an Enemy."
+        },
+        {
+          "roll": 5,
+          "name": "Trade Restrictions",
+          "effects": [
+            {
+              "type": "may_enter_career_next_term",
+              "careerId": "rogue",
+              "qualificationRequired": false
+            }
+          ],
+          "text": "Imperial trade restrictions force you out of business. You may take the Rogue career for your next term without needing to roll for qualification."
+        },
+        {
+          "roll": 6,
+          "name": "Bankruptcy Salvage",
+          "effects": [
+            {
+              "type": "keep_current_term_benefit_roll"
+            }
+          ],
+          "text": "A series of bad deals and decisions force you into bankruptcy. You salvage what you can. You may take a Benefit roll for this term as well as any others you are entitled to."
+        }
       ],
       "events": [
-        { "roll": 2, "ref": "common.event2" },
-        { "roll": 3, "name": "Smuggling Offer", "effects": [{ "type": "choice" }, { "type": "check_any", "checks": [{ "skill": "deception", "target": 8 }, { "skill": "persuade", "target": 8 }] }, { "type": "set_skill", "skillId": "streetwise", "level": 1 }, { "type": "extra_benefit_roll" }, { "type": "possible_enemy" }] },
-        { "roll": 4, "name": "Supplier and Spacer Experience", "effects": [{ "type": "choose_skill_set", "skills": ["profession", "electronics", "engineer", "animals", "science"], "level": 1 }] },
-        { "roll": 5, "name": "Risky Deal", "effects": [{ "type": "wager_benefit_rolls" }, { "type": "check_any", "checks": [{ "skill": "gambler", "target": 8 }, { "skill": "broker", "target": 8 }] }] },
-        { "roll": 6, "name": "Unexpected Connection", "effects": [{ "type": "gain_associate", "associateTypes": ["contact"] }] },
-        { "roll": 7, "ref": "common.event7" },
-        { "roll": 8, "name": "Legal Trouble", "effects": [{ "type": "choose_skill_set", "skills": ["advocate", "admin", "diplomat", "investigate"], "level": 1 }, { "type": "possible_next_career", "careerId": "prisoner" }] },
-        { "roll": 9, "name": "Advanced Training", "effects": [{ "type": "check", "check": { "characteristic": "edu", "target": 8 } }, { "type": "increase_existing_skill", "amount": 1 }] },
-        { "roll": 10, "name": "High Life", "effects": [{ "type": "benefit_roll_dm", "dm": 1 }] },
-        { "roll": 11, "name": "Useful Ally", "effects": [{ "type": "gain_associate", "associateTypes": ["ally"] }, { "type": "choice", "options": [{ "type": "increase_skill", "skillId": "carouse", "amount": 1 }, { "type": "next_advancement_dm", "dm": 4 }] }] },
-        { "roll": 12, "name": "Business Thrives", "effects": [{ "type": "automatic_promotion" }] }
+        {
+          "roll": 2,
+          "ref": "common.event2"
+        },
+        {
+          "roll": 3,
+          "name": "Smuggling Offer",
+          "effects": [
+            {
+              "type": "choice"
+            },
+            {
+              "type": "check_any",
+              "checks": [
+                {
+                  "skill": "deception",
+                  "target": 8
+                },
+                {
+                  "skill": "persuade",
+                  "target": 8
+                }
+              ]
+            },
+            {
+              "type": "set_skill",
+              "skillId": "streetwise",
+              "level": 1
+            },
+            {
+              "type": "extra_benefit_roll"
+            },
+            {
+              "type": "possible_enemy"
+            }
+          ],
+          "text": "You are offered the opportunity to smuggle illegal items onto a planet. If you accept, roll Deception 8+ or Persuade 8+ to gain Streetwise 1 and an extra Benefit roll. If you refuse, you gain an Enemy in the criminal sphere."
+        },
+        {
+          "roll": 4,
+          "name": "Supplier and Spacer Experience",
+          "effects": [
+            {
+              "type": "choose_skill_set",
+              "skills": [
+                "profession",
+                "electronics",
+                "engineer",
+                "animals",
+                "science"
+              ],
+              "level": 1
+            }
+          ],
+          "text": "Gain any one of these skills, reflecting your time spent dealing with suppliers and spacers: Profession 1, Electronics 1, Engineer 1, Animals 1 or Science 1."
+        },
+        {
+          "roll": 5,
+          "name": "Risky Deal",
+          "effects": [
+            {
+              "type": "wager_benefit_rolls"
+            },
+            {
+              "type": "check_any",
+              "checks": [
+                {
+                  "skill": "gambler",
+                  "target": 8
+                },
+                {
+                  "skill": "broker",
+                  "target": 8
+                }
+              ]
+            }
+          ],
+          "text": "You have a chance to risk your fortune on a possibility lucrative deal. You may gamble a number of Benefit rolls and roll Gambler 8+ or Broker 8+. If you succeed, you gain half as many Benefit rolls as you risked, rounding up. If you fail, you lose all the rolls risked. Either way, gain one level in whichever skill you used."
+        },
+        {
+          "roll": 6,
+          "name": "Unexpected Connection",
+          "effects": [
+            {
+              "type": "gain_associate",
+              "associateTypes": [
+                "contact"
+              ]
+            }
+          ],
+          "text": "You make an unexpected connection outside your normal circles. Gain a Contact."
+        },
+        {
+          "roll": 7,
+          "ref": "common.event7"
+        },
+        {
+          "roll": 8,
+          "name": "Legal Trouble",
+          "effects": [
+            {
+              "type": "choose_skill_set",
+              "skills": [
+                "advocate",
+                "admin",
+                "diplomat",
+                "investigate"
+              ],
+              "level": 1
+            },
+            {
+              "type": "possible_next_career",
+              "careerId": "prisoner"
+            }
+          ],
+          "text": "You are embroiled in legal trouble. Gain one of Advocate 1, Admin 1, Diplomat 1 or Investigate 1, then roll 2D. If you roll 2, you must take the Prisoner career in your next term."
+        },
+        {
+          "roll": 9,
+          "name": "Advanced Training",
+          "effects": [
+            {
+              "type": "check",
+              "check": {
+                "characteristic": "edu",
+                "target": 8
+              }
+            },
+            {
+              "type": "increase_existing_skill",
+              "amount": 1
+            }
+          ],
+          "text": "You are given advanced training in a specialist field. Roll EDU 8+ to increase any one skill you already have by one level."
+        },
+        {
+          "roll": 10,
+          "name": "High Life",
+          "effects": [
+            {
+              "type": "benefit_roll_dm",
+              "dm": 1
+            }
+          ],
+          "text": "A good deal ensures you are living the high life for a few years. Gain DM+1 to any one Benefit roll."
+        },
+        {
+          "roll": 11,
+          "name": "Useful Ally",
+          "effects": [
+            {
+              "type": "gain_associate",
+              "associateTypes": [
+                "ally"
+              ]
+            },
+            {
+              "type": "choice",
+              "options": [
+                {
+                  "type": "increase_skill",
+                  "skillId": "carouse",
+                  "amount": 1
+                },
+                {
+                  "type": "next_advancement_dm",
+                  "dm": 4
+                }
+              ]
+            }
+          ],
+          "text": "You befriend a useful ally in one sphere. Gain an Ally and either gain a level in Carouse or DM+4 to your next advancement roll thanks to their aid."
+        },
+        {
+          "roll": 12,
+          "name": "Business Thrives",
+          "effects": [
+            {
+              "type": "automatic_promotion"
+            }
+          ],
+          "text": "Your business or ship thrives. You are automatically promoted."
+        }
       ]
     },
     "navy": {
       "mishaps": [
-        { "roll": 1, "ref": "common.mishap1" },
-        { "roll": 2, "name": "Frozen Watch", "effects": [{ "type": "choose_characteristic_change", "characteristics": ["str", "dex", "end"], "amount": -1 }, { "type": "not_forced_out" }] },
-        { "roll": 3, "name": "Battle Responsibility", "effects": [{ "type": "assignment_skill_check" }, { "type": "possible_forced_out" }, { "type": "possible_keep_benefit_roll" }] },
-        { "roll": 4, "name": "Blamed for Accident", "effects": [{ "type": "choice" }, { "type": "free_skill_table_roll" }, { "type": "possible_enemy" }, { "type": "possible_keep_benefit_roll" }] },
-        { "roll": 5, "name": "Quarrel With Crew", "effects": [{ "type": "gain_associate", "associateTypes": ["rival"] }, { "type": "forced_out" }] },
-        { "roll": 6, "ref": "common.mishap6" }
+        {
+          "roll": 1,
+          "ref": "common.mishap1"
+        },
+        {
+          "roll": 2,
+          "name": "Frozen Watch",
+          "effects": [
+            {
+              "type": "choose_characteristic_change",
+              "characteristics": [
+                "str",
+                "dex",
+                "end"
+              ],
+              "amount": -1
+            },
+            {
+              "type": "not_forced_out"
+            }
+          ],
+          "text": "Placed in the frozen watch (cryogenically stored on board ship) and revived improperly. Reduce STR, DEX or END by 1 due to muscle wastage. You are not ejected from this career."
+        },
+        {
+          "roll": 3,
+          "name": "Battle Responsibility",
+          "effects": [
+            {
+              "type": "assignment_skill_check"
+            },
+            {
+              "type": "possible_forced_out"
+            },
+            {
+              "type": "possible_keep_benefit_roll"
+            }
+          ],
+          "text": "During a battle, defeat or victory depends on your actions. You must make an 8+ roll using a skill that depends on your branch: Electronics (sensors) or Gunner if you are crew, Mechanic or Vacc Suit if you are engineer/gunner and Pilot (small craft or spacecraft) or Tactics (naval) if you are flight. If you fail, the ship suffers severe damage and you are blamed for the disaster. You are court-martialled and discharged. If you succeed, your efforts ensure that you are honourably discharged. You still leave the career but may keep your Benefit roll from this term."
+        },
+        {
+          "roll": 4,
+          "name": "Blamed for Accident",
+          "effects": [
+            {
+              "type": "choice"
+            },
+            {
+              "type": "free_skill_table_roll"
+            },
+            {
+              "type": "possible_enemy"
+            },
+            {
+              "type": "possible_keep_benefit_roll"
+            }
+          ],
+          "text": "You are blamed for an accident that causes the death of several crew members. If you were responsible, then you gain one free roll on the Skills and Training tables before you are ejected from this career as your guilt drives you to excel. If you were not, then gain the officer who blamed you as an Enemy but you keep your Benefit roll from this term."
+        },
+        {
+          "roll": 5,
+          "name": "Quarrel With Crew",
+          "effects": [
+            {
+              "type": "gain_associate",
+              "associateTypes": [
+                "rival"
+              ]
+            },
+            {
+              "type": "forced_out"
+            }
+          ],
+          "text": "You are tormented by or quarrel with an officer or fellow crewman. Gain that character as a Rival, as they force you out of the Navy."
+        },
+        {
+          "roll": 6,
+          "ref": "common.mishap6"
+        }
       ],
       "events": [
-        { "roll": 2, "ref": "common.event2" },
-        { "roll": 3, "name": "Gambling Circle", "effects": [{ "type": "choose_skill_set", "skills": ["gambler", "deception"], "level": 1 }, { "type": "optional_check", "check": { "skill": "gambler", "target": 8 } }, { "type": "possible_benefit_roll_change" }] },
-        { "roll": 4, "name": "Special Assignment", "effects": [{ "type": "benefit_roll_dm", "dm": 1 }] },
-        { "roll": 5, "name": "Advanced Training", "effects": [{ "type": "check", "check": { "characteristic": "edu", "target": 8 } }, { "type": "increase_existing_skill", "amount": 1 }] },
-        { "roll": 6, "name": "Notable Engagement", "effects": [{ "type": "choose_skill_set", "skills": ["electronics", "engineer", "gunner", "pilot"], "level": 1 }] },
-        { "roll": 7, "ref": "common.event7" },
-        { "roll": 8, "name": "Diplomatic Mission", "effects": [{ "type": "choose_skill_or_contact", "skills": ["recon", "diplomat", "steward"] }] },
-        { "roll": 9, "name": "Foiled Crime", "effects": [{ "type": "gain_associate", "associateTypes": ["enemy"] }, { "type": "next_advancement_dm", "dm": 2, "careerId": "navy" }] },
-        { "roll": 10, "name": "Abuse Position", "effects": [{ "type": "choice" }, { "type": "extra_benefit_roll" }, { "type": "next_advancement_dm", "dm": 2 }] },
-        { "roll": 11, "name": "Command Interest", "effects": [{ "type": "choice", "options": [{ "type": "set_skill", "skillId": "tactics/naval", "level": 1 }, { "type": "next_advancement_dm", "dm": 4 }] }] },
-        { "roll": 12, "name": "Saves the Ship", "effects": [{ "type": "automatic_next_promotion_or_commission" }] }
+        {
+          "roll": 2,
+          "ref": "common.event2"
+        },
+        {
+          "roll": 3,
+          "name": "Gambling Circle",
+          "effects": [
+            {
+              "type": "choose_skill_set",
+              "skills": [
+                "gambler",
+                "deception"
+              ],
+              "level": 1
+            },
+            {
+              "type": "optional_check",
+              "check": {
+                "skill": "gambler",
+                "target": 8
+              }
+            },
+            {
+              "type": "possible_benefit_roll_change"
+            }
+          ],
+          "text": "You join a gambling circle on board. Gain Gambler 1 or Deception 1. If you wish, throw Gambler 8+. If you succeed, gain an extra Benefit roll from this career; if you fail, you lose one Benefit roll from this career."
+        },
+        {
+          "roll": 4,
+          "name": "Special Assignment",
+          "effects": [
+            {
+              "type": "benefit_roll_dm",
+              "dm": 1
+            }
+          ],
+          "text": "You are given a special assignment or duty on board ship. Gain DM+1 to any one Benefit roll."
+        },
+        {
+          "roll": 5,
+          "name": "Advanced Training",
+          "effects": [
+            {
+              "type": "check",
+              "check": {
+                "characteristic": "edu",
+                "target": 8
+              }
+            },
+            {
+              "type": "increase_existing_skill",
+              "amount": 1
+            }
+          ],
+          "text": "You are given advanced training in a specialist field. Roll EDU 8+ to gain one level in any skill you already have."
+        },
+        {
+          "roll": 6,
+          "name": "Notable Engagement",
+          "effects": [
+            {
+              "type": "choose_skill_set",
+              "skills": [
+                "electronics",
+                "engineer",
+                "gunner",
+                "pilot"
+              ],
+              "level": 1
+            }
+          ],
+          "text": "Your vessel participates in a notable military engagement. Gain one of Electronics 1, Engineer 1, Gunner 1 or Pilot 1."
+        },
+        {
+          "roll": 7,
+          "ref": "common.event7"
+        },
+        {
+          "roll": 8,
+          "name": "Diplomatic Mission",
+          "effects": [
+            {
+              "type": "choose_skill_or_contact",
+              "skills": [
+                "recon",
+                "diplomat",
+                "steward"
+              ]
+            }
+          ],
+          "text": "Your vessel participates in a diplomatic mission. Gain one of Recon 1, Diplomat 1, Steward 1 or a Contact."
+        },
+        {
+          "roll": 9,
+          "name": "Foiled Crime",
+          "effects": [
+            {
+              "type": "gain_associate",
+              "associateTypes": [
+                "enemy"
+              ]
+            },
+            {
+              "type": "next_advancement_dm",
+              "dm": 2,
+              "careerId": "navy"
+            }
+          ],
+          "text": "You foil an attempted crime on board, such as mutiny, sabotage, smuggling or conspiracy. Gain an Enemy but also gain DM+2 to your next advancement roll in the Navy."
+        },
+        {
+          "roll": 10,
+          "name": "Abuse Position",
+          "effects": [
+            {
+              "type": "choice"
+            },
+            {
+              "type": "extra_benefit_roll"
+            },
+            {
+              "type": "next_advancement_dm",
+              "dm": 2
+            }
+          ],
+          "text": "You have the opportunity to abuse your position for profit. If you do so, gain an extra Benefit roll from this term. Refuse and you get DM+2 to your next advancement roll."
+        },
+        {
+          "roll": 11,
+          "name": "Command Interest",
+          "effects": [
+            {
+              "type": "choice",
+              "options": [
+                {
+                  "type": "set_skill",
+                  "skillId": "tactics/naval",
+                  "level": 1
+                },
+                {
+                  "type": "next_advancement_dm",
+                  "dm": 4
+                }
+              ]
+            }
+          ],
+          "text": "Your commanding officer takes an interest in your career. Either gain Tactics (naval) 1 or DM+4 to your next advancement roll thanks to their aid."
+        },
+        {
+          "roll": 12,
+          "name": "Saves the Ship",
+          "effects": [
+            {
+              "type": "automatic_next_promotion_or_commission"
+            }
+          ],
+          "text": "You display heroism in battle, saving the whole ship. You automatically pass your next promotion or commission roll."
+        }
       ]
     },
     "noble": {
       "mishaps": [
-        { "roll": 1, "ref": "common.mishap1" },
-        { "roll": 2, "name": "Family Scandal", "effects": [{ "type": "characteristic_change", "characteristic": "soc", "amount": -1 }] },
-        { "roll": 3, "name": "Disaster or War", "effects": [{ "type": "check_any", "checks": [{ "skill": "stealth", "target": 8 }, { "skill": "deception", "target": 8 }] }, { "type": "possible_injury" }] },
-        { "roll": 4, "name": "Political Manoeuvring", "effects": [{ "type": "choose_skill_increase", "skills": ["diplomat", "advocate"], "amount": 1 }, { "type": "gain_associate", "associateTypes": ["rival"] }] },
-        { "roll": 5, "name": "Assassin", "effects": [{ "type": "check", "check": { "characteristic": "end", "target": 8 } }, { "type": "possible_injury" }] },
-        { "roll": 6, "ref": "common.mishap6" }
+        {
+          "roll": 1,
+          "ref": "common.mishap1"
+        },
+        {
+          "roll": 2,
+          "name": "Family Scandal",
+          "effects": [
+            {
+              "type": "characteristic_change",
+              "characteristic": "soc",
+              "amount": -1
+            }
+          ],
+          "text": "A family scandal forces you out of your position. Lose one SOC."
+        },
+        {
+          "roll": 3,
+          "name": "Disaster or War",
+          "effects": [
+            {
+              "type": "check_any",
+              "checks": [
+                {
+                  "skill": "stealth",
+                  "target": 8
+                },
+                {
+                  "skill": "deception",
+                  "target": 8
+                }
+              ]
+            },
+            {
+              "type": "possible_injury"
+            }
+          ],
+          "text": "A disaster or war strikes. Roll Stealth 8+ or Deception 8+ to escape unhurt. If you fail, roll on the Injury table."
+        },
+        {
+          "roll": 4,
+          "name": "Political Manoeuvring",
+          "effects": [
+            {
+              "type": "choose_skill_increase",
+              "skills": [
+                "diplomat",
+                "advocate"
+              ],
+              "amount": 1
+            },
+            {
+              "type": "gain_associate",
+              "associateTypes": [
+                "rival"
+              ]
+            }
+          ],
+          "text": "Political manoeuvrings usurp your position. Increase Diplomat or Advocate by one level and gain a Rival."
+        },
+        {
+          "roll": 5,
+          "name": "Assassin",
+          "effects": [
+            {
+              "type": "check",
+              "check": {
+                "characteristic": "end",
+                "target": 8
+              }
+            },
+            {
+              "type": "possible_injury"
+            }
+          ],
+          "text": "An assassin attempts to end your life. Roll END 8+. If you fail, roll on the Injury table."
+        },
+        {
+          "roll": 6,
+          "ref": "common.mishap6"
+        }
       ],
       "events": [
-        { "roll": 2, "ref": "common.event2" },
-        { "roll": 3, "name": "Duel", "effects": [{ "type": "choice" }, { "type": "check", "check": { "skill": "melee/blade", "target": 8 } }, { "type": "possible_soc_change" }, { "type": "choose_skill_increase", "skills": ["melee/blade", "leadership", "tactics", "deception"], "amount": 1 }] },
-        { "roll": 4, "name": "Wide Experiences", "effects": [{ "type": "choose_skill_set", "skills": ["animals/riding", "art", "carouse", "streetwise"], "level": 1 }] },
-        { "roll": 5, "name": "Rich Relative Gift", "effects": [{ "type": "benefit_roll_dm", "dm": 1 }] },
-        { "roll": 6, "name": "Political Intrigue", "effects": [{ "type": "choose_skill_increase", "skills": ["advocate", "admin", "diplomat", "persuade"], "amount": 1 }, { "type": "gain_associate", "associateTypes": ["rival"] }] },
-        { "roll": 7, "ref": "common.event7" },
-        { "roll": 8, "name": "Noble Conspiracy", "effects": [{ "type": "choice" }, { "type": "gain_associate", "associateTypes": ["enemy"] }, { "type": "check_any", "checks": [{ "skill": "deception", "target": 8 }, { "skill": "persuade", "target": 8 }] }, { "type": "possible_mishap" }, { "type": "choose_skill_increase", "skills": ["deception", "persuade", "tactics", "carouse"], "amount": 1 }] },
-        { "roll": 9, "name": "Acclaimed Reign", "effects": [{ "type": "gain_associate", "associateTypes": ["enemy"] }, { "type": "next_advancement_dm", "dm": 2 }] },
-        { "roll": 10, "name": "High Society Manipulation", "effects": [{ "type": "choose_skill_increase", "skills": ["carouse", "diplomat", "persuade", "steward"], "amount": 1 }, { "type": "gain_associate", "associateTypes": ["rival", "ally"] }] },
-        { "roll": 11, "name": "Powerful Noble Ally", "effects": [{ "type": "gain_associate", "associateTypes": ["ally"] }, { "type": "choice", "options": [{ "type": "increase_skill", "skillId": "leadership", "amount": 1 }, { "type": "next_advancement_dm", "dm": 4 }] }] },
-        { "roll": 12, "name": "Imperial Notice", "effects": [{ "type": "automatic_promotion" }] }
+        {
+          "roll": 2,
+          "ref": "common.event2"
+        },
+        {
+          "roll": 3,
+          "name": "Duel",
+          "effects": [
+            {
+              "type": "choice"
+            },
+            {
+              "type": "check",
+              "check": {
+                "skill": "melee/blade",
+                "target": 8
+              }
+            },
+            {
+              "type": "possible_soc_change"
+            },
+            {
+              "type": "choose_skill_increase",
+              "skills": [
+                "melee/blade",
+                "leadership",
+                "tactics",
+                "deception"
+              ],
+              "amount": 1
+            }
+          ],
+          "text": "You are challenged to a duel for your honour and standing. If you refuse, reduce your SOC by 1. If you accept, roll Melee (blade) 8+. If you succeed, gain one SOC. If you fail, roll on the Injury table and reduce your SOC by one. Either way, gain one level in Melee (blade), Leadership, Tactics (any) or Deception."
+        },
+        {
+          "roll": 4,
+          "name": "Wide Experiences",
+          "effects": [
+            {
+              "type": "choose_skill_set",
+              "skills": [
+                "animals/riding",
+                "art",
+                "carouse",
+                "streetwise"
+              ],
+              "level": 1
+            }
+          ],
+          "text": "Your time as a ruler or playboy gives you a wide range of experiences. Gain one of Animals (riding) 1, Art 1, Carouse 1 or Streetwise 1."
+        },
+        {
+          "roll": 5,
+          "name": "Rich Relative Gift",
+          "effects": [
+            {
+              "type": "benefit_roll_dm",
+              "dm": 1
+            }
+          ],
+          "text": "You inherit a gift from a rich relative. Gain DM+1 to any one Benefit roll."
+        },
+        {
+          "roll": 6,
+          "name": "Political Intrigue",
+          "effects": [
+            {
+              "type": "choose_skill_increase",
+              "skills": [
+                "advocate",
+                "admin",
+                "diplomat",
+                "persuade"
+              ],
+              "amount": 1
+            },
+            {
+              "type": "gain_associate",
+              "associateTypes": [
+                "rival"
+              ]
+            }
+          ],
+          "text": "You become deeply involved in politics on your world of residence, becoming a player in the political intrigues of government. Gain one level in Advocate, Admin, Diplomacy or Persuade but also gain a Rival."
+        },
+        {
+          "roll": 7,
+          "ref": "common.event7"
+        },
+        {
+          "roll": 8,
+          "name": "Noble Conspiracy",
+          "effects": [
+            {
+              "type": "choice"
+            },
+            {
+              "type": "gain_associate",
+              "associateTypes": [
+                "enemy"
+              ]
+            },
+            {
+              "type": "check_any",
+              "checks": [
+                {
+                  "skill": "deception",
+                  "target": 8
+                },
+                {
+                  "skill": "persuade",
+                  "target": 8
+                }
+              ]
+            },
+            {
+              "type": "possible_mishap"
+            },
+            {
+              "type": "choose_skill_increase",
+              "skills": [
+                "deception",
+                "persuade",
+                "tactics",
+                "carouse"
+              ],
+              "amount": 1
+            }
+          ],
+          "text": "A conspiracy of nobles attempts to recruit you. If you refuse, gain the conspiracy as an Enemy. If you accept, roll Deception 8+ or Persuade 8+. If you fail, roll on the Mishap table as the conspiracy collapses. If you succeed, Gain one level of Deception, Persuade, Tactics or Carouse."
+        },
+        {
+          "roll": 9,
+          "name": "Acclaimed Reign",
+          "effects": [
+            {
+              "type": "gain_associate",
+              "associateTypes": [
+                "enemy"
+              ]
+            },
+            {
+              "type": "next_advancement_dm",
+              "dm": 2
+            }
+          ],
+          "text": "Your reign is acclaimed by all as being fair and wise - or in the case of a dilettante, you sponge off your family’s wealth a while longer. Gain either a jealous relative or an unhappy subject as an Enemy. Gain DM+2 to your next advancement roll."
+        },
+        {
+          "roll": 10,
+          "name": "High Society Manipulation",
+          "effects": [
+            {
+              "type": "choose_skill_increase",
+              "skills": [
+                "carouse",
+                "diplomat",
+                "persuade",
+                "steward"
+              ],
+              "amount": 1
+            },
+            {
+              "type": "gain_associate",
+              "associateTypes": [
+                "rival",
+                "ally"
+              ]
+            }
+          ],
+          "text": "You manipulate and charm your way through high society. Gain one level of Carouse, Diplomat, Persuade or Steward, as well as a Rival and an Ally."
+        },
+        {
+          "roll": 11,
+          "name": "Powerful Noble Ally",
+          "effects": [
+            {
+              "type": "gain_associate",
+              "associateTypes": [
+                "ally"
+              ]
+            },
+            {
+              "type": "choice",
+              "options": [
+                {
+                  "type": "increase_skill",
+                  "skillId": "leadership",
+                  "amount": 1
+                },
+                {
+                  "type": "next_advancement_dm",
+                  "dm": 4
+                }
+              ]
+            }
+          ],
+          "text": "You make an alliance with a powerful and charismatic noble, who becomes an Ally. Either gain one level of Leadership or DM+4 to your next advancement roll thanks to their aid."
+        },
+        {
+          "roll": 12,
+          "name": "Imperial Notice",
+          "effects": [
+            {
+              "type": "automatic_promotion"
+            }
+          ],
+          "text": "Your efforts do not go unnoticed by the Imperium. You are automatically promoted."
+        }
       ]
     },
     "rogue": {
       "mishaps": [
-        { "roll": 1, "ref": "common.mishap1" },
-        { "roll": 2, "name": "Arrested", "effects": [{ "type": "next_career", "careerId": "prisoner" }] },
-        { "roll": 3, "name": "Betrayed", "effects": [{ "type": "convert_or_gain_associate", "from": ["contact", "ally"], "to": ["rival", "enemy"] }, { "type": "possible_next_career", "careerId": "prisoner" }] },
-        { "roll": 4, "name": "Job Goes Wrong", "effects": [{ "type": "choose_skill_set", "skills": ["deception", "pilot/small-craft", "pilot/spacecraft", "athletics/dexterity", "gunner"], "level": 1 }] },
-        { "roll": 5, "name": "Hunted", "effects": [{ "type": "gain_associate", "associateTypes": ["enemy"] }] },
-        { "roll": 6, "ref": "common.mishap6" }
+        {
+          "roll": 1,
+          "ref": "common.mishap1"
+        },
+        {
+          "roll": 2,
+          "name": "Arrested",
+          "effects": [
+            {
+              "type": "next_career",
+              "careerId": "prisoner"
+            }
+          ],
+          "text": "Arrested. You must take the Prisoner career in your next term."
+        },
+        {
+          "roll": 3,
+          "name": "Betrayed",
+          "effects": [
+            {
+              "type": "convert_or_gain_associate",
+              "from": [
+                "contact",
+                "ally"
+              ],
+              "to": [
+                "rival",
+                "enemy"
+              ]
+            },
+            {
+              "type": "possible_next_career",
+              "careerId": "prisoner"
+            }
+          ],
+          "text": "Betrayed by a friend. One of your Contacts or Allies betrays you, ending your career. That Contact or Ally becomes a Rival or Enemy. If you have no Contacts or Allies, then you are betrayed by someone you never saw coming and still gain a Rival or Enemy. In addition, roll 2D. If you roll 2, you must take the Prisoner career in your next term."
+        },
+        {
+          "roll": 4,
+          "name": "Job Goes Wrong",
+          "effects": [
+            {
+              "type": "choose_skill_set",
+              "skills": [
+                "deception",
+                "pilot/small-craft",
+                "pilot/spacecraft",
+                "athletics/dexterity",
+                "gunner"
+              ],
+              "level": 1
+            }
+          ],
+          "text": "A job goes wrong, forcing you to flee off-planet. Gain one of Deception 1, Pilot (small craft or spacecraft) 1, Athletics (dexterity) 1 or Gunner 1."
+        },
+        {
+          "roll": 5,
+          "name": "Hunted",
+          "effects": [
+            {
+              "type": "gain_associate",
+              "associateTypes": [
+                "enemy"
+              ]
+            }
+          ],
+          "text": "A police detective or rival criminal forces you to flee and vows to hunt you down. Gain an Enemy."
+        },
+        {
+          "roll": 6,
+          "ref": "common.mishap6"
+        }
       ],
       "events": [
-        { "roll": 2, "ref": "common.event2" },
-        { "roll": 3, "name": "Arrested and Charged", "effects": [{ "type": "choice" }, { "type": "check", "check": { "skill": "advocate", "target": 8 } }, { "type": "possible_next_career", "careerId": "prisoner" }, { "type": "possible_contact" }, { "type": "possible_lose_benefit_roll" }] },
-        { "roll": 4, "name": "Heist Planning", "effects": [{ "type": "choose_skill_set", "skills": ["electronics", "mechanic"], "level": 1 }] },
-        { "roll": 5, "name": "Crime Pays", "effects": [{ "type": "benefit_roll_dm", "dm": 2 }, { "type": "gain_associate", "associateTypes": ["enemy"] }] },
-        { "roll": 6, "name": "Backstab Opportunity", "effects": [{ "type": "choice" }, { "type": "next_advancement_dm", "dm": 4 }, { "type": "possible_ally" }] },
-        { "roll": 7, "ref": "common.event7" },
-        { "roll": 8, "name": "Underworld Months", "effects": [{ "type": "choose_skill_set", "skills": ["streetwise", "stealth", "melee", "gun-combat"], "level": 1 }] },
-        { "roll": 9, "name": "Criminal Feud", "effects": [{ "type": "check_any", "checks": [{ "skill": "stealth", "target": 8 }, { "skill": "gun-combat", "target": 8 }] }, { "type": "possible_injury" }, { "type": "possible_extra_benefit_roll" }] },
-        { "roll": 10, "name": "Gambling Ring", "effects": [{ "type": "set_skill", "skillId": "gambler", "level": 1 }, { "type": "wager_benefit_rolls" }] },
-        { "roll": 11, "name": "Crime Lord Mentor", "effects": [{ "type": "choice", "options": [{ "type": "set_skill", "skillId": "tactics/military", "level": 1 }, { "type": "next_advancement_dm", "dm": 4 }] }] },
-        { "roll": 12, "name": "Legendary Crime", "effects": [{ "type": "automatic_promotion" }] }
+        {
+          "roll": 2,
+          "ref": "common.event2"
+        },
+        {
+          "roll": 3,
+          "name": "Arrested and Charged",
+          "effects": [
+            {
+              "type": "choice"
+            },
+            {
+              "type": "check",
+              "check": {
+                "skill": "advocate",
+                "target": 8
+              }
+            },
+            {
+              "type": "possible_next_career",
+              "careerId": "prisoner"
+            },
+            {
+              "type": "possible_contact"
+            },
+            {
+              "type": "possible_lose_benefit_roll"
+            }
+          ],
+          "text": "You are arrested and charged. You can choose to defend yourself or hire a lawyer. If you defend yourself, roll Advocate 8+. If you succeed, the charges are dropped. If you fail, gain an Enemy and take the Prisoner career in your next term. If you hired a lawyer, gain the lawyer as a Contact and lose a Benefit roll."
+        },
+        {
+          "roll": 4,
+          "name": "Heist Planning",
+          "effects": [
+            {
+              "type": "choose_skill_set",
+              "skills": [
+                "electronics",
+                "mechanic"
+              ],
+              "level": 1
+            }
+          ],
+          "text": "You are involved in the planning of an impressive heist. Gain Electronics 1 or Mechanic 1."
+        },
+        {
+          "roll": 5,
+          "name": "Crime Pays",
+          "effects": [
+            {
+              "type": "benefit_roll_dm",
+              "dm": 2
+            },
+            {
+              "type": "gain_associate",
+              "associateTypes": [
+                "enemy"
+              ]
+            }
+          ],
+          "text": "One of your crimes pays off. Gain DM+2 to any one Benefit roll and gain your victim as an Enemy."
+        },
+        {
+          "roll": 6,
+          "name": "Backstab Opportunity",
+          "effects": [
+            {
+              "type": "choice"
+            },
+            {
+              "type": "next_advancement_dm",
+              "dm": 4
+            },
+            {
+              "type": "possible_ally"
+            }
+          ],
+          "text": "You have the opportunity to backstab a fellow rogue for personal gain. If you do so, gain DM+4 to your next advancement roll. If you refuse, gain them as an Ally."
+        },
+        {
+          "roll": 7,
+          "ref": "common.event7"
+        },
+        {
+          "roll": 8,
+          "name": "Underworld Months",
+          "effects": [
+            {
+              "type": "choose_skill_set",
+              "skills": [
+                "streetwise",
+                "stealth",
+                "melee",
+                "gun-combat"
+              ],
+              "level": 1
+            }
+          ],
+          "text": "You spend months in the dangerous criminal underworld. Gain one of Streetwise 1, Stealth 1, Melee 1 or Gun Combat 1."
+        },
+        {
+          "roll": 9,
+          "name": "Criminal Feud",
+          "effects": [
+            {
+              "type": "check_any",
+              "checks": [
+                {
+                  "skill": "stealth",
+                  "target": 8
+                },
+                {
+                  "skill": "gun-combat",
+                  "target": 8
+                }
+              ]
+            },
+            {
+              "type": "possible_injury"
+            },
+            {
+              "type": "possible_extra_benefit_roll"
+            }
+          ],
+          "text": "You become involved in a feud with a rival criminal organisation. Roll Stealth or Gun Combat 8+. If you fail, roll on the Injury Table. If you succeed, gain an extra Benefit roll."
+        },
+        {
+          "roll": 10,
+          "name": "Gambling Ring",
+          "effects": [
+            {
+              "type": "set_skill",
+              "skillId": "gambler",
+              "level": 1
+            },
+            {
+              "type": "wager_benefit_rolls"
+            }
+          ],
+          "text": "You are involved in a gambling ring. Gain Gambler 1. You may wager any number of Benefit rolls. Roll Gambler 8+; if you fail, lose all the wagered Benefit rolls. If you succeed, gain half as many Benefit rolls as you wagered (round up)."
+        },
+        {
+          "roll": 11,
+          "name": "Crime Lord Mentor",
+          "effects": [
+            {
+              "type": "choice",
+              "options": [
+                {
+                  "type": "set_skill",
+                  "skillId": "tactics/military",
+                  "level": 1
+                },
+                {
+                  "type": "next_advancement_dm",
+                  "dm": 4
+                }
+              ]
+            }
+          ],
+          "text": "A crime lord considers you his protégé. Either gain Tactics (military) 1 or DM+4 to your next advancement roll thanks to their aid."
+        },
+        {
+          "roll": 12,
+          "name": "Legendary Crime",
+          "effects": [
+            {
+              "type": "automatic_promotion"
+            }
+          ],
+          "text": "You commit a legendary crime. You are automatically promoted."
+        }
       ]
     },
     "scholar": {
       "mishaps": [
-        { "roll": 1, "ref": "common.mishap1" },
-        { "roll": 2, "name": "Blamed Disaster", "effects": [{ "type": "injury", "rolls": 2, "take": "higher" }, { "type": "gain_associate", "associateTypes": ["rival"] }, { "type": "forced_out" }] },
-        { "roll": 3, "name": "Political Interference", "effects": [{ "type": "choice" }, { "type": "increase_skill", "skillId": "science", "amount": 1 }, { "type": "possible_enemy" }, { "type": "possible_soc_change", "amount": -2 }, { "type": "not_forced_out" }] },
-        { "roll": 4, "name": "Stranded Expedition", "effects": [{ "type": "choose_skill_set", "skills": ["survival", "athletics/dexterity", "athletics/endurance"], "level": 1 }, { "type": "forced_out" }] },
-        { "roll": 5, "name": "Sabotaged Work", "effects": [{ "type": "choice" }, { "type": "possible_keep_current_benefit_roll" }, { "type": "possible_lose_all_career_benefits" }, { "type": "possible_not_forced_out" }] },
-        { "roll": 6, "name": "Rival Researcher", "effects": [{ "type": "gain_associate", "associateTypes": ["rival"] }, { "type": "not_forced_out" }] }
+        {
+          "roll": 1,
+          "ref": "common.mishap1"
+        },
+        {
+          "roll": 2,
+          "name": "Blamed Disaster",
+          "effects": [
+            {
+              "type": "injury",
+              "rolls": 2,
+              "take": "higher"
+            },
+            {
+              "type": "gain_associate",
+              "associateTypes": [
+                "rival"
+              ]
+            },
+            {
+              "type": "forced_out"
+            }
+          ],
+          "text": "A disaster leaves several injured and others blame you, forcing you to leave your career. Roll on the Injury table twice, taking the higher result and gain a Rival."
+        },
+        {
+          "roll": 3,
+          "name": "Political Interference",
+          "effects": [
+            {
+              "type": "choice"
+            },
+            {
+              "type": "increase_skill",
+              "skillId": "science",
+              "amount": 1
+            },
+            {
+              "type": "possible_enemy"
+            },
+            {
+              "type": "possible_soc_change",
+              "amount": -2
+            },
+            {
+              "type": "not_forced_out"
+            }
+          ],
+          "text": "The planetary government interferes with your research for political or religious reasons. If you continue with your work openly, increase Science by one level and gain an Enemy. If you continue with your work secretly, increase Science by one level and reduce your SOC by 2. This mishap does not cause you to leave this career."
+        },
+        {
+          "roll": 4,
+          "name": "Stranded Expedition",
+          "effects": [
+            {
+              "type": "choose_skill_set",
+              "skills": [
+                "survival",
+                "athletics/dexterity",
+                "athletics/endurance"
+              ],
+              "level": 1
+            },
+            {
+              "type": "forced_out"
+            }
+          ],
+          "text": "An expedition or voyage goes wrong, leaving you stranded in the wilderness. Gain Survival 1 or Athletics (dexterity or endurance) 1. By the time you find your way home, your job is gone."
+        },
+        {
+          "roll": 5,
+          "name": "Sabotaged Work",
+          "effects": [
+            {
+              "type": "choice"
+            },
+            {
+              "type": "possible_keep_current_benefit_roll"
+            },
+            {
+              "type": "possible_lose_all_career_benefits"
+            },
+            {
+              "type": "possible_not_forced_out"
+            }
+          ],
+          "text": "Your work is sabotaged by unknown parties. You may salvage what you can and give up (leave the career but retain this term’s Benefit roll) or start again from scratch (lose all Benefit rolls from this career but you do not have to leave)."
+        },
+        {
+          "roll": 6,
+          "name": "Rival Researcher",
+          "effects": [
+            {
+              "type": "gain_associate",
+              "associateTypes": [
+                "rival"
+              ]
+            },
+            {
+              "type": "not_forced_out"
+            }
+          ],
+          "text": "A rival researcher blackens your name or steals your research. Gain a Rival but you do not have to leave this career."
+        }
       ],
       "events": [
-        { "roll": 2, "ref": "common.event2" },
-        { "roll": 3, "name": "Unethical Research", "effects": [{ "type": "choice" }, { "type": "extra_benefit_roll" }, { "type": "science_speciality_levels", "count": 2 }, { "type": "gain_associate", "associateTypes": ["enemy"], "count": "D3" }] },
-        { "roll": 4, "name": "Secret Project", "effects": [{ "type": "choose_skill_set", "skills": ["medic", "science", "engineer", "electronics", "investigate"], "level": 1 }] },
-        { "roll": 5, "name": "Prestigious Prize", "effects": [{ "type": "benefit_roll_dm", "dm": 1 }] },
-        { "roll": 6, "name": "Specialist Training", "effects": [{ "type": "check", "check": { "characteristic": "edu", "target": 8 } }, { "type": "choose_skill", "level": 1 }] },
-        { "roll": 7, "ref": "common.event7" },
-        { "roll": 8, "name": "Academic Cheating", "effects": [{ "type": "choice" }, { "type": "check_any", "checks": [{ "skill": "deception", "target": 8 }, { "skill": "admin", "target": 8 }] }, { "type": "possible_benefit_roll_dm", "dm": 2 }, { "type": "possible_skill_increase" }, { "type": "gain_associate", "associateTypes": ["enemy"] }, { "type": "possible_lose_benefit_roll" }] },
-        { "roll": 9, "name": "Breakthrough", "effects": [{ "type": "next_advancement_dm", "dm": 2 }] },
-        { "roll": 10, "name": "Bureaucratic Morass", "effects": [{ "type": "choose_skill_set", "skills": ["admin", "advocate", "persuade", "diplomat"], "level": 1 }] },
-        { "roll": 11, "name": "Brilliant Mentor", "effects": [{ "type": "gain_associate", "associateTypes": ["ally"] }, { "type": "choice", "options": [{ "type": "increase_skill", "skillId": "science", "amount": 1 }, { "type": "next_advancement_dm", "dm": 4 }] }] },
-        { "roll": 12, "name": "Major Breakthrough", "effects": [{ "type": "automatic_promotion" }] }
+        {
+          "roll": 2,
+          "ref": "common.event2"
+        },
+        {
+          "roll": 3,
+          "name": "Unethical Research",
+          "effects": [
+            {
+              "type": "choice"
+            },
+            {
+              "type": "extra_benefit_roll"
+            },
+            {
+              "type": "science_speciality_levels",
+              "count": 2
+            },
+            {
+              "type": "gain_associate",
+              "associateTypes": [
+                "enemy"
+              ],
+              "count": "D3"
+            }
+          ],
+          "text": "You are called upon to perform research that goes against your conscience. Accept and you gain an extra Benefit roll, a level in each of any two Science skill specialties and D3 Enemies."
+        },
+        {
+          "roll": 4,
+          "name": "Secret Project",
+          "effects": [
+            {
+              "type": "choose_skill_set",
+              "skills": [
+                "medic",
+                "science",
+                "engineer",
+                "electronics",
+                "investigate"
+              ],
+              "level": 1
+            }
+          ],
+          "text": "You are assigned to work on a secret project for a patron or organisation. Gain one of Medic 1, Science 1, Engineer 1, Electronics 1 or Investigate 1."
+        },
+        {
+          "roll": 5,
+          "name": "Prestigious Prize",
+          "effects": [
+            {
+              "type": "benefit_roll_dm",
+              "dm": 1
+            }
+          ],
+          "text": "You win a prestigious prize for your work, garnering both the praise and envy of your peers. Gain DM+1 to any one Benefit roll."
+        },
+        {
+          "roll": 6,
+          "name": "Specialist Training",
+          "effects": [
+            {
+              "type": "check",
+              "check": {
+                "characteristic": "edu",
+                "target": 8
+              }
+            },
+            {
+              "type": "choose_skill",
+              "level": 1
+            }
+          ],
+          "text": "You are given advanced training in a specialist field. Roll EDU 8+ to gain any one skill of your choice at level 1."
+        },
+        {
+          "roll": 7,
+          "ref": "common.event7"
+        },
+        {
+          "roll": 8,
+          "name": "Academic Cheating",
+          "effects": [
+            {
+              "type": "choice"
+            },
+            {
+              "type": "check_any",
+              "checks": [
+                {
+                  "skill": "deception",
+                  "target": 8
+                },
+                {
+                  "skill": "admin",
+                  "target": 8
+                }
+              ]
+            },
+            {
+              "type": "possible_benefit_roll_dm",
+              "dm": 2
+            },
+            {
+              "type": "possible_skill_increase"
+            },
+            {
+              "type": "gain_associate",
+              "associateTypes": [
+                "enemy"
+              ]
+            },
+            {
+              "type": "possible_lose_benefit_roll"
+            }
+          ],
+          "text": "You have the opportunity to cheat in some fashion, advancing your career and research by stealing another’s work, using an alien device, taking a shortcut and so forth. If you refuse, you gain nothing. If you accept, roll Deception 8+ or Admin 8+. If you succeed, you gain DM+2 to any one Benefit roll and may increase any skill by one level but also gain an Enemy. If you fail, gain an Enemy and lose one Benefit roll from this career."
+        },
+        {
+          "roll": 9,
+          "name": "Breakthrough",
+          "effects": [
+            {
+              "type": "next_advancement_dm",
+              "dm": 2
+            }
+          ],
+          "text": "You make a breakthrough in your field. Gain DM+2 to your next advancement roll."
+        },
+        {
+          "roll": 10,
+          "name": "Bureaucratic Morass",
+          "effects": [
+            {
+              "type": "choose_skill_set",
+              "skills": [
+                "admin",
+                "advocate",
+                "persuade",
+                "diplomat"
+              ],
+              "level": 1
+            }
+          ],
+          "text": "You become entangled in a bureaucratic or legal morass that distracts you from your work. Gain one of Admin 1, Advocate 1, Persuade 1 or Diplomat 1."
+        },
+        {
+          "roll": 11,
+          "name": "Brilliant Mentor",
+          "effects": [
+            {
+              "type": "gain_associate",
+              "associateTypes": [
+                "ally"
+              ]
+            },
+            {
+              "type": "choice",
+              "options": [
+                {
+                  "type": "increase_skill",
+                  "skillId": "science",
+                  "amount": 1
+                },
+                {
+                  "type": "next_advancement_dm",
+                  "dm": 4
+                }
+              ]
+            }
+          ],
+          "text": "You work for an eccentric but brilliant mentor, who becomes an Ally. Either increase Science by one level or DM+4 to your next advancement roll thanks to their aid."
+        },
+        {
+          "roll": 12,
+          "name": "Major Breakthrough",
+          "effects": [
+            {
+              "type": "automatic_promotion"
+            }
+          ],
+          "text": "Your work leads to a considerable breakthrough. You are automatically promoted."
+        }
       ]
     },
     "scout": {
       "mishaps": [
-        { "roll": 1, "ref": "common.mishap1" },
-        { "roll": 2, "name": "Psychological Damage", "effects": [{ "type": "choose_characteristic_change", "characteristics": ["int", "soc"], "amount": -1 }] },
-        { "roll": 3, "name": "Damaged Ship", "effects": [{ "type": "gain_associate", "associateTypes": ["contact"], "count": "1D" }, { "type": "gain_associate", "associateTypes": ["enemy"], "count": "D3" }] },
-        { "roll": 4, "name": "Caused Conflict", "effects": [{ "type": "gain_associate", "associateTypes": ["rival"] }, { "type": "set_skill", "skillId": "diplomat", "level": 1 }] },
-        { "roll": 5, "name": "Unknown Incident", "effects": [{ "type": "narrative_event" }] },
-        { "roll": 6, "ref": "common.mishap6" }
+        {
+          "roll": 1,
+          "ref": "common.mishap1"
+        },
+        {
+          "roll": 2,
+          "name": "Psychological Damage",
+          "effects": [
+            {
+              "type": "choose_characteristic_change",
+              "characteristics": [
+                "int",
+                "soc"
+              ],
+              "amount": -1
+            }
+          ],
+          "text": "Psychologically damaged by your time in the scouts. Reduce your INT or SOC by 1."
+        },
+        {
+          "roll": 3,
+          "name": "Damaged Ship",
+          "effects": [
+            {
+              "type": "gain_associate",
+              "associateTypes": [
+                "contact"
+              ],
+              "count": "1D"
+            },
+            {
+              "type": "gain_associate",
+              "associateTypes": [
+                "enemy"
+              ],
+              "count": "D3"
+            }
+          ],
+          "text": "Your ship is damaged and you have to hitch-hike your way back across the stars to the nearest scout base. Gain 1D Contacts and D3 Enemies."
+        },
+        {
+          "roll": 4,
+          "name": "Caused Conflict",
+          "effects": [
+            {
+              "type": "gain_associate",
+              "associateTypes": [
+                "rival"
+              ]
+            },
+            {
+              "type": "set_skill",
+              "skillId": "diplomat",
+              "level": 1
+            }
+          ],
+          "text": "You inadvertently cause a conflict between the Imperium and a minor world or species. Gain a Rival and Diplomat 1."
+        },
+        {
+          "roll": 5,
+          "name": "Unknown Incident",
+          "effects": [
+            {
+              "type": "narrative_event"
+            }
+          ],
+          "text": "You have no idea what happened to you - they found your ship drifting on the fringes of friendly space."
+        },
+        {
+          "roll": 6,
+          "ref": "common.mishap6"
+        }
       ],
       "events": [
-        { "roll": 2, "ref": "common.event2" },
-        { "roll": 3, "name": "Ambushed Ship", "effects": [{ "type": "choice" }, { "type": "check_any", "checks": [{ "skill": "pilot", "target": 8 }, { "skill": "persuade", "target": 10 }] }, { "type": "possible_no_reenlist" }, { "type": "possible_set_skill", "skillId": "electronics/sensors", "level": 1 }, { "type": "gain_associate", "associateTypes": ["enemy"] }] },
-        { "roll": 4, "name": "Alien World Survey", "effects": [{ "type": "choose_skill_set", "skills": ["animals/riding", "animals/training", "survival", "recon", "science"], "level": 1 }] },
-        { "roll": 5, "name": "Exemplary Service", "effects": [{ "type": "benefit_roll_dm", "dm": 1 }] },
-        { "roll": 6, "name": "Years of Jumping", "effects": [{ "type": "choose_skill_set", "skills": ["astrogation", "electronics", "navigation", "pilot/small-craft", "mechanic"], "level": 1 }] },
-        { "roll": 7, "ref": "common.event7" },
-        { "roll": 8, "name": "Alien Intelligence", "effects": [{ "type": "check_any", "checks": [{ "skill": "electronics", "target": 8 }, { "skill": "deception", "target": 8 }] }, { "type": "possible_ally" }, { "type": "possible_next_advancement_dm", "dm": 2 }, { "type": "possible_mishap_not_ejected" }] },
-        { "roll": 9, "name": "Disaster Rescue", "effects": [{ "type": "check_any", "checks": [{ "skill": "medic", "target": 8 }, { "skill": "engineer", "target": 8 }] }, { "type": "possible_contact" }, { "type": "possible_next_advancement_dm", "dm": 2 }, { "type": "possible_enemy" }] },
-        { "roll": 10, "name": "Fringes of Space", "effects": [{ "type": "check_any", "checks": [{ "skill": "survival", "target": 8 }, { "skill": "pilot", "target": 8 }] }, { "type": "possible_alien_contact" }, { "type": "possible_choose_skill_increase" }, { "type": "possible_mishap_not_ejected" }] },
-        { "roll": 11, "name": "Imperial Courier", "effects": [{ "type": "choice", "options": [{ "type": "increase_skill", "skillId": "diplomat", "amount": 1 }, { "type": "next_advancement_dm", "dm": 4 }] }] },
-        { "roll": 12, "name": "Discovery of Value", "effects": [{ "type": "automatic_promotion" }] }
+        {
+          "roll": 2,
+          "ref": "common.event2"
+        },
+        {
+          "roll": 3,
+          "name": "Ambushed Ship",
+          "effects": [
+            {
+              "type": "choice"
+            },
+            {
+              "type": "check_any",
+              "checks": [
+                {
+                  "skill": "pilot",
+                  "target": 8
+                },
+                {
+                  "skill": "persuade",
+                  "target": 10
+                }
+              ]
+            },
+            {
+              "type": "possible_no_reenlist"
+            },
+            {
+              "type": "possible_set_skill",
+              "skillId": "electronics/sensors",
+              "level": 1
+            },
+            {
+              "type": "gain_associate",
+              "associateTypes": [
+                "enemy"
+              ]
+            }
+          ],
+          "text": "Your ship is ambushed by enemy vessels. Either run and roll Pilot 8+ to escape, or treat with them and roll Persuade 10+ to bargain with them. If you fail the check, then your ship is destroyed and you may not re-enlist in the Scouts at the end of this term. If you succeed, you survive and gain Electronics (sensors) 1. Either way, gain an Enemy."
+        },
+        {
+          "roll": 4,
+          "name": "Alien World Survey",
+          "effects": [
+            {
+              "type": "choose_skill_set",
+              "skills": [
+                "animals/riding",
+                "animals/training",
+                "survival",
+                "recon",
+                "science"
+              ],
+              "level": 1
+            }
+          ],
+          "text": "You survey an alien world. Gain one of Animals (riding or training) 1, Survival 1, Recon 1 or Science 1."
+        },
+        {
+          "roll": 5,
+          "name": "Exemplary Service",
+          "effects": [
+            {
+              "type": "benefit_roll_dm",
+              "dm": 1
+            }
+          ],
+          "text": "You perform an exemplary service for the scouts. Gain DM+1 to any one Benefit roll."
+        },
+        {
+          "roll": 6,
+          "name": "Years of Jumping",
+          "effects": [
+            {
+              "type": "choose_skill_set",
+              "skills": [
+                "astrogation",
+                "electronics",
+                "navigation",
+                "pilot/small-craft",
+                "mechanic"
+              ],
+              "level": 1
+            }
+          ],
+          "text": "You spend several years jumping from world to world in your scout ship. Gain one of Astrogation 1, Electronics 1, Navigation 1, Pilot (small craft) 1 or Mechanic 1."
+        },
+        {
+          "roll": 7,
+          "ref": "common.event7"
+        },
+        {
+          "roll": 8,
+          "name": "Alien Intelligence",
+          "effects": [
+            {
+              "type": "check_any",
+              "checks": [
+                {
+                  "skill": "electronics",
+                  "target": 8
+                },
+                {
+                  "skill": "deception",
+                  "target": 8
+                }
+              ]
+            },
+            {
+              "type": "possible_ally"
+            },
+            {
+              "type": "possible_next_advancement_dm",
+              "dm": 2
+            },
+            {
+              "type": "possible_mishap_not_ejected"
+            }
+          ],
+          "text": "When dealing with an alien species, you have an opportunity to gather extra intelligence about them. Roll either Electronics 8+ or Deception 8+. If you succeed, gain an Ally in the Imperium and DM+2 to your next advancement roll. If you fail, roll on the Mishap table but you are not ejected from this career."
+        },
+        {
+          "roll": 9,
+          "name": "Disaster Rescue",
+          "effects": [
+            {
+              "type": "check_any",
+              "checks": [
+                {
+                  "skill": "medic",
+                  "target": 8
+                },
+                {
+                  "skill": "engineer",
+                  "target": 8
+                }
+              ]
+            },
+            {
+              "type": "possible_contact"
+            },
+            {
+              "type": "possible_next_advancement_dm",
+              "dm": 2
+            },
+            {
+              "type": "possible_enemy"
+            }
+          ],
+          "text": "Your scout ship is one of the first on the scene to rescue the survivors of a disaster. Roll either Medic 8+ or Engineer 8+. If you succeed, gain a Contact and DM+2 to your next advancement roll. If you fail, gain an Enemy."
+        },
+        {
+          "roll": 10,
+          "name": "Fringes of Space",
+          "effects": [
+            {
+              "type": "check_any",
+              "checks": [
+                {
+                  "skill": "survival",
+                  "target": 8
+                },
+                {
+                  "skill": "pilot",
+                  "target": 8
+                }
+              ]
+            },
+            {
+              "type": "possible_alien_contact"
+            },
+            {
+              "type": "possible_choose_skill_increase"
+            },
+            {
+              "type": "possible_mishap_not_ejected"
+            }
+          ],
+          "text": "You spend a great deal of time on the fringes of Charted Space. Roll Survival 8+ or Pilot 8+. If you succeed, gain a Contact in an alien species and one level in any skill of your choice. If you fail, roll on the Mishap table but you are not ejected from this career."
+        },
+        {
+          "roll": 11,
+          "name": "Imperial Courier",
+          "effects": [
+            {
+              "type": "choice",
+              "options": [
+                {
+                  "type": "increase_skill",
+                  "skillId": "diplomat",
+                  "amount": 1
+                },
+                {
+                  "type": "next_advancement_dm",
+                  "dm": 4
+                }
+              ]
+            }
+          ],
+          "text": "You serve as the courier for an important message from the Imperium. Either gain one level of Diplomat or DM+4 to your next advancement roll."
+        },
+        {
+          "roll": 12,
+          "name": "Discovery of Value",
+          "effects": [
+            {
+              "type": "automatic_promotion"
+            }
+          ],
+          "text": "You discover a world, item or information of worth to the Imperium. You are automatically promoted."
+        }
       ]
     }
   }
