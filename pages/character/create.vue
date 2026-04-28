@@ -33,6 +33,8 @@ const {
   enterManualCareerMishap,
   rollAging,
   enterManualAging,
+  rollMusteringOutBenefit,
+  enterManualMusteringOutBenefit,
   modifierLabel,
   educationBenefitLabel,
   preCareerEventEffectLabel,
@@ -46,6 +48,7 @@ const {
   selectedCareerSkillTableId,
   currentTermNumber,
   activeCreatorTab,
+  lifepathComplete,
   educationSkillsApplied,
   universityLevel0Skill,
   universityLevel1Skill,
@@ -87,6 +90,17 @@ const {
   basicTrainingEntries,
   basicTrainingLabel,
   agingEffect,
+  musteringOutResults,
+  selectedMusteringCareerId,
+  selectedMusteringRollType,
+  startingCredits,
+  personalBenefits,
+  remainingBenefitRolls,
+  cashRollsUsed,
+  cashRollLimit,
+  canRollMusteringOut,
+  musteringCareerOptions,
+  selectedMusteringCareerBenefits,
 } = storeToRefs(characterCreator)
 </script>
 
@@ -780,6 +794,7 @@ const {
                         </li>
                       </ul>
                     </div>
+                    <EventResolutionList />
                   </div>
                 </div>
 
@@ -834,11 +849,119 @@ const {
             </div>
             <div v-if="termRolls.aging" class="mt-3 rounded-md bg-white p-3 text-sm">
               <p class="font-semibold">{{ rollSummary(termRolls.aging) }} · {{ agingEffect }}</p>
-              <p class="mt-1 text-zinc-600">Apply any characteristic reductions manually for now.</p>
+              <p class="mt-1 text-zinc-600">Resolve any characteristic reductions below.</p>
+              <EventResolutionList />
             </div>
           </div>
 
           <TermActionFooter />
+
+          <div v-if="lifepathComplete" class="mt-5 rounded-lg border border-zinc-300 bg-white p-5">
+            <div class="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h2 class="text-xl font-semibold">Mustering Out</h2>
+                <p class="mt-1 text-sm text-zinc-600">
+                  Resolve remaining benefit rolls. Cash rolls used: {{ cashRollsUsed }}/{{ cashRollLimit }}.
+                </p>
+              </div>
+              <span class="rounded-md bg-stone-100 px-3 py-2 text-sm font-semibold text-zinc-700">
+                {{ remainingBenefitRolls }} rolls remaining
+              </span>
+            </div>
+
+            <div class="mt-5 grid gap-4 md:grid-cols-3">
+              <label class="grid gap-2">
+                <span class="text-sm font-medium text-zinc-700">Career</span>
+                <select
+                  v-model="selectedMusteringCareerId"
+                  class="h-11 rounded-md border border-zinc-300 bg-white px-3 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200"
+                >
+                  <option v-for="career in musteringCareerOptions" :key="career.id" :value="career.id">
+                    {{ career.name }} ({{ career.rolls }})
+                  </option>
+                </select>
+              </label>
+              <label class="grid gap-2">
+                <span class="text-sm font-medium text-zinc-700">Roll Type</span>
+                <select
+                  v-model="selectedMusteringRollType"
+                  class="h-11 rounded-md border border-zinc-300 bg-white px-3 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200"
+                >
+                  <option value="benefit">Benefit</option>
+                  <option :disabled="cashRollsUsed >= cashRollLimit" value="cash">Cash</option>
+                </select>
+              </label>
+              <div class="grid gap-2">
+                <span class="text-sm font-medium text-zinc-700">Roll</span>
+                <div class="flex gap-2">
+                  <button
+                    class="h-11 rounded-md bg-zinc-950 px-4 text-sm font-semibold text-white hover:bg-zinc-800 disabled:cursor-not-allowed disabled:bg-zinc-300"
+                    :disabled="!canRollMusteringOut"
+                    type="button"
+                    @click="rollMusteringOutBenefit"
+                  >
+                    Roll 1D
+                  </button>
+                  <input v-model.number="manualRollTotals.musteringOut" class="h-11 w-24 rounded-md border border-zinc-300 px-3 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200" max="6" min="1" placeholder="1D" type="number">
+                  <button
+                    class="h-11 rounded-md border border-zinc-300 px-3 text-sm font-semibold text-zinc-700 hover:border-amber-600 disabled:cursor-not-allowed disabled:text-zinc-400"
+                    :disabled="!canRollMusteringOut"
+                    type="button"
+                    @click="enterManualMusteringOutBenefit(manualRollTotals.musteringOut ?? Number.NaN)"
+                  >
+                    Manual
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div v-if="selectedMusteringCareerBenefits.length" class="mt-5 overflow-hidden rounded-md border border-zinc-200">
+              <table class="w-full text-left text-sm">
+                <thead class="bg-stone-100 text-xs uppercase tracking-wide text-zinc-500">
+                  <tr>
+                    <th class="px-3 py-2">Roll</th>
+                    <th class="px-3 py-2">Cash</th>
+                    <th class="px-3 py-2">Benefit</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="row in selectedMusteringCareerBenefits" :key="row.roll" class="border-t border-zinc-200">
+                    <td class="px-3 py-2 font-semibold">{{ row.roll }}</td>
+                    <td class="px-3 py-2">{{ row.cash.toLocaleString() }} Cr</td>
+                    <td class="px-3 py-2">{{ row.benefit }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div class="mt-5 grid gap-4 lg:grid-cols-3">
+              <div class="rounded-md bg-stone-50 p-4">
+                <p class="text-xs font-semibold uppercase tracking-wide text-zinc-500">Credits</p>
+                <p class="mt-2 text-2xl font-semibold">{{ startingCredits.toLocaleString() }} Cr</p>
+              </div>
+              <div class="rounded-md bg-stone-50 p-4 lg:col-span-2">
+                <p class="text-sm font-semibold text-zinc-900">Results</p>
+                <div v-if="musteringOutResults.length" class="mt-3 grid gap-2">
+                  <div v-for="result in musteringOutResults" :key="result.id" class="rounded-md bg-white px-3 py-2 text-sm">
+                    <p class="font-semibold">{{ result.careerName }} · {{ result.rollType }} · {{ result.dice.join(' + ') }} {{ formatDm(result.dm) }} = {{ result.total }}</p>
+                    <p class="text-zinc-600">
+                      {{ result.cash !== undefined ? `${result.cash.toLocaleString()} Cr` : result.benefit }}
+                    </p>
+                  </div>
+                </div>
+                <p v-else class="mt-3 text-sm text-zinc-600">No mustering-out rolls resolved.</p>
+              </div>
+            </div>
+
+            <div v-if="personalBenefits.length" class="mt-5 rounded-md border border-zinc-200 p-4">
+              <p class="text-sm font-semibold text-zinc-900">Personal Benefits</p>
+              <div class="mt-3 flex flex-wrap gap-2">
+                <span v-for="benefit in personalBenefits" :key="benefit" class="rounded-md bg-stone-100 px-3 py-2 text-sm text-zinc-700">
+                  {{ benefit }}
+                </span>
+              </div>
+            </div>
+          </div>
         </div>
           </div>
         </div>

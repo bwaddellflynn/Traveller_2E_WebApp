@@ -56,7 +56,7 @@ type TermHistoryEntry = {
   rolls: RollResult[]
 }
 type CreatorTab = 'creation' | `term-${number}`
-type EventResolutionKind = 'manual' | 'skill_choice' | 'table_roll' | 'check' | 'choice' | 'associate'
+type EventResolutionKind = 'manual' | 'skill_choice' | 'table_roll' | 'check' | 'choice' | 'associate' | 'characteristic_adjustment' | 'medical_care'
 type EventChoiceOption = {
   id: string
   label: string
@@ -74,6 +74,12 @@ type PendingEventResolution = {
   associateCount?: number | string
   associateContext?: string
   associateTags?: string[]
+  characteristicOptions?: CharacteristicId[]
+  characteristicAmount?: number | string
+  medicalCharacteristic?: CharacteristicId
+  medicalMaxRestore?: number
+  medicalCostPerPoint?: number
+  medicalCrisis?: boolean
   tableId?: string
   diceCount?: 1 | 2
   check?: {
@@ -85,6 +91,7 @@ type PendingEventResolution = {
   increase?: boolean
   resolved?: boolean
   selected?: string
+  details?: string
 }
 type TravellerAssociate = {
   id: string
@@ -118,6 +125,28 @@ type BenefitRollLedgerEntry = {
   source: string
   label: string
   count: number
+  careerId?: string
+}
+type MusteringOutRollType = 'cash' | 'benefit'
+type MusteringOutResult = {
+  id: string
+  careerId: string
+  careerName: string
+  rollType: MusteringOutRollType
+  dice: number[]
+  dm: number
+  total: number
+  tableRoll: number
+  cash?: number
+  benefit?: string
+}
+type MedicalCareEntry = {
+  id: string
+  source: string
+  characteristic: CharacteristicId
+  restored: number
+  cost: number
+  crisis?: boolean
 }
 type CareerConstraint = {
   id: string
@@ -204,6 +233,13 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
   const rollModifiers = ref<TravellerRollModifier[]>([])
   const benefitRollAdjustments = ref<BenefitRollAdjustment[]>([])
   const benefitRollLedger = ref<BenefitRollLedgerEntry[]>([])
+  const musteringOutResults = ref<MusteringOutResult[]>([])
+  const selectedMusteringCareerId = ref('')
+  const selectedMusteringRollType = ref<MusteringOutRollType>('benefit')
+  const startingCredits = ref(0)
+  const personalBenefits = ref<string[]>([])
+  const medicalDebt = ref(0)
+  const medicalCareLog = ref<MedicalCareEntry[]>([])
   const careerConstraints = ref<CareerConstraint[]>([])
   const pendingSkillChoice = ref<{ label: string; source: string; options: string[]; level?: number; increase?: boolean } | null>(null)
   const termRolls = reactive<Record<string, RollResult | null>>({
@@ -850,6 +886,15 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     return [...skills.values()].sort((left, right) => left.name.localeCompare(right.name))
   })
 
+  const generalSkillOptions = computed(() => skillsData.skills
+    .filter((skill) => !skill.special)
+    .map((skill) => skill.id)
+    .sort((left, right) => skillOptionLabel(left).localeCompare(skillOptionLabel(right))))
+
+  const existingSkillOptions = computed(() => currentTravellerSkills.value
+    .map((skill) => skill.id)
+    .sort((left, right) => skillOptionLabel(left).localeCompare(skillOptionLabel(right))))
+
   const checkLabel = (check: CheckRule) => {
     if (check.automatic) return 'Automatic'
     if (check.any) return check.any.map((item) => `${item.characteristic.toUpperCase()} ${item.target}+`).join(' or ')
@@ -1057,6 +1102,91 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     recordEventOutcome(source, effect, label, 'pending')
   }
 
+  const addSkillChoiceResolution = (
+    effect: TravellerEventEffect,
+    source: string,
+    options: string[],
+    label = tableEffectLabel(effect),
+    level?: number,
+    increase = false,
+  ) => {
+    if (!options.length) {
+      addManualEventResolution(effect, source, `${label} manually.`)
+      return
+    }
+
+    addPendingEventResolution({
+      kind: 'skill_choice',
+      label,
+      source,
+      effect,
+      options,
+      level,
+      increase,
+    })
+    recordEventOutcome(source, effect, label, 'pending')
+  }
+
+  const characteristicOptionsForEffect = (effect: Record<string, any>): CharacteristicId[] => {
+    if (Array.isArray(effect.characteristics)) {
+      return effect.characteristics
+        .map((characteristic: string) => characteristic.toLowerCase())
+        .filter((characteristic: string): characteristic is CharacteristicId => characteristicOrder.includes(characteristic as CharacteristicId))
+    }
+
+    if (effect.characteristic && characteristicOrder.includes(String(effect.characteristic).toLowerCase() as CharacteristicId)) {
+      return [String(effect.characteristic).toLowerCase() as CharacteristicId]
+    }
+
+    if (effect.category === 'physical') return ['str', 'dex', 'end']
+    if (effect.category === 'mental') return ['int', 'edu', 'soc']
+    return [...characteristicOrder]
+  }
+
+  const addCharacteristicAdjustmentResolution = (effect: TravellerEventEffect, source: string, label = tableEffectLabel(effect)) => {
+    const count = typeof effect.count === 'number' ? Math.max(1, effect.count) : 1
+    const options = characteristicOptionsForEffect(effect)
+
+    for (let index = 0; index < count; index += 1) {
+      addPendingEventResolution({
+        kind: 'characteristic_adjustment',
+        label: count > 1 ? `${label} (${index + 1} of ${count})` : label,
+        source,
+        effect,
+        characteristicOptions: options,
+        characteristicAmount: typeof effect.amount === 'number' || typeof effect.amount === 'string' ? effect.amount : -1,
+      })
+    }
+    recordEventOutcome(source, effect, label, 'pending')
+  }
+
+  const addMedicalCareResolution = (
+    source: string,
+    characteristicId: CharacteristicId,
+    maxRestore: number,
+    crisis = false,
+  ) => {
+    if (maxRestore <= 0) return
+
+    const costPerPoint = agingData.injury.medicalCare.restoreCostPerCharacteristicPoint
+    addPendingEventResolution({
+      kind: 'medical_care',
+      label: crisis
+        ? `${characteristicId.toUpperCase()} has reached 0. Restore at least 1 point with medical care.`
+        : `Optional medical care for ${characteristicId.toUpperCase()}`,
+      source,
+      effect: normalizeTravellerEventEffect({
+        type: 'medical_care',
+        characteristic: characteristicId,
+        amount: maxRestore,
+      }),
+      medicalCharacteristic: characteristicId,
+      medicalMaxRestore: maxRestore,
+      medicalCostPerPoint: costPerPoint,
+      medicalCrisis: crisis,
+    })
+  }
+
   const associateTypeOptions = (effect: TravellerEventEffect) => Array.isArray(effect.associateTypes)
     ? effect.associateTypes.map(String)
     : ['associate']
@@ -1118,18 +1248,45 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
       return
     }
 
+    if (normalizedType === 'characteristic_loss' || effect.type === 'choose_characteristic_change') {
+      addCharacteristicAdjustmentResolution(effect, source)
+      return
+    }
+
     if ((effect.type === 'choose_skill_set' || effect.type === 'choose_skill_increase') && Array.isArray(effect.skills) && effect.skills.length) {
-      const label = tableEffectLabel(effect)
-      addPendingEventResolution({
-        kind: 'skill_choice',
-        label,
-        source,
+      addSkillChoiceResolution(
         effect,
-        options: effect.skills.map(String),
-        level: effect.type === 'choose_skill_set' ? (typeof effect.level === 'number' ? effect.level : 1) : undefined,
-        increase: effect.type === 'choose_skill_increase',
-      })
-      recordEventOutcome(source, effect, label, 'pending')
+        source,
+        effect.skills.map(String),
+        tableEffectLabel(effect),
+        effect.type === 'choose_skill_set' ? (typeof effect.level === 'number' ? effect.level : 1) : undefined,
+        effect.type === 'choose_skill_increase',
+      )
+      return
+    }
+
+    if (effect.type === 'choose_skill') {
+      const excludedSkills = Array.isArray(effect.excludedSkills) ? effect.excludedSkills.map(String) : []
+      const options = generalSkillOptions.value.filter((skillId) => !excludedSkills.includes(skillId))
+      addSkillChoiceResolution(
+        effect,
+        source,
+        options,
+        tableEffectLabel(effect),
+        typeof effect.level === 'number' ? effect.level : 0,
+      )
+      return
+    }
+
+    if (effect.type === 'increase_existing_skill' || effect.type === 'increase_any_existing_skill') {
+      addSkillChoiceResolution(
+        effect,
+        source,
+        existingSkillOptions.value,
+        tableEffectLabel(effect),
+        undefined,
+        true,
+      )
       return
     }
 
@@ -1221,11 +1378,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
       return
     }
 
-    const label = effect.type === 'choose_skill' || effect.type === 'increase_existing_skill' || effect.type === 'increase_any_existing_skill'
-      ? `${tableEffectLabel(effect)} manually.`
-      : tableEffectLabel(effect)
-
-    addManualEventResolution(effect, source, label)
+    addManualEventResolution(effect, source, tableEffectLabel(effect))
   }
 
   const applyTravellerEventEffects = (event: TravellerEvent, sourcePrefix: string) => {
@@ -1461,6 +1614,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
         ...item,
         resolved: true,
         selected: `${nestedEvent.name} (${source})`,
+        details: nestedEvent.text,
       }
     })
     recordEventOutcome(resolution.source, resolution.effect, `${resolution.label}: ${nestedEvent.name}`, 'manual')
@@ -1616,6 +1770,91 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     recordEventOutcome(resolution.source, resolution.effect, `${resolution.label}: ${skillOptionLabel(choice)}`, 'manual')
   }
 
+  const resolveEventCharacteristicAdjustment = (resolutionId: string, characteristicId: CharacteristicId, amountValue?: number) => {
+    const resolution = pendingEventResolutions.value.find((item) => item.id === resolutionId)
+    if (!resolution || resolution.resolved || resolution.kind !== 'characteristic_adjustment') return
+    if (!resolution.characteristicOptions?.includes(characteristicId)) return
+
+    const rawAmount = resolution.characteristicAmount ?? -1
+    let amount = typeof rawAmount === 'number' ? rawAmount : Number.NaN
+    if (typeof rawAmount === 'string') {
+      if (/^-?1D$/i.test(rawAmount)) {
+        const dieAmount = typeof amountValue === 'number' && !Number.isNaN(amountValue)
+          ? Math.max(1, Math.min(6, amountValue))
+          : Math.ceil(Math.random() * 6)
+        amount = rawAmount.startsWith('-') ? -dieAmount : dieAmount
+      } else {
+        amount = Number(rawAmount)
+      }
+    }
+    if (Number.isNaN(amount)) return
+
+    characteristicAdjustments[characteristicId] += amount
+    applyAssignedScores()
+    const adjustedValue = values[characteristicId]
+
+    const selected = `${characteristicId.toUpperCase()} ${formatDm(amount)}`
+    pendingEventResolutions.value = pendingEventResolutions.value.map((item) => {
+      if (item.id !== resolutionId) return item
+      return {
+        ...item,
+        resolved: true,
+        selected,
+      }
+    })
+
+    recordEventOutcome(resolution.source, resolution.effect, `${resolution.label}: ${selected}`, 'manual')
+
+    if (amount < 0) {
+      const restoreMinimum = adjustedValue <= 0 ? 1 - adjustedValue : 0
+      const maxRestore = Math.abs(amount)
+      addMedicalCareResolution(resolution.source, characteristicId, Math.max(restoreMinimum, maxRestore), adjustedValue <= 0)
+    }
+  }
+
+  const resolveEventMedicalCare = (resolutionId: string, restorePoints: number) => {
+    const resolution = pendingEventResolutions.value.find((item) => item.id === resolutionId)
+    if (!resolution || resolution.resolved || resolution.kind !== 'medical_care' || !resolution.medicalCharacteristic) return
+
+    const maxRestore = resolution.medicalMaxRestore ?? 0
+    const minimumRestore = resolution.medicalCrisis ? 1 : 0
+    const restore = Math.max(minimumRestore, Math.min(maxRestore, Number.isNaN(restorePoints) ? 0 : restorePoints))
+    const costPerPoint = resolution.medicalCostPerPoint ?? agingData.injury.medicalCare.restoreCostPerCharacteristicPoint
+    const cost = restore * costPerPoint
+
+    if (restore > 0) {
+      characteristicAdjustments[resolution.medicalCharacteristic] += restore
+      applyAssignedScores()
+      medicalDebt.value += cost
+      medicalCareLog.value = [
+        ...medicalCareLog.value,
+        {
+          id: makeEventOutcomeId('medical-care'),
+          source: resolution.source,
+          characteristic: resolution.medicalCharacteristic,
+          restored: restore,
+          cost,
+          crisis: resolution.medicalCrisis,
+        },
+      ]
+    }
+
+    const selected = restore > 0
+      ? `Restored ${resolution.medicalCharacteristic.toUpperCase()} +${restore}; debt ${cost.toLocaleString()} Cr`
+      : 'Declined medical care'
+
+    pendingEventResolutions.value = pendingEventResolutions.value.map((item) => {
+      if (item.id !== resolutionId) return item
+      return {
+        ...item,
+        resolved: true,
+        selected,
+      }
+    })
+
+    recordEventOutcome(resolution.source, resolution.effect, selected, 'manual')
+  }
+
   const eventResolutionSelectedLabel = (resolution: PendingEventResolution) => {
     if (!resolution.selected) return ''
     if (resolution.kind === 'skill_choice') return skillOptionLabel(resolution.selected)
@@ -1750,6 +1989,37 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     }).join(', ')
   })
 
+  const agingTableEffects = () => {
+    const roll = termRolls.aging
+    if (!roll) return []
+
+    const table = (agingData.aging.table as Array<Record<string, any>>).find((row) => {
+      if ('total' in row && row.total === roll.total) return true
+      if ('totalMax' in row && roll.total <= row.totalMax) return true
+      if ('totalMin' in row && roll.total >= row.totalMin) return true
+      return false
+    })
+
+    return (table?.effects ?? []) as TravellerEventEffect[]
+  }
+
+  const applyAgingEffects = () => {
+    pendingEventResolutions.value = pendingEventResolutions.value.filter((resolution) => resolution.source !== 'Aging')
+    const effects = agingTableEffects()
+    if (!effects.length) return
+
+    for (const effect of effects) {
+      addCharacteristicAdjustmentResolution(
+        normalizeTravellerEventEffect({
+          type: 'injury_characteristic_loss',
+          ...effect,
+        }),
+        'Aging',
+        `Aging: reduce ${effect.category ?? effect.characteristic ?? 'characteristic'} by ${effect.amount}`,
+      )
+    }
+  }
+
   const rollAging = () => {
     const dice = [Math.ceil(Math.random() * 6), Math.ceil(Math.random() * 6)]
     const diceTotal = dice.reduce((sum, value) => sum + value, 0)
@@ -1766,6 +2036,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
       finalSuccess: total >= 1,
       source: 'rolled',
     }
+    applyAgingEffects()
   }
 
   const enterManualAging = () => {
@@ -1785,11 +2056,13 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
       finalSuccess: total >= 1,
       source: 'manual',
     }
+    applyAgingEffects()
   }
 
   const canCompleteTerm = computed(() => {
     if (lifepathComplete.value) return false
     if (agingRequired.value && !termRolls.aging) return false
+    if (pendingEventResolutions.value.some((resolution) => !resolution.resolved)) return false
 
     if (selectedTermPath.value === 'education') {
       if (!educationAvailable.value) return false
@@ -1805,9 +2078,8 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     if (basicTrainingRequired.value && !basicTrainingApplied.value) return false
     if (!termRolls.careerSkill || pendingSkillChoice.value) return false
     if (!termRolls.careerSurvival) return false
-    if (!termRolls.careerSurvival.finalSuccess) return Boolean(termRolls.careerMishap) && !pendingEventResolutions.value.some((resolution) => !resolution.resolved)
+    if (!termRolls.careerSurvival.finalSuccess) return Boolean(termRolls.careerMishap)
     if (!termRolls.careerEvent) return false
-    if (pendingEventResolutions.value.some((resolution) => !resolution.resolved)) return false
     return Boolean(termRolls.careerAdvancement)
   })
   const canAddTermTab = computed(() => {
@@ -1868,6 +2140,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
           source: `${selectedCareer.value.name} - ${selectedAssignment.value.name}`,
           label: earnedBenefitRoll ? 'Completed career term' : 'No benefit roll: mishap term',
           count: earnedBenefitRoll,
+          careerId: selectedCareerId.value,
         },
       ]
     }
@@ -1879,11 +2152,156 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
 
   const musterOut = () => {
     lifepathComplete.value = true
+    selectedMusteringCareerId.value = musteringCareerOptions.value[0]?.id ?? ''
   }
 
   const totalBenefitRollsEarned = computed(() => benefitRollLedger.value.reduce((sum, entry) => sum + entry.count, 0))
   const totalBenefitRollAdjustments = computed(() => benefitRollAdjustments.value.reduce((sum, adjustment) => sum + adjustment.adjustment, 0))
   const totalAvailableBenefitRolls = computed(() => Math.max(0, totalBenefitRollsEarned.value + totalBenefitRollAdjustments.value))
+  const spentBenefitRolls = computed(() => musteringOutResults.value.length)
+  const remainingBenefitRolls = computed(() => Math.max(0, totalAvailableBenefitRolls.value - spentBenefitRolls.value))
+  const cashRollsUsed = computed(() => musteringOutResults.value.filter((result) => result.rollType === 'cash').length)
+  const cashRollLimit = creationRulesData.benefits.cashRollMaximumAcrossAllCareers
+  const canRollMusteringOut = computed(() => {
+    if (!lifepathComplete.value) return false
+    if (!selectedMusteringCareerId.value) return false
+    if (remainingBenefitRolls.value <= 0) return false
+    if (selectedMusteringRollType.value === 'cash' && cashRollsUsed.value >= cashRollLimit) return false
+    return Boolean(selectedMusteringCareerBenefits.value.length)
+  })
+  const musteringCareerOptions = computed(() => {
+    const careerIds = Array.from(new Set(benefitRollLedger.value
+      .filter((entry) => entry.careerId && entry.count > 0)
+      .map((entry) => entry.careerId as string)))
+
+    return careerIds.map((careerId) => {
+      const career = careersData.careers.find((item) => item.id === careerId)
+      return {
+        id: careerId,
+        name: career?.name ?? careerId,
+        rolls: benefitRollLedger.value
+          .filter((entry) => entry.careerId === careerId)
+          .reduce((sum, entry) => sum + entry.count, 0),
+      }
+    })
+  })
+  const selectedMusteringCareer = computed(() => musteringCareerOptions.value.find((career) => career.id === selectedMusteringCareerId.value) ?? musteringCareerOptions.value[0] ?? null)
+  const selectedMusteringCareerBenefits = computed(() => {
+    if (!selectedMusteringCareer.value) return []
+    return ((careerTablesData.careers as Record<string, any>)[selectedMusteringCareer.value.id]?.benefits ?? []) as Array<{ roll: number; cash: number; benefit: string }>
+  })
+
+  watch(musteringCareerOptions, (options) => {
+    if (!options.length) {
+      selectedMusteringCareerId.value = ''
+      return
+    }
+
+    if (!options.some((option) => option.id === selectedMusteringCareerId.value)) {
+      selectedMusteringCareerId.value = options[0].id
+    }
+  }, { immediate: true })
+
+  const activeBenefitRollModifiers = () => rollModifiers.value.filter((modifier) => {
+    if (modifier.used) return false
+    return modifier.target === 'benefit' || modifier.target === 'any'
+  })
+
+  const consumeBenefitRollModifiers = (modifiers: TravellerRollModifier[]) => {
+    const consumedIds = modifiers
+      .filter((modifier) => modifier.scope === 'one' || modifier.scope === 'next')
+      .map((modifier) => modifier.id)
+
+    if (!consumedIds.length) return
+
+    rollModifiers.value = rollModifiers.value.map((modifier) => consumedIds.includes(modifier.id)
+      ? { ...modifier, used: true }
+      : modifier)
+  }
+
+  const musteringBenefitRow = (total: number) => {
+    if (!selectedMusteringCareerBenefits.value.length) return null
+    const tableRoll = Math.max(1, Math.min(7, total))
+    return selectedMusteringCareerBenefits.value.find((benefit) => benefit.roll === tableRoll) ?? null
+  }
+
+  const applyMusteringBenefit = (benefit: string, source: string) => {
+    const parts = benefit.split(/\s+and\s+/i).map((part) => part.trim()).filter(Boolean)
+    if (parts.length > 1 && parts.every((part) => /^(STR|DEX|END|INT|EDU|SOC)\s*\+\d+$/i.test(part))) {
+      for (const part of parts) applyCharacteristicIncrease(part)
+      return
+    }
+
+    if (applyCharacteristicIncrease(benefit)) return
+
+    if (/^contact$/i.test(benefit) || /^ally$/i.test(benefit)) {
+      associates.value = [
+        ...associates.value,
+        {
+          id: makeEventOutcomeId('associate'),
+          source,
+          type: benefit.toLowerCase(),
+          name: `${benefit} from mustering out`,
+        },
+      ]
+      return
+    }
+
+    personalBenefits.value = [...personalBenefits.value, benefit]
+  }
+
+  const resolveMusteringOutRoll = (die: number, source: 'rolled' | 'manual') => {
+    if (!canRollMusteringOut.value || !selectedMusteringCareer.value) return
+    if (die < 1 || die > 6) return
+
+    const modifiers = activeBenefitRollModifiers()
+    const dm = modifiers.reduce((sum, modifier) => sum + modifier.dm, 0)
+    const total = die + dm
+    const row = musteringBenefitRow(total)
+    if (!row) return
+
+    const result: MusteringOutResult = {
+      id: makeEventOutcomeId('mustering-out'),
+      careerId: selectedMusteringCareer.value.id,
+      careerName: selectedMusteringCareer.value.name,
+      rollType: selectedMusteringRollType.value,
+      dice: [die],
+      dm,
+      total,
+      tableRoll: row.roll,
+      cash: selectedMusteringRollType.value === 'cash' ? row.cash : undefined,
+      benefit: selectedMusteringRollType.value === 'benefit' ? row.benefit : undefined,
+    }
+
+    musteringOutResults.value = [...musteringOutResults.value, result]
+    consumeBenefitRollModifiers(modifiers)
+
+    if (typeof result.cash === 'number') startingCredits.value += result.cash
+    if (result.benefit) applyMusteringBenefit(result.benefit, `Mustering Out: ${selectedMusteringCareer.value.name}`)
+
+    eventOutcomeLog.value = [
+      {
+        id: makeEventOutcomeId('mustering-out-log'),
+        source: `Mustering Out: ${selectedMusteringCareer.value.name}`,
+        label: selectedMusteringRollType.value === 'cash'
+          ? `Cash ${result.cash?.toLocaleString() ?? 0} credits`
+          : result.benefit ?? 'Benefit',
+        effectType: 'mustering_out',
+        normalizedType: 'mustering_out',
+        status: 'automatic',
+      },
+      ...eventOutcomeLog.value,
+    ].slice(0, 24)
+  }
+
+  const rollMusteringOutBenefit = () => {
+    resolveMusteringOutRoll(Math.ceil(Math.random() * 6), 'rolled')
+  }
+
+  const enterManualMusteringOutBenefit = (die: number) => {
+    if (Number.isNaN(die)) return
+    resolveMusteringOutRoll(die, 'manual')
+  }
 
   const modifierLabel = (modifier: { condition: string; dm: number }) => {
     const conditionLabels: Record<string, string> = {
@@ -2038,6 +2456,13 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     rollModifiers,
     benefitRollAdjustments,
     benefitRollLedger,
+    musteringOutResults,
+    selectedMusteringCareerId,
+    selectedMusteringRollType,
+    startingCredits,
+    personalBenefits,
+    medicalDebt,
+    medicalCareLog,
     careerConstraints,
     pendingSkillChoice,
     termRolls,
@@ -2140,6 +2565,8 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     rollEventResolutionTable,
     enterManualEventResolutionTable,
     resolveEventChoice,
+    resolveEventCharacteristicAdjustment,
+    resolveEventMedicalCare,
     resolveEventOutcomeChoice,
     resolveEventAssociate,
     resolveManualEventResolution,
@@ -2165,6 +2592,16 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     totalBenefitRollsEarned,
     totalBenefitRollAdjustments,
     totalAvailableBenefitRolls,
+    spentBenefitRolls,
+    remainingBenefitRolls,
+    cashRollsUsed,
+    cashRollLimit,
+    canRollMusteringOut,
+    musteringCareerOptions,
+    selectedMusteringCareer,
+    selectedMusteringCareerBenefits,
+    rollMusteringOutBenefit,
+    enterManualMusteringOutBenefit,
     modifierLabel,
     educationBenefitLabel,
     preCareerEventEffectLabel,

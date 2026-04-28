@@ -27,6 +27,8 @@ const {
   totalBenefitRollsEarned,
   totalBenefitRollAdjustments,
   totalAvailableBenefitRolls,
+  medicalDebt,
+  medicalCareLog,
   careerConstraints,
 } = storeToRefs(characterCreator)
 </script>
@@ -186,6 +188,29 @@ const {
         >
           <p class="text-sm font-semibold text-zinc-100">{{ entry.label }}</p>
           <p class="text-xs text-zinc-400">Term {{ entry.termNumber }} · {{ entry.source }}</p>
+        </div>
+      </div>
+    </div>
+
+    <div v-if="medicalDebt || medicalCareLog.length" class="mt-5 border-t border-white/15 pt-5">
+      <div class="flex items-center justify-between gap-3">
+        <p class="text-sm font-semibold text-zinc-200">Medical Debt</p>
+        <span class="rounded-md bg-white/10 px-2 py-1 text-xs text-zinc-300">
+          {{ medicalDebt.toLocaleString() }} Cr
+        </span>
+      </div>
+      <div v-if="medicalCareLog.length" class="mt-3 grid gap-2">
+        <div
+          v-for="entry in medicalCareLog.slice(-3)"
+          :key="entry.id"
+          class="rounded-md bg-white/10 px-3 py-2"
+        >
+          <p class="text-sm font-semibold text-zinc-100">
+            {{ entry.characteristic.toUpperCase() }} +{{ entry.restored }}
+          </p>
+          <p class="text-xs text-zinc-400">
+            {{ entry.cost.toLocaleString() }} Cr{{ entry.crisis ? ' · crisis care' : '' }}
+          </p>
         </div>
       </div>
     </div>

@@ -9,66 +9,77 @@
       "roll": 2,
       "id": "sickness-or-injury",
       "name": "Sickness or Injury",
+      "text": "You are injured or become seriously ill. Roll on the Injury table.",
       "effects": [{ "type": "roll_table", "tableId": "injury" }]
     },
     {
       "roll": 3,
       "id": "birth-or-death",
       "name": "Birth or Death",
+      "text": "Someone close to you is born or dies. Define the person and how the event affects your Traveller.",
       "effects": [{ "type": "narrative_event" }]
     },
     {
       "roll": 4,
       "id": "ending-of-relationship",
       "name": "Ending of Relationship",
+      "text": "A romantic or close personal relationship ends badly. Gain one Rival or Enemy.",
       "effects": [{ "type": "gain_associate", "associateTypes": ["rival", "enemy"], "count": 1 }]
     },
     {
       "roll": 5,
       "id": "improved-relationship",
       "name": "Improved Relationship",
+      "text": "A relationship deepens or improves. Gain one Ally.",
       "effects": [{ "type": "gain_associate", "associateTypes": ["ally"], "count": 1 }]
     },
     {
       "roll": 6,
       "id": "new-relationship",
       "name": "New Relationship",
+      "text": "You begin an important new relationship. Gain one Ally.",
       "effects": [{ "type": "gain_associate", "associateTypes": ["ally"], "count": 1 }]
     },
     {
       "roll": 7,
       "id": "new-contact",
       "name": "New Contact",
+      "text": "You make a useful connection. Gain one Contact.",
       "effects": [{ "type": "gain_associate", "associateTypes": ["contact"], "count": 1 }]
     },
     {
       "roll": 8,
       "id": "betrayal",
       "name": "Betrayal",
+      "text": "You are betrayed by someone close to you. Convert an existing Contact or Ally into a Rival or Enemy, or gain a new Rival or Enemy if no existing associate fits.",
       "effects": [{ "type": "convert_or_gain_associate", "from": ["contact", "ally"], "to": ["rival", "enemy"] }]
     },
     {
       "roll": 9,
       "id": "travel",
       "name": "Travel",
+      "text": "You travel widely or spend time away from your normal life. Gain DM+2 to your next qualification roll.",
       "effects": [{ "type": "next_qualification_dm", "dm": 2 }]
     },
     {
       "roll": 10,
       "id": "good-fortune",
       "name": "Good Fortune",
+      "text": "Something lucky or profitable happens. Gain DM+2 to one benefit roll.",
       "effects": [{ "type": "one_benefit_roll_dm", "dm": 2 }]
     },
     {
       "roll": 11,
       "id": "crime",
       "name": "Crime",
+      "text": "You are accused of, involved in or victimised by crime. Either lose one benefit roll or take the Prisoner career next term.",
       "effects": [{ "type": "choice", "options": [{ "type": "lose_benefit_roll", "count": 1 }, { "type": "next_career", "careerId": "prisoner" }] }]
     },
     {
       "roll": 12,
       "id": "unusual-event",
       "name": "Unusual Event",
+      "text": "Something strange happens. Roll on the Unusual Events subtable.",
       "effects": [{ "type": "roll_subtable", "tableId": "unusual-events" }]
     }
   ],
@@ -76,12 +87,12 @@
     "unusual-events": {
       "roll": "1D",
       "events": [
-        { "roll": 1, "id": "psionics", "name": "Psionics", "effects": [{ "type": "may_test_psionic_strength" }, { "type": "may_take_career_next_term", "careerId": "psion" }] },
-        { "roll": 2, "id": "aliens", "name": "Aliens", "effects": [{ "type": "set_skill", "skillId": "science", "level": 1 }, { "type": "gain_associate", "associateTypes": ["contact"], "tags": ["alien"] }] },
-        { "roll": 3, "id": "alien-artefact", "name": "Alien Artefact", "effects": [{ "type": "gain_item", "itemType": "alien-artefact" }] },
-        { "roll": 4, "id": "amnesia", "name": "Amnesia", "effects": [{ "type": "narrative_event" }] },
-        { "roll": 5, "id": "contact-with-government", "name": "Contact with Government", "effects": [{ "type": "narrative_event" }] },
-        { "roll": 6, "id": "ancient-technology", "name": "Ancient Technology", "effects": [{ "type": "gain_item", "itemType": "ancient-technology" }] }
+        { "roll": 1, "id": "psionics", "name": "Psionics", "text": "You encounter psionic phenomena or a psionic group. You may test PSI and may be able to enter the Psion career next term.", "effects": [{ "type": "may_test_psionic_strength" }, { "type": "may_take_career_next_term", "careerId": "psion" }] },
+        { "roll": 2, "id": "aliens", "name": "Aliens", "text": "You spend meaningful time with aliens or alien culture. Gain Science 1 and an alien Contact.", "effects": [{ "type": "set_skill", "skillId": "science", "level": 1 }, { "type": "gain_associate", "associateTypes": ["contact"], "tags": ["alien"] }] },
+        { "roll": 3, "id": "alien-artefact", "name": "Alien Artefact", "text": "You come into possession of an alien artefact. Record it as a personal benefit or plot item.", "effects": [{ "type": "gain_item", "itemType": "alien-artefact" }] },
+        { "roll": 4, "id": "amnesia", "name": "Amnesia", "text": "Something causes a gap in your memory. Define what is missing and who or what might know the truth.", "effects": [{ "type": "narrative_event" }] },
+        { "roll": 5, "id": "contact-with-government", "name": "Contact with Government", "text": "You are contacted by or become involved with a government agency. Define the agency and what it wants.", "effects": [{ "type": "narrative_event" }] },
+        { "roll": 6, "id": "ancient-technology", "name": "Ancient Technology", "text": "You encounter ancient technology. Record it as a personal benefit, mystery or plot item.", "effects": [{ "type": "gain_item", "itemType": "ancient-technology" }] }
       ]
     }
   }
