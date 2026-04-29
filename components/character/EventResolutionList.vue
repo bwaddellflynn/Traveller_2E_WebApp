@@ -31,6 +31,9 @@ const {
 } = characterCreator
 const {
   pendingEventResolutions,
+  gmManualCheckRollEntryEnabled,
+  gmManualTableRollEntryEnabled,
+  gmManualBenefitRollEntryEnabled,
 } = storeToRefs(characterCreator)
 
 const visibleEventResolutions = computed(() => {
@@ -263,20 +266,22 @@ const benefitWagerForm = (resolution: { id: string; wagerChecks?: Array<{ skill:
         >
           Roll 2D
         </button>
-        <input
-          v-model.number="manualCheckRolls[resolution.id]"
-          class="h-9 w-20 rounded-md border border-amber-300 bg-white px-2 text-sm text-amber-950"
-          max="12"
-          min="2"
-          type="number"
-        >
-        <button
-          class="h-9 rounded-md border border-amber-300 bg-white px-3 text-sm font-semibold text-amber-900 hover:border-amber-600"
-          type="button"
-          @click="enterManualEventResolutionCheck(resolution.id, manualCheckRolls[resolution.id] ?? Number.NaN)"
-        >
-          Apply
-        </button>
+        <template v-if="gmManualCheckRollEntryEnabled">
+          <input
+            v-model.number="manualCheckRolls[resolution.id]"
+            class="h-9 w-20 rounded-md border border-amber-300 bg-white px-2 text-sm text-amber-950"
+            max="12"
+            min="2"
+            type="number"
+          >
+          <button
+            class="h-9 rounded-md border border-amber-300 bg-white px-3 text-sm font-semibold text-amber-900 hover:border-amber-600"
+            type="button"
+            @click="enterManualEventResolutionCheck(resolution.id, manualCheckRolls[resolution.id] ?? Number.NaN)"
+          >
+            Apply
+          </button>
+        </template>
       </div>
 
       <div v-if="resolution.kind === 'table_roll' && !resolution.resolved" class="mt-3 flex flex-wrap items-center gap-2">
@@ -287,20 +292,22 @@ const benefitWagerForm = (resolution: { id: string; wagerChecks?: Array<{ skill:
         >
           Roll {{ resolution.diceCount }}D
         </button>
-        <input
-          v-model.number="manualTableRolls[resolution.id]"
-          class="h-9 w-20 rounded-md border border-amber-300 bg-white px-2 text-sm text-amber-950"
-          :max="resolution.diceCount === 2 ? 12 : 6"
-          :min="resolution.diceCount === 2 ? 2 : 1"
-          type="number"
-        >
-        <button
-          class="h-9 rounded-md border border-amber-300 bg-white px-3 text-sm font-semibold text-amber-900 hover:border-amber-600"
-          type="button"
-          @click="enterManualEventResolutionTable(resolution.id, manualTableRolls[resolution.id] ?? Number.NaN)"
-        >
-          Apply
-        </button>
+        <template v-if="gmManualTableRollEntryEnabled">
+          <input
+            v-model.number="manualTableRolls[resolution.id]"
+            class="h-9 w-20 rounded-md border border-amber-300 bg-white px-2 text-sm text-amber-950"
+            :max="resolution.diceCount === 2 ? 12 : 6"
+            :min="resolution.diceCount === 2 ? 2 : 1"
+            type="number"
+          >
+          <button
+            class="h-9 rounded-md border border-amber-300 bg-white px-3 text-sm font-semibold text-amber-900 hover:border-amber-600"
+            type="button"
+            @click="enterManualEventResolutionTable(resolution.id, manualTableRolls[resolution.id] ?? Number.NaN)"
+          >
+            Apply
+          </button>
+        </template>
       </div>
 
       <div v-if="resolution.kind === 'skill_table_roll' && !resolution.resolved" class="mt-3 flex flex-wrap items-center gap-2">
@@ -311,20 +318,22 @@ const benefitWagerForm = (resolution: { id: string; wagerChecks?: Array<{ skill:
         >
           Roll 1D
         </button>
-        <input
-          v-model.number="manualTableRolls[resolution.id]"
-          class="h-9 w-20 rounded-md border border-amber-300 bg-white px-2 text-sm text-amber-950"
-          max="6"
-          min="1"
-          type="number"
-        >
-        <button
-          class="h-9 rounded-md border border-amber-300 bg-white px-3 text-sm font-semibold text-amber-900 hover:border-amber-600"
-          type="button"
-          @click="enterManualEventResolutionSkillTable(resolution.id, manualTableRolls[resolution.id] ?? Number.NaN)"
-        >
-          Apply
-        </button>
+        <template v-if="gmManualTableRollEntryEnabled">
+          <input
+            v-model.number="manualTableRolls[resolution.id]"
+            class="h-9 w-20 rounded-md border border-amber-300 bg-white px-2 text-sm text-amber-950"
+            max="6"
+            min="1"
+            type="number"
+          >
+          <button
+            class="h-9 rounded-md border border-amber-300 bg-white px-3 text-sm font-semibold text-amber-900 hover:border-amber-600"
+            type="button"
+            @click="enterManualEventResolutionSkillTable(resolution.id, manualTableRolls[resolution.id] ?? Number.NaN)"
+          >
+            Apply
+          </button>
+        </template>
       </div>
 
       <div v-if="resolution.kind === 'benefit_wager' && !resolution.resolved" class="mt-3 grid gap-3">
@@ -359,21 +368,23 @@ const benefitWagerForm = (resolution: { id: string; wagerChecks?: Array<{ skill:
           >
             Roll 2D
           </button>
-          <input
-            v-model.number="benefitWagerForm(resolution).total"
-            class="h-9 w-20 rounded-md border border-amber-300 bg-white px-2 text-sm text-amber-950"
-            max="12"
-            min="2"
-            placeholder="2D"
-            type="number"
-          >
-          <button
-            class="h-9 rounded-md border border-amber-300 bg-white px-3 text-sm font-semibold text-amber-900 hover:border-amber-600"
-            type="button"
-            @click="enterManualEventResolutionBenefitWager(resolution.id, benefitWagerForm(resolution).skill, benefitWagerForm(resolution).wagered ?? Number.NaN, benefitWagerForm(resolution).total ?? Number.NaN)"
-          >
-            Apply
-          </button>
+          <template v-if="gmManualBenefitRollEntryEnabled">
+            <input
+              v-model.number="benefitWagerForm(resolution).total"
+              class="h-9 w-20 rounded-md border border-amber-300 bg-white px-2 text-sm text-amber-950"
+              max="12"
+              min="2"
+              placeholder="2D"
+              type="number"
+            >
+            <button
+              class="h-9 rounded-md border border-amber-300 bg-white px-3 text-sm font-semibold text-amber-900 hover:border-amber-600"
+              type="button"
+              @click="enterManualEventResolutionBenefitWager(resolution.id, benefitWagerForm(resolution).skill, benefitWagerForm(resolution).wagered ?? Number.NaN, benefitWagerForm(resolution).total ?? Number.NaN)"
+            >
+              Apply
+            </button>
+          </template>
           <button
             class="h-9 rounded-md border border-amber-300 bg-white px-3 text-sm font-semibold text-amber-900 hover:border-amber-600"
             type="button"

@@ -625,6 +625,53 @@
           }
         }
       ]
+    },
+    {
+      "id": "prisoner",
+      "name": "Prisoner",
+      "qualification": {
+        "automatic": true
+      },
+      "page": 56,
+      "specialEntryOnly": true,
+      "assignments": [
+        {
+          "id": "inmate",
+          "name": "Inmate",
+          "survival": {
+            "characteristic": "end",
+            "target": 7
+          },
+          "advancement": {
+            "characteristic": "str",
+            "target": 7
+          }
+        },
+        {
+          "id": "thug",
+          "name": "Thug",
+          "survival": {
+            "characteristic": "str",
+            "target": 8
+          },
+          "advancement": {
+            "characteristic": "end",
+            "target": 6
+          }
+        },
+        {
+          "id": "fixer",
+          "name": "Fixer",
+          "survival": {
+            "characteristic": "int",
+            "target": 9
+          },
+          "advancement": {
+            "characteristic": "end",
+            "target": 5
+          }
+        }
+      ]
     }
   ]
 }

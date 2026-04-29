@@ -969,6 +969,42 @@
           "bonus": "Any Talent skill 1"
         }
       ]
+    },
+    "prisoner": {
+      "shared": [
+        {
+          "rank": 0,
+          "title": "Prisoner",
+          "bonus": "Melee (unarmed) 1"
+        },
+        {
+          "rank": 1,
+          "title": "Prisoner"
+        },
+        {
+          "rank": 2,
+          "title": "Prisoner",
+          "bonus": "Athletics 1"
+        },
+        {
+          "rank": 3,
+          "title": "Prisoner"
+        },
+        {
+          "rank": 4,
+          "title": "Prisoner",
+          "bonus": "Advocate 1"
+        },
+        {
+          "rank": 5,
+          "title": "Prisoner"
+        },
+        {
+          "rank": 6,
+          "title": "Prisoner",
+          "bonus": "END +1"
+        }
+      ]
     }
   }
 }

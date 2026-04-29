@@ -26,6 +26,9 @@ const {
   enterManualCheck,
   toggleRollOverride,
   rollSummary,
+  dismissAdvancementResult,
+  rollPrisonerParoleThreshold,
+  enterManualPrisonerParoleThreshold,
   rollCareerSkillTable,
   enterManualCareerSkillTable,
   rollCareerEvent,
@@ -47,6 +50,11 @@ const {
   selectedCareerId,
   selectedAssignmentId,
   selectedCareerSkillTableId,
+  gmManualCheckRollEntryEnabled,
+  gmManualTableRollEntryEnabled,
+  gmManualAgingRollEntryEnabled,
+  gmManualBenefitRollEntryEnabled,
+  gmOutcomeOverridesEnabled,
   currentTermNumber,
   activeCreatorTab,
   lifepathComplete,
@@ -60,6 +68,9 @@ const {
   careerEventExpanded,
   careerMishapExpanded,
   careerSkillResult,
+  prisonerParoleThreshold,
+  prisonerParoleThresholdRoll,
+  prisonerParoleThresholdRequired,
   pendingEventResolutions,
   pendingSkillChoice,
   termRolls,
@@ -103,6 +114,7 @@ const {
   canRollMusteringOut,
   musteringCareerOptions,
   selectedMusteringCareerBenefits,
+  advancementResult,
 } = storeToRefs(characterCreator)
 </script>
 
@@ -128,6 +140,18 @@ const {
                   <span class="rounded-md bg-stone-100 px-3 py-2 text-sm font-semibold text-zinc-700">
                     Age {{ activeTermHistoryEntry.startAge }}-{{ activeTermHistoryEntry.endAge }}
                   </span>
+                </div>
+
+                <div v-if="activeTermHistoryEntry.details.length" class="mt-5 grid gap-2 rounded-md bg-stone-50 p-3 text-sm text-zinc-700">
+                  <p class="font-semibold text-zinc-900">Term Notes</p>
+                  <ul class="grid gap-1">
+                    <li
+                      v-for="detail in activeTermHistoryEntry.details"
+                      :key="`${activeTermHistoryEntry.termNumber}-${detail}`"
+                    >
+                      {{ detail }}
+                    </li>
+                  </ul>
                 </div>
 
                 <div class="mt-5 grid gap-2">
@@ -262,7 +286,7 @@ const {
                     Roll 2D
                   </button>
                 </div>
-                <div class="mt-3 flex flex-wrap gap-2">
+                <div v-if="gmManualCheckRollEntryEnabled" class="mt-3 flex flex-wrap gap-2">
                   <input v-model.number="manualRollTotals.careerQualification" class="h-10 w-28 rounded-md border border-zinc-300 px-3 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200" placeholder="2D total" type="number">
                   <button class="h-10 rounded-md border border-zinc-300 px-3 text-sm font-semibold text-zinc-700 hover:border-amber-600" type="button" @click="enterManualCheck('careerQualification', 'Qualification', selectedCareer.qualification)">
                     Manual
@@ -271,9 +295,49 @@ const {
                 <div v-if="termRolls.careerQualification" class="mt-3 rounded-md bg-stone-50 p-3 text-sm">
                   <p class="font-semibold">{{ rollSummary(termRolls.careerQualification) }} · {{ termRolls.careerQualification.finalSuccess ? 'Success' : 'Failure' }}</p>
                   <p v-if="termRolls.careerQualification.notes" class="mt-1 text-zinc-600">{{ termRolls.careerQualification.notes }}</p>
-                  <button class="mt-2 text-xs font-semibold text-amber-700 hover:text-amber-900" type="button" @click="toggleRollOverride('careerQualification')">
+                  <button v-if="gmOutcomeOverridesEnabled" class="mt-2 text-xs font-semibold text-amber-700 hover:text-amber-900" type="button" @click="toggleRollOverride('careerQualification')">
                     {{ termRolls.careerQualification.overridden ? 'Remove override' : 'Override outcome' }}
                   </button>
+                </div>
+              </div>
+
+              <div v-if="selectedCareerId === 'prisoner' && termRolls.careerQualification?.finalSuccess" class="rounded-md border border-zinc-200 p-4">
+                <div class="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p class="text-sm font-semibold">Parole Threshold</p>
+                    <p class="text-sm text-zinc-600">Roll 1D+2 before resolving the Prisoner term. Advancement must exceed this value to leave prison.</p>
+                  </div>
+                  <button
+                    class="h-10 rounded-md bg-zinc-950 px-4 text-sm font-semibold text-white hover:bg-zinc-800 disabled:cursor-not-allowed disabled:bg-zinc-300"
+                    :disabled="!prisonerParoleThresholdRequired"
+                    type="button"
+                    @click="rollPrisonerParoleThreshold"
+                  >
+                    Roll 1D
+                  </button>
+                </div>
+                <div v-if="gmManualTableRollEntryEnabled && prisonerParoleThresholdRequired" class="mt-3 flex flex-wrap gap-2">
+                  <input
+                    v-model.number="manualRollTotals.prisonerParoleThreshold"
+                    class="h-10 w-28 rounded-md border border-zinc-300 px-3 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200"
+                    max="6"
+                    min="1"
+                    placeholder="1D"
+                    type="number"
+                  >
+                  <button
+                    class="h-10 rounded-md border border-zinc-300 px-3 text-sm font-semibold text-zinc-700 hover:border-amber-600"
+                    type="button"
+                    @click="enterManualPrisonerParoleThreshold"
+                  >
+                    Manual
+                  </button>
+                </div>
+                <div v-if="prisonerParoleThreshold !== null" class="mt-3 rounded-md bg-stone-50 p-3 text-sm">
+                  <p class="font-semibold">Parole Threshold {{ prisonerParoleThreshold }}</p>
+                  <p v-if="prisonerParoleThresholdRoll" class="mt-1 text-zinc-600">
+                    {{ prisonerParoleThresholdRoll.dice }} + 2 = {{ prisonerParoleThresholdRoll.total }}
+                  </p>
                 </div>
               </div>
 
@@ -380,7 +444,7 @@ const {
                   </div>
                 </div>
 
-                <div class="mt-3 flex flex-wrap gap-2">
+                <div v-if="gmManualTableRollEntryEnabled" class="mt-3 flex flex-wrap gap-2">
                   <input
                     v-model.number="manualRollTotals.careerSkill"
                     class="h-10 w-28 rounded-md border border-zinc-300 px-3 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200"
@@ -428,7 +492,7 @@ const {
                     Roll 2D
                   </button>
                 </div>
-                <div class="mt-3 flex flex-wrap gap-2">
+                <div v-if="gmManualCheckRollEntryEnabled" class="mt-3 flex flex-wrap gap-2">
                   <input v-model.number="manualRollTotals.careerSurvival" class="h-10 w-28 rounded-md border border-zinc-300 px-3 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200" placeholder="2D total" type="number">
                   <button class="h-10 rounded-md border border-zinc-300 px-3 text-sm font-semibold text-zinc-700 hover:border-amber-600" type="button" @click="enterManualCheck('careerSurvival', 'Survival', selectedAssignment.survival)">
                     Manual
@@ -438,7 +502,7 @@ const {
                   <p class="font-semibold">{{ rollSummary(termRolls.careerSurvival) }} · {{ termRolls.careerSurvival.finalSuccess ? 'Survived' : 'Mishap' }}</p>
                   <p v-if="termRolls.careerSurvival.notes" class="mt-1 text-zinc-600">{{ termRolls.careerSurvival.notes }}</p>
                   <p v-if="!termRolls.careerSurvival.finalSuccess" class="mt-1 text-zinc-600">Roll 1D on the {{ selectedCareer.name }} mishap table.</p>
-                  <button class="mt-2 text-xs font-semibold text-amber-700 hover:text-amber-900" type="button" @click="toggleRollOverride('careerSurvival')">
+                  <button v-if="gmOutcomeOverridesEnabled" class="mt-2 text-xs font-semibold text-amber-700 hover:text-amber-900" type="button" @click="toggleRollOverride('careerSurvival')">
                     {{ termRolls.careerSurvival.overridden ? 'Remove override' : 'Override outcome' }}
                   </button>
                 </div>
@@ -459,7 +523,7 @@ const {
                     Roll 1D
                   </button>
                 </div>
-                <div class="mt-3 flex flex-wrap gap-2">
+                <div v-if="gmManualTableRollEntryEnabled" class="mt-3 flex flex-wrap gap-2">
                   <input
                     v-model.number="manualRollTotals.careerMishap"
                     class="h-10 w-28 rounded-md border border-zinc-300 px-3 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200"
@@ -517,7 +581,7 @@ const {
                     Roll 2D
                   </button>
                 </div>
-                <div class="mt-3 flex flex-wrap gap-2">
+                <div v-if="gmManualTableRollEntryEnabled" class="mt-3 flex flex-wrap gap-2">
                   <input
                     v-model.number="manualRollTotals.careerEvent"
                     class="h-10 w-28 rounded-md border border-zinc-300 px-3 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200"
@@ -561,7 +625,13 @@ const {
                 </div>
               </div>
 
-              <div v-if="termRolls.careerSurvival?.finalSuccess && termRolls.careerEvent && !pendingEventResolutions.some((resolution) => !resolution.resolved)" class="rounded-md border border-zinc-200 p-4">
+              <div
+                v-if="(
+                  (termRolls.careerSurvival?.finalSuccess && termRolls.careerEvent)
+                  || (selectedCareerId === 'prisoner' && termRolls.careerSurvival && (!termRolls.careerSurvival.finalSuccess ? termRolls.careerMishap : termRolls.careerEvent))
+                ) && !pendingEventResolutions.some((resolution) => !resolution.resolved)"
+                class="rounded-md border border-zinc-200 p-4"
+              >
                 <div class="flex flex-wrap items-center justify-between gap-3">
                   <div>
                     <p class="text-sm font-semibold">Advancement Roll</p>
@@ -571,7 +641,7 @@ const {
                     Roll 2D
                   </button>
                 </div>
-                <div class="mt-3 flex flex-wrap gap-2">
+                <div v-if="gmManualCheckRollEntryEnabled" class="mt-3 flex flex-wrap gap-2">
                   <input v-model.number="manualRollTotals.careerAdvancement" class="h-10 w-28 rounded-md border border-zinc-300 px-3 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200" placeholder="2D total" type="number">
                   <button class="h-10 rounded-md border border-zinc-300 px-3 text-sm font-semibold text-zinc-700 hover:border-amber-600" type="button" @click="enterManualCheck('careerAdvancement', 'Advancement', selectedAssignment.advancement)">
                     Manual
@@ -580,7 +650,10 @@ const {
                 <div v-if="termRolls.careerAdvancement" class="mt-3 rounded-md bg-stone-50 p-3 text-sm">
                   <p class="font-semibold">{{ rollSummary(termRolls.careerAdvancement) }} · {{ termRolls.careerAdvancement.finalSuccess ? 'Advanced' : 'No advancement' }}</p>
                   <p v-if="termRolls.careerAdvancement.notes" class="mt-1 text-zinc-600">{{ termRolls.careerAdvancement.notes }}</p>
-                  <button class="mt-2 text-xs font-semibold text-amber-700 hover:text-amber-900" type="button" @click="toggleRollOverride('careerAdvancement')">
+                  <p v-if="selectedCareerId === 'prisoner' && prisonerParoleThreshold !== null" class="mt-1 text-zinc-600">
+                    {{ termRolls.careerAdvancement.total > prisonerParoleThreshold ? 'Parole threshold exceeded: leave Prisoner after this term.' : 'Parole threshold not exceeded: continue Prisoner next term.' }}
+                  </p>
+                  <button v-if="gmOutcomeOverridesEnabled" class="mt-2 text-xs font-semibold text-amber-700 hover:text-amber-900" type="button" @click="toggleRollOverride('careerAdvancement')">
                     {{ termRolls.careerAdvancement.overridden ? 'Remove override' : 'Override outcome' }}
                   </button>
                 </div>
@@ -734,7 +807,7 @@ const {
                       Roll 2D
                     </button>
                   </div>
-                  <div class="mt-3 flex flex-wrap gap-2">
+                  <div v-if="gmManualCheckRollEntryEnabled" class="mt-3 flex flex-wrap gap-2">
                     <input v-model.number="manualRollTotals.educationEntry" class="h-10 w-28 rounded-md border border-zinc-300 px-3 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200" placeholder="2D total" type="number">
                     <button class="h-10 rounded-md border border-zinc-300 px-3 text-sm font-semibold text-zinc-700 hover:border-amber-600" type="button" @click="enterManualCheck('educationEntry', 'Education Entry', selectedEducationEntry)">
                       Manual
@@ -743,7 +816,7 @@ const {
                   <div v-if="termRolls.educationEntry" class="mt-3 rounded-md bg-stone-50 p-3 text-sm">
                     <p class="font-semibold">{{ rollSummary(termRolls.educationEntry) }} · {{ termRolls.educationEntry.finalSuccess ? 'Entered' : 'Failed entry' }}</p>
                     <p v-if="!termRolls.educationEntry.finalSuccess" class="mt-1 text-zinc-600">Failed entry has moved this term to a career attempt.</p>
-                    <button class="mt-2 text-xs font-semibold text-amber-700 hover:text-amber-900" type="button" @click="toggleRollOverride('educationEntry')">
+                    <button v-if="gmOutcomeOverridesEnabled" class="mt-2 text-xs font-semibold text-amber-700 hover:text-amber-900" type="button" @click="toggleRollOverride('educationEntry')">
                       {{ termRolls.educationEntry.overridden ? 'Remove override' : 'Override outcome' }}
                     </button>
                   </div>
@@ -764,7 +837,7 @@ const {
                       Roll 2D
                     </button>
                   </div>
-                  <div class="mt-3 flex flex-wrap gap-2">
+                  <div v-if="gmManualTableRollEntryEnabled" class="mt-3 flex flex-wrap gap-2">
                     <input
                       v-model.number="manualRollTotals.educationEvent"
                       class="h-10 w-28 rounded-md border border-zinc-300 px-3 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200"
@@ -816,7 +889,7 @@ const {
                       Roll 2D
                     </button>
                   </div>
-                  <div class="mt-3 flex flex-wrap gap-2">
+                  <div v-if="gmManualCheckRollEntryEnabled" class="mt-3 flex flex-wrap gap-2">
                     <input v-model.number="manualRollTotals.educationGraduation" class="h-10 w-28 rounded-md border border-zinc-300 px-3 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200" placeholder="2D total" type="number">
                     <button class="h-10 rounded-md border border-zinc-300 px-3 text-sm font-semibold text-zinc-700 hover:border-amber-600" type="button" @click="enterManualCheck('educationGraduation', 'Graduation', selectedEducation.graduation)">
                       Manual
@@ -825,7 +898,7 @@ const {
                   <div v-if="termRolls.educationGraduation" class="mt-3 rounded-md bg-stone-50 p-3 text-sm">
                     <p class="font-semibold">{{ rollSummary(termRolls.educationGraduation) }} · {{ termRolls.educationGraduation.finalSuccess ? 'Graduated' : 'Did not graduate' }}</p>
                     <p v-if="termRolls.educationGraduation.notes" class="mt-1 text-zinc-600">{{ termRolls.educationGraduation.notes }}</p>
-                    <button class="mt-2 text-xs font-semibold text-amber-700 hover:text-amber-900" type="button" @click="toggleRollOverride('educationGraduation')">
+                    <button v-if="gmOutcomeOverridesEnabled" class="mt-2 text-xs font-semibold text-amber-700 hover:text-amber-900" type="button" @click="toggleRollOverride('educationGraduation')">
                       {{ termRolls.educationGraduation.overridden ? 'Remove override' : 'Override outcome' }}
                     </button>
                   </div>
@@ -849,7 +922,7 @@ const {
                 Roll 2D
               </button>
             </div>
-            <div class="mt-3 flex flex-wrap gap-2">
+            <div v-if="gmManualAgingRollEntryEnabled" class="mt-3 flex flex-wrap gap-2">
               <input v-model.number="manualRollTotals.aging" class="h-10 w-28 rounded-md border border-amber-300 px-3 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200" placeholder="2D total" type="number">
               <button class="h-10 rounded-md border border-amber-400 px-3 text-sm font-semibold text-amber-950 hover:border-amber-700" type="button" @click="enterManualAging">
                 Manual
@@ -912,15 +985,17 @@ const {
                   >
                     Roll 1D
                   </button>
-                  <input v-model.number="manualRollTotals.musteringOut" class="h-11 w-24 rounded-md border border-zinc-300 px-3 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200" max="6" min="1" placeholder="1D" type="number">
-                  <button
-                    class="h-11 rounded-md border border-zinc-300 px-3 text-sm font-semibold text-zinc-700 hover:border-amber-600 disabled:cursor-not-allowed disabled:text-zinc-400"
-                    :disabled="!canRollMusteringOut"
-                    type="button"
-                    @click="enterManualMusteringOutBenefit(manualRollTotals.musteringOut ?? Number.NaN)"
-                  >
-                    Manual
-                  </button>
+                  <template v-if="gmManualBenefitRollEntryEnabled">
+                    <input v-model.number="manualRollTotals.musteringOut" class="h-11 w-24 rounded-md border border-zinc-300 px-3 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200" max="6" min="1" placeholder="1D" type="number">
+                    <button
+                      class="h-11 rounded-md border border-zinc-300 px-3 text-sm font-semibold text-zinc-700 hover:border-amber-600 disabled:cursor-not-allowed disabled:text-zinc-400"
+                      :disabled="!canRollMusteringOut"
+                      type="button"
+                      @click="enterManualMusteringOutBenefit(manualRollTotals.musteringOut ?? Number.NaN)"
+                    >
+                      Manual
+                    </button>
+                  </template>
                 </div>
               </div>
             </div>
@@ -981,5 +1056,84 @@ const {
     </div>
 
     <RerollConfirmDialog />
+
+    <Transition name="advancement-fade">
+      <div
+        v-if="advancementResult"
+        class="fixed inset-0 z-40 grid place-items-center bg-zinc-950/45 px-4 py-8"
+        role="dialog"
+        aria-modal="true"
+      >
+        <div class="w-full max-w-xl rounded-lg border border-zinc-200 bg-white p-5 shadow-2xl">
+          <div class="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <p class="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                {{ advancementResult.careerName }} · {{ advancementResult.assignmentName }}
+              </p>
+              <h2 class="mt-1 text-2xl font-semibold text-zinc-950">
+                {{ advancementResult.success ? 'Advancement Earned' : 'No Advancement' }}
+              </h2>
+              <p class="mt-2 text-sm text-zinc-600">
+                <template v-if="advancementResult.success">
+                  Advanced from {{ advancementResult.previousTitle }} to {{ advancementResult.newTitle }}.
+                </template>
+                <template v-else>
+                  Remains at {{ advancementResult.previousTitle }}.
+                </template>
+              </p>
+            </div>
+            <button
+              class="h-10 rounded-md border border-zinc-300 px-3 text-sm font-semibold text-zinc-700 hover:border-amber-600"
+              type="button"
+              @click="dismissAdvancementResult"
+            >
+              Close
+            </button>
+          </div>
+
+          <div class="mt-5 overflow-hidden rounded-md border border-zinc-200">
+            <div
+              v-for="rank in advancementResult.track"
+              :key="rank.rank"
+              :class="[
+                'flex items-center justify-between gap-3 border-t border-zinc-200 px-3 py-2 first:border-t-0',
+                rank.current
+                  ? advancementResult.success
+                    ? 'bg-emerald-50 text-emerald-950'
+                    : 'bg-amber-50 text-amber-950'
+                  : rank.achieved
+                    ? 'bg-stone-50 text-zinc-700'
+                    : 'bg-white text-zinc-400'
+              ]"
+            >
+              <div>
+                <p class="text-sm font-semibold">Rank {{ rank.rank }} · {{ rank.title ?? `Rank ${rank.rank}` }}</p>
+                <p v-if="rank.bonus" class="text-xs">Bonus: {{ rank.bonus }}</p>
+              </div>
+              <span v-if="rank.current" class="rounded-md bg-white px-2 py-1 text-xs font-semibold shadow-sm">
+                Current
+              </span>
+            </div>
+          </div>
+
+          <p v-if="advancementResult.bonus" class="mt-4 rounded-md bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-950">
+            Rank bonus queued: {{ advancementResult.bonus }}
+          </p>
+        </div>
+      </div>
+    </Transition>
   </main>
 </template>
+
+<style scoped>
+.advancement-fade-enter-active,
+.advancement-fade-leave-active {
+  transition: opacity 180ms ease, transform 180ms ease;
+}
+
+.advancement-fade-enter-from,
+.advancement-fade-leave-to {
+  opacity: 0;
+  transform: translateY(8px) scale(0.98);
+}
+</style>

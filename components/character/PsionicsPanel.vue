@@ -23,6 +23,7 @@ const {
   psiTestRoll,
   psiTermsServed,
   psiDm,
+  gmManualPsionicsRollEntryEnabled,
   psionicsTrainingAvailable,
   psionicsTrainingCost,
   learnedPsionicTalents,
@@ -68,21 +69,23 @@ const manualRolls = reactive<Record<string, number | null>>({
       >
         Roll PSI
       </button>
-      <input
-        v-model.number="manualRolls.psiTest"
-        class="h-10 w-28 rounded-md border border-violet-300 px-3 outline-none focus:border-violet-600 focus:ring-2 focus:ring-violet-200"
-        max="12"
-        min="2"
-        placeholder="2D total"
-        type="number"
-      >
-      <button
-        class="h-10 rounded-md border border-violet-300 px-3 text-sm font-semibold text-violet-900 hover:border-violet-700"
-        type="button"
-        @click="enterManualPsiTest(manualRolls.psiTest ?? Number.NaN)"
-      >
-        Manual
-      </button>
+      <template v-if="gmManualPsionicsRollEntryEnabled">
+        <input
+          v-model.number="manualRolls.psiTest"
+          class="h-10 w-28 rounded-md border border-violet-300 px-3 outline-none focus:border-violet-600 focus:ring-2 focus:ring-violet-200"
+          max="12"
+          min="2"
+          placeholder="2D total"
+          type="number"
+        >
+        <button
+          class="h-10 rounded-md border border-violet-300 px-3 text-sm font-semibold text-violet-900 hover:border-violet-700"
+          type="button"
+          @click="enterManualPsiTest(manualRolls.psiTest ?? Number.NaN)"
+        >
+          Manual
+        </button>
+      </template>
     </div>
 
     <div v-if="psiTestRoll" class="mt-4 rounded-md bg-white p-3 text-sm">
@@ -139,21 +142,23 @@ const manualRolls = reactive<Record<string, number | null>>({
             >
               Roll 2D
             </button>
-            <input
-              v-model.number="manualRolls[talent.id]"
-              class="h-9 w-24 rounded-md border border-violet-300 bg-white px-2 text-sm text-violet-950"
-              max="12"
-              min="2"
-              placeholder="2D"
-              type="number"
-            >
-            <button
-              class="h-9 rounded-md border border-violet-300 bg-white px-3 text-sm font-semibold text-violet-900 hover:border-violet-700"
-              type="button"
-              @click="enterManualPsionicTalent(talent.id, manualRolls[talent.id] ?? Number.NaN)"
-            >
-              Apply
-            </button>
+            <template v-if="gmManualPsionicsRollEntryEnabled">
+              <input
+                v-model.number="manualRolls[talent.id]"
+                class="h-9 w-24 rounded-md border border-violet-300 bg-white px-2 text-sm text-violet-950"
+                max="12"
+                min="2"
+                placeholder="2D"
+                type="number"
+              >
+              <button
+                class="h-9 rounded-md border border-violet-300 bg-white px-3 text-sm font-semibold text-violet-900 hover:border-violet-700"
+                type="button"
+                @click="enterManualPsionicTalent(talent.id, manualRolls[talent.id] ?? Number.NaN)"
+              >
+                Apply
+              </button>
+            </template>
           </div>
         </div>
       </div>

@@ -6,6 +6,7 @@ import careersData from '~/data/traveller2e/core/careers-summary.json'
 import creationRulesData from '~/data/traveller2e/core/character-creation-rules.json'
 import agingData from '~/data/traveller2e/core/aging-and-injuries.json'
 import careerTablesData from '~/data/traveller2e/core/career-tables.json'
+import careerRanksData from '~/data/traveller2e/core/career-ranks.json'
 import { getCareerEvent, getCareerMishap, getEducationEvent, getEventFromTable, normalizeTravellerEventEffect, type TravellerEvent, type TravellerEventEffect } from '~/utils/traveller/events'
 
 type CharacteristicId = 'str' | 'dex' | 'end' | 'int' | 'edu' | 'soc'
@@ -53,9 +54,11 @@ type TermHistoryEntry = {
   startAge: number
   endAge: number
   summary: string
+  details: string[]
   rolls: RollResult[]
 }
 type CreatorTab = 'creation' | `term-${number}`
+type GmOverrideOptionId = 'manualCheckRollEntry' | 'manualTableRollEntry' | 'manualAgingRollEntry' | 'manualBenefitRollEntry' | 'manualPsionicsRollEntry' | 'outcomeOverrides' | 'characteristicAdjustments'
 type EventResolutionKind = 'manual' | 'skill_choice' | 'skill_table_roll' | 'benefit_wager' | 'table_roll' | 'check' | 'choice' | 'associate' | 'narrative' | 'characteristic_adjustment' | 'medical_care'
 type EventChoiceOption = {
   id: string
@@ -201,6 +204,36 @@ type EventOutcomeLogEntry = {
   normalizedType?: string
   status: 'automatic' | 'pending' | 'manual'
 }
+type PrisonerParoleThresholdRoll = {
+  dice: number
+  total: number
+  source: 'rolled' | 'manual'
+}
+type CareerRankRow = {
+  rank: number
+  title?: string
+  bonus?: string
+}
+type CareerRankState = {
+  careerId: string
+  careerName: string
+  assignmentId?: string
+  assignmentName?: string
+  rank: number
+  title?: string
+  bonus?: string
+}
+type AdvancementResult = {
+  success: boolean
+  careerName: string
+  assignmentName: string
+  previousRank: number
+  newRank: number
+  previousTitle: string
+  newTitle: string
+  bonus?: string
+  track: Array<CareerRankRow & { achieved: boolean, current: boolean }>
+}
 
 
 export const useCharacterCreatorStore = defineStore('characterCreator', () => {
@@ -246,8 +279,20 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
   const showRerollConfirm = ref(false)
   const currentTermNumber = ref(1)
   const activeCreatorTab = ref<CreatorTab>('creation')
+  const gmOverrideMenuOpen = ref(false)
+  const gmOverrideOptions = reactive<Record<GmOverrideOptionId, boolean>>({
+    manualCheckRollEntry: false,
+    manualTableRollEntry: false,
+    manualAgingRollEntry: false,
+    manualBenefitRollEntry: false,
+    manualPsionicsRollEntry: false,
+    outcomeOverrides: false,
+    characteristicAdjustments: false,
+  })
   const lifepathComplete = ref(false)
   const termHistory = ref<TermHistoryEntry[]>([])
+  const careerRanks = ref<CareerRankState[]>([])
+  const advancementResult = ref<AdvancementResult | null>(null)
   const appliedSkillRecords = reactive<Record<string, CharacterSkill>>({})
   const educationSkillsApplied = ref(false)
   const universityLevel0Skill = ref('')
@@ -271,6 +316,10 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
   const psionicsTrainingCost = ref(0)
   const psionicsTestCharged = ref(false)
   const psionicsTrainingCharged = ref(false)
+  const prisonerParoleThreshold = ref<number | null>(null)
+  const prisonerParoleThresholdRoll = ref<PrisonerParoleThresholdRoll | null>(null)
+  const prisonerReleasedThisTerm = ref(false)
+  const prisonerBenefitRollsLost = ref(false)
   const rollModifiers = ref<TravellerRollModifier[]>([])
   const benefitRollAdjustments = ref<BenefitRollAdjustment[]>([])
   const benefitRollLedger = ref<BenefitRollLedgerEntry[]>([])
@@ -294,6 +343,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     careerMishap: null,
     careerEvent: null,
     careerAdvancement: null,
+    prisonerParoleThreshold: null,
     aging: null,
   })
   const manualRollTotals = reactive<Record<string, number | null>>({
@@ -306,6 +356,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     careerMishap: null,
     careerEvent: null,
     careerAdvancement: null,
+    prisonerParoleThreshold: null,
     aging: null,
   })
 
@@ -423,7 +474,18 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
   })
 
   const backgroundSkillLimit = computed(() => Math.max(0, Math.min(6, diceModifier(values.edu) + 3)))
-  const backgroundSkillsComplete = computed(() => backgroundSkillLimit.value > 0 && selectedBackgroundSkills.value.length >= backgroundSkillLimit.value)
+  const backgroundSkillsComplete = computed(() => selectedBackgroundSkills.value.length >= backgroundSkillLimit.value)
+  const characteristicsAssigned = computed(() => characteristicOrder.every((id) => Boolean(assignedRollIds[id])))
+  const setupComplete = computed(() => hasRolledCharacteristics.value && characteristicsAssigned.value && backgroundSkillsComplete.value)
+  const gmManualCheckRollEntryEnabled = computed(() => gmOverrideOptions.manualCheckRollEntry)
+  const gmManualTableRollEntryEnabled = computed(() => gmOverrideOptions.manualTableRollEntry)
+  const gmManualAgingRollEntryEnabled = computed(() => gmOverrideOptions.manualAgingRollEntry)
+  const gmManualBenefitRollEntryEnabled = computed(() => gmOverrideOptions.manualBenefitRollEntry)
+  const gmManualPsionicsRollEntryEnabled = computed(() => gmOverrideOptions.manualPsionicsRollEntry)
+  const gmOutcomeOverridesEnabled = computed(() => gmOverrideOptions.outcomeOverrides)
+  const gmCharacteristicAdjustmentsEnabled = computed(() => gmOverrideOptions.characteristicAdjustments)
+  const prisonerCareerSelected = computed(() => selectedTermPath.value === 'career' && selectedCareerId.value === 'prisoner')
+  const prisonerParoleThresholdRequired = computed(() => prisonerCareerSelected.value && prisonerParoleThreshold.value === null)
   const backgroundSkillOptions = computed(() => skillsData.backgroundSkills.choices.map((skillId) => {
     const skill = skillsData.skills.find((item) => item.id === skillId)
     return {
@@ -510,7 +572,8 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     const forcedOut = forcedOutCareerIds.value.has(career.id)
     const permissionLocked = career.id === 'psion' && !psionicsTestingAvailable.value
     const psiUntested = career.id === 'psion' && psionicsTestingAvailable.value && !psiTested.value
-    const disabled = Boolean((forcedCareerId && career.id !== forcedCareerId) || forcedOut || permissionLocked || psiUntested)
+    const prisonerLocked = career.id === 'prisoner' && forcedCareerId !== 'prisoner'
+    const disabled = Boolean((forcedCareerId && career.id !== forcedCareerId) || forcedOut || permissionLocked || psiUntested || prisonerLocked)
     const disabledReason = forcedCareerId && career.id !== forcedCareerId
       ? `Must enter ${forcedCareerConstraint.value?.label ?? forcedCareerId}`
       : forcedOut
@@ -519,7 +582,9 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
           ? 'Requires psionics permission'
           : psiUntested
             ? 'Requires PSI test'
-        : ''
+            : prisonerLocked
+              ? 'Requires Prisoner event or GM override'
+              : ''
 
     return {
       ...career,
@@ -698,6 +763,38 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     backgroundSkillsAutoCollapsed.value = false
   }
 
+  const toggleGmOverrideControls = () => {
+    gmOverrideMenuOpen.value = !gmOverrideMenuOpen.value
+  }
+
+  const toggleGmOverrideOption = (optionId: GmOverrideOptionId) => {
+    gmOverrideOptions[optionId] = !gmOverrideOptions[optionId]
+  }
+
+  const forcePrisonerCareer = () => {
+    careerConstraints.value = [
+      ...careerConstraints.value,
+      {
+        id: makeEventOutcomeId('career-constraint'),
+        source: 'GM Override',
+        label: 'GM override: Prisoner career',
+        effectType: 'next_career',
+        appliesTermNumber: currentTermNumber.value,
+        careerId: 'prisoner',
+      },
+    ]
+    selectedTermPath.value = 'career'
+    selectedCareerId.value = 'prisoner'
+    prisonerParoleThreshold.value = null
+    prisonerParoleThresholdRoll.value = null
+    recordEventOutcome('GM Override', { type: 'next_career', careerId: 'prisoner' }, 'Prisoner career selected', 'manual')
+  }
+
+  const grantPsionicsTestingOverride = () => {
+    grantPsionicsPermission('GM Override', 'May test PSI')
+    recordEventOutcome('GM Override', { type: 'may_test_psi' }, 'Psionics testing enabled', 'manual')
+  }
+
   const skillName = (skillId: string) => {
     const skill = skillsData.skills.find((item) => item.id === skillId)
     return skill?.name ?? skillId
@@ -802,6 +899,130 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     characteristicAdjustments[characteristicId] += Number(match[2])
     applyAssignedScores()
     return true
+  }
+
+  const careerRankSource = careerRanksData as {
+    careers: Record<string, Record<string, CareerRankRow[] | string>>
+  }
+
+  const resolveCareerRankRows = (careerId: string, assignmentId?: string): CareerRankRow[] => {
+    const careerRanksForCareer = careerRankSource.careers[careerId]
+    if (!careerRanksForCareer) return []
+    const rawRows = careerRanksForCareer[assignmentId ?? ''] ?? careerRanksForCareer.shared ?? careerRanksForCareer.enlisted ?? Object.values(careerRanksForCareer)[0]
+
+    if (typeof rawRows === 'string') {
+      const [aliasCareerId, aliasAssignmentId] = rawRows.split('.')
+      return resolveCareerRankRows(aliasCareerId, aliasAssignmentId)
+    }
+
+    return Array.isArray(rawRows) ? rawRows : []
+  }
+
+  const rankTitle = (row?: CareerRankRow, rank?: number) => row?.title ?? (rank !== undefined ? `Rank ${rank}` : 'Rank')
+
+  const careerRankKey = (careerId: string, assignmentId?: string) => `${careerId}:${assignmentId ?? 'shared'}`
+
+  const makeDefaultCareerRankState = (careerId: string, assignmentId?: string): CareerRankState => {
+    const rows = resolveCareerRankRows(careerId, assignmentId)
+    const startingRow = rows.find((row) => row.rank === 0) ?? rows[0]
+    const career = careersData.careers.find((item) => item.id === careerId)
+    const assignment = career?.assignments.find((item) => item.id === assignmentId)
+    const state: CareerRankState = {
+      careerId,
+      careerName: career?.name ?? careerId,
+      rank: startingRow?.rank ?? 0,
+    }
+    if (assignmentId) state.assignmentId = assignmentId
+    if (assignment) state.assignmentName = assignment.name
+    if (startingRow?.title) state.title = startingRow.title
+    if (startingRow?.bonus) state.bonus = startingRow.bonus
+    return state
+  }
+
+  const findCareerRankState = (careerId: string, assignmentId?: string) => {
+    const key = careerRankKey(careerId, assignmentId)
+    return careerRanks.value.find((rank) => careerRankKey(rank.careerId, rank.assignmentId) === key)
+  }
+
+  const currentCareerRankState = (careerId: string, assignmentId?: string) => {
+    const existing = findCareerRankState(careerId, assignmentId)
+    if (existing) return existing
+
+    const created = makeDefaultCareerRankState(careerId, assignmentId)
+    careerRanks.value = [...careerRanks.value, created]
+    return created
+  }
+
+  const advancementPreview = (roll?: RollResult | null): AdvancementResult | null => {
+    if (!roll || selectedTermPath.value !== 'career') return null
+    const rows = resolveCareerRankRows(selectedCareerId.value, selectedAssignmentId.value)
+    const state = findCareerRankState(selectedCareerId.value, selectedAssignmentId.value)
+      ?? makeDefaultCareerRankState(selectedCareerId.value, selectedAssignmentId.value)
+    const maxRank = rows.reduce((highest, row) => Math.max(highest, row.rank), state.rank)
+    const success = Boolean(roll.finalSuccess && state.rank < maxRank)
+    const nextRank = success ? Math.min(state.rank + 1, maxRank) : state.rank
+    const previousRow = rows.find((row) => row.rank === state.rank)
+    const nextRow = rows.find((row) => row.rank === nextRank)
+
+    const result: AdvancementResult = {
+      success,
+      careerName: selectedCareer.value.name,
+      assignmentName: selectedAssignment.value.name,
+      previousRank: state.rank,
+      newRank: nextRank,
+      previousTitle: rankTitle(previousRow, state.rank),
+      newTitle: rankTitle(nextRow, nextRank),
+      track: rows.map((row) => ({
+        ...row,
+        achieved: row.rank <= nextRank,
+        current: row.rank === nextRank,
+      })),
+    }
+    if (success && nextRank > state.rank && nextRow?.bonus) result.bonus = nextRow.bonus
+    return result
+  }
+
+  const previewCareerAdvancement = () => {
+    advancementResult.value = advancementPreview(termRolls.careerAdvancement)
+  }
+
+  const dismissAdvancementResult = () => {
+    advancementResult.value = null
+  }
+
+  const applyCareerRankBonus = (bonus: string | undefined) => {
+    if (!bonus) return
+    if (applyCharacteristicIncrease(bonus)) return
+    if (/\bor\b|whichever|any/i.test(bonus)) {
+      recordEventOutcome('Career Rank', { type: 'narrative_event' }, `Resolve rank bonus manually: ${bonus}`, 'pending')
+      return
+    }
+
+    const skillBonusMatch = bonus.match(/^(.+?)\s+(\d+)$/)
+    if (skillBonusMatch) {
+      setSkillMinimum(skillBonusMatch[1].trim(), Number(skillBonusMatch[2]), 'Career rank')
+      return
+    }
+
+    recordEventOutcome('Career Rank', { type: 'narrative_event' }, `Resolve rank bonus manually: ${bonus}`, 'pending')
+  }
+
+  const applyCareerAdvancement = () => {
+    const roll = termRolls.careerAdvancement
+    if (selectedTermPath.value !== 'career' || !roll?.finalSuccess) return null
+
+    const preview = advancementPreview(roll)
+    if (!preview || preview.newRank <= preview.previousRank) return preview
+
+    const state = currentCareerRankState(selectedCareerId.value, selectedAssignmentId.value)
+    const nextRow = resolveCareerRankRows(selectedCareerId.value, selectedAssignmentId.value).find((row) => row.rank === preview.newRank)
+    state.rank = preview.newRank
+    if (nextRow?.title) state.title = nextRow.title
+    else delete state.title
+    if (nextRow?.bonus) state.bonus = nextRow.bonus
+    else delete state.bonus
+    applyCareerRankBonus(nextRow?.bonus)
+    return preview
   }
 
   const isPsionicTalentId = (skillId: string) => psionicTalents.some((talent) => talent.id === skillId)
@@ -1695,6 +1916,34 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
       return
     }
 
+    if (effect.type === 'parole_threshold_change' && typeof effect.amount === 'number') {
+      changePrisonerParoleThreshold(effect.amount, source)
+      return
+    }
+
+    if (effect.type === 'parole_threshold_reroll') {
+      prisonerParoleThreshold.value = null
+      prisonerParoleThresholdRoll.value = null
+      termRolls.prisonerParoleThreshold = null
+      recordEventOutcome(source, effect, 'Re-roll Parole Threshold', 'manual')
+      return
+    }
+
+    if (effect.type === 'leave_prisoner_career') {
+      prisonerReleasedThisTerm.value = true
+      recordEventOutcome(source, effect, 'Leaves Prisoner career', 'automatic')
+      return
+    }
+
+    if (effect.type === 'lose_benefit_rolls_from_career' && effect.careerId === 'prisoner') {
+      prisonerBenefitRollsLost.value = true
+      benefitRollLedger.value = benefitRollLedger.value.map((entry) => entry.careerId === 'prisoner'
+        ? { ...entry, count: 0, label: 'No benefit roll: lost Prisoner career benefits' }
+        : entry)
+      recordEventOutcome(source, effect, 'Lost all Prisoner benefit rolls', 'automatic')
+      return
+    }
+
     if (effect.type === 'choose_skill_or_contact') {
       const skillEffects = Array.isArray(effect.skills)
         ? effect.skills.map((skill) => ({
@@ -2059,6 +2308,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     consumeRollModifiers(matchingModifiers, label)
 
     if (key === 'educationEntry') handleEducationEntryOutcome()
+    if (key === 'careerAdvancement') previewCareerAdvancement()
   }
 
   const rollCheck = (key: string, label: string, check: CheckRule) => {
@@ -2084,11 +2334,48 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     roll.finalSuccess = roll.overridden ? !roll.success : roll.success
 
     if (key === 'educationEntry') handleEducationEntryOutcome()
+    if (key === 'careerAdvancement') previewCareerAdvancement()
   }
 
   const rollSummary = (roll: RollResult) => {
     const diceText = roll.dice.length ? roll.dice.join(' + ') : 'Automatic'
     return `${diceText} ${formatDm(roll.dm)} = ${roll.total}`
+  }
+
+  const setPrisonerParoleThreshold = (die: number, source: 'rolled' | 'manual') => {
+    if (Number.isNaN(die) || die < 1 || die > 6) return
+    const total = Math.min(12, die + 2)
+    prisonerParoleThreshold.value = total
+    prisonerParoleThresholdRoll.value = { dice: die, total, source }
+    termRolls.prisonerParoleThreshold = {
+      label: 'Parole Threshold',
+      dice: [die],
+      dm: 2,
+      total,
+      target: 0,
+      effect: 0,
+      success: true,
+      finalSuccess: true,
+      source,
+      notes: `Parole Threshold ${total}`,
+    }
+    recordEventOutcome('Prisoner', { type: 'parole_threshold_set' }, `Parole Threshold ${total}`, 'manual')
+  }
+
+  const rollPrisonerParoleThreshold = () => {
+    setPrisonerParoleThreshold(Math.ceil(Math.random() * 6), 'rolled')
+  }
+
+  const enterManualPrisonerParoleThreshold = () => {
+    const manualTotal = manualRollTotals.prisonerParoleThreshold
+    if (manualTotal === null || Number.isNaN(manualTotal)) return
+    setPrisonerParoleThreshold(manualTotal, 'manual')
+  }
+
+  const changePrisonerParoleThreshold = (amount: number, source: string) => {
+    const current = prisonerParoleThreshold.value ?? 0
+    prisonerParoleThreshold.value = Math.max(0, Math.min(12, current + amount))
+    recordEventOutcome(source, { type: 'parole_threshold_change', amount }, `Parole Threshold ${amount >= 0 ? '+' : ''}${amount} = ${prisonerParoleThreshold.value}`, 'automatic')
   }
 
   const makeCareerSkillRoll = (die: number, source: 'rolled' | 'manual') => {
@@ -2878,16 +3165,19 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
 
     if (!termRolls.careerQualification) return false
     if (!termRolls.careerQualification.finalSuccess) return false
+    if (prisonerParoleThresholdRequired.value) return false
     if (basicTrainingRequired.value && !basicTrainingApplied.value) return false
     if (!termRolls.careerSkill || pendingSkillChoice.value) return false
     if (!termRolls.careerSurvival) return false
-    if (!termRolls.careerSurvival.finalSuccess) return Boolean(termRolls.careerMishap)
+    if (!termRolls.careerSurvival.finalSuccess && !termRolls.careerMishap) return false
+    if (selectedCareerId.value === 'prisoner') return Boolean(termRolls.careerAdvancement)
+    if (!termRolls.careerSurvival.finalSuccess) return true
     if (!termRolls.careerEvent) return false
     return Boolean(termRolls.careerAdvancement)
   })
   const canAddTermTab = computed(() => {
     if (lifepathComplete.value) return false
-    if (activeCreatorTab.value === 'creation') return true
+    if (activeCreatorTab.value === 'creation') return setupComplete.value
     if (activeCreatorTab.value !== currentTermTabId.value) return false
     return canCompleteTerm.value
   })
@@ -2897,11 +3187,13 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
   })
 
   const selectTermTab = (termNumber: number) => {
+    if (termNumber === 1 && !setupComplete.value) return
     activeCreatorTab.value = `term-${termNumber}` as CreatorTab
   }
 
   const addTermTab = () => {
     if (activeCreatorTab.value === 'creation') {
+      if (!setupComplete.value) return
       activeCreatorTab.value = 'term-1'
       return
     }
@@ -2910,13 +3202,51 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     completeCurrentTerm()
   }
 
+  const buildTermHistoryDetails = (advancement?: AdvancementResult | null) => {
+    const details: string[] = []
+
+    if (selectedTermPath.value === 'education') {
+      details.push(`Path: ${selectedEducationOption.value.name}`)
+      if (preCareerEvent.value) details.push(`Event: ${preCareerEvent.value.name}`)
+      if (termRolls.educationGraduation) {
+        details.push(termRolls.educationGraduation.finalSuccess ? 'Graduated successfully' : 'Did not graduate')
+      }
+      if (educationSkillsApplied.value) details.push('Education skills applied')
+      return details
+    }
+
+    details.push(`Career: ${selectedCareer.value.name} - ${selectedAssignment.value.name}`)
+    if (termRolls.careerQualification) {
+      details.push(`Qualification: ${termRolls.careerQualification.finalSuccess ? 'qualified' : 'failed'}`)
+    }
+    if (careerSkillResult.value) details.push(`Skill training: ${careerSkillResult.value}`)
+    if (termRolls.careerSurvival) {
+      details.push(`Survival: ${termRolls.careerSurvival.finalSuccess ? 'survived' : 'mishap'}`)
+    }
+    if (careerMishap.value) details.push(`Mishap: ${careerMishap.value.name}`)
+    if (careerEvent.value) details.push(`Event: ${careerEvent.value.name}`)
+    if (termRolls.careerAdvancement) {
+      details.push(advancement?.success
+        ? `Advanced to ${advancement?.newTitle ?? 'next rank'}`
+        : 'No advancement')
+    }
+    if (advancement?.bonus) details.push(`Rank bonus: ${advancement.bonus}`)
+    if (selectedCareerId.value === 'prisoner' && prisonerParoleThreshold.value !== null) {
+      details.push(`Parole Threshold: ${prisonerParoleThreshold.value}`)
+    }
+
+    return details
+  }
+
   const completeCurrentTerm = () => {
     if (!canCompleteTerm.value) return
 
     const rolls = Object.values(termRolls).filter((roll): roll is RollResult => Boolean(roll))
+    const advancement = applyCareerAdvancement()
     const summary = selectedTermPath.value === 'education'
       ? `${selectedEducationOption.value.name}${termRolls.educationGraduation?.finalSuccess ? ' graduate' : ' incomplete'}`
       : `${selectedCareer.value.name} - ${selectedAssignment.value.name}${termRolls.careerSurvival?.finalSuccess ? '' : ' mishap pending'}`
+    const details = buildTermHistoryDetails(advancement)
 
     termHistory.value = [
       ...termHistory.value,
@@ -2929,27 +3259,66 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
         startAge: currentAge.value,
         endAge: endOfTermAge.value,
         summary,
+        details,
         rolls,
       },
     ]
 
     if (selectedTermPath.value === 'career') {
-      const earnedBenefitRoll = termRolls.careerSurvival?.finalSuccess ? 1 : 0
+      const lostPrisonerBenefits = selectedCareerId.value === 'prisoner' && prisonerBenefitRollsLost.value
+      const earnedBenefitRoll = termRolls.careerSurvival?.finalSuccess && !lostPrisonerBenefits ? 1 : 0
       benefitRollLedger.value = [
         ...benefitRollLedger.value,
         {
           id: makeEventOutcomeId('benefit-roll'),
           termNumber: currentTermNumber.value,
           source: `${selectedCareer.value.name} - ${selectedAssignment.value.name}`,
-          label: earnedBenefitRoll ? 'Completed career term' : 'No benefit roll: mishap term',
+          label: earnedBenefitRoll
+            ? 'Completed career term'
+            : lostPrisonerBenefits
+              ? 'No benefit roll: lost Prisoner career benefits'
+              : 'No benefit roll: mishap term',
           count: earnedBenefitRoll,
           careerId: selectedCareerId.value,
         },
       ]
     }
 
+    if (selectedTermPath.value === 'career' && selectedCareerId.value === 'prisoner') {
+      const releasedByParole = Boolean(
+        prisonerParoleThreshold.value !== null
+        && termRolls.careerAdvancement
+        && termRolls.careerAdvancement.total > prisonerParoleThreshold.value,
+      )
+
+      if (releasedByParole || prisonerReleasedThisTerm.value) {
+        recordEventOutcome('Prisoner', { type: 'leave_prisoner_career' }, 'Released from Prisoner career', 'automatic')
+        prisonerParoleThreshold.value = null
+        prisonerParoleThresholdRoll.value = null
+      } else {
+        careerConstraints.value = [
+          ...careerConstraints.value,
+          {
+            id: makeEventOutcomeId('career-constraint'),
+            source: 'Prisoner Parole',
+            label: `Remain in Prisoner career: advancement total ${termRolls.careerAdvancement?.total ?? 0} did not exceed Parole Threshold ${prisonerParoleThreshold.value ?? 0}`,
+            effectType: 'next_career',
+            appliesTermNumber: currentTermNumber.value + 1,
+            careerId: 'prisoner',
+          },
+        ]
+      }
+    }
+
+    careerConstraints.value = careerConstraints.value.map((constraint) => {
+      if (constraint.used || constraint.appliesTermNumber > currentTermNumber.value) return constraint
+      if (constraint.effectType !== 'next_career' && constraint.effectType !== 'draft_assignment' && constraint.effectType !== 'draft_next_term') return constraint
+      return { ...constraint, used: true }
+    })
+
     currentTermNumber.value += 1
     resetTermRolls()
+    prisonerReleasedThisTerm.value = false
     activeCreatorTab.value = `term-${currentTermNumber.value}` as CreatorTab
   }
 
@@ -3197,6 +3566,11 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     if (effect.type === 'next_advancement_dm') return `Next advancement DM ${formatDm(effect.dm ?? 0)}`
     if (effect.type === 'next_qualification_dm') return `Next qualification DM ${formatDm(effect.dm ?? 0)}`
     if (effect.type === 'next_survival_dm') return `Next survival DM ${formatDm(effect.dm ?? 0)}`
+    if (effect.type === 'parole_threshold_change') return `Parole Threshold ${effect.amount >= 0 ? '+' : ''}${effect.amount ?? 0}`
+    if (effect.type === 'parole_threshold_reroll') return 'Re-roll Parole Threshold'
+    if (effect.type === 'leave_prisoner_career') return 'Leave Prisoner career'
+    if (effect.type === 'prison_lawyer') return 'Hire prison lawyer'
+    if (effect.type === 'lose_benefit_rolls_from_career') return 'Lose Prisoner benefit rolls'
     if (effect.type === 'automatic_promotion') return 'Automatic promotion'
     if (effect.type === 'automatic_commission') return 'Automatic commission'
     if (effect.type === 'automatic_next_promotion_or_commission') return 'Automatic next promotion or commission'
@@ -3251,8 +3625,12 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     showRerollConfirm,
     currentTermNumber,
     activeCreatorTab,
+    gmOverrideMenuOpen,
+    gmOverrideOptions,
     lifepathComplete,
     termHistory,
+    careerRanks,
+    advancementResult,
     appliedSkillRecords,
     educationSkillsApplied,
     universityLevel0Skill,
@@ -3274,6 +3652,10 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     psiTestRoll,
     psionicTalentAttempts,
     psionicsTrainingCost,
+    prisonerParoleThreshold,
+    prisonerParoleThresholdRoll,
+    prisonerReleasedThisTerm,
+    prisonerBenefitRollsLost,
     rollModifiers,
     benefitRollAdjustments,
     benefitRollLedger,
@@ -3320,6 +3702,17 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     activeTermHistoryEntry,
     backgroundSkillLimit,
     backgroundSkillsComplete,
+    characteristicsAssigned,
+    setupComplete,
+    gmManualCheckRollEntryEnabled,
+    gmManualTableRollEntryEnabled,
+    gmManualAgingRollEntryEnabled,
+    gmManualBenefitRollEntryEnabled,
+    gmManualPsionicsRollEntryEnabled,
+    gmOutcomeOverridesEnabled,
+    gmCharacteristicAdjustmentsEnabled,
+    prisonerCareerSelected,
+    prisonerParoleThresholdRequired,
     backgroundSkillOptions,
     preCareerEducation,
     educationOptions,
@@ -3356,6 +3749,10 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     toggleBackgroundSkill,
     canSelectBackgroundSkill,
     toggleBackgroundSkillsCollapsed,
+    toggleGmOverrideControls,
+    toggleGmOverrideOption,
+    forcePrisonerCareer,
+    grantPsionicsTestingOverride,
     skillName,
     slugifySkill,
     skillFromLabel,
@@ -3387,6 +3784,9 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     enterManualCheck,
     toggleRollOverride,
     rollSummary,
+    dismissAdvancementResult,
+    rollPrisonerParoleThreshold,
+    enterManualPrisonerParoleThreshold,
     makeCareerSkillRoll,
     rollCareerSkillTable,
     enterManualCareerSkillTable,

@@ -19,6 +19,7 @@ const {
   selectedEducationOption,
   selectedEducationEntry,
   termHistory,
+  careerRanks,
   eventOutcomeLog,
   associates,
   narrativeEvents,
@@ -29,6 +30,8 @@ const {
   psiDm,
   learnedPsionicTalents,
   psionicsTrainingCost,
+  prisonerParoleThreshold,
+  prisonerBenefitRollsLost,
   totalBenefitRollsEarned,
   totalBenefitRollAdjustments,
   totalAvailableBenefitRolls,
@@ -49,6 +52,36 @@ const {
         <p class="text-xs text-zinc-400">{{ item.abbreviation }}</p>
         <p class="mt-1 text-xl font-semibold">{{ item.value }}</p>
         <p class="text-xs text-zinc-400">DM {{ formatDm(item.dm) }}</p>
+      </div>
+    </div>
+
+    <div v-if="prisonerParoleThreshold !== null || prisonerBenefitRollsLost" class="mt-5 border-t border-white/15 pt-5">
+      <div class="flex items-center justify-between gap-3">
+        <p class="text-sm font-semibold text-zinc-200">Prisoner</p>
+        <span v-if="prisonerParoleThreshold !== null" class="rounded-md bg-white/10 px-2 py-1 text-xs text-zinc-300">
+          Parole {{ prisonerParoleThreshold }}
+        </span>
+      </div>
+      <p v-if="prisonerBenefitRollsLost" class="mt-2 text-xs text-zinc-400">
+        Prisoner benefit rolls lost.
+      </p>
+    </div>
+
+    <div v-if="careerRanks.length" class="mt-5 border-t border-white/15 pt-5">
+      <p class="text-sm font-semibold text-zinc-200">Career Ranks</p>
+      <div class="mt-3 grid gap-2">
+        <div
+          v-for="rank in careerRanks"
+          :key="`${rank.careerId}-${rank.assignmentId ?? 'shared'}`"
+          class="rounded-md bg-white/10 px-3 py-2"
+        >
+          <p class="text-sm font-semibold text-zinc-100">
+            {{ rank.careerName }}<span v-if="rank.assignmentName"> · {{ rank.assignmentName }}</span>
+          </p>
+          <p class="text-xs text-zinc-400">
+            Rank {{ rank.rank }} · {{ rank.title ?? 'Untitled rank' }}<span v-if="rank.bonus"> · {{ rank.bonus }}</span>
+          </p>
+        </div>
       </div>
     </div>
 
@@ -283,6 +316,9 @@ const {
         >
           <p class="text-sm font-semibold text-zinc-100">Term {{ term.termNumber }} · Age {{ term.startAge }}-{{ term.endAge }}</p>
           <p class="text-xs text-zinc-400">{{ term.summary }}</p>
+          <p v-if="term.details.length" class="mt-1 text-xs text-zinc-300">
+            {{ term.details.slice(0, 2).join(' · ') }}
+          </p>
         </div>
       </div>
       <span v-else class="mt-3 block text-sm text-zinc-400">No completed terms</span>

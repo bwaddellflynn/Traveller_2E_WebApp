@@ -114,6 +114,81 @@
           "text": "Nothing else happens, but you still must leave this career."
         }
       ]
+    },
+    "prison-event": {
+      "tableId": "prison-event",
+      "dice": "1D",
+      "rows": [
+        {
+          "roll": 1,
+          "name": "Riot Injury",
+          "effects": [
+            {
+              "type": "roll_table",
+              "tableId": "injury"
+            }
+          ],
+          "text": "A riot engulfs the prison. On a 1-2, you are injured - roll on the Injury table."
+        },
+        {
+          "roll": 2,
+          "name": "Riot Injury",
+          "effects": [
+            {
+              "type": "roll_table",
+              "tableId": "injury"
+            }
+          ],
+          "text": "A riot engulfs the prison. On a 1-2, you are injured - roll on the Injury table."
+        },
+        {
+          "roll": 3,
+          "name": "New Contact",
+          "effects": [
+            {
+              "type": "gain_associate",
+              "associateTypes": [
+                "contact"
+              ]
+            }
+          ],
+          "text": "You make friends with another inmate; gain them as a Contact."
+        },
+        {
+          "roll": 4,
+          "name": "New Rival",
+          "effects": [
+            {
+              "type": "gain_associate",
+              "associateTypes": [
+                "rival"
+              ]
+            }
+          ],
+          "text": "You gain a new Rival among the inmates or guards."
+        },
+        {
+          "roll": 5,
+          "name": "Transferred",
+          "effects": [
+            {
+              "type": "parole_threshold_reroll"
+            }
+          ],
+          "text": "You are moved to a different prison. Re-roll your Parole Threshold."
+        },
+        {
+          "roll": 6,
+          "name": "Good Behaviour",
+          "effects": [
+            {
+              "type": "parole_threshold_change",
+              "amount": -2
+            }
+          ],
+          "text": "Good Behaviour. Reduce your Parole Threshold by -2."
+        }
+      ]
     }
   },
   "careers": {
@@ -1400,7 +1475,7 @@
               ]
             }
           ],
-          "text": "You are a part of your homeworld’s celebrity circles. Gain one of Carouse 1, Persuade 1, Steward 1 or a Contact."
+          "text": "You are a part of your homeworld\u2019s celebrity circles. Gain one of Carouse 1, Persuade 1, Steward 1 or a Contact."
         },
         {
           "roll": 5,
@@ -1590,7 +1665,7 @@
               "type": "forced_out"
             }
           ],
-          "text": "A mission goes wrong and you are stranded behind enemy lines. Increase Stealth or Survival by one level but, due to the mission’s failure, you are ejected from the service."
+          "text": "A mission goes wrong and you are stranded behind enemy lines. Increase Stealth or Survival by one level but, due to the mission\u2019s failure, you are ejected from the service."
         },
         {
           "roll": 4,
@@ -1800,7 +1875,7 @@
               ]
             }
           ],
-          "text": "A mission goes disastrously wrong due to your commander’s error or incompetence but you survive. If you report your commanding officer for their failure then you gain DM+2 to your next advancement roll and gain the officer as an Enemy. If you say nothing and protect them, gain them as an Ally."
+          "text": "A mission goes disastrously wrong due to your commander\u2019s error or incompetence but you survive. If you report your commanding officer for their failure then you gain DM+2 to your next advancement roll and gain the officer as an Enemy. If you say nothing and protect them, gain them as an Ally."
         },
         {
           "roll": 10,
@@ -2735,7 +2810,7 @@
               "dm": 2
             }
           ],
-          "text": "Your reign is acclaimed by all as being fair and wise - or in the case of a dilettante, you sponge off your family’s wealth a while longer. Gain either a jealous relative or an unhappy subject as an Enemy. Gain DM+2 to your next advancement roll."
+          "text": "Your reign is acclaimed by all as being fair and wise - or in the case of a dilettante, you sponge off your family\u2019s wealth a while longer. Gain either a jealous relative or an unhappy subject as an Enemy. Gain DM+2 to your next advancement roll."
         },
         {
           "roll": 10,
@@ -3095,7 +3170,7 @@
               ]
             }
           ],
-          "text": "A crime lord considers you his protégé. Either gain Tactics (military) 1 or DM+4 to your next advancement roll thanks to their aid."
+          "text": "A crime lord considers you his prot\u00e9g\u00e9. Either gain Tactics (military) 1 or DM+4 to your next advancement roll thanks to their aid."
         },
         {
           "roll": 12,
@@ -3236,7 +3311,7 @@
               ]
             }
           ],
-          "text": "Your work is sabotaged by unknown parties. You may salvage what you can and give up (leave the career but retain this term’s Benefit roll) or start again from scratch (lose all Benefit rolls from this career but you do not have to leave)."
+          "text": "Your work is sabotaged by unknown parties. You may salvage what you can and give up (leave the career but retain this term\u2019s Benefit roll) or start again from scratch (lose all Benefit rolls from this career but you do not have to leave)."
         },
         {
           "roll": 6,
@@ -3406,7 +3481,7 @@
               ]
             }
           ],
-          "text": "You have the opportunity to cheat in some fashion, advancing your career and research by stealing another’s work, using an alien device, taking a shortcut and so forth. If you refuse, you gain nothing. If you accept, roll Deception 8+ or Admin 8+. If you succeed, you gain DM+2 to any one Benefit roll and may increase any skill by one level but also gain an Enemy. If you fail, gain an Enemy and lose one Benefit roll from this career."
+          "text": "You have the opportunity to cheat in some fashion, advancing your career and research by stealing another\u2019s work, using an alien device, taking a shortcut and so forth. If you refuse, you gain nothing. If you accept, roll Deception 8+ or Admin 8+. If you succeed, you gain DM+2 to any one Benefit roll and may increase any skill by one level but also gain an Enemy. If you fail, gain an Enemy and lose one Benefit roll from this career."
         },
         {
           "roll": 9,
@@ -4126,6 +4201,406 @@
             }
           ],
           "text": "You achieve a new level of discipline in your powers. You are automatically promoted."
+        }
+      ]
+    },
+    "prisoner": {
+      "mishaps": [
+        {
+          "roll": 1,
+          "ref": "common.mishap1"
+        },
+        {
+          "roll": 2,
+          "name": "Accused of Assaulting Guard",
+          "effects": [
+            {
+              "type": "parole_threshold_change",
+              "amount": 2
+            }
+          ],
+          "text": "You are accused of assaulting a prison guard. Parole Threshold +2."
+        },
+        {
+          "roll": 3,
+          "name": "Prison Gang Persecution",
+          "effects": [
+            {
+              "type": "choice",
+              "options": [
+                {
+                  "label": "Do not fight back",
+                  "effects": [
+                    {
+                      "type": "lose_benefit_rolls_from_career",
+                      "careerId": "prisoner"
+                    }
+                  ]
+                },
+                {
+                  "label": "Fight back",
+                  "effects": [
+                    {
+                      "type": "check",
+                      "check": {
+                        "skill": "melee/unarmed",
+                        "target": 8
+                      },
+                      "success": [
+                        {
+                          "type": "gain_associate",
+                          "associateTypes": [
+                            "enemy"
+                          ]
+                        },
+                        {
+                          "type": "parole_threshold_change",
+                          "amount": 1
+                        }
+                      ],
+                      "failure": [
+                        {
+                          "type": "injury",
+                          "severity": "two_rolls_lowest"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "text": "A prison gang persecutes you. You may choose to fight back if you wish but, if you do not, you lose all Benefit rolls from your Prisoner career. If you fight back, roll Melee (unarmed) 8+. Fail and you must roll twice on the Injury table and take the lower result. Succeed and you gain an Enemy and raise Parole Threshold by +1."
+        },
+        {
+          "roll": 4,
+          "name": "Guard Enemy",
+          "effects": [
+            {
+              "type": "gain_associate",
+              "associateTypes": [
+                "enemy"
+              ]
+            },
+            {
+              "type": "parole_threshold_change",
+              "amount": 1
+            }
+          ],
+          "text": "A guard takes a dislike to you. Gain an Enemy and raise your Parole Threshold by +1."
+        },
+        {
+          "roll": 5,
+          "name": "Disgraced",
+          "effects": [
+            {
+              "type": "characteristic_change",
+              "characteristic": "soc",
+              "amount": -1
+            }
+          ],
+          "text": "Disgraced. Word of your criminal past reaches your homeworld. Lose 1 SOC."
+        },
+        {
+          "roll": 6,
+          "ref": "common.mishap6"
+        }
+      ],
+      "events": [
+        {
+          "roll": 2,
+          "name": "Disaster",
+          "effects": [
+            {
+              "type": "roll_mishap",
+              "ejected": false
+            }
+          ],
+          "text": "Disaster! Roll on the Mishap table. However, you are not ejected from this career."
+        },
+        {
+          "roll": 3,
+          "name": "Escape Opportunity",
+          "effects": [
+            {
+              "type": "choice",
+              "options": [
+                {
+                  "label": "Attempt escape with Stealth",
+                  "effects": [
+                    {
+                      "type": "check",
+                      "check": {
+                        "skill": "stealth",
+                        "target": 10
+                      },
+                      "success": [
+                        {
+                          "type": "leave_prisoner_career"
+                        }
+                      ],
+                      "failure": [
+                        {
+                          "type": "parole_threshold_change",
+                          "amount": 2
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "label": "Attempt escape with Deception",
+                  "effects": [
+                    {
+                      "type": "check",
+                      "check": {
+                        "skill": "deception",
+                        "target": 10
+                      },
+                      "success": [
+                        {
+                          "type": "leave_prisoner_career"
+                        }
+                      ],
+                      "failure": [
+                        {
+                          "type": "parole_threshold_change",
+                          "amount": 2
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "label": "Do not attempt escape",
+                  "effects": [
+                    {
+                      "type": "narrative_event",
+                      "title": "Did not attempt prison escape"
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "text": "You have the opportunity to escape the prison. If you take this opportunity, roll either Stealth 10+ or Deception 10+. Succeed and you leave this career. Fail and raise your Parole Threshold by +2."
+        },
+        {
+          "roll": 4,
+          "name": "Backbreaking Labour",
+          "effects": [
+            {
+              "type": "check",
+              "check": {
+                "characteristic": "end",
+                "target": 8
+              },
+              "success": [
+                {
+                  "type": "parole_threshold_change",
+                  "amount": -1
+                },
+                {
+                  "type": "choose_skill_set",
+                  "skills": [
+                    "athletics/*",
+                    "mechanic",
+                    "melee/unarmed"
+                  ],
+                  "level": 1
+                }
+              ],
+              "failure": [
+                {
+                  "type": "parole_threshold_change",
+                  "amount": 1
+                }
+              ]
+            }
+          ],
+          "text": "You are assigned to difficult or backbreaking labour. Roll END 8+. If you fail, increase your Parole Threshold by +1. Succeed and you may reduce your Parole Threshold by 1 and gain any one of the following skills: Athletics (any) 1, Mechanic 1, or Melee (unarmed) 1."
+        },
+        {
+          "roll": 5,
+          "name": "Join a Gang",
+          "effects": [
+            {
+              "type": "check_any",
+              "checks": [
+                {
+                  "skill": "persuade",
+                  "target": 8
+                },
+                {
+                  "skill": "melee",
+                  "target": 8
+                }
+              ],
+              "success": [
+                {
+                  "type": "parole_threshold_change",
+                  "amount": 1
+                },
+                {
+                  "type": "next_survival_dm",
+                  "dm": 1,
+                  "scope": "career"
+                },
+                {
+                  "type": "choose_skill_set",
+                  "skills": [
+                    "deception",
+                    "persuade",
+                    "melee/unarmed",
+                    "stealth"
+                  ],
+                  "level": 1
+                }
+              ],
+              "failure": [
+                {
+                  "type": "gain_associate",
+                  "associateTypes": [
+                    "enemy"
+                  ]
+                }
+              ]
+            }
+          ],
+          "text": "You have the opportunity to join a gang. Roll Persuade or Melee 8+ to do so. If you fail, you gain an Enemy. Succeed and you must raise your Parole Threshold by +1 but gain DM+1 to all survival rolls in this career and any one of the following skills: Deception 1, Persuade 1, Melee (unarmed) 1 or Stealth 1."
+        },
+        {
+          "roll": 6,
+          "name": "Vocational Training",
+          "effects": [
+            {
+              "type": "check",
+              "check": {
+                "characteristic": "edu",
+                "target": 8
+              },
+              "success": [
+                {
+                  "type": "choose_skill",
+                  "level": 1,
+                  "excludedSkills": [
+                    "jack-of-all-trades"
+                  ]
+                }
+              ]
+            }
+          ],
+          "text": "Vocational Training. Roll EDU 8+ to gain any one skill except Jack-of-all-Trades."
+        },
+        {
+          "roll": 7,
+          "name": "Prison Event",
+          "effects": [
+            {
+              "type": "roll_table",
+              "tableId": "prison-event"
+            }
+          ],
+          "text": "Prison Event. Roll 1D on the Prison Event table."
+        },
+        {
+          "roll": 8,
+          "name": "Parole Hearing",
+          "effects": [
+            {
+              "type": "parole_threshold_change",
+              "amount": -1
+            }
+          ],
+          "text": "Parole hearing. Reduce your Parole Threshold by -1."
+        },
+        {
+          "roll": 9,
+          "name": "Hire a Lawyer",
+          "effects": [
+            {
+              "type": "prison_lawyer"
+            }
+          ],
+          "text": "You have the opportunity to hire a new lawyer, with your choice of Advocate skill. They cost Cr1000 x their Advocate level squared. Roll 2D + your lawyer\u2019s Advocate skill; on an 8+, reduce your Parole Threshold by 1D."
+        },
+        {
+          "roll": 10,
+          "name": "Special Duty",
+          "effects": [
+            {
+              "type": "choose_skill_set",
+              "skills": [
+                "admin",
+                "advocate",
+                "electronics/computers",
+                "steward"
+              ],
+              "level": 1
+            }
+          ],
+          "text": "Special Duty. You are given a special responsibility in the prison. Gain one of Admin, Advocate, Electronics (computers) or Steward."
+        },
+        {
+          "roll": 11,
+          "name": "Warden Interest",
+          "effects": [
+            {
+              "type": "parole_threshold_change",
+              "amount": -2
+            }
+          ],
+          "text": "The warden takes an interest in your case. Reduce your Parole Threshold by -2."
+        },
+        {
+          "roll": 12,
+          "name": "Heroism",
+          "effects": [
+            {
+              "type": "choice",
+              "options": [
+                {
+                  "label": "Take the risk",
+                  "effects": [
+                    {
+                      "type": "check",
+                      "check": {
+                        "target": 8
+                      },
+                      "success": [
+                        {
+                          "type": "gain_associate",
+                          "associateTypes": [
+                            "ally"
+                          ]
+                        },
+                        {
+                          "type": "parole_threshold_change",
+                          "amount": -2
+                        }
+                      ],
+                      "failure": [
+                        {
+                          "type": "roll_table",
+                          "tableId": "injury"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "label": "Do not take the risk",
+                  "effects": [
+                    {
+                      "type": "narrative_event",
+                      "title": "Declined prison heroism opportunity"
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "text": "Heroism. You have the opportunity to save a guard or prison officer. If you take the risk, roll 2D. On a 7 or less, roll on the Injury table. On 8+, gain an Ally and reduce your Parole Threshold by -2."
         }
       ]
     }

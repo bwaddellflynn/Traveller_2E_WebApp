@@ -23,6 +23,7 @@ const {
   backgroundSkillsCollapsed,
   characteristicAdjustments,
   characteristicRows,
+  gmCharacteristicAdjustmentsEnabled,
   selectedBackgroundSkills,
   statRolls,
   values,
@@ -98,7 +99,7 @@ const {
               {{ roll.value }}
             </option>
           </select>
-          <label class="mt-3 grid gap-1">
+          <label v-if="gmCharacteristicAdjustmentsEnabled" class="mt-3 grid gap-1">
             <span class="text-xs font-medium text-zinc-600">Adjustment / override</span>
             <input
               v-model.number="characteristicAdjustments[item.id]"

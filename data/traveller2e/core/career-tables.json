@@ -1398,6 +1398,95 @@
           "Recon"
         ]
       }
+    },
+    "prisoner": {
+      "specialRules": [
+        "Cannot be entered voluntarily; forced by events.",
+        "May choose a new Prisoner assignment every term.",
+        "Mishaps do not eject the Traveller from Prisoner.",
+        "Parole Threshold starts at 1D+2 and can never exceed 12.",
+        "If advancement total is greater than Parole Threshold, the sentence ends; otherwise next term must also be Prisoner.",
+        "Anagathics may not be used in prison."
+      ],
+      "benefits": [
+        {
+          "roll": 1,
+          "cash": 0,
+          "benefit": "Contact"
+        },
+        {
+          "roll": 2,
+          "cash": 0,
+          "benefit": "Blade"
+        },
+        {
+          "roll": 3,
+          "cash": 100,
+          "benefit": "Deception, Persuade or Stealth"
+        },
+        {
+          "roll": 4,
+          "cash": 200,
+          "benefit": "Ally"
+        },
+        {
+          "roll": 5,
+          "cash": 500,
+          "benefit": "Melee, Recon or Streetwise"
+        },
+        {
+          "roll": 6,
+          "cash": 1000,
+          "benefit": "STR +1 or END +1"
+        },
+        {
+          "roll": 7,
+          "cash": 2500,
+          "benefit": "Deception, Persuade and Stealth"
+        }
+      ],
+      "skillTables": {
+        "personal-development": [
+          "STR +1",
+          "Melee (unarmed)",
+          "END +1",
+          "Jack-of-all-Trades",
+          "EDU +1",
+          "Gambler"
+        ],
+        "service-skills": [
+          "Athletics",
+          "Deception",
+          "Profession",
+          "Streetwise",
+          "Melee (unarmed)",
+          "Persuade"
+        ],
+        "inmate": [
+          "Stealth",
+          "Melee (unarmed)",
+          "Streetwise",
+          "Survival",
+          "Athletics (strength)",
+          "Mechanic"
+        ],
+        "thug": [
+          "Persuade",
+          "Melee (unarmed)",
+          "Melee (unarmed)",
+          "Melee (blade)",
+          "Athletics (strength)",
+          "Athletics (strength)"
+        ],
+        "fixer": [
+          "Investigate",
+          "Broker",
+          "Deception",
+          "Streetwise",
+          "Stealth",
+          "Admin"
+        ]
+      }
     }
   }
 }
