@@ -29,6 +29,7 @@ type CharacterSkill = {
 type CheckRule = {
   characteristic?: string
   target?: number
+  honoursTarget?: number
   automatic?: boolean
   any?: { characteristic: string; target: number }[]
 }
@@ -142,7 +143,7 @@ type TravellerRollModifier = {
   id: string
   source: string
   label: string
-  target: 'advancement' | 'qualification' | 'benefit' | 'survival' | 'career' | 'any'
+  target: 'advancement' | 'qualification' | 'benefit' | 'survival' | 'commission' | 'career' | 'any'
   dm: number
   scope: 'next' | 'one' | 'career' | 'term' | 'any'
   used?: boolean
@@ -209,6 +210,12 @@ type PrisonerParoleThresholdRoll = {
   total: number
   source: 'rolled' | 'manual'
 }
+type DraftRoll = {
+  dice: number
+  careerId: string
+  assignmentId?: string
+  source: 'rolled' | 'manual'
+}
 type CareerRankRow = {
   rank: number
   title?: string
@@ -233,6 +240,61 @@ type AdvancementResult = {
   newTitle: string
   bonus?: string
   track: Array<CareerRankRow & { achieved: boolean, current: boolean }>
+}
+type PlayableTravellerProfile = {
+  name: string
+  age: number
+  lifepathComplete: boolean
+  characteristics: Array<{
+    id: CharacteristicId
+    name: string
+    abbreviation: string
+    category: string
+    value: number
+    dm: number
+  }>
+  characteristicAdjustments: Record<CharacteristicId, number>
+  backgroundSkills: string[]
+  skills: CharacterSkill[]
+  ranks: CareerRankState[]
+  terms: TermHistoryEntry[]
+  associates: TravellerAssociate[]
+  narrativeEvents: TravellerNarrativeEvent[]
+  psionics: {
+    permissionSources: string[]
+    psiScore: number | null
+    psiDm: number
+    tested: boolean
+    talents: Array<{ id: string; name: string; learningDm: number }>
+    talentAttempts: PsionicTalentAttempt[]
+    trainingCost: number
+  }
+  benefits: {
+    earnedRolls: number
+    adjustments: number
+    availableRolls: number
+    spentRolls: number
+    remainingRolls: number
+    cashRollsUsed: number
+    cashRollLimit: number
+    personal: string[]
+    musteringOut: MusteringOutResult[]
+  }
+  finances: {
+    credits: number
+    medicalDebt: number
+    psionicsTrainingDebt: number
+    totalDebt: number
+  }
+  logs: {
+    events: EventOutcomeLogEntry[]
+    constraints: CareerConstraint[]
+    medicalCare: MedicalCareEntry[]
+  }
+  draft: {
+    used: boolean
+    lastRoll: DraftRoll | null
+  }
 }
 
 
@@ -275,10 +337,13 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
   const selectedCareerId = ref('agent')
   const selectedAssignmentId = ref('law-enforcement')
   const selectedCareerSkillTableId = ref('personal-development')
+  const selectedAdvancementSkillTableId = ref('personal-development')
   const hasRolledCharacteristics = ref(false)
   const showRerollConfirm = ref(false)
   const currentTermNumber = ref(1)
   const activeCreatorTab = ref<CreatorTab>('creation')
+  const draftUsed = ref(false)
+  const draftRoll = ref<DraftRoll | null>(null)
   const gmOverrideMenuOpen = ref(false)
   const gmOverrideOptions = reactive<Record<GmOverrideOptionId, boolean>>({
     manualCheckRollEntry: false,
@@ -300,6 +365,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
   const pendingEducationSkillChoices = ref<Array<{ label: string; level: number; options: string[]; selected?: string }>>([])
   const educationEventExpanded = ref(false)
   const basicTrainingApplied = ref(false)
+  const basicTrainingCareerIds = ref<string[]>([])
   const pendingBasicTrainingChoices = ref<Array<{ label: string; options: string[]; selected?: string }>>([])
   const careerEventExpanded = ref(false)
   const careerMishapExpanded = ref(false)
@@ -342,7 +408,10 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     careerSurvival: null,
     careerMishap: null,
     careerEvent: null,
+    careerCommission: null,
     careerAdvancement: null,
+    careerAdvancementSkill: null,
+    draft: null,
     prisonerParoleThreshold: null,
     aging: null,
   })
@@ -355,7 +424,10 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     careerSurvival: null,
     careerMishap: null,
     careerEvent: null,
+    careerCommission: null,
     careerAdvancement: null,
+    careerAdvancementSkill: null,
+    draft: null,
     prisonerParoleThreshold: null,
     aging: null,
   })
@@ -523,6 +595,12 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
   const selectedEducation = computed(() => {
     return preCareerEducation.find((option) => option.id === selectedEducationOption.value.type) ?? null
   })
+  const educationGraduationHonours = computed(() => {
+    const graduation = termRolls.educationGraduation
+    const honoursTarget = selectedEducation.value?.graduation?.honoursTarget
+    if (!graduation?.finalSuccess || typeof honoursTarget !== 'number') return false
+    return graduation.total >= honoursTarget
+  })
   const selectedEducationVariant = computed(() => selectedEducationOption.value.variant)
   const educationSkillOptions = computed(() => selectedEducation.value?.skillOptions ?? [])
   const selectedEducationEntry = computed(() => {
@@ -558,33 +636,67 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
       .reverse()
       .find((constraint) => {
         if (!constraint.careerId || !knownCareerIds.value.has(constraint.careerId)) return false
-        return constraint.effectType === 'next_career' || constraint.effectType === 'draft_assignment'
+        return constraint.effectType === 'next_career' || constraint.effectType === 'draft_assignment' || constraint.effectType === 'automatic_career_entry' || constraint.effectType === 'natural_12_continue'
+      })
+  })
+  const automaticCareerEntryConstraint = computed(() => {
+    return [...activeCareerConstraints.value]
+      .reverse()
+      .find((constraint) => {
+        if (constraint.effectType !== 'automatic_career_entry') return false
+        return !constraint.careerId || constraint.careerId === selectedCareerId.value
+      })
+  })
+  const automaticCommissionConstraint = computed(() => {
+    return [...activeCareerConstraints.value]
+      .reverse()
+      .find((constraint) => {
+        if (constraint.effectType !== 'automatic_commission') return false
+        return !constraint.careerId || constraint.careerId === selectedCareerId.value
       })
   })
   const careerPathLocked = computed(() => activeCareerConstraints.value.some((constraint) => {
-    return constraint.effectType === 'next_career' || constraint.effectType === 'draft_assignment' || constraint.effectType === 'draft_next_term'
+    return constraint.effectType === 'next_career' || constraint.effectType === 'draft_assignment' || constraint.effectType === 'draft_next_term' || constraint.effectType === 'automatic_career_entry' || constraint.effectType === 'natural_12_continue'
   }))
   const forcedOutCareerIds = computed(() => new Set(activeCareerConstraints.value
     .filter((constraint) => constraint.forcedOut && constraint.careerId)
     .map((constraint) => constraint.careerId as string)))
+  const cannotContinueCareerIds = computed(() => new Set(activeCareerConstraints.value
+    .filter((constraint) => constraint.effectType === 'cannot_continue_career' && constraint.careerId)
+    .map((constraint) => constraint.careerId as string)))
+  const careerQualificationFailed = computed(() => termRolls.careerQualification?.finalSuccess === false)
+  const draftFallbackAvailable = computed(() => careerQualificationFailed.value && !draftUsed.value)
+  const drifterFallbackAvailable = computed(() => careerQualificationFailed.value)
+  const mustContinueCareer = computed(() => activeCareerConstraints.value.some((constraint) => {
+    return constraint.effectType === 'natural_12_continue' && constraint.careerId === selectedCareerId.value
+  }))
+  const currentAdvancementNaturalTwelve = computed(() => {
+    const roll = termRolls.careerAdvancement
+    if (!roll) return false
+    return roll.dice.reduce((sum, value) => sum + value, 0) === 12
+  })
+  const canMusterOut = computed(() => termHistory.value.length > 0 && !lifepathComplete.value && !mustContinueCareer.value && !currentAdvancementNaturalTwelve.value)
   const careerOptions = computed(() => careersData.careers.map((career) => {
     const forcedCareerId = forcedCareerConstraint.value?.careerId
     const forcedOut = forcedOutCareerIds.value.has(career.id)
+    const cannotContinue = cannotContinueCareerIds.value.has(career.id)
     const permissionLocked = career.id === 'psion' && !psionicsTestingAvailable.value
     const psiUntested = career.id === 'psion' && psionicsTestingAvailable.value && !psiTested.value
     const prisonerLocked = career.id === 'prisoner' && forcedCareerId !== 'prisoner'
-    const disabled = Boolean((forcedCareerId && career.id !== forcedCareerId) || forcedOut || permissionLocked || psiUntested || prisonerLocked)
+    const disabled = Boolean((forcedCareerId && career.id !== forcedCareerId) || forcedOut || cannotContinue || permissionLocked || psiUntested || prisonerLocked)
     const disabledReason = forcedCareerId && career.id !== forcedCareerId
       ? `Must enter ${forcedCareerConstraint.value?.label ?? forcedCareerId}`
       : forcedOut
         ? 'Forced out of this career'
-        : permissionLocked
-          ? 'Requires psionics permission'
-          : psiUntested
-            ? 'Requires PSI test'
-            : prisonerLocked
-              ? 'Requires Prisoner event or GM override'
-              : ''
+        : cannotContinue
+          ? 'Cannot continue this career next term'
+          : permissionLocked
+            ? 'Requires psionics permission'
+            : psiUntested
+              ? 'Requires PSI test'
+              : prisonerLocked
+                ? 'Requires Prisoner event or GM override'
+                : ''
 
     return {
       ...career,
@@ -599,6 +711,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
 
     return constraint.label
   }))
+  const draftTable = computed(() => creationRulesData.draft.table as Array<{ roll: number, careerId: string, assignment?: string }>)
   const currentCareerTableData = computed(() => {
     return (careerTablesData.careers as Record<string, any>)[selectedCareerId.value] ?? null
   })
@@ -645,7 +758,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
   const availableCareerSkillTables = computed(() => {
     return Object.entries(currentCareerSkillTables.value)
       .filter(([tableId, table]) => {
-        if (tableId === 'officer') return false
+        if (tableId === 'officer') return currentCareerIsOfficer.value
         if (tableId === 'advanced-education') return advancedEducationAllowed((table as { requirement?: string }).requirement)
         return ['personal-development', 'service-skills', selectedAssignmentId.value].includes(tableId)
       })
@@ -660,10 +773,37 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     return availableCareerSkillTables.value.find((table) => table.id === selectedCareerSkillTableId.value) ?? availableCareerSkillTables.value[0]
   })
   const selectedCareerSkillEntries = computed(() => selectedCareerSkillTable.value?.entries ?? [])
+  const selectedAdvancementSkillTable = computed(() => {
+    return availableCareerSkillTables.value.find((table) => table.id === selectedAdvancementSkillTableId.value) ?? availableCareerSkillTables.value[0]
+  })
+  const selectedAdvancementSkillEntries = computed(() => selectedAdvancementSkillTable.value?.entries ?? [])
   const careerTermsCompleted = computed(() => {
     return termHistory.value.filter((entry) => entry.path === 'career' && entry.careerId === selectedCareerId.value).length
   })
-  const basicTrainingRequired = computed(() => selectedTermPath.value === 'career' && careerTermsCompleted.value === 0)
+  const completedBasicTrainingCareerIds = computed(() => new Set([
+    ...basicTrainingCareerIds.value,
+    ...termHistory.value
+      .filter((entry) => entry.path === 'career' && entry.careerId)
+      .map((entry) => entry.careerId as string),
+  ]))
+  const militaryCareerIds = ['army', 'marine', 'navy']
+  const selectedCareerIsMilitary = computed(() => militaryCareerIds.includes(selectedCareerId.value))
+  const currentCareerOfficerRank = computed(() => {
+    return careerRanks.value.find((rank) => rank.careerId === selectedCareerId.value && rank.assignmentId === 'officer') ?? null
+  })
+  const currentCareerIsOfficer = computed(() => Boolean(currentCareerOfficerRank.value))
+  const selectedCareerCommissionCheck = computed<CheckRule | null>(() => currentCareerTableData.value?.commission ?? null)
+  const careerCommissionAvailable = computed(() => {
+    if (!selectedCareerIsMilitary.value || !selectedCareerCommissionCheck.value) return false
+    if (currentCareerIsOfficer.value) return false
+    if (!termRolls.careerSurvival?.finalSuccess) return false
+    return careerTermsCompleted.value === 0 || values.soc >= 9
+  })
+  const careerRankAssignmentId = computed(() => selectedCareerIsMilitary.value && currentCareerIsOfficer.value ? 'officer' : selectedAssignmentId.value)
+  const basicTrainingRequired = computed(() => {
+    return selectedTermPath.value === 'career' && !completedBasicTrainingCareerIds.value.has(selectedCareerId.value)
+  })
+  const basicTrainingAvailable = computed(() => Boolean(termRolls.careerQualification?.finalSuccess && basicTrainingRequired.value))
   const basicTrainingTableId = computed(() => currentCareerTableData.value?.basicTrainingUses === 'assignment' ? selectedAssignmentId.value : 'service-skills')
   const basicTrainingEntries = computed(() => {
     const table = currentCareerSkillTables.value[basicTrainingTableId.value]
@@ -710,6 +850,9 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
   watch(availableCareerSkillTables, (tables) => {
     if (!tables.some((table) => table.id === selectedCareerSkillTableId.value)) {
       selectedCareerSkillTableId.value = tables[0]?.id ?? 'personal-development'
+    }
+    if (!tables.some((table) => table.id === selectedAdvancementSkillTableId.value)) {
+      selectedAdvancementSkillTableId.value = tables[0]?.id ?? 'personal-development'
     }
   })
 
@@ -796,6 +939,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
   }
 
   const skillName = (skillId: string) => {
+    if (skillId.includes(':') || skillId.includes('/')) return skillOptionLabel(skillId)
     const skill = skillsData.skills.find((item) => item.id === skillId)
     return skill?.name ?? skillId
   }
@@ -807,13 +951,27 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
 
   const skillFromLabel = (label: string) => {
     const trimmed = label.trim()
+    const normalizeSpeciality = (baseSkill: { specialities?: string[] } | undefined, value: string) => {
+      const slug = slugifySkill(value === '*' ? 'any' : value)
+      if (slug === 'any') return slug
+      const exact = baseSkill?.specialities?.find((speciality) => slugifySkill(speciality) === slug)
+      if (exact) return slugifySkill(exact)
+      const singular = slug.endsWith('s') ? slug.slice(0, -1) : slug
+      const singularMatch = baseSkill?.specialities?.find((speciality) => slugifySkill(speciality) === singular)
+      return singularMatch ? slugifySkill(singularMatch) : slug
+    }
     const slashSpecialityMatch = trimmed.match(/^(.+?)\/(.+)$/)
     if (slashSpecialityMatch) {
       const baseSkill = skillsData.skills.find((item) => item.id === slashSpecialityMatch[1] || item.name.toLowerCase() === slashSpecialityMatch[1].toLowerCase())
-      const speciality = slashSpecialityMatch[2] === '*' ? 'any' : slashSpecialityMatch[2]
+      const specialityId = normalizeSpeciality(baseSkill, slashSpecialityMatch[2])
+      const speciality = specialityId === 'any'
+        ? 'any'
+        : baseSkill?.specialities?.find((item) => slugifySkill(item) === specialityId) ?? slashSpecialityMatch[2]
       return {
-        id: `${baseSkill?.id ?? slugifySkill(slashSpecialityMatch[1])}:${slugifySkill(speciality)}`,
+        id: `${baseSkill?.id ?? slugifySkill(slashSpecialityMatch[1])}:${specialityId}`,
         name: `${baseSkill?.name ?? slashSpecialityMatch[1]} (${speciality})`,
+        baseId: baseSkill?.id ?? slugifySkill(slashSpecialityMatch[1]),
+        specialityId,
       }
     }
 
@@ -821,14 +979,23 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     const baseName = (specialityMatch?.[1] ?? trimmed).trim()
     const speciality = specialityMatch?.[2]?.trim()
     const baseSkill = skillsData.skills.find((item) => item.id === baseName || item.name.toLowerCase() === baseName.toLowerCase())
+    const specialityId = speciality ? normalizeSpeciality(baseSkill, speciality) : undefined
+    const specialityName = specialityId === 'any'
+      ? 'any'
+      : baseSkill?.specialities?.find((item) => slugifySkill(item) === specialityId) ?? speciality
     const id = speciality
-      ? `${baseSkill?.id ?? slugifySkill(baseName)}:${slugifySkill(speciality)}`
+      ? `${baseSkill?.id ?? slugifySkill(baseName)}:${specialityId}`
       : baseSkill?.id ?? slugifySkill(baseName)
     const name = speciality
-      ? `${baseSkill?.name ?? baseName} (${speciality})`
+      ? `${baseSkill?.name ?? baseName} (${specialityName})`
       : baseSkill?.name ?? baseName
 
-    return { id, name }
+    return {
+      id,
+      name,
+      baseId: baseSkill?.id ?? slugifySkill(baseName),
+      specialityId,
+    }
   }
 
   const skillOptionLabel = (label: string) => skillFromLabel(label).name
@@ -836,7 +1003,57 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
 
   const skillLevel = (label: string) => {
     const skill = skillFromLabel(label)
-    return appliedSkillRecords[skill.id]?.level ?? -3
+    const exactLevel = appliedSkillRecords[skill.id]?.level
+    if (typeof exactLevel === 'number') return exactLevel
+
+    const baseLevel = appliedSkillRecords[skill.baseId]?.level
+    const backgroundLevel = selectedBackgroundSkills.value.includes(skill.baseId) ? 0 : undefined
+    const specialityLevels = Object.values(appliedSkillRecords)
+      .filter((record) => record.id.startsWith(`${skill.baseId}:`))
+      .map((record) => record.level)
+
+    const candidateLevels = [
+      typeof baseLevel === 'number' ? baseLevel : undefined,
+      typeof backgroundLevel === 'number' ? backgroundLevel : undefined,
+      ...(!skill.specialityId || skill.specialityId === 'any' ? specialityLevels : []),
+    ].filter((level): level is number => typeof level === 'number')
+
+    if (candidateLevels.length) return Math.max(...candidateLevels)
+
+    const jackOfAllTrades = appliedSkillRecords['jack-of-all-trades']?.level ?? -3
+    const untrainedPenalty = Number(skillsData.rules.untrainedPenalty ?? -3)
+    return jackOfAllTrades >= 0
+      ? Math.min(0, untrainedPenalty + jackOfAllTrades)
+      : untrainedPenalty
+  }
+
+  const defaultSkillCharacteristic = (label: string): CharacteristicId | null => {
+    const skill = skillFromLabel(label)
+    const defaults: Record<string, CharacteristicId> = {
+      athletics: 'str',
+      carouse: 'soc',
+      deception: 'int',
+      diplomat: 'soc',
+      'gun-combat': 'dex',
+      gambler: 'int',
+      investigate: 'int',
+      leadership: 'soc',
+      melee: 'str',
+      persuade: 'soc',
+      recon: 'int',
+      stealth: 'dex',
+      streetwise: 'soc',
+      survival: 'end',
+      tactics: 'int',
+    }
+
+    return defaults[skill.baseId] ?? null
+  }
+
+  const skillCheckDm = (label: string, characteristic?: string) => {
+    const characteristicId = (characteristic as CharacteristicId | undefined) ?? defaultSkillCharacteristic(label)
+    const characteristicDm = characteristicId ? diceModifier(values[characteristicId] ?? 0) : 0
+    return skillLevel(label) + characteristicDm
   }
 
   const addSkillSource = (skill: CharacterSkill, source: string) => {
@@ -955,9 +1172,10 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
 
   const advancementPreview = (roll?: RollResult | null): AdvancementResult | null => {
     if (!roll || selectedTermPath.value !== 'career') return null
-    const rows = resolveCareerRankRows(selectedCareerId.value, selectedAssignmentId.value)
-    const state = findCareerRankState(selectedCareerId.value, selectedAssignmentId.value)
-      ?? makeDefaultCareerRankState(selectedCareerId.value, selectedAssignmentId.value)
+    const rankAssignmentId = careerRankAssignmentId.value
+    const rows = resolveCareerRankRows(selectedCareerId.value, rankAssignmentId)
+    const state = findCareerRankState(selectedCareerId.value, rankAssignmentId)
+      ?? makeDefaultCareerRankState(selectedCareerId.value, rankAssignmentId)
     const maxRank = rows.reduce((highest, row) => Math.max(highest, row.rank), state.rank)
     const success = Boolean(roll.finalSuccess && state.rank < maxRank)
     const nextRank = success ? Math.min(state.rank + 1, maxRank) : state.rank
@@ -1014,8 +1232,9 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     const preview = advancementPreview(roll)
     if (!preview || preview.newRank <= preview.previousRank) return preview
 
-    const state = currentCareerRankState(selectedCareerId.value, selectedAssignmentId.value)
-    const nextRow = resolveCareerRankRows(selectedCareerId.value, selectedAssignmentId.value).find((row) => row.rank === preview.newRank)
+    const rankAssignmentId = careerRankAssignmentId.value
+    const state = currentCareerRankState(selectedCareerId.value, rankAssignmentId)
+    const nextRow = resolveCareerRankRows(selectedCareerId.value, rankAssignmentId).find((row) => row.rank === preview.newRank)
     state.rank = preview.newRank
     if (nextRow?.title) state.title = nextRow.title
     else delete state.title
@@ -1023,6 +1242,48 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     else delete state.bonus
     applyCareerRankBonus(nextRow?.bonus)
     return preview
+  }
+
+  const applyAutomaticPromotion = (source: string) => {
+    if (selectedTermPath.value !== 'career') return null
+    const rankAssignmentId = careerRankAssignmentId.value
+    const rows = resolveCareerRankRows(selectedCareerId.value, rankAssignmentId)
+    const state = currentCareerRankState(selectedCareerId.value, rankAssignmentId)
+    const maxRank = rows.reduce((highest, row) => Math.max(highest, row.rank), state.rank)
+    const nextRank = Math.min(state.rank + 1, maxRank)
+    const nextRow = rows.find((row) => row.rank === nextRank)
+
+    if (nextRank <= state.rank) {
+      recordEventOutcome(source, { type: 'automatic_promotion' }, 'Automatic promotion: already at maximum rank')
+      return state
+    }
+
+    state.rank = nextRank
+    if (nextRow?.title) state.title = nextRow.title
+    else delete state.title
+    if (nextRow?.bonus) state.bonus = nextRow.bonus
+    else delete state.bonus
+    applyCareerRankBonus(nextRow?.bonus)
+    recordEventOutcome(source, { type: 'automatic_promotion' }, `Automatic promotion: ${rankTitle(nextRow, nextRank)}`)
+    return state
+  }
+
+  const applyCareerCommission = (source = 'Commission') => {
+    if (!selectedCareerIsMilitary.value) return null
+    const rows = resolveCareerRankRows(selectedCareerId.value, 'officer')
+    const officerRank = rows.find((row) => row.rank === 1) ?? rows[0]
+    if (!officerRank) return null
+
+    const state = currentCareerRankState(selectedCareerId.value, 'officer')
+    if (state.rank >= officerRank.rank) return state
+
+    state.rank = officerRank.rank
+    state.title = officerRank.title ?? 'Officer'
+    if (officerRank.bonus) state.bonus = officerRank.bonus
+    else delete state.bonus
+    applyCareerRankBonus(officerRank.bonus)
+    recordEventOutcome(source, { type: 'automatic_commission' }, `${selectedCareer.value.name} commission: ${rankTitle(officerRank, officerRank.rank)}`)
+    return state
   }
 
   const isPsionicTalentId = (skillId: string) => psionicTalents.some((talent) => talent.id === skillId)
@@ -1129,7 +1390,14 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     setSkillMinimum(entry, 0, 'Basic Training')
   }
 
+  const markBasicTrainingComplete = () => {
+    if (!basicTrainingCareerIds.value.includes(selectedCareerId.value)) {
+      basicTrainingCareerIds.value = [...basicTrainingCareerIds.value, selectedCareerId.value]
+    }
+  }
+
   const applyBasicTraining = () => {
+    if (!basicTrainingAvailable.value) return
     pendingBasicTrainingChoices.value = []
 
     for (const entry of basicTrainingEntries.value) {
@@ -1146,6 +1414,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     }
 
     basicTrainingApplied.value = pendingBasicTrainingChoices.value.length === 0
+    if (basicTrainingApplied.value) markBasicTrainingComplete()
   }
 
   const resolveBasicTrainingChoice = (index: number, choice: string) => {
@@ -1159,6 +1428,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     }
 
     basicTrainingApplied.value = pendingBasicTrainingChoices.value.every((item) => item.selected)
+    if (basicTrainingApplied.value) markBasicTrainingComplete()
   }
 
   const applyEducationSkills = () => {
@@ -1202,6 +1472,99 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     }
 
     educationSkillsApplied.value = pendingEducationSkillChoices.value.every((item) => item.selected)
+  }
+
+  const addEducationQualificationModifier = (dm: number, source: string) => {
+    rollModifiers.value = [
+      ...rollModifiers.value,
+      {
+        id: makeEventOutcomeId('education-qualification-dm'),
+        source,
+        label: `Education qualification DM ${formatDm(dm)}`,
+        target: 'qualification',
+        dm,
+        scope: 'next',
+      },
+    ]
+  }
+
+  const addEducationCommissionModifier = (dm: number, source: string) => {
+    rollModifiers.value = [
+      ...rollModifiers.value,
+      {
+        id: makeEventOutcomeId('education-commission-dm'),
+        source,
+        label: `Education commission DM ${formatDm(dm)}`,
+        target: 'commission',
+        dm,
+        scope: 'next',
+      },
+    ]
+  }
+
+  const applyEducationGraduationBenefits = () => {
+    const graduation = termRolls.educationGraduation
+    if (!selectedEducation.value || !graduation?.finalSuccess) return
+
+    const source = educationGraduationHonours.value
+      ? `${selectedEducationOption.value.name} Honours`
+      : `${selectedEducationOption.value.name} Graduation`
+
+    for (const benefit of selectedEducation.value.graduationBenefits ?? []) {
+      if (benefit.type === 'characteristic_increase' && benefit.characteristic) {
+        characteristicAdjustments[benefit.characteristic as CharacteristicId] += Number(benefit.amount ?? 1)
+        applyAssignedScores()
+        recordEventOutcome(source, { type: 'characteristic_increase' }, `${benefit.characteristic.toUpperCase()} +${benefit.amount ?? 1}`)
+      }
+
+      if (benefit.type === 'honours_characteristic_increase' && educationGraduationHonours.value && benefit.characteristic) {
+        characteristicAdjustments[benefit.characteristic as CharacteristicId] += Number(benefit.amount ?? 1)
+        applyAssignedScores()
+        recordEventOutcome(source, { type: 'characteristic_increase' }, `${benefit.characteristic.toUpperCase()} +${benefit.amount ?? 1}`)
+      }
+
+      if (benefit.type === 'increase_chosen_pre_career_skills') {
+        if (universityLevel0Skill.value) increaseSkill(universityLevel0Skill.value, source)
+        if (universityLevel1Skill.value) increaseSkill(universityLevel1Skill.value, source)
+      }
+
+      if (benefit.type === 'qualification_dm') {
+        addEducationQualificationModifier(Number(educationGraduationHonours.value ? benefit.honoursDm ?? benefit.dm ?? 0 : benefit.dm ?? 0), source)
+      }
+
+      if (benefit.type === 'automatic_entry_same_military_career' && selectedEducationVariant.value) {
+        careerConstraints.value = [
+          ...careerConstraints.value,
+          {
+            id: makeEventOutcomeId('education-career-entry'),
+            source,
+            label: `Automatic entry from ${selectedEducationOption.value.name}`,
+            effectType: 'automatic_career_entry',
+            appliesTermNumber: currentTermNumber.value + 1,
+            careerId: militaryAcademyCareerId.value,
+          },
+        ]
+      }
+
+      if (benefit.type === 'first_military_career_commission_allowed') {
+        if (educationGraduationHonours.value && benefit.honoursAutomaticSuccess && selectedEducationVariant.value) {
+          careerConstraints.value = [
+            ...careerConstraints.value,
+            {
+              id: makeEventOutcomeId('education-automatic-commission'),
+              source,
+              label: `Automatic commission from ${selectedEducationOption.value.name} honours`,
+              effectType: 'automatic_commission',
+              appliesTermNumber: currentTermNumber.value + 1,
+              careerId: militaryAcademyCareerId.value,
+            },
+          ]
+        } else {
+          const dm = Number(educationGraduationHonours.value ? benefit.honoursCommissionDm ?? benefit.dm ?? 0 : benefit.dm ?? 0)
+          if (dm) addEducationCommissionModifier(dm, source)
+        }
+      }
+    }
   }
 
   const currentTravellerSkills = computed<CharacterSkill[]>(() => {
@@ -1291,6 +1654,35 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     }
   }
 
+  const resetCareerProgressAfterQualification = () => {
+    termRolls.careerSkill = null
+    termRolls.careerSurvival = null
+    termRolls.careerMishap = null
+    termRolls.careerEvent = null
+    termRolls.careerCommission = null
+    termRolls.careerAdvancement = null
+    termRolls.careerAdvancementSkill = null
+    termRolls.prisonerParoleThreshold = null
+    manualRollTotals.careerSkill = null
+    manualRollTotals.careerSurvival = null
+    manualRollTotals.careerMishap = null
+    manualRollTotals.careerEvent = null
+    manualRollTotals.careerCommission = null
+    manualRollTotals.careerAdvancement = null
+    manualRollTotals.careerAdvancementSkill = null
+    manualRollTotals.prisonerParoleThreshold = null
+    careerSkillResult.value = null
+    pendingSkillChoice.value = null
+    basicTrainingApplied.value = false
+    pendingBasicTrainingChoices.value = []
+    pendingEventResolutions.value = []
+    activeEvent.value = null
+    careerEventExpanded.value = false
+    careerMishapExpanded.value = false
+    prisonerParoleThreshold.value = null
+    prisonerParoleThresholdRoll.value = null
+  }
+
   const resetEventResolutionState = (event: TravellerEvent | null) => {
     activeEvent.value = event
     pendingEventResolutions.value = []
@@ -1375,7 +1767,10 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
   const eventCheckLabel = (effect: TravellerEventEffect) => {
     const check = effect.check as Record<string, any> | undefined
     if (check?.characteristic) return `${String(check.characteristic).toUpperCase()} ${check.target ?? 8}+`
-    if (check?.skill) return `${skillOptionLabel(String(check.skill))} ${check.target ?? 8}+`
+    if (check?.skill) {
+      const characteristic = check.characteristic ?? defaultSkillCharacteristic(String(check.skill))
+      return `${skillOptionLabel(String(check.skill))}${characteristic ? ` + ${String(characteristic).toUpperCase()}` : ''} ${check.target ?? 8}+`
+    }
     if (effect.type === 'check_known_term_skill') return `Known term skill ${effect.target ?? 8}+`
     return `Check ${check?.target ?? effect.target ?? 8}+`
   }
@@ -1389,7 +1784,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     const check = effect.check as Record<string, any> | undefined
     if (check?.characteristic === 'psi') return psiDm.value
     if (check?.characteristic) return diceModifier(values[String(check.characteristic) as CharacteristicId] ?? 0)
-    if (check?.skill) return skillLevel(String(check.skill))
+    if (check?.skill) return skillCheckDm(String(check.skill), typeof check.characteristic === 'string' ? check.characteristic : undefined)
     return 0
   }
 
@@ -1800,11 +2195,14 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
       .map((check) => {
         const skill = String(check.skill)
         const target = Number(check.target ?? 8)
+        const characteristic = typeof check.characteristic === 'string'
+          ? check.characteristic
+          : defaultSkillCharacteristic(skill) ?? undefined
         return {
-          label: `${skillOptionLabel(skill)} ${target}+`,
+          label: `${skillOptionLabel(skill)}${characteristic ? ` + ${characteristic.toUpperCase()}` : ''} ${target}+`,
           skill,
           target,
-          dm: skillLevel(skill),
+          dm: skillCheckDm(skill, characteristic),
         }
       })
 
@@ -1912,6 +2310,42 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     if (effect.type === 'may_test_psi' || effect.type === 'may_test_psionic_strength') {
       const label = tableEffectLabel(effect)
       grantPsionicsPermission(source, label)
+      recordEventOutcome(source, effect, label)
+      return
+    }
+
+    if (effect.type === 'automatic_promotion') {
+      applyAutomaticPromotion(source)
+      return
+    }
+
+    if (effect.type === 'automatic_commission') {
+      if (selectedCareerIsMilitary.value && !currentCareerIsOfficer.value) applyCareerCommission(source)
+      else applyAutomaticPromotion(source)
+      return
+    }
+
+    if (effect.type === 'automatic_next_promotion_or_commission') {
+      const label = tableEffectLabel(effect)
+      rollModifiers.value = [
+        ...rollModifiers.value,
+        {
+          id: makeEventOutcomeId('automatic-promotion'),
+          source,
+          label,
+          target: 'advancement',
+          dm: 99,
+          scope: 'next',
+        },
+        {
+          id: makeEventOutcomeId('automatic-commission'),
+          source,
+          label,
+          target: 'commission',
+          dm: 99,
+          scope: 'next',
+        },
+      ]
       recordEventOutcome(source, effect, label)
       return
     }
@@ -2235,6 +2669,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
   const rollModifierTargetForKey = (key: string): TravellerRollModifier['target'] => {
     const targets: Record<string, TravellerRollModifier['target']> = {
       careerAdvancement: 'advancement',
+      careerCommission: 'commission',
       careerQualification: 'qualification',
       careerSurvival: 'survival',
     }
@@ -2311,6 +2746,29 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     if (key === 'careerAdvancement') previewCareerAdvancement()
   }
 
+  const applyAutomaticCareerQualification = () => {
+    const constraint = automaticCareerEntryConstraint.value
+    if (!constraint || selectedTermPath.value !== 'career' || termRolls.careerQualification) return
+
+    termRolls.careerQualification = {
+      label: 'Qualification',
+      dice: [],
+      dm: 0,
+      total: selectedCareer.value.qualification?.target ?? 0,
+      target: selectedCareer.value.qualification?.target ?? 0,
+      effect: 0,
+      success: true,
+      finalSuccess: true,
+      source: 'rolled',
+      notes: constraint.label,
+    }
+    recordEventOutcome(constraint.source, { type: 'automatic_career_entry' }, constraint.label)
+  }
+
+  watch([currentTermNumber, selectedTermPath, selectedCareerId, automaticCareerEntryConstraint], () => {
+    applyAutomaticCareerQualification()
+  }, { immediate: true })
+
   const rollCheck = (key: string, label: string, check: CheckRule) => {
     if (check.automatic) {
       makeRollResult(key, label, check, [], 'rolled')
@@ -2335,6 +2793,73 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
 
     if (key === 'educationEntry') handleEducationEntryOutcome()
     if (key === 'careerAdvancement') previewCareerAdvancement()
+  }
+
+  const setAutomaticCareerFallbackQualification = (source: string, previousCareerName: string) => {
+    resetCareerProgressAfterQualification()
+    termRolls.careerQualification = {
+      label: 'Qualification',
+      dice: [],
+      dm: 0,
+      total: selectedCareer.value.qualification?.target ?? 0,
+      target: selectedCareer.value.qualification?.target ?? 0,
+      effect: 0,
+      success: true,
+      finalSuccess: true,
+      source: 'rolled',
+      notes: `${source} after failed qualification for ${previousCareerName}`,
+    }
+  }
+
+  const chooseDrifterFallback = () => {
+    if (!drifterFallbackAvailable.value) return
+    const previousCareerName = selectedCareer.value.name
+    selectedCareerId.value = 'drifter'
+    selectedAssignmentId.value = careersData.careers.find((career) => career.id === 'drifter')?.assignments[0]?.id ?? selectedAssignmentId.value
+    setAutomaticCareerFallbackQualification('Drifter fallback', previousCareerName)
+    recordEventOutcome('Qualification', { type: 'next_career', careerId: 'drifter' }, `Entered Drifter after failing qualification for ${previousCareerName}`, 'automatic')
+  }
+
+  const applyDraftFallback = (die: number, source: 'rolled' | 'manual') => {
+    if (!draftFallbackAvailable.value || Number.isNaN(die) || die < 1 || die > 6) return
+    const draftResult = draftTable.value.find((row) => row.roll === die)
+    if (!draftResult) return
+
+    const previousCareerName = selectedCareer.value.name
+    draftUsed.value = true
+    draftRoll.value = {
+      dice: die,
+      careerId: draftResult.careerId,
+      assignmentId: draftResult.assignment === 'any' ? undefined : draftResult.assignment,
+      source,
+    }
+    selectedCareerId.value = draftResult.careerId
+    if (draftResult.assignment && draftResult.assignment !== 'any') selectedAssignmentId.value = draftResult.assignment
+    else selectedAssignmentId.value = careersData.careers.find((career) => career.id === draftResult.careerId)?.assignments[0]?.id ?? selectedAssignmentId.value
+    setAutomaticCareerFallbackQualification('Draft', previousCareerName)
+    termRolls.draft = {
+      label: 'Draft',
+      dice: [die],
+      dm: 0,
+      total: die,
+      target: 0,
+      effect: 0,
+      success: true,
+      finalSuccess: true,
+      source,
+      notes: `Drafted into ${selectedCareer.value.name}`,
+    }
+    recordEventOutcome('Draft', { type: 'draft_assignment', careerId: draftResult.careerId, assignmentId: draftResult.assignment }, `Drafted into ${selectedCareer.value.name}`, 'automatic')
+  }
+
+  const rollDraftFallback = () => {
+    applyDraftFallback(Math.ceil(Math.random() * 6), 'rolled')
+  }
+
+  const enterManualDraftFallback = () => {
+    const manualTotal = manualRollTotals.draft
+    if (manualTotal === null || Number.isNaN(manualTotal)) return
+    applyDraftFallback(manualTotal, 'manual')
   }
 
   const rollSummary = (roll: RollResult) => {
@@ -2378,14 +2903,21 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     recordEventOutcome(source, { type: 'parole_threshold_change', amount }, `Parole Threshold ${amount >= 0 ? '+' : ''}${amount} = ${prisonerParoleThreshold.value}`, 'automatic')
   }
 
-  const makeCareerSkillRoll = (die: number, source: 'rolled' | 'manual') => {
-    const result = selectedCareerSkillEntries.value[die - 1]
+  const makeCareerSkillRoll = (
+    die: number,
+    source: 'rolled' | 'manual',
+    key = 'careerSkill',
+    tableId = selectedCareerSkillTableId.value,
+    entries = selectedCareerSkillEntries.value,
+    trainingSource = 'Career Training',
+  ) => {
+    const result = entries[die - 1]
     if (!result) return
 
     pendingSkillChoice.value = null
-    careerSkillResult.value = result
-    termRolls.careerSkill = {
-      label: `${skillTableLabel(selectedCareerSkillTableId.value)} Skill`,
+    if (key === 'careerSkill') careerSkillResult.value = result
+    termRolls[key] = {
+      label: `${skillTableLabel(tableId)} Skill`,
       dice: [die],
       dm: 0,
       total: die,
@@ -2396,7 +2928,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
       source,
       notes: result,
     }
-    applyTrainingResult(result, 'Career Training')
+    applyTrainingResult(result, trainingSource)
   }
 
   const rollCareerSkillTable = () => {
@@ -2408,6 +2940,31 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     if (manualTotal === null || Number.isNaN(manualTotal)) return
     if (manualTotal < 1 || manualTotal > 6) return
     makeCareerSkillRoll(manualTotal, 'manual')
+  }
+
+  const rollAdvancementSkillTable = () => {
+    makeCareerSkillRoll(
+      Math.ceil(Math.random() * 6),
+      'rolled',
+      'careerAdvancementSkill',
+      selectedAdvancementSkillTableId.value,
+      selectedAdvancementSkillEntries.value,
+      'Advancement Training',
+    )
+  }
+
+  const enterManualAdvancementSkillTable = () => {
+    const manualTotal = manualRollTotals.careerAdvancementSkill
+    if (manualTotal === null || Number.isNaN(manualTotal)) return
+    if (manualTotal < 1 || manualTotal > 6) return
+    makeCareerSkillRoll(
+      manualTotal,
+      'manual',
+      'careerAdvancementSkill',
+      selectedAdvancementSkillTableId.value,
+      selectedAdvancementSkillEntries.value,
+      'Advancement Training',
+    )
   }
 
   const applyCareerTableEffects = (event: TravellerEvent, sourcePrefix: string) => {
@@ -3059,6 +3616,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     careerMishapExpanded.value = false
     basicTrainingApplied.value = false
     pendingBasicTrainingChoices.value = []
+    draftRoll.value = null
   }
 
   const agingEffect = computed(() => {
@@ -3173,7 +3731,11 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     if (selectedCareerId.value === 'prisoner') return Boolean(termRolls.careerAdvancement)
     if (!termRolls.careerSurvival.finalSuccess) return true
     if (!termRolls.careerEvent) return false
-    return Boolean(termRolls.careerAdvancement)
+    if (automaticCommissionConstraint.value) return true
+    if (termRolls.careerCommission?.finalSuccess) return true
+    if (!termRolls.careerAdvancement) return false
+    if (termRolls.careerAdvancement.finalSuccess && !termRolls.careerAdvancementSkill) return false
+    return true
   })
   const canAddTermTab = computed(() => {
     if (lifepathComplete.value) return false
@@ -3209,7 +3771,9 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
       details.push(`Path: ${selectedEducationOption.value.name}`)
       if (preCareerEvent.value) details.push(`Event: ${preCareerEvent.value.name}`)
       if (termRolls.educationGraduation) {
-        details.push(termRolls.educationGraduation.finalSuccess ? 'Graduated successfully' : 'Did not graduate')
+        details.push(termRolls.educationGraduation.finalSuccess
+          ? educationGraduationHonours.value ? 'Graduated with honours' : 'Graduated successfully'
+          : 'Did not graduate')
       }
       if (educationSkillsApplied.value) details.push('Education skills applied')
       return details
@@ -3218,17 +3782,27 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     details.push(`Career: ${selectedCareer.value.name} - ${selectedAssignment.value.name}`)
     if (termRolls.careerQualification) {
       details.push(`Qualification: ${termRolls.careerQualification.finalSuccess ? 'qualified' : 'failed'}`)
+      if (termRolls.careerQualification.notes) details.push(termRolls.careerQualification.notes)
     }
+    if (termRolls.draft) details.push(`Draft result: ${termRolls.draft.notes}`)
     if (careerSkillResult.value) details.push(`Skill training: ${careerSkillResult.value}`)
     if (termRolls.careerSurvival) {
       details.push(`Survival: ${termRolls.careerSurvival.finalSuccess ? 'survived' : 'mishap'}`)
     }
     if (careerMishap.value) details.push(`Mishap: ${careerMishap.value.name}`)
     if (careerEvent.value) details.push(`Event: ${careerEvent.value.name}`)
+    if (automaticCommissionConstraint.value) details.push('Commissioned automatically')
+    if (termRolls.careerCommission) {
+      details.push(termRolls.careerCommission.finalSuccess ? 'Commissioned as officer rank 1' : 'Commission failed')
+    }
     if (termRolls.careerAdvancement) {
       details.push(advancement?.success
         ? `Advanced to ${advancement?.newTitle ?? 'next rank'}`
         : 'No advancement')
+      const advancementDiceTotal = termRolls.careerAdvancement.dice.reduce((sum, value) => sum + value, 0)
+      const termsSpentIncludingCurrent = careerTermsCompleted.value + 1
+      if (advancementDiceTotal === 12) details.push('Natural 12: must continue this career')
+      else if (termRolls.careerAdvancement.total <= termsSpentIncludingCurrent) details.push('Advancement total means this career cannot continue next term')
     }
     if (advancement?.bonus) details.push(`Rank bonus: ${advancement.bonus}`)
     if (selectedCareerId.value === 'prisoner' && prisonerParoleThreshold.value !== null) {
@@ -3238,31 +3812,103 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     return details
   }
 
+  const nextTermConstraintDetails = () => {
+    return careerConstraints.value
+      .filter((constraint) => !constraint.used && constraint.appliesTermNumber === currentTermNumber.value + 1)
+      .map((constraint) => {
+        if (constraint.effectType === 'forced_out') return `Next term: forced out of ${selectedCareer.value.name}`
+        if (constraint.effectType === 'cannot_continue_career') return `Next term: cannot continue ${selectedCareer.value.name}`
+        if (constraint.effectType === 'natural_12_continue') return `Next term: must continue ${selectedCareer.value.name}`
+        if (constraint.effectType === 'automatic_career_entry') return `Next term: ${constraint.label}`
+        if (constraint.effectType === 'automatic_commission') return `Next term: ${constraint.label}`
+        if (constraint.effectType === 'next_career' && constraint.careerId) return `Next term: ${constraint.label}`
+        if (constraint.effectType === 'draft_next_term') return 'Next term: must roll for the Draft'
+        return `Next term: ${constraint.label}`
+      })
+  }
+
+  const currentTermConstraintExists = (effectType: string, careerId = selectedCareerId.value) => {
+    return careerConstraints.value.some((constraint) => {
+      return constraint.appliesTermNumber === currentTermNumber.value + 1
+        && constraint.effectType === effectType
+        && (!constraint.careerId || constraint.careerId === careerId)
+    })
+  }
+
+  const applyGenericMishapEjection = () => {
+    if (selectedTermPath.value !== 'career') return
+    if (selectedCareerId.value === 'prisoner') return
+    if (termRolls.careerSurvival?.finalSuccess !== false) return
+    if (currentTermConstraintExists('not_forced_out')) return
+    if (currentTermConstraintExists('forced_out')) return
+
+    careerConstraints.value = [
+      ...careerConstraints.value,
+      {
+        id: makeEventOutcomeId('career-constraint'),
+        source: 'Mishap',
+        label: `Forced out of ${selectedCareer.value.name} after mishap`,
+        effectType: 'forced_out',
+        appliesTermNumber: currentTermNumber.value + 1,
+        careerId: selectedCareerId.value,
+        forcedOut: true,
+      },
+    ]
+  }
+
+  const applyNaturalTwelveContinuation = () => {
+    const roll = termRolls.careerAdvancement
+    if (selectedTermPath.value !== 'career' || !roll) return
+    const diceTotal = roll.dice.reduce((sum, value) => sum + value, 0)
+    if (diceTotal !== 12 || currentTermConstraintExists('natural_12_continue')) return
+
+    careerConstraints.value = [
+      ...careerConstraints.value,
+      {
+        id: makeEventOutcomeId('career-constraint'),
+        source: 'Advancement',
+        label: `Natural 12: must continue ${selectedCareer.value.name}`,
+        effectType: 'natural_12_continue',
+        appliesTermNumber: currentTermNumber.value + 1,
+        careerId: selectedCareerId.value,
+        assignmentId: selectedAssignmentId.value,
+      },
+    ]
+  }
+
+  const applyAdvancementContinuationFailure = () => {
+    const roll = termRolls.careerAdvancement
+    if (selectedTermPath.value !== 'career' || !roll) return
+    if (selectedCareerId.value === 'prisoner') return
+    const diceTotal = roll.dice.reduce((sum, value) => sum + value, 0)
+    if (diceTotal === 12) return
+    const termsSpentIncludingCurrent = careerTermsCompleted.value + 1
+    if (roll.total > termsSpentIncludingCurrent || currentTermConstraintExists('cannot_continue_career')) return
+
+    careerConstraints.value = [
+      ...careerConstraints.value,
+      {
+        id: makeEventOutcomeId('career-constraint'),
+        source: 'Advancement',
+        label: `Advancement total ${roll.total} <= ${termsSpentIncludingCurrent} terms: cannot continue ${selectedCareer.value.name}`,
+        effectType: 'cannot_continue_career',
+        appliesTermNumber: currentTermNumber.value + 1,
+        careerId: selectedCareerId.value,
+      },
+    ]
+  }
+
   const completeCurrentTerm = () => {
     if (!canCompleteTerm.value) return
 
     const rolls = Object.values(termRolls).filter((roll): roll is RollResult => Boolean(roll))
+    if (selectedTermPath.value === 'education') applyEducationGraduationBenefits()
+    if (selectedTermPath.value === 'career' && automaticCommissionConstraint.value) applyCareerCommission(automaticCommissionConstraint.value.label)
+    if (selectedTermPath.value === 'career' && termRolls.careerCommission?.finalSuccess) applyCareerCommission('Commission Roll')
+    applyGenericMishapEjection()
+    applyNaturalTwelveContinuation()
+    applyAdvancementContinuationFailure()
     const advancement = applyCareerAdvancement()
-    const summary = selectedTermPath.value === 'education'
-      ? `${selectedEducationOption.value.name}${termRolls.educationGraduation?.finalSuccess ? ' graduate' : ' incomplete'}`
-      : `${selectedCareer.value.name} - ${selectedAssignment.value.name}${termRolls.careerSurvival?.finalSuccess ? '' : ' mishap pending'}`
-    const details = buildTermHistoryDetails(advancement)
-
-    termHistory.value = [
-      ...termHistory.value,
-      {
-        termNumber: currentTermNumber.value,
-        path: selectedTermPath.value,
-        careerId: selectedTermPath.value === 'career' ? selectedCareerId.value : undefined,
-        assignmentId: selectedTermPath.value === 'career' ? selectedAssignmentId.value : undefined,
-        educationId: selectedTermPath.value === 'education' ? selectedEducationId.value : undefined,
-        startAge: currentAge.value,
-        endAge: endOfTermAge.value,
-        summary,
-        details,
-        rolls,
-      },
-    ]
 
     if (selectedTermPath.value === 'career') {
       const lostPrisonerBenefits = selectedCareerId.value === 'prisoner' && prisonerBenefitRollsLost.value
@@ -3310,9 +3956,33 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
       }
     }
 
+    const summary = selectedTermPath.value === 'education'
+      ? `${selectedEducationOption.value.name}${termRolls.educationGraduation?.finalSuccess ? educationGraduationHonours.value ? ' honours graduate' : ' graduate' : ' incomplete'}`
+      : `${selectedCareer.value.name} - ${selectedAssignment.value.name}${termRolls.careerSurvival?.finalSuccess ? '' : ' mishap'}`
+    const details = [
+      ...buildTermHistoryDetails(advancement),
+      ...nextTermConstraintDetails(),
+    ]
+
+    termHistory.value = [
+      ...termHistory.value,
+      {
+        termNumber: currentTermNumber.value,
+        path: selectedTermPath.value,
+        careerId: selectedTermPath.value === 'career' ? selectedCareerId.value : undefined,
+        assignmentId: selectedTermPath.value === 'career' ? selectedAssignmentId.value : undefined,
+        educationId: selectedTermPath.value === 'education' ? selectedEducationId.value : undefined,
+        startAge: currentAge.value,
+        endAge: endOfTermAge.value,
+        summary,
+        details,
+        rolls,
+      },
+    ]
+
     careerConstraints.value = careerConstraints.value.map((constraint) => {
       if (constraint.used || constraint.appliesTermNumber > currentTermNumber.value) return constraint
-      if (constraint.effectType !== 'next_career' && constraint.effectType !== 'draft_assignment' && constraint.effectType !== 'draft_next_term') return constraint
+      if (constraint.effectType !== 'next_career' && constraint.effectType !== 'draft_assignment' && constraint.effectType !== 'draft_next_term' && constraint.effectType !== 'automatic_career_entry' && constraint.effectType !== 'automatic_commission' && constraint.effectType !== 'natural_12_continue' && constraint.effectType !== 'cannot_continue_career') return constraint
       return { ...constraint, used: true }
     })
 
@@ -3538,10 +4208,16 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     if (effect.type === 'assignment_skill_check') return `${selectedAssignment.value.name} skill check ${effect.target ?? 8}+`
     if (effect.type === 'check') {
       if (effect.check?.characteristic) return `${effect.check.characteristic.toUpperCase()} ${effect.check.target}+`
-      if (effect.check?.skill) return `${safeSkillOptionLabel(effect.check.skill)} ${effect.check.target ?? 8}+`
+      if (effect.check?.skill) {
+        const characteristic = defaultSkillCharacteristic(effect.check.skill)
+        return `${safeSkillOptionLabel(effect.check.skill)}${characteristic ? ` + ${characteristic.toUpperCase()}` : ''} ${effect.check.target ?? 8}+`
+      }
       return `2D ${effect.check?.target ?? effect.target ?? 8}+`
     }
-    if (effect.type === 'check_any') return `Check ${effect.checks?.map((check: Record<string, any>) => `${safeSkillOptionLabel(check.skill ?? check.characteristic)} ${check.target}+`).join(' or ')}`
+    if (effect.type === 'check_any') return `Check ${effect.checks?.map((check: Record<string, any>) => {
+      const characteristic = check.skill ? defaultSkillCharacteristic(check.skill) : null
+      return `${safeSkillOptionLabel(check.skill ?? check.characteristic)}${characteristic ? ` + ${characteristic.toUpperCase()}` : ''} ${check.target}+`
+    }).join(' or ')}`
     if (effect.type === 'choose_skill_increase') return effect.skills
       ? `Choose skill increase: ${effect.skills.map((skill: string) => skillOptionLabel(skill)).join(', ')}`
       : 'Choose any skill to increase'
@@ -3605,6 +4281,71 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     }
   }))
 
+  const characterProfile = computed<PlayableTravellerProfile>(() => ({
+    name: characterName.value.trim() || 'Unnamed Traveller',
+    age: currentAge.value,
+    lifepathComplete: lifepathComplete.value,
+    characteristics: characteristicRows.value.map((characteristic) => ({ ...characteristic })),
+    characteristicAdjustments: { ...characteristicAdjustments },
+    backgroundSkills: [...selectedBackgroundSkills.value],
+    skills: currentTravellerSkills.value.map((skill) => ({
+      ...skill,
+      sources: [...skill.sources],
+    })),
+    ranks: careerRanks.value.map((rank) => ({ ...rank })),
+    terms: termHistory.value.map((term) => ({
+      ...term,
+      details: [...term.details],
+      rolls: term.rolls.map((roll) => ({ ...roll, dice: [...roll.dice] })),
+    })),
+    associates: associates.value.map((associate) => ({
+      ...associate,
+      tags: associate.tags ? [...associate.tags] : undefined,
+    })),
+    narrativeEvents: narrativeEvents.value.map((event) => ({ ...event })),
+    psionics: {
+      permissionSources: [...psionicsPermissionSources.value],
+      psiScore: psiScore.value,
+      psiDm: psiDm.value,
+      tested: psiTested.value,
+      talents: learnedPsionicTalents.value.map((talent) => ({ ...talent })),
+      talentAttempts: psionicTalentAttempts.value.map((attempt) => ({
+        ...attempt,
+        dice: [...attempt.dice],
+      })),
+      trainingCost: psionicsTrainingCost.value,
+    },
+    benefits: {
+      earnedRolls: totalBenefitRollsEarned.value,
+      adjustments: totalBenefitRollAdjustments.value,
+      availableRolls: totalAvailableBenefitRolls.value,
+      spentRolls: spentBenefitRolls.value,
+      remainingRolls: remainingBenefitRolls.value,
+      cashRollsUsed: cashRollsUsed.value,
+      cashRollLimit,
+      personal: [...personalBenefits.value],
+      musteringOut: musteringOutResults.value.map((result) => ({
+        ...result,
+        dice: [...result.dice],
+      })),
+    },
+    finances: {
+      credits: startingCredits.value,
+      medicalDebt: medicalDebt.value,
+      psionicsTrainingDebt: psionicsTrainingCost.value,
+      totalDebt: totalDebt.value,
+    },
+    logs: {
+      events: eventOutcomeLog.value.map((entry) => ({ ...entry })),
+      constraints: careerConstraints.value.map((constraint) => ({ ...constraint })),
+      medicalCare: medicalCareLog.value.map((entry) => ({ ...entry })),
+    },
+    draft: {
+      used: draftUsed.value,
+      lastRoll: draftRoll.value ? { ...draftRoll.value } : null,
+    },
+  }))
+
   return {
     careersData,
     characteristicOrder,
@@ -3621,10 +4362,13 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     selectedCareerId,
     selectedAssignmentId,
     selectedCareerSkillTableId,
+    selectedAdvancementSkillTableId,
     hasRolledCharacteristics,
     showRerollConfirm,
     currentTermNumber,
     activeCreatorTab,
+    draftUsed,
+    draftRoll,
     gmOverrideMenuOpen,
     gmOverrideOptions,
     lifepathComplete,
@@ -3638,6 +4382,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     pendingEducationSkillChoices,
     educationEventExpanded,
     basicTrainingApplied,
+    basicTrainingCareerIds,
     pendingBasicTrainingChoices,
     careerEventExpanded,
     careerMishapExpanded,
@@ -3729,6 +4474,11 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     careerOptions,
     careerConstraintMessages,
     careerPathLocked,
+    careerQualificationFailed,
+    draftFallbackAvailable,
+    drifterFallbackAvailable,
+    canMusterOut,
+    automaticCareerEntryConstraint,
     currentCareerTableData,
     previousCareerCount,
     currentCareerQualificationDm,
@@ -3741,8 +4491,17 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     availableCareerSkillTables,
     selectedCareerSkillTable,
     selectedCareerSkillEntries,
+    selectedAdvancementSkillTable,
+    selectedAdvancementSkillEntries,
     careerTermsCompleted,
+    selectedCareerIsMilitary,
+    currentCareerIsOfficer,
+    selectedCareerCommissionCheck,
+    careerCommissionAvailable,
+    automaticCommissionConstraint,
+    educationGraduationHonours,
     basicTrainingRequired,
+    basicTrainingAvailable,
     basicTrainingTableId,
     basicTrainingEntries,
     basicTrainingLabel,
@@ -3756,6 +4515,9 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     skillName,
     slugifySkill,
     skillFromLabel,
+    skillLevel,
+    skillCheckDm,
+    defaultSkillCharacteristic,
     skillOptionLabel,
     safeSkillOptionLabel,
     addSkillSource,
@@ -3783,6 +4545,9 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     rollCheck,
     enterManualCheck,
     toggleRollOverride,
+    chooseDrifterFallback,
+    rollDraftFallback,
+    enterManualDraftFallback,
     rollSummary,
     dismissAdvancementResult,
     rollPrisonerParoleThreshold,
@@ -3790,6 +4555,8 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     makeCareerSkillRoll,
     rollCareerSkillTable,
     enterManualCareerSkillTable,
+    rollAdvancementSkillTable,
+    enterManualAdvancementSkillTable,
     applyEventEffect,
     applyTravellerEventEffects,
     applyCareerTableEffects,
@@ -3852,5 +4619,6 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     preCareerEventEffectLabel,
     tableEffectLabel,
     characteristicRows,
+    characterProfile,
   }
 })

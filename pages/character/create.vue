@@ -25,12 +25,17 @@ const {
   rollCheck,
   enterManualCheck,
   toggleRollOverride,
+  chooseDrifterFallback,
+  rollDraftFallback,
+  enterManualDraftFallback,
   rollSummary,
   dismissAdvancementResult,
   rollPrisonerParoleThreshold,
   enterManualPrisonerParoleThreshold,
   rollCareerSkillTable,
   enterManualCareerSkillTable,
+  rollAdvancementSkillTable,
+  enterManualAdvancementSkillTable,
   rollCareerEvent,
   enterManualCareerEvent,
   rollCareerMishap,
@@ -50,6 +55,7 @@ const {
   selectedCareerId,
   selectedAssignmentId,
   selectedCareerSkillTableId,
+  selectedAdvancementSkillTableId,
   gmManualCheckRollEntryEnabled,
   gmManualTableRollEntryEnabled,
   gmManualAgingRollEntryEnabled,
@@ -86,6 +92,7 @@ const {
   educationOptions,
   selectedEducation,
   educationSkillOptions,
+  educationGraduationHonours,
   selectedEducationEntry,
   preCareerEvent,
   militaryAcademyServiceSkills,
@@ -94,12 +101,23 @@ const {
   careerOptions,
   careerConstraintMessages,
   careerPathLocked,
+  draftUsed,
+  draftRoll,
+  draftFallbackAvailable,
+  drifterFallbackAvailable,
+  automaticCareerEntryConstraint,
+  selectedCareerCommissionCheck,
+  careerCommissionAvailable,
+  automaticCommissionConstraint,
   currentCareerQualificationDm,
   careerEvent,
   careerMishap,
   availableCareerSkillTables,
   selectedCareerSkillEntries,
+  careerTermsCompleted,
+  selectedAdvancementSkillEntries,
   basicTrainingRequired,
+  basicTrainingAvailable,
   basicTrainingEntries,
   basicTrainingLabel,
   agingEffect,
@@ -257,7 +275,7 @@ const {
             <div class="mt-5 grid gap-3 sm:grid-cols-3">
               <div class="rounded-md bg-stone-50 p-4">
                 <p class="text-xs font-semibold uppercase tracking-wide text-zinc-500">Qualification</p>
-                <p class="mt-2 text-lg font-semibold">{{ checkLabel(selectedCareer.qualification) }}</p>
+                <p class="mt-2 text-lg font-semibold">{{ automaticCareerEntryConstraint ? 'Automatic' : checkLabel(selectedCareer.qualification) }}</p>
                 <p v-if="currentCareerQualificationDm" class="mt-1 text-xs text-zinc-500">
                   Career DM {{ formatDm(currentCareerQualificationDm) }}
                 </p>
@@ -277,16 +295,21 @@ const {
                 <div class="flex flex-wrap items-center justify-between gap-3">
                   <div>
                     <p class="text-sm font-semibold">Qualification Roll</p>
-                    <p class="text-sm text-zinc-600">{{ checkLabel(selectedCareer.qualification) }}</p>
+                    <p class="text-sm text-zinc-600">{{ automaticCareerEntryConstraint ? automaticCareerEntryConstraint.label : checkLabel(selectedCareer.qualification) }}</p>
                     <p v-if="currentCareerQualificationDm" class="text-xs text-zinc-500">
                       Previous careers modifier {{ formatDm(currentCareerQualificationDm) }}
                     </p>
                   </div>
-                  <button class="h-10 rounded-md bg-zinc-950 px-4 text-sm font-semibold text-white hover:bg-zinc-800" type="button" @click="rollCheck('careerQualification', 'Qualification', selectedCareer.qualification)">
+                  <button
+                    v-if="!automaticCareerEntryConstraint"
+                    class="h-10 rounded-md bg-zinc-950 px-4 text-sm font-semibold text-white hover:bg-zinc-800"
+                    type="button"
+                    @click="rollCheck('careerQualification', 'Qualification', selectedCareer.qualification)"
+                  >
                     Roll 2D
                   </button>
                 </div>
-                <div v-if="gmManualCheckRollEntryEnabled" class="mt-3 flex flex-wrap gap-2">
+                <div v-if="gmManualCheckRollEntryEnabled && !automaticCareerEntryConstraint" class="mt-3 flex flex-wrap gap-2">
                   <input v-model.number="manualRollTotals.careerQualification" class="h-10 w-28 rounded-md border border-zinc-300 px-3 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200" placeholder="2D total" type="number">
                   <button class="h-10 rounded-md border border-zinc-300 px-3 text-sm font-semibold text-zinc-700 hover:border-amber-600" type="button" @click="enterManualCheck('careerQualification', 'Qualification', selectedCareer.qualification)">
                     Manual
@@ -298,6 +321,51 @@ const {
                   <button v-if="gmOutcomeOverridesEnabled" class="mt-2 text-xs font-semibold text-amber-700 hover:text-amber-900" type="button" @click="toggleRollOverride('careerQualification')">
                     {{ termRolls.careerQualification.overridden ? 'Remove override' : 'Override outcome' }}
                   </button>
+                </div>
+                <div v-if="drifterFallbackAvailable" class="mt-3 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950">
+                  <p class="font-semibold">Qualification failed</p>
+                  <p class="mt-1">
+                    Use the Draft if available, or enter the Drifter career.
+                  </p>
+                  <div v-if="draftFallbackAvailable" class="mt-3 flex flex-wrap items-center gap-2">
+                    <button
+                      class="h-10 rounded-md bg-zinc-950 px-4 text-sm font-semibold text-white hover:bg-zinc-800"
+                      type="button"
+                      @click="rollDraftFallback"
+                    >
+                      Roll Draft
+                    </button>
+                    <template v-if="gmManualTableRollEntryEnabled">
+                      <input
+                        v-model.number="manualRollTotals.draft"
+                        class="h-10 w-24 rounded-md border border-amber-300 bg-white px-3 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200"
+                        max="6"
+                        min="1"
+                        placeholder="1D"
+                        type="number"
+                      >
+                      <button
+                        class="h-10 rounded-md border border-amber-300 bg-white px-3 text-sm font-semibold text-amber-900 hover:border-amber-600"
+                        type="button"
+                        @click="enterManualDraftFallback"
+                      >
+                        Manual
+                      </button>
+                    </template>
+                  </div>
+                  <button
+                    class="mt-3 h-10 rounded-md border border-amber-300 bg-white px-4 text-sm font-semibold text-amber-900 hover:border-amber-600"
+                    type="button"
+                    @click="chooseDrifterFallback"
+                  >
+                    Enter Drifter
+                  </button>
+                  <p v-if="draftUsed && !draftFallbackAvailable" class="mt-2 text-xs">
+                    Draft has already been used.
+                  </p>
+                </div>
+                <div v-if="draftRoll && termRolls.draft" class="mt-3 rounded-md bg-stone-50 p-3 text-sm">
+                  <p class="font-semibold">{{ rollSummary(termRolls.draft) }} · {{ termRolls.draft.notes }}</p>
                 </div>
               </div>
 
@@ -341,22 +409,17 @@ const {
                 </div>
               </div>
 
-              <div v-if="termRolls.careerQualification?.finalSuccess" class="rounded-md border border-zinc-200 p-4">
+              <div v-if="basicTrainingAvailable" class="rounded-md border border-zinc-200 p-4">
                 <div class="flex flex-wrap items-start justify-between gap-3">
                   <div>
                     <p class="text-sm font-semibold">Basic Training</p>
                     <p class="text-sm text-zinc-600">
-                      <template v-if="basicTrainingRequired">
-                        First term in {{ selectedCareer.name }}: gain {{ basicTrainingLabel }}.
-                      </template>
-                      <template v-else>
-                        Already completed for {{ selectedCareer.name }}.
-                      </template>
+                      First term in {{ selectedCareer.name }}: gain {{ basicTrainingLabel }}.
                     </p>
                   </div>
                   <button
                     class="h-10 rounded-md bg-zinc-950 px-4 text-sm font-semibold text-white hover:bg-zinc-800 disabled:cursor-not-allowed disabled:bg-zinc-300"
-                    :disabled="!basicTrainingRequired || basicTrainingApplied"
+                    :disabled="basicTrainingApplied"
                     type="button"
                     @click="applyBasicTraining"
                   >
@@ -626,10 +689,49 @@ const {
               </div>
 
               <div
+                v-if="termRolls.careerSurvival?.finalSuccess && termRolls.careerEvent && !pendingEventResolutions.some((resolution) => !resolution.resolved) && selectedCareerCommissionCheck && (careerCommissionAvailable || termRolls.careerCommission || automaticCommissionConstraint)"
+                class="rounded-md border border-zinc-200 p-4"
+              >
+                <div class="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p class="text-sm font-semibold">Commission Roll</p>
+                    <p class="text-sm text-zinc-600">
+                      {{ automaticCommissionConstraint ? automaticCommissionConstraint.label : checkLabel(selectedCareerCommissionCheck) }}
+                    </p>
+                  </div>
+                  <button
+                    v-if="careerCommissionAvailable && !automaticCommissionConstraint"
+                    class="h-10 rounded-md bg-zinc-950 px-4 text-sm font-semibold text-white hover:bg-zinc-800 disabled:cursor-not-allowed disabled:bg-zinc-300"
+                    :disabled="!!termRolls.careerCommission"
+                    type="button"
+                    @click="rollCheck('careerCommission', 'Commission', selectedCareerCommissionCheck)"
+                  >
+                    Roll 2D
+                  </button>
+                </div>
+                <div v-if="gmManualCheckRollEntryEnabled && careerCommissionAvailable && !automaticCommissionConstraint" class="mt-3 flex flex-wrap gap-2">
+                  <input v-model.number="manualRollTotals.careerCommission" class="h-10 w-28 rounded-md border border-zinc-300 px-3 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200" placeholder="2D total" type="number">
+                  <button class="h-10 rounded-md border border-zinc-300 px-3 text-sm font-semibold text-zinc-700 hover:border-amber-600" type="button" @click="enterManualCheck('careerCommission', 'Commission', selectedCareerCommissionCheck)">
+                    Manual
+                  </button>
+                </div>
+                <div v-if="automaticCommissionConstraint" class="mt-3 rounded-md bg-emerald-50 p-3 text-sm text-emerald-950">
+                  <p class="font-semibold">Automatic commission will apply when the term is completed.</p>
+                </div>
+                <div v-if="termRolls.careerCommission" class="mt-3 rounded-md bg-stone-50 p-3 text-sm">
+                  <p class="font-semibold">{{ rollSummary(termRolls.careerCommission) }} · {{ termRolls.careerCommission.finalSuccess ? 'Commissioned' : 'No commission' }}</p>
+                  <p v-if="termRolls.careerCommission.finalSuccess" class="mt-1 text-zinc-600">Commission succeeds into officer rank 1. No advancement roll is made this term.</p>
+                  <button v-if="gmOutcomeOverridesEnabled" class="mt-2 text-xs font-semibold text-amber-700 hover:text-amber-900" type="button" @click="toggleRollOverride('careerCommission')">
+                    {{ termRolls.careerCommission.overridden ? 'Remove override' : 'Override outcome' }}
+                  </button>
+                </div>
+              </div>
+
+              <div
                 v-if="(
                   (termRolls.careerSurvival?.finalSuccess && termRolls.careerEvent)
                   || (selectedCareerId === 'prisoner' && termRolls.careerSurvival && (!termRolls.careerSurvival.finalSuccess ? termRolls.careerMishap : termRolls.careerEvent))
-                ) && !pendingEventResolutions.some((resolution) => !resolution.resolved)"
+                ) && !pendingEventResolutions.some((resolution) => !resolution.resolved) && !termRolls.careerCommission?.finalSuccess && !automaticCommissionConstraint"
                 class="rounded-md border border-zinc-200 p-4"
               >
                 <div class="flex flex-wrap items-center justify-between gap-3">
@@ -653,9 +755,95 @@ const {
                   <p v-if="selectedCareerId === 'prisoner' && prisonerParoleThreshold !== null" class="mt-1 text-zinc-600">
                     {{ termRolls.careerAdvancement.total > prisonerParoleThreshold ? 'Parole threshold exceeded: leave Prisoner after this term.' : 'Parole threshold not exceeded: continue Prisoner next term.' }}
                   </p>
+                  <p v-else-if="termRolls.careerAdvancement.dice.reduce((sum, value) => sum + value, 0) === 12" class="mt-1 text-zinc-600">
+                    Natural 12: this career must continue next term.
+                  </p>
+                  <p v-else-if="termRolls.careerAdvancement.total <= careerTermsCompleted + 1" class="mt-1 text-zinc-600">
+                    Advancement total is equal to or less than terms spent in this career; this career cannot continue next term.
+                  </p>
                   <button v-if="gmOutcomeOverridesEnabled" class="mt-2 text-xs font-semibold text-amber-700 hover:text-amber-900" type="button" @click="toggleRollOverride('careerAdvancement')">
                     {{ termRolls.careerAdvancement.overridden ? 'Remove override' : 'Override outcome' }}
                   </button>
+                </div>
+              </div>
+
+              <div v-if="termRolls.careerAdvancement?.finalSuccess" class="rounded-md border border-zinc-200 p-4">
+                <div class="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <p class="text-sm font-semibold">Advancement Skill Roll</p>
+                    <p class="text-sm text-zinc-600">Successful advancement grants one extra roll on an available skill table.</p>
+                  </div>
+                  <button
+                    class="h-10 rounded-md bg-zinc-950 px-4 text-sm font-semibold text-white hover:bg-zinc-800 disabled:cursor-not-allowed disabled:bg-zinc-300"
+                    :disabled="!!termRolls.careerAdvancementSkill"
+                    type="button"
+                    @click="rollAdvancementSkillTable"
+                  >
+                    Roll 1D
+                  </button>
+                </div>
+
+                <div class="mt-4 grid gap-3 lg:grid-cols-[16rem_1fr]">
+                  <label class="grid h-fit gap-2">
+                    <span class="text-xs font-semibold uppercase tracking-wide text-zinc-500">Skill Table</span>
+                    <select
+                      v-model="selectedAdvancementSkillTableId"
+                      class="h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200"
+                      :disabled="!!termRolls.careerAdvancementSkill"
+                    >
+                      <option v-for="table in availableCareerSkillTables" :key="table.id" :value="table.id">
+                        {{ table.label }}
+                      </option>
+                    </select>
+                  </label>
+
+                  <div class="grid gap-2 sm:grid-cols-2">
+                    <div
+                      v-for="(entry, index) in selectedAdvancementSkillEntries"
+                      :key="`advancement-${selectedAdvancementSkillTableId}-${index}`"
+                      class="flex items-center justify-between gap-3 rounded-md bg-stone-50 px-3 py-2 text-sm"
+                    >
+                      <span class="font-semibold text-zinc-500">{{ index + 1 }}</span>
+                      <span class="text-right text-zinc-800">{{ entry }}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div v-if="gmManualTableRollEntryEnabled" class="mt-3 flex flex-wrap gap-2">
+                  <input
+                    v-model.number="manualRollTotals.careerAdvancementSkill"
+                    class="h-10 w-28 rounded-md border border-zinc-300 px-3 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200"
+                    :disabled="!!termRolls.careerAdvancementSkill"
+                    max="6"
+                    min="1"
+                    placeholder="1D"
+                    type="number"
+                  >
+                  <button
+                    class="h-10 rounded-md border border-zinc-300 px-3 text-sm font-semibold text-zinc-700 hover:border-amber-600 disabled:cursor-not-allowed disabled:text-zinc-400"
+                    :disabled="!!termRolls.careerAdvancementSkill"
+                    type="button"
+                    @click="enterManualAdvancementSkillTable"
+                  >
+                    Manual
+                  </button>
+                </div>
+
+                <div v-if="termRolls.careerAdvancementSkill" class="mt-3 rounded-md bg-stone-50 p-3 text-sm">
+                  <p class="font-semibold">{{ rollSummary(termRolls.careerAdvancementSkill) }} · {{ termRolls.careerAdvancementSkill.notes }}</p>
+                  <p v-if="pendingSkillChoice" class="mt-1 text-zinc-600">{{ pendingSkillChoice.source }}: {{ pendingSkillChoice.label }}</p>
+                  <div v-if="pendingSkillChoice" class="mt-3 flex flex-wrap gap-2">
+                    <button
+                      v-for="choice in pendingSkillChoice.options"
+                      :key="choice"
+                      class="h-9 rounded-md border border-amber-300 bg-white px-3 text-sm font-semibold text-amber-900 hover:border-amber-600"
+                      type="button"
+                      @click="resolvePendingSkillChoice(choice)"
+                    >
+                      {{ skillOptionLabel(choice) }}
+                    </button>
+                  </div>
+                  <p v-else class="mt-1 text-zinc-600">Applied to Current Traveller.</p>
                 </div>
               </div>
             </div>
@@ -896,7 +1084,10 @@ const {
                     </button>
                   </div>
                   <div v-if="termRolls.educationGraduation" class="mt-3 rounded-md bg-stone-50 p-3 text-sm">
-                    <p class="font-semibold">{{ rollSummary(termRolls.educationGraduation) }} · {{ termRolls.educationGraduation.finalSuccess ? 'Graduated' : 'Did not graduate' }}</p>
+                    <p class="font-semibold">
+                      {{ rollSummary(termRolls.educationGraduation) }} ·
+                      {{ termRolls.educationGraduation.finalSuccess ? educationGraduationHonours ? 'Graduated with Honours' : 'Graduated' : 'Did not graduate' }}
+                    </p>
                     <p v-if="termRolls.educationGraduation.notes" class="mt-1 text-zinc-600">{{ termRolls.educationGraduation.notes }}</p>
                     <button v-if="gmOutcomeOverridesEnabled" class="mt-2 text-xs font-semibold text-amber-700 hover:text-amber-900" type="button" @click="toggleRollOverride('educationGraduation')">
                       {{ termRolls.educationGraduation.overridden ? 'Remove override' : 'Override outcome' }}

@@ -9,9 +9,8 @@ const {
 } = characterCreator
 const {
   canCompleteTerm,
-  lifepathComplete,
+  canMusterOut,
   nextTermButtonLabel,
-  termHistory,
 } = storeToRefs(characterCreator)
 </script>
 
@@ -19,7 +18,7 @@ const {
   <div class="mt-5 flex flex-wrap justify-end gap-3 border-t border-zinc-200 pt-5">
     <button
       class="h-10 rounded-md border border-zinc-300 px-4 text-sm font-semibold text-zinc-700 hover:border-zinc-500 disabled:cursor-not-allowed disabled:text-zinc-400"
-      :disabled="termHistory.length === 0 || lifepathComplete"
+      :disabled="!canMusterOut"
       type="button"
       @click="musterOut"
     >

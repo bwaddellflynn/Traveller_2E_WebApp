@@ -317,7 +317,7 @@ const {
           <p class="text-sm font-semibold text-zinc-100">Term {{ term.termNumber }} · Age {{ term.startAge }}-{{ term.endAge }}</p>
           <p class="text-xs text-zinc-400">{{ term.summary }}</p>
           <p v-if="term.details.length" class="mt-1 text-xs text-zinc-300">
-            {{ term.details.slice(0, 2).join(' · ') }}
+            {{ term.details.slice(0, 4).join(' · ') }}
           </p>
         </div>
       </div>
