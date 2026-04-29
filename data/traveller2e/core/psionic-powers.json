@@ -1,0 +1,83 @@
+{
+  "source": {
+    "bookId": "mgt2e-core-2022",
+    "pages": [
+      229,
+      234
+    ]
+  },
+  "usage": {
+    "activation": "Roll the appropriate psionic talent skill plus current PSI DM.",
+    "successCost": "Spend the listed PSI cost on success.",
+    "failureCost": 1,
+    "overflow": "If PSI cost reduces current PSI below 0, apply excess as damage.",
+    "recovery": "Expended PSI points recover at one point per hour."
+  },
+  "rangeBands": [
+    { "id": "personal", "name": "Personal", "distance": "Less than one metre" },
+    { "id": "close", "name": "Close", "distance": "1 to 5 metres" },
+    { "id": "short", "name": "Short", "distance": "6 to 10 metres" },
+    { "id": "medium", "name": "Medium", "distance": "11 to 50 metres" },
+    { "id": "long", "name": "Long", "distance": "51 metres to 250 metres" },
+    { "id": "very-long", "name": "Very Long", "distance": "251 metres to 500 metres" },
+    { "id": "distant", "name": "Distant", "distance": "501 metres to 5 kilometres" },
+    { "id": "very-distant", "name": "Very Distant", "distance": "6 kilometres to 500 kilometres" },
+    { "id": "continental", "name": "Continental", "distance": "501 to 5,000 kilometres" },
+    { "id": "planetary", "name": "Planetary", "distance": "5,001 to 50,000 kilometres" }
+  ],
+  "talents": {
+    "telepathy": {
+      "name": "Telepathy",
+      "powers": [
+        { "id": "life-detection", "name": "Life Detection", "target": 4, "time": "1D x 10 seconds", "reach": "Distant", "psiCost": 1 },
+        { "id": "mind-link", "name": "Mind Link", "target": 4, "time": "1D seconds", "reach": "Distant", "psiCost": 1 },
+        { "id": "telempathy", "name": "Telempathy", "target": 6, "time": "1D x 10 seconds", "reach": "Long", "psiCost": 1 },
+        { "id": "read-surface-thoughts", "name": "Read Surface Thoughts", "target": 8, "time": "1D x 10 seconds", "reach": "Long", "psiCost": 2 },
+        { "id": "send-thoughts", "name": "Send Thoughts", "target": 10, "time": "1D x 10 seconds", "reach": "Distant", "psiCost": 2 },
+        { "id": "suggestion", "name": "Suggestion", "target": 12, "time": "1D x 10 seconds", "reach": "Short", "psiCost": 3 },
+        { "id": "probe", "name": "Probe", "target": 12, "time": "1D minutes", "reach": "Close", "psiCost": 4 },
+        { "id": "assault", "name": "Assault", "target": 14, "time": "1D seconds", "reach": "Short", "psiCost": 8 },
+        { "id": "shield", "name": "Shield", "target": 0, "time": "Always active", "reach": "Personal", "psiCost": 0, "passive": true }
+      ]
+    },
+    "clairvoyance": {
+      "name": "Clairvoyance",
+      "powers": [
+        { "id": "sense", "name": "Sense", "target": 6, "time": "1D x 10 seconds", "reach": "Very Distant", "psiCost": 1 },
+        { "id": "tactical-awareness", "name": "Tactical Awareness", "target": 8, "time": "1D seconds", "reach": "Long", "psiCost": 2 },
+        { "id": "clairvoyance", "name": "Clairvoyance", "target": 8, "time": "1D x 10 seconds", "reach": "Very Distant", "psiCost": 1 },
+        { "id": "clairaudience", "name": "Clairaudience", "target": 8, "time": "1D x 10 seconds", "reach": "Very Distant", "psiCost": 1 },
+        { "id": "clairsentience", "name": "Clairsentience", "target": 10, "time": "1D x 10 seconds", "reach": "Very Distant", "psiCost": 1 }
+      ]
+    },
+    "telekinesis": {
+      "name": "Telekinesis",
+      "powers": [
+        { "id": "telekinesis", "name": "Telekinesis", "target": 8, "time": "1D seconds", "reach": "Short", "psiCost": 1, "variableCostLabel": "1 per 10kg" },
+        { "id": "flight", "name": "Flight", "target": 10, "time": "1D seconds", "reach": "Personal", "psiCost": 5 },
+        { "id": "telekinetic-punch", "name": "Telekinetic Punch", "target": 8, "time": "1D seconds", "reach": "Short", "psiCost": 1 },
+        { "id": "microkinesis", "name": "Microkinesis", "target": 10, "time": "1D x 10 seconds", "reach": "Close", "psiCost": 3 },
+        { "id": "pyrokinesis", "name": "Pyrokinesis", "target": 6, "time": "1D x 10 seconds", "reach": "Short", "psiCost": 3 }
+      ]
+    },
+    "awareness": {
+      "name": "Awareness",
+      "powers": [
+        { "id": "suspended-animation", "name": "Suspended Animation", "target": 8, "time": "1D minutes", "reach": "Personal", "psiCost": 3 },
+        { "id": "enhanced-strength", "name": "Enhanced Strength", "target": 8, "time": "1D seconds", "reach": "Personal", "psiCost": 1, "variableCostLabel": "STR increase" },
+        { "id": "enhanced-endurance", "name": "Enhanced Endurance", "target": 8, "time": "1D seconds", "reach": "Personal", "psiCost": 1, "variableCostLabel": "END increase" },
+        { "id": "fortitude", "name": "Fortitude", "target": 10, "time": "1D seconds", "reach": "Personal", "psiCost": 1, "variableCostLabel": "Armour gained" },
+        { "id": "inspiration", "name": "Inspiration", "target": 8, "time": "1D seconds", "reach": "Personal", "psiCost": 1 },
+        { "id": "regeneration", "name": "Regeneration", "target": 10, "time": "1D x 10 seconds", "reach": "Personal", "psiCost": 1, "variableCostLabel": "Amount healed" }
+      ]
+    },
+    "teleportation": {
+      "name": "Teleportation",
+      "powers": [
+        { "id": "teleportation", "name": "Teleportation", "target": 8, "time": "1D seconds", "reach": "Distant", "psiCost": 2 },
+        { "id": "teleportation-clothing", "name": "Teleportation with Clothing", "target": 10, "time": "1D seconds", "reach": "Distant", "psiCost": 4 },
+        { "id": "teleportation-equipment", "name": "Teleportation with Equipment", "target": 12, "time": "1D seconds", "reach": "Distant", "psiCost": 6 }
+      ]
+    }
+  }
+}

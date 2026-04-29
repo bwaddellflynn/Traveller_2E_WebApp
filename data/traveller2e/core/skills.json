@@ -1,7 +1,11 @@
 {
   "source": {
     "bookId": "mgt2e-core-2022",
-    "pages": [9, 58, 72]
+    "pages": [
+      9,
+      58,
+      72
+    ]
   },
   "rules": {
     "untrainedPenalty": -3,
@@ -35,89 +39,202 @@
     "grantedLevel": 0
   },
   "skills": [
-    { "id": "admin", "name": "Admin" },
-    { "id": "advocate", "name": "Advocate" },
+    {
+      "id": "admin",
+      "name": "Admin"
+    },
+    {
+      "id": "advocate",
+      "name": "Advocate"
+    },
     {
       "id": "animals",
       "name": "Animals",
-      "specialities": ["handling", "training", "veterinary"]
+      "specialities": [
+        "handling",
+        "training",
+        "veterinary"
+      ]
     },
     {
       "id": "art",
       "name": "Art",
-      "specialities": ["performer", "holography", "instrument", "visual-media", "write"]
+      "specialities": [
+        "performer",
+        "holography",
+        "instrument",
+        "visual-media",
+        "write"
+      ]
     },
-    { "id": "astrogation", "name": "Astrogation" },
+    {
+      "id": "astrogation",
+      "name": "Astrogation"
+    },
     {
       "id": "athletics",
       "name": "Athletics",
-      "specialities": ["dexterity", "endurance", "strength"]
+      "specialities": [
+        "dexterity",
+        "endurance",
+        "strength"
+      ]
     },
-    { "id": "broker", "name": "Broker" },
-    { "id": "carouse", "name": "Carouse" },
-    { "id": "deception", "name": "Deception" },
-    { "id": "diplomat", "name": "Diplomat" },
+    {
+      "id": "broker",
+      "name": "Broker"
+    },
+    {
+      "id": "carouse",
+      "name": "Carouse"
+    },
+    {
+      "id": "deception",
+      "name": "Deception"
+    },
+    {
+      "id": "diplomat",
+      "name": "Diplomat"
+    },
     {
       "id": "drive",
       "name": "Drive",
-      "specialities": ["hovercraft", "mole", "track", "walker", "wheel"]
+      "specialities": [
+        "hovercraft",
+        "mole",
+        "track",
+        "walker",
+        "wheel"
+      ]
     },
     {
       "id": "electronics",
       "name": "Electronics",
-      "specialities": ["comms", "computers", "remote-ops", "sensors"]
+      "specialities": [
+        "comms",
+        "computers",
+        "remote-ops",
+        "sensors"
+      ]
     },
     {
       "id": "engineer",
       "name": "Engineer",
-      "specialities": ["j-drive", "life-support", "m-drive", "power"]
+      "specialities": [
+        "j-drive",
+        "life-support",
+        "m-drive",
+        "power"
+      ]
     },
-    { "id": "explosives", "name": "Explosives" },
+    {
+      "id": "explosives",
+      "name": "Explosives"
+    },
     {
       "id": "flyer",
       "name": "Flyer",
-      "specialities": ["airship", "grav", "rotor", "wing"]
+      "specialities": [
+        "airship",
+        "grav",
+        "rotor",
+        "wing"
+      ]
     },
-    { "id": "gambler", "name": "Gambler" },
+    {
+      "id": "gambler",
+      "name": "Gambler"
+    },
     {
       "id": "gun-combat",
       "name": "Gun Combat",
-      "specialities": ["archaic", "energy", "slug"]
+      "specialities": [
+        "archaic",
+        "energy",
+        "slug"
+      ]
     },
     {
       "id": "gunner",
       "name": "Gunner",
-      "specialities": ["capital", "ortillery", "screen", "turret"]
+      "specialities": [
+        "capital",
+        "ortillery",
+        "screen",
+        "turret"
+      ]
     },
     {
       "id": "heavy-weapons",
       "name": "Heavy Weapons",
-      "specialities": ["artillery", "man-portable", "vehicle"]
+      "specialities": [
+        "artillery",
+        "man-portable",
+        "vehicle"
+      ]
     },
-    { "id": "investigate", "name": "Investigate" },
+    {
+      "id": "investigate",
+      "name": "Investigate"
+    },
     {
       "id": "jack-of-all-trades",
       "name": "Jack-of-all-Trades",
       "special": true
     },
-    { "id": "language", "name": "Language", "requiresSpeciality": true },
-    { "id": "leadership", "name": "Leadership" },
-    { "id": "mechanic", "name": "Mechanic" },
-    { "id": "medic", "name": "Medic" },
+    {
+      "id": "language",
+      "name": "Language",
+      "requiresSpeciality": true
+    },
+    {
+      "id": "leadership",
+      "name": "Leadership"
+    },
+    {
+      "id": "mechanic",
+      "name": "Mechanic"
+    },
+    {
+      "id": "medic",
+      "name": "Medic"
+    },
     {
       "id": "melee",
       "name": "Melee",
-      "specialities": ["blade", "bludgeon", "natural", "unarmed"]
+      "specialities": [
+        "blade",
+        "bludgeon",
+        "natural",
+        "unarmed"
+      ]
     },
-    { "id": "navigation", "name": "Navigation" },
-    { "id": "persuade", "name": "Persuade" },
+    {
+      "id": "navigation",
+      "name": "Navigation"
+    },
+    {
+      "id": "persuade",
+      "name": "Persuade"
+    },
     {
       "id": "pilot",
       "name": "Pilot",
-      "specialities": ["small-craft", "spacecraft", "capital-ships"]
+      "specialities": [
+        "small-craft",
+        "spacecraft",
+        "capital-ships"
+      ]
     },
-    { "id": "profession", "name": "Profession", "requiresSpeciality": true },
-    { "id": "recon", "name": "Recon" },
+    {
+      "id": "profession",
+      "name": "Profession",
+      "requiresSpeciality": true
+    },
+    {
+      "id": "recon",
+      "name": "Recon"
+    },
     {
       "id": "science",
       "name": "Science",
@@ -145,17 +262,65 @@
     {
       "id": "seafarer",
       "name": "Seafarer",
-      "specialities": ["ocean-ships", "personal", "sail", "submarine"]
+      "specialities": [
+        "ocean-ships",
+        "personal",
+        "sail",
+        "submarine"
+      ]
     },
-    { "id": "stealth", "name": "Stealth" },
-    { "id": "steward", "name": "Steward" },
-    { "id": "streetwise", "name": "Streetwise" },
-    { "id": "survival", "name": "Survival" },
+    {
+      "id": "stealth",
+      "name": "Stealth"
+    },
+    {
+      "id": "steward",
+      "name": "Steward"
+    },
+    {
+      "id": "streetwise",
+      "name": "Streetwise"
+    },
+    {
+      "id": "survival",
+      "name": "Survival"
+    },
     {
       "id": "tactics",
       "name": "Tactics",
-      "specialities": ["military", "naval"]
+      "specialities": [
+        "military",
+        "naval"
+      ]
     },
-    { "id": "vacc-suit", "name": "Vacc Suit" }
+    {
+      "id": "telepathy",
+      "name": "Telepathy",
+      "psionic": true
+    },
+    {
+      "id": "clairvoyance",
+      "name": "Clairvoyance",
+      "psionic": true
+    },
+    {
+      "id": "telekinesis",
+      "name": "Telekinesis",
+      "psionic": true
+    },
+    {
+      "id": "awareness",
+      "name": "Awareness",
+      "psionic": true
+    },
+    {
+      "id": "teleportation",
+      "name": "Teleportation",
+      "psionic": true
+    },
+    {
+      "id": "vacc-suit",
+      "name": "Vacc Suit"
+    }
   ]
 }

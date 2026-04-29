@@ -36,7 +36,7 @@ type RawEventRow = {
 type CareerEventTableType = 'events' | 'mishaps'
 
 const careerEventTableData = careerEventsData as {
-  common: Record<string, RawEventRow>
+  common: Record<string, RawEventRow | { rows?: RawEventRow[] }>
   careers: Record<string, Record<CareerEventTableType, RawEventRow[]>>
 }
 
@@ -142,7 +142,7 @@ const resolveCareerRow = (row: RawEventRow): RawEventRow => {
   if (scope !== 'common') return row
 
   return {
-    ...(careerEventTableData.common[key] ?? {}),
+    ...((careerEventTableData.common[key] as RawEventRow | undefined) ?? {}),
     roll: row.roll,
   }
 }
@@ -203,6 +203,12 @@ export const getPreCareerSubtableEvent = (tableId: string, roll: number): Travel
   return row ? normalizeEvent(row, 'subtable', tableId) : null
 }
 
+export const getCareerCommonSubtableEvent = (tableId: string, roll: number): TravellerEvent | null => {
+  const table = careerEventTableData.common[tableId] as { rows?: RawEventRow[] } | undefined
+  const row = table?.rows?.find((event) => event.roll === roll)
+  return row ? normalizeEvent(row, 'subtable', tableId) : null
+}
+
 export const getInjuryEvent = (roll: number): TravellerEvent | null => {
   const row = agingAndInjuriesData.injury.table.find((event: { roll: number; id: string; effects?: Record<string, unknown>[] }) => event.roll === roll)
   if (!row) return null
@@ -241,5 +247,5 @@ export const getEventFromTable = (tableId: string, roll: number, careerId?: stri
   if (tableId === 'events' && careerId) return getCareerEvent(careerId, roll)
   if (tableId === 'mishaps' && careerId) return getCareerMishap(careerId, roll)
 
-  return getLifeSubtableEvent(tableId, roll) ?? getPreCareerSubtableEvent(tableId, roll)
+  return getLifeSubtableEvent(tableId, roll) ?? getPreCareerSubtableEvent(tableId, roll) ?? getCareerCommonSubtableEvent(tableId, roll)
 }

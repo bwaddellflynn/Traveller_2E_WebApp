@@ -21,9 +21,14 @@ const {
   termHistory,
   eventOutcomeLog,
   associates,
+  narrativeEvents,
   rollModifiers,
   benefitRollAdjustments,
   benefitRollLedger,
+  psiScore,
+  psiDm,
+  learnedPsionicTalents,
+  psionicsTrainingCost,
   totalBenefitRollsEarned,
   totalBenefitRollAdjustments,
   totalAvailableBenefitRolls,
@@ -44,6 +49,27 @@ const {
         <p class="mt-1 text-xl font-semibold">{{ item.value }}</p>
         <p class="text-xs text-zinc-400">DM {{ formatDm(item.dm) }}</p>
       </div>
+    </div>
+
+    <div v-if="psiScore !== null || learnedPsionicTalents.length" class="mt-5 border-t border-white/15 pt-5">
+      <div class="flex items-center justify-between gap-3">
+        <p class="text-sm font-semibold text-zinc-200">Psionics</p>
+        <span v-if="psiScore !== null" class="rounded-md bg-white/10 px-2 py-1 text-xs text-zinc-300">
+          PSI {{ psiScore }} · DM {{ formatDm(psiDm) }}
+        </span>
+      </div>
+      <div v-if="learnedPsionicTalents.length" class="mt-3 flex flex-wrap gap-2">
+        <span
+          v-for="talent in learnedPsionicTalents"
+          :key="talent.id"
+          class="rounded-md bg-white/10 px-3 py-2 text-sm font-semibold text-amber-300"
+        >
+          {{ talent.name }} 0
+        </span>
+      </div>
+      <p v-if="psionicsTrainingCost" class="mt-2 text-xs text-zinc-400">
+        Testing/training cost: {{ psionicsTrainingCost.toLocaleString() }} Cr
+      </p>
     </div>
 
     <div v-if="associates.length" class="mt-5 border-t border-white/15 pt-5">
@@ -109,7 +135,7 @@ const {
     </div>
 
     <div
-      v-if="eventOutcomeLog.length || associates.length || rollModifiers.length || benefitRollAdjustments.length || careerConstraints.length"
+      v-if="eventOutcomeLog.length || associates.length || narrativeEvents.length || rollModifiers.length || benefitRollAdjustments.length || careerConstraints.length"
       class="mt-5 border-t border-white/15 pt-5"
     >
       <div class="flex items-center justify-between gap-3">
@@ -126,6 +152,26 @@ const {
         >
           <p class="text-sm font-semibold text-zinc-100">{{ outcome.label }}</p>
           <p class="text-xs text-zinc-400">{{ outcome.source }} · {{ outcome.status }}</p>
+        </div>
+      </div>
+    </div>
+
+    <div v-if="narrativeEvents.length" class="mt-5 border-t border-white/15 pt-5">
+      <div class="flex items-center justify-between gap-3">
+        <p class="text-sm font-semibold text-zinc-200">Narrative Events</p>
+        <span class="rounded-md bg-white/10 px-2 py-1 text-xs text-zinc-300">
+          {{ narrativeEvents.length }}
+        </span>
+      </div>
+      <div class="mt-3 grid gap-2">
+        <div
+          v-for="event in narrativeEvents.slice(-3)"
+          :key="event.id"
+          class="rounded-md bg-white/10 px-3 py-2"
+        >
+          <p class="text-sm font-semibold text-zinc-100">{{ event.title }}</p>
+          <p v-if="event.notes" class="mt-1 text-xs text-zinc-400">{{ event.notes }}</p>
+          <p class="mt-1 text-xs text-zinc-500">{{ event.source }}</p>
         </div>
       </div>
     </div>

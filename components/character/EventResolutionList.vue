@@ -25,6 +25,7 @@ const {
   enterManualEventResolutionTable,
   eventResolutionSelectedLabel,
   resolveEventAssociate,
+  resolveEventNarrative,
   associateTypeLabel,
   skillOptionLabel,
 } = characterCreator
@@ -43,6 +44,7 @@ const visibleEventResolutions = computed(() => {
 const manualTableRolls = reactive<Record<string, number | null>>({})
 const manualCheckRolls = reactive<Record<string, number | null>>({})
 const benefitWagerForms = reactive<Record<string, { skill: string; wagered: number | null; total: number | null }>>({})
+const narrativeNotes = reactive<Record<string, string>>({})
 const manualCharacteristicAmounts = reactive<Record<string, number | null>>({})
 const medicalRestorePoints = reactive<Record<string, number | null>>({})
 const associateForms = reactive<Record<string, { type: string; name: string; notes: string }>>({})
@@ -153,6 +155,21 @@ const benefitWagerForm = (resolution: { id: string; wagerChecks?: Array<{ skill:
       >
         Mark resolved
       </button>
+
+      <div v-if="resolution.kind === 'narrative' && !resolution.resolved" class="mt-3 grid gap-2">
+        <textarea
+          v-model="narrativeNotes[resolution.id]"
+          class="min-h-20 rounded-md border border-amber-300 bg-white px-3 py-2 text-sm text-amber-950 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200"
+          placeholder="Short note"
+        />
+        <button
+          class="h-9 w-fit rounded-md border border-amber-300 bg-white px-3 text-sm font-semibold text-amber-900 hover:border-amber-600"
+          type="button"
+          @click="resolveEventNarrative(resolution.id, narrativeNotes[resolution.id] ?? '')"
+        >
+          Record
+        </button>
+      </div>
 
       <div v-if="resolution.kind === 'medical_care' && !resolution.resolved" class="mt-3 grid gap-2">
         <p class="text-xs">

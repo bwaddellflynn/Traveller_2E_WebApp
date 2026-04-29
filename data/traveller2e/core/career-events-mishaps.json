@@ -50,6 +50,70 @@
         }
       ],
       "text": "Injured. Roll on the Injury table (see page 49)."
+    },
+    "psion-anti-psi-attack": {
+      "tableId": "psion-anti-psi-attack",
+      "dice": "1D",
+      "rows": [
+        {
+          "roll": 1,
+          "name": "Injured by Anti-Psi Attack",
+          "effects": [
+            {
+              "type": "roll_table",
+              "tableId": "injury"
+            }
+          ],
+          "text": "The attack injures you. Roll on the Injury table."
+        },
+        {
+          "roll": 2,
+          "name": "Injured by Anti-Psi Attack",
+          "effects": [
+            {
+              "type": "roll_table",
+              "tableId": "injury"
+            }
+          ],
+          "text": "The attack injures you. Roll on the Injury table."
+        },
+        {
+          "roll": 3,
+          "name": "Social Exposure",
+          "effects": [
+            {
+              "type": "characteristic_change",
+              "characteristic": "soc",
+              "amount": -1
+            }
+          ],
+          "text": "Lose one SOC."
+        },
+        {
+          "roll": 4,
+          "name": "Social Exposure",
+          "effects": [
+            {
+              "type": "characteristic_change",
+              "characteristic": "soc",
+              "amount": -1
+            }
+          ],
+          "text": "Lose one SOC."
+        },
+        {
+          "roll": 5,
+          "name": "No Further Effect",
+          "effects": [],
+          "text": "Nothing else happens, but you still must leave this career."
+        },
+        {
+          "roll": 6,
+          "name": "No Further Effect",
+          "effects": [],
+          "text": "Nothing else happens, but you still must leave this career."
+        }
+      ]
     }
   },
   "careers": {
@@ -1043,7 +1107,9 @@
           "name": "Memory Gap",
           "effects": [
             {
-              "type": "narrative_event"
+              "type": "narrative_event",
+              "category": "memory-gap",
+              "prompt": "Record what, if anything, the Traveller remembers about the missing time."
             }
           ],
           "text": "You do not know what happened to you. There is a gap in your memory."
@@ -1216,7 +1282,9 @@
           "name": "Scandal",
           "effects": [
             {
-              "type": "narrative_event"
+              "type": "narrative_event",
+              "category": "scandal",
+              "prompt": "Record the scandal and who might know about it."
             }
           ],
           "text": "You expose or are involved in a scandal of some sort."
@@ -3472,7 +3540,9 @@
           "name": "Unknown Incident",
           "effects": [
             {
-              "type": "narrative_event"
+              "type": "narrative_event",
+              "category": "unknown-incident",
+              "prompt": "Record clues, unanswered questions, or consequences of the unknown incident."
             }
           ],
           "text": "You have no idea what happened to you - they found your ship drifting on the fringes of friendly space."
@@ -3761,6 +3831,301 @@
             }
           ],
           "text": "You discover a world, item or information of worth to the Imperium. You are automatically promoted."
+        }
+      ]
+    },
+    "psion": {
+      "mishaps": [
+        {
+          "roll": 1,
+          "ref": "common.mishap1"
+        },
+        {
+          "roll": 2,
+          "name": "Dangerous Contact",
+          "effects": [
+            {
+              "type": "characteristic_change",
+              "characteristic": "psi",
+              "amount": -1
+            },
+            {
+              "type": "narrative_event",
+              "category": "psionic-nightmares",
+              "prompt": "Record the dangerous telepathic contact and recurring nightmares."
+            }
+          ],
+          "text": "You telepathically contact something dangerous. Lose one PSI. You also suffer from persistent and terrifying nightmares."
+        },
+        {
+          "roll": 3,
+          "name": "Anti-Psi Attack",
+          "effects": [
+            {
+              "type": "roll_subtable",
+              "tableId": "psion-anti-psi-attack"
+            }
+          ],
+          "text": "An anti-psi cult or gang attempts to expose or attack you. Roll 1D: on a 1-2, you are injured, roll on the Injury table. On a 3-4, lose one SOC. On a 5-6, nothing else happens but you still must leave this career."
+        },
+        {
+          "roll": 4,
+          "name": "Unethical Orders",
+          "effects": [
+            {
+              "type": "choice",
+              "options": [
+                {
+                  "label": "Accept and continue",
+                  "effects": [
+                    {
+                      "type": "not_forced_out"
+                    },
+                    {
+                      "type": "gain_associate",
+                      "associateTypes": [
+                        "enemy"
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "label": "Refuse and leave",
+                  "effects": [
+                    {
+                      "type": "forced_out"
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "text": "You are asked to use your psionic powers in an unethical fashion. Accept and you may continue in this career but gain an Enemy. Refuse and you must leave the career."
+        },
+        {
+          "roll": 5,
+          "name": "Experimented On",
+          "effects": [
+            {
+              "type": "forced_out"
+            }
+          ],
+          "text": "You are experimented on by a corporation, government or other organisation. You escape but are forced to leave this career."
+        },
+        {
+          "roll": 6,
+          "name": "Betrayed by Gift",
+          "effects": [
+            {
+              "type": "convert_or_gain_associate",
+              "from": [
+                "ally",
+                "contact"
+              ],
+              "to": [
+                "enemy"
+              ]
+            }
+          ],
+          "text": "Your gift causes a former friend to turn on you and betray you. One Ally or Contact becomes an Enemy."
+        }
+      ],
+      "events": [
+        {
+          "roll": 2,
+          "name": "Disaster",
+          "effects": [
+            {
+              "type": "roll_table",
+              "tableId": "mishaps",
+              "ejected": false
+            }
+          ],
+          "text": "Disaster! Roll on the Mishap table but you are not ejected from this career."
+        },
+        {
+          "roll": 3,
+          "name": "Uncomfortable Abilities",
+          "effects": [
+            {
+              "type": "convert_or_gain_associate",
+              "from": [
+                "contact",
+                "ally"
+              ],
+              "to": [
+                "rival"
+              ]
+            }
+          ],
+          "text": "Your psionic abilities make you uncomfortable to be around. One Contact or Ally becomes a Rival."
+        },
+        {
+          "roll": 4,
+          "name": "Mastering Mind and Body",
+          "effects": [
+            {
+              "type": "choose_skill_set",
+              "skills": [
+                "athletics",
+                "stealth",
+                "survival",
+                "art"
+              ],
+              "level": 1
+            }
+          ],
+          "text": "Choose one of these skills, reflecting your time spent mastering mind and body. Gain one of Athletics 1, Stealth 1, Survival 1 or Art 1."
+        },
+        {
+          "roll": 5,
+          "name": "Unethical Advantage",
+          "effects": [
+            {
+              "type": "choice",
+              "options": [
+                {
+                  "label": "Accept",
+                  "effects": [
+                    {
+                      "type": "check",
+                      "check": {
+                        "characteristic": "psi",
+                        "target": 8
+                      },
+                      "success": [
+                        {
+                          "type": "choice",
+                          "options": [
+                            {
+                              "label": "Gain an extra Benefit roll",
+                              "effects": [
+                                {
+                                  "type": "extra_benefit_roll"
+                                }
+                              ]
+                            },
+                            {
+                              "label": "Gain SOC +1",
+                              "effects": [
+                                {
+                                  "type": "characteristic_change",
+                                  "characteristic": "soc",
+                                  "amount": 1
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ],
+                      "failure": [
+                        {
+                          "type": "characteristic_change",
+                          "characteristic": "soc",
+                          "amount": -1
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "label": "Refuse",
+                  "effects": []
+                }
+              ]
+            }
+          ],
+          "text": "You have a chance to use your powers unethically to better your standing. If you accept, roll PSI 8+. If you succeed, gain an extra Benefit roll or +1 SOC. If you fail, lose one SOC."
+        },
+        {
+          "roll": 6,
+          "name": "Unexpected Connection",
+          "effects": [
+            {
+              "type": "gain_associate",
+              "associateTypes": [
+                "contact"
+              ]
+            }
+          ],
+          "text": "You make an unexpected connection outside your normal circles. Gain a Contact."
+        },
+        {
+          "roll": 7,
+          "ref": "common.event2"
+        },
+        {
+          "roll": 8,
+          "name": "Greater Psionic Strength",
+          "effects": [
+            {
+              "type": "characteristic_change",
+              "characteristic": "psi",
+              "amount": 1
+            }
+          ],
+          "text": "You achieve a new level of psionic strength. Increase your PSI by +1."
+        },
+        {
+          "roll": 9,
+          "name": "Specialist Training",
+          "effects": [
+            {
+              "type": "check",
+              "check": {
+                "characteristic": "edu",
+                "target": 8
+              },
+              "success": [
+                {
+                  "type": "choose_skill",
+                  "level": 1,
+                  "excludedSkills": [
+                    "jack-of-all-trades"
+                  ]
+                }
+              ]
+            }
+          ],
+          "text": "You are given advanced training in a specialist field. Roll EDU 8+ to gain any one skill except Jack-of-all-Trades."
+        },
+        {
+          "roll": 10,
+          "name": "Useful Information",
+          "effects": [
+            {
+              "type": "benefit_roll_dm",
+              "dm": 1
+            }
+          ],
+          "text": "You pick up potentially useful information using your psychic powers. Gain DM+1 to any one Benefit roll."
+        },
+        {
+          "roll": 11,
+          "name": "Mentor",
+          "effects": [
+            {
+              "type": "gain_associate",
+              "associateTypes": [
+                "ally"
+              ]
+            },
+            {
+              "type": "next_advancement_dm",
+              "dm": 4
+            }
+          ],
+          "text": "You gain a mentor. Gain an Ally and DM+4 to your next advancement roll (in any career) thanks to their aid."
+        },
+        {
+          "roll": 12,
+          "name": "New Discipline",
+          "effects": [
+            {
+              "type": "automatic_promotion"
+            }
+          ],
+          "text": "You achieve a new level of discipline in your powers. You are automatically promoted."
         }
       ]
     }

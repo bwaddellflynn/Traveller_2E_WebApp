@@ -5,6 +5,7 @@ import CreationStepPanel from '~/components/character/CreationStepPanel.vue'
 import CreatorTabNavigation from '~/components/character/CreatorTabNavigation.vue'
 import CurrentTravellerCard from '~/components/character/CurrentTravellerCard.vue'
 import EventResolutionList from '~/components/character/EventResolutionList.vue'
+import PsionicsPanel from '~/components/character/PsionicsPanel.vue'
 import RerollConfirmDialog from '~/components/character/RerollConfirmDialog.vue'
 import TermActionFooter from '~/components/character/TermActionFooter.vue'
 import { useCharacterCreatorStore } from '~/stores/characterCreator'
@@ -853,6 +854,8 @@ const {
               <EventResolutionList source-prefix="Aging" />
             </div>
           </div>
+
+          <PsionicsPanel />
 
           <TermActionFooter />
 

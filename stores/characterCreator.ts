@@ -6,6 +6,7 @@ import careersData from '~/data/traveller2e/core/careers-summary.json'
 import creationRulesData from '~/data/traveller2e/core/character-creation-rules.json'
 import agingData from '~/data/traveller2e/core/aging-and-injuries.json'
 import careerTablesData from '~/data/traveller2e/core/career-tables.json'
+import psionicPowersData from '~/data/traveller2e/core/psionic-powers.json'
 import { getCareerEvent, getCareerMishap, getEducationEvent, getEventFromTable, normalizeTravellerEventEffect, type TravellerEvent, type TravellerEventEffect } from '~/utils/traveller/events'
 
 type CharacteristicId = 'str' | 'dex' | 'end' | 'int' | 'edu' | 'soc'
@@ -56,7 +57,7 @@ type TermHistoryEntry = {
   rolls: RollResult[]
 }
 type CreatorTab = 'creation' | `term-${number}`
-type EventResolutionKind = 'manual' | 'skill_choice' | 'skill_table_roll' | 'benefit_wager' | 'table_roll' | 'check' | 'choice' | 'associate' | 'characteristic_adjustment' | 'medical_care'
+type EventResolutionKind = 'manual' | 'skill_choice' | 'skill_table_roll' | 'benefit_wager' | 'table_roll' | 'check' | 'choice' | 'associate' | 'narrative' | 'characteristic_adjustment' | 'medical_care'
 type EventChoiceOption = {
   id: string
   label: string
@@ -108,6 +109,62 @@ type TravellerAssociate = {
   notes?: string
   context?: string
   tags?: string[]
+}
+type TravellerNarrativeEvent = {
+  id: string
+  source: string
+  title: string
+  category?: string
+  text?: string
+  notes?: string
+}
+type PsionicTalent = {
+  id: string
+  name: string
+  learningDm: number
+}
+type PsionicTalentAttempt = {
+  id: string
+  talentId: string
+  talentName: string
+  dice: number[]
+  psiDm: number
+  learningDm: number
+  attemptDm: number
+  total: number
+  target: number
+  success: boolean
+  source: 'rolled' | 'manual' | 'automatic'
+}
+type PsionicPower = {
+  id: string
+  talentId: string
+  talentName: string
+  name: string
+  target: number
+  time: string
+  reach: string
+  psiCost: number
+  variableCostLabel?: string
+  passive?: boolean
+}
+type PsionicPowerUse = {
+  id: string
+  powerId: string
+  powerName: string
+  talentId: string
+  dice: number[]
+  skillLevel: number
+  psiDm: number
+  dm: number
+  total: number
+  target: number
+  effect: number
+  success: boolean
+  psiCost: number
+  psiSpent: number
+  overflowDamage: number
+  source: 'rolled' | 'manual'
 }
 type TravellerRollModifier = {
   id: string
@@ -237,6 +294,16 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
   const pendingEventResolutions = ref<PendingEventResolution[]>([])
   const eventOutcomeLog = ref<EventOutcomeLogEntry[]>([])
   const associates = ref<TravellerAssociate[]>([])
+  const narrativeEvents = ref<TravellerNarrativeEvent[]>([])
+  const psionicsPermissionSources = ref<string[]>([])
+  const psiScore = ref<number | null>(null)
+  const currentPsi = ref<number | null>(null)
+  const psiTestRoll = ref<RollResult | null>(null)
+  const psionicTalentAttempts = ref<PsionicTalentAttempt[]>([])
+  const psionicPowerUses = ref<PsionicPowerUse[]>([])
+  const psionicsTrainingCost = ref(0)
+  const psionicsTestCharged = ref(false)
+  const psionicsTrainingCharged = ref(false)
   const rollModifiers = ref<TravellerRollModifier[]>([])
   const benefitRollAdjustments = ref<BenefitRollAdjustment[]>([])
   const benefitRollLedger = ref<BenefitRollLedgerEntry[]>([])
@@ -246,6 +313,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
   const startingCredits = ref(0)
   const personalBenefits = ref<string[]>([])
   const medicalDebt = ref(0)
+  const totalDebt = computed(() => medicalDebt.value + psionicsTrainingCost.value)
   const medicalCareLog = ref<MedicalCareEntry[]>([])
   const careerConstraints = ref<CareerConstraint[]>([])
   const pendingSkillChoice = ref<{ label: string; source: string; options: string[]; level?: number; increase?: boolean } | null>(null)
@@ -350,6 +418,32 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
 
   const currentAge = computed(() => 18 + ((currentTermNumber.value - 1) * 4))
   const endOfTermAge = computed(() => currentAge.value + 4)
+  const psionicTalents: PsionicTalent[] = [
+    { id: 'telepathy', name: 'Telepathy', learningDm: 4 },
+    { id: 'clairvoyance', name: 'Clairvoyance', learningDm: 3 },
+    { id: 'telekinesis', name: 'Telekinesis', learningDm: 2 },
+    { id: 'awareness', name: 'Awareness', learningDm: 1 },
+    { id: 'teleportation', name: 'Teleportation', learningDm: 0 },
+  ]
+  const psiTermsServed = computed(() => termHistory.value.length)
+  const psiDm = computed(() => diceModifier(psiScore.value ?? 0))
+  const currentPsiDm = computed(() => diceModifier(currentPsi.value ?? 0))
+  const psionicsTestingAvailable = computed(() => psionicsPermissionSources.value.length > 0)
+  const psiTested = computed(() => Boolean(psiTestRoll.value))
+  const psionicsTrainingAvailable = computed(() => (psiScore.value ?? 0) > 0)
+  const learnedPsionicTalentIds = computed(() => new Set(currentTravellerSkills.value
+    .filter((skill) => psionicTalents.some((talent) => talent.id === skill.id))
+    .map((skill) => skill.id)))
+  const learnedPsionicTalents = computed(() => psionicTalents.filter((talent) => learnedPsionicTalentIds.value.has(talent.id)))
+  const psionicPowers = computed<PsionicPower[]>(() => Object.entries(psionicPowersData.talents as Record<string, { name: string; powers: Array<Omit<PsionicPower, 'talentId' | 'talentName'>> }>).flatMap(([talentId, talent]) => {
+    return talent.powers.map((power) => ({
+      ...power,
+      talentId,
+      talentName: talent.name,
+    }))
+  }))
+  const availablePsionicPowers = computed(() => psionicPowers.value.filter((power) => learnedPsionicTalentIds.value.has(power.talentId)))
+  const psionicTalentChecksAttempted = computed(() => psionicTalentAttempts.value.filter((attempt) => attempt.source !== 'automatic').length)
   const educationAvailable = computed(() => currentTermNumber.value <= 3)
   const agingRequired = computed(() => currentTermNumber.value >= 4)
   const educationEntryFailed = computed(() => termRolls.educationEntry?.finalSuccess === false)
@@ -456,11 +550,17 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
   const careerOptions = computed(() => careersData.careers.map((career) => {
     const forcedCareerId = forcedCareerConstraint.value?.careerId
     const forcedOut = forcedOutCareerIds.value.has(career.id)
-    const disabled = Boolean((forcedCareerId && career.id !== forcedCareerId) || forcedOut)
+    const permissionLocked = career.id === 'psion' && !psionicsTestingAvailable.value
+    const psiUntested = career.id === 'psion' && psionicsTestingAvailable.value && !psiTested.value
+    const disabled = Boolean((forcedCareerId && career.id !== forcedCareerId) || forcedOut || permissionLocked || psiUntested)
     const disabledReason = forcedCareerId && career.id !== forcedCareerId
       ? `Must enter ${forcedCareerConstraint.value?.label ?? forcedCareerId}`
       : forcedOut
         ? 'Forced out of this career'
+        : permissionLocked
+          ? 'Requires psionics permission'
+          : psiUntested
+            ? 'Requires PSI test'
         : ''
 
     return {
@@ -714,7 +814,21 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     }
   }
 
+  const changePsiScore = (amount: number) => {
+    const previousScore = psiScore.value ?? 0
+    const nextScore = Math.max(0, previousScore + amount)
+    const previousCurrent = currentPsi.value ?? previousScore
+    psiScore.value = nextScore
+    currentPsi.value = Math.max(0, Math.min(nextScore, previousCurrent + amount))
+  }
+
   const applyCharacteristicIncrease = (result: string) => {
+    const psiMatch = result.trim().match(/^PSI\s*\+(\d+)$/i)
+    if (psiMatch) {
+      changePsiScore(Number(psiMatch[1]))
+      return true
+    }
+
     const match = result.trim().match(/^(STR|DEX|END|INT|EDU|SOC)\s*\+(\d+)$/i)
     if (!match) return false
 
@@ -722,6 +836,12 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     characteristicAdjustments[characteristicId] += Number(match[2])
     applyAssignedScores()
     return true
+  }
+
+  const isPsionicTalentId = (skillId: string) => psionicTalents.some((talent) => talent.id === skillId)
+  const psionicTalentIdFromLabel = (label: string) => {
+    const skill = skillFromLabel(label)
+    return isPsionicTalentId(skill.id) ? skill.id : ''
   }
 
   const splitChoiceResult = (result: string) => {
@@ -742,6 +862,31 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
   }
 
   const applyTrainingResult = (result: string, source: string) => {
+    if (selectedCareerId.value === 'psion' && selectedCareerSkillTableId.value === 'service-skills') {
+      if (/^any talent$/i.test(result.trim())) {
+        const learnedTalentIds = psionicTalents
+          .map((talent) => talent.id)
+          .filter((talentId) => learnedPsionicTalentIds.value.has(talentId))
+        if (learnedTalentIds.length) {
+          pendingSkillChoice.value = {
+            label: result,
+            source,
+            options: learnedTalentIds,
+            increase: true,
+          }
+        } else {
+          recordEventOutcome('Psion Service Skills', { type: 'psionic_talent_prompt' }, 'Attempt to learn any talent in Psionics panel', 'manual')
+        }
+        return false
+      }
+
+      const talentId = psionicTalentIdFromLabel(result)
+      if (talentId && !learnedPsionicTalentIds.value.has(talentId)) {
+        recordEventOutcome('Psion Service Skills', { type: 'psionic_talent_prompt', talentId }, `Attempt to learn ${skillOptionLabel(talentId)} in Psionics panel`, 'manual')
+        return false
+      }
+    }
+
     const choice = splitChoiceResult(result)
     if (choice) {
       pendingSkillChoice.value = {
@@ -894,7 +1039,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
   })
 
   const generalSkillOptions = computed(() => skillsData.skills
-    .filter((skill) => !skill.special)
+    .filter((skill) => !skill.special && !skill.psionic)
     .map((skill) => skill.id)
     .sort((left, right) => skillOptionLabel(left).localeCompare(skillOptionLabel(right))))
 
@@ -926,6 +1071,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
   const checkDm = (check: CheckRule) => {
     const rule = preferredCheckRule(check)
     if (!rule.characteristic) return 0
+    if (rule.characteristic === 'psi') return psiDm.value
     return diceModifier(values[rule.characteristic as CharacteristicId] ?? 0)
   }
 
@@ -1044,6 +1190,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
 
   const eventCheckDm = (effect: TravellerEventEffect) => {
     const check = effect.check as Record<string, any> | undefined
+    if (check?.characteristic === 'psi') return psiDm.value
     if (check?.characteristic) return diceModifier(values[String(check.characteristic) as CharacteristicId] ?? 0)
     if (check?.skill) return skillLevel(String(check.skill))
     return 0
@@ -1389,6 +1536,21 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     }, source, label)
   }
 
+  const addNarrativeEventResolution = (effect: TravellerEventEffect, source: string, event: TravellerEvent, label = tableEffectLabel(effect)) => {
+    addPendingEventResolution({
+      kind: 'narrative',
+      label,
+      source,
+      effect: {
+        ...effect,
+        eventName: event.name,
+        eventText: event.text,
+      },
+      details: typeof effect.prompt === 'string' ? effect.prompt : event.text,
+    })
+    recordEventOutcome(source, effect, label, 'pending')
+  }
+
   const addSkillTableRollResolution = (effect: TravellerEventEffect, source: string, label = tableEffectLabel(effect)) => {
     const tableId = typeof effect.tableId === 'string' ? effect.tableId : ''
     const table = availableCareerSkillTables.value.find((item) => item.id === tableId)
@@ -1462,6 +1624,13 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
       wagerChecks,
     })
     recordEventOutcome(source, effect, label, 'pending')
+  }
+
+  const grantPsionicsPermission = (source: string, label = 'May test PSI') => {
+    const entry = `${source}: ${label}`
+    if (!psionicsPermissionSources.value.includes(entry)) {
+      psionicsPermissionSources.value = [...psionicsPermissionSources.value, entry]
+    }
   }
 
   const applyEventEffect = (effect: TravellerEventEffect, event: TravellerEvent, sourcePrefix = 'Event') => {
@@ -1538,6 +1707,18 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
       return
     }
 
+    if (effect.type === 'narrative_event') {
+      addNarrativeEventResolution(effect, source, event)
+      return
+    }
+
+    if (effect.type === 'may_test_psi' || effect.type === 'may_test_psionic_strength') {
+      const label = tableEffectLabel(effect)
+      grantPsionicsPermission(source, label)
+      recordEventOutcome(source, effect, label)
+      return
+    }
+
     if (effect.type === 'choose_skill_or_contact') {
       const skillEffects = Array.isArray(effect.skills)
         ? effect.skills.map((skill) => ({
@@ -1604,6 +1785,12 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     }
 
     if ((effect.type === 'characteristic_change' || effect.type === 'characteristic_increase') && effect.characteristic && typeof effect.amount === 'number') {
+      if (effect.characteristic === 'psi') {
+        changePsiScore(effect.amount)
+        recordEventOutcome(source, effect)
+        return
+      }
+
       const characteristicId = effect.characteristic as CharacteristicId
       characteristicAdjustments[characteristicId] += effect.amount
       applyAssignedScores()
@@ -2101,6 +2288,44 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     recordEventOutcome(resolution.source, resolution.effect, `Gained ${type}: ${associateName}`, 'manual')
   }
 
+  const resolveEventNarrative = (resolutionId: string, notes = '') => {
+    const resolution = pendingEventResolutions.value.find((item) => item.id === resolutionId)
+    if (!resolution || resolution.kind !== 'narrative' || resolution.resolved) return
+
+    const trimmedNotes = notes.trim()
+    const title = typeof resolution.effect.eventName === 'string'
+      ? resolution.effect.eventName
+      : resolution.label
+    const text = typeof resolution.effect.eventText === 'string'
+      ? resolution.effect.eventText
+      : undefined
+    const category = typeof resolution.effect.category === 'string'
+      ? resolution.effect.category
+      : undefined
+
+    narrativeEvents.value = [
+      ...narrativeEvents.value,
+      {
+        id: makeEventOutcomeId('narrative'),
+        source: resolution.source,
+        title,
+        category,
+        text,
+        notes: trimmedNotes || undefined,
+      },
+    ]
+
+    pendingEventResolutions.value = pendingEventResolutions.value.map((item) => {
+      if (item.id !== resolutionId) return item
+      return {
+        ...item,
+        resolved: true,
+        selected: trimmedNotes || 'Recorded',
+      }
+    })
+    recordEventOutcome(resolution.source, resolution.effect, `${resolution.label}: ${title}`, 'manual')
+  }
+
   const resolveEventSkillTableRoll = (resolution: PendingEventResolution, die: number, source: 'rolled' | 'manual') => {
     if (resolution.kind !== 'skill_table_roll' || !resolution.skillTableId || resolution.resolved) return
     if (die < 1 || die > 6) return
@@ -2209,6 +2434,182 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
       }
     })
     recordEventOutcome(resolution.source, resolution.effect, `${resolution.label}: No wager`, 'manual')
+  }
+
+  const chargePsionicsTest = () => {
+    if (psionicsTestCharged.value) return
+    psionicsTrainingCost.value += 5000
+    psionicsTestCharged.value = true
+  }
+
+  const chargePsionicsTraining = () => {
+    if (psionicsTrainingCharged.value) return
+    psionicsTrainingCost.value += 100000
+    psionicsTrainingCharged.value = true
+  }
+
+  const resolvePsiTest = (diceTotal: number, source: 'rolled' | 'manual') => {
+    if (!psionicsTestingAvailable.value || psiTested.value) return
+    if (Number.isNaN(diceTotal) || diceTotal < 2 || diceTotal > 12) return
+
+    chargePsionicsTest()
+    const score = Math.max(0, diceTotal - psiTermsServed.value)
+    psiScore.value = score
+    currentPsi.value = score
+    psiTestRoll.value = {
+      label: 'PSI Test',
+      dice: [diceTotal],
+      dm: -psiTermsServed.value,
+      total: score,
+      target: 1,
+      effect: score - 1,
+      success: score > 0,
+      finalSuccess: score > 0,
+      source,
+      notes: `${diceTotal} ${formatDm(-psiTermsServed.value)} = PSI ${score}`,
+    }
+    recordEventOutcome('Psionics', { type: 'psi_test' }, `PSI ${score}`, 'manual')
+  }
+
+  const rollPsiTest = () => {
+    resolvePsiTest(roll2D(), 'rolled')
+  }
+
+  const enterManualPsiTest = (total: number) => {
+    resolvePsiTest(total, 'manual')
+  }
+
+  const psionicTalentAttemptDm = (talent: PsionicTalent) => {
+    return psiDm.value + talent.learningDm - psionicTalentChecksAttempted.value
+  }
+
+  const resolvePsionicTalentAttempt = (talentId: string, diceTotal: number, source: 'rolled' | 'manual') => {
+    if (!psionicsTrainingAvailable.value) return
+    if (Number.isNaN(diceTotal) || diceTotal < 2 || diceTotal > 12) return
+    const talent = psionicTalents.find((item) => item.id === talentId)
+    if (!talent || learnedPsionicTalentIds.value.has(talent.id)) return
+
+    chargePsionicsTraining()
+    const attemptDm = -psionicTalentChecksAttempted.value
+    const dm = psiDm.value + talent.learningDm + attemptDm
+    const total = diceTotal + dm
+    const success = total >= 8
+    if (success) setSkillMinimum(talent.id, 0, 'Psionics Training')
+
+    psionicTalentAttempts.value = [
+      ...psionicTalentAttempts.value,
+      {
+        id: makeEventOutcomeId('psionic-talent'),
+        talentId: talent.id,
+        talentName: talent.name,
+        dice: [diceTotal],
+        psiDm: psiDm.value,
+        learningDm: talent.learningDm,
+        attemptDm,
+        total,
+        target: 8,
+        success,
+        source,
+      },
+    ]
+    recordEventOutcome('Psionics Training', { type: 'psionic_talent', talentId: talent.id }, `${talent.name}: ${success ? 'learned' : 'not learned'}`, 'manual')
+  }
+
+  const learnPsionicTalentAutomatically = (talentId: string) => {
+    if (!psionicsTrainingAvailable.value) return
+    const talent = psionicTalents.find((item) => item.id === talentId)
+    if (!talent || talent.id !== 'telepathy' || learnedPsionicTalentIds.value.has(talent.id) || psionicTalentAttempts.value.length) return
+
+    chargePsionicsTraining()
+    setSkillMinimum(talent.id, 0, 'Psionics Training')
+    psionicTalentAttempts.value = [
+      ...psionicTalentAttempts.value,
+      {
+        id: makeEventOutcomeId('psionic-talent'),
+        talentId: talent.id,
+        talentName: talent.name,
+        dice: [],
+        psiDm: psiDm.value,
+        learningDm: talent.learningDm,
+        attemptDm: 0,
+        total: 0,
+        target: 0,
+        success: true,
+        source: 'automatic',
+      },
+    ]
+    recordEventOutcome('Psionics Training', { type: 'psionic_talent', talentId: talent.id }, 'Telepathy learned automatically', 'manual')
+  }
+
+  const rollPsionicTalent = (talentId: string) => {
+    resolvePsionicTalentAttempt(talentId, roll2D(), 'rolled')
+  }
+
+  const enterManualPsionicTalent = (talentId: string, total: number) => {
+    resolvePsionicTalentAttempt(talentId, total, 'manual')
+  }
+
+  const findPsionicPower = (powerId: string) => availablePsionicPowers.value.find((power) => power.id === powerId)
+
+  const resolvePsionicPowerUse = (powerId: string, diceTotal: number, psiCost: number, source: 'rolled' | 'manual') => {
+    const power = findPsionicPower(powerId)
+    if (!power || power.passive || currentPsi.value === null || currentPsi.value <= 0) return
+    if (Number.isNaN(diceTotal) || diceTotal < 2 || diceTotal > 12) return
+
+    const resolvedCost = Math.max(0, Math.floor(Number.isNaN(psiCost) ? power.psiCost : psiCost))
+    if (resolvedCost <= 0) return
+
+    const powerSkillLevel = skillLevel(power.talentId)
+    const powerPsiDm = currentPsiDm.value
+    const dm = powerSkillLevel + powerPsiDm
+    const total = diceTotal + dm
+    const success = total >= power.target
+    const psiSpent = success ? resolvedCost : 1
+    const overflowDamage = Math.max(0, psiSpent - currentPsi.value)
+    currentPsi.value = Math.max(0, currentPsi.value - psiSpent)
+
+    psionicPowerUses.value = [
+      {
+        id: makeEventOutcomeId('psionic-power'),
+        powerId: power.id,
+        powerName: power.name,
+        talentId: power.talentId,
+        dice: [diceTotal],
+        skillLevel: powerSkillLevel,
+        psiDm: powerPsiDm,
+        dm,
+        total,
+        target: power.target,
+        effect: total - power.target,
+        success,
+        psiCost: resolvedCost,
+        psiSpent,
+        overflowDamage,
+        source,
+      },
+      ...psionicPowerUses.value,
+    ].slice(0, 12)
+
+    const damageText = overflowDamage ? `; ${overflowDamage} overflow damage` : ''
+    recordEventOutcome('Psionic Power', { type: 'psionic_power', powerId: power.id }, `${power.name}: ${success ? 'success' : 'failed'}, spent ${psiSpent} PSI${damageText}`, 'manual')
+  }
+
+  const rollPsionicPower = (powerId: string, psiCost: number) => {
+    resolvePsionicPowerUse(powerId, roll2D(), psiCost, 'rolled')
+  }
+
+  const enterManualPsionicPower = (powerId: string, diceTotal: number, psiCost: number) => {
+    resolvePsionicPowerUse(powerId, diceTotal, psiCost, 'manual')
+  }
+
+  const recoverPsi = (points: number) => {
+    if (currentPsi.value === null || psiScore.value === null || Number.isNaN(points) || points <= 0) return
+    currentPsi.value = Math.min(psiScore.value, currentPsi.value + Math.floor(points))
+  }
+
+  const restorePsi = () => {
+    if (psiScore.value === null) return
+    currentPsi.value = psiScore.value
   }
 
   const rollEventResolutionTable = (resolutionId: string) => {
@@ -2887,7 +3288,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     if (effect.type === 'injury') return 'Injury roll'
     if (effect.type === 'possible_injury') return 'Possible injury'
     if (effect.type === 'possible_mishap') return 'Possible mishap'
-    if (effect.type === 'narrative_event') return 'Narrative event'
+    if (effect.type === 'narrative_event') return 'Record narrative event'
     if (effect.type === 'choice') return 'Choice required'
     if (effect.type === 'extra_benefit_roll') return 'Extra benefit roll'
     if (effect.type === 'forced_out') return 'Forced out'
@@ -2952,6 +3353,12 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     pendingEventResolutions,
     eventOutcomeLog,
     associates,
+    narrativeEvents,
+    psionicsPermissionSources,
+    psiScore,
+    psiTestRoll,
+    psionicTalentAttempts,
+    psionicsTrainingCost,
     rollModifiers,
     benefitRollAdjustments,
     benefitRollLedger,
@@ -2979,6 +3386,15 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     cancelCharacteristicReroll,
     currentAge,
     endOfTermAge,
+    psionicTalents,
+    psiTermsServed,
+    psiDm,
+    psionicsTestingAvailable,
+    psiTested,
+    psionicsTrainingAvailable,
+    learnedPsionicTalentIds,
+    learnedPsionicTalents,
+    psionicTalentChecksAttempted,
     educationAvailable,
     agingRequired,
     educationEntryFailed,
@@ -3066,6 +3482,12 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     rollEventResolutionBenefitWager,
     enterManualEventResolutionBenefitWager,
     declineEventResolutionBenefitWager,
+    rollPsiTest,
+    enterManualPsiTest,
+    psionicTalentAttemptDm,
+    learnPsionicTalentAutomatically,
+    rollPsionicTalent,
+    enterManualPsionicTalent,
     rollEventResolutionTable,
     enterManualEventResolutionTable,
     resolveEventChoice,
@@ -3073,6 +3495,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     resolveEventMedicalCare,
     resolveEventOutcomeChoice,
     resolveEventAssociate,
+    resolveEventNarrative,
     resolveManualEventResolution,
     eventResolutionSelectedLabel,
     associateTypeLabel,
