@@ -33,6 +33,7 @@ const {
   totalBenefitRollAdjustments,
   totalAvailableBenefitRolls,
   medicalDebt,
+  totalDebt,
   medicalCareLog,
   careerConstraints,
 } = storeToRefs(characterCreator)
@@ -238,13 +239,19 @@ const {
       </div>
     </div>
 
-    <div v-if="medicalDebt || medicalCareLog.length" class="mt-5 border-t border-white/15 pt-5">
+    <div v-if="totalDebt || medicalCareLog.length" class="mt-5 border-t border-white/15 pt-5">
       <div class="flex items-center justify-between gap-3">
-        <p class="text-sm font-semibold text-zinc-200">Medical Debt</p>
+        <p class="text-sm font-semibold text-zinc-200">Debt</p>
         <span class="rounded-md bg-white/10 px-2 py-1 text-xs text-zinc-300">
-          {{ medicalDebt.toLocaleString() }} Cr
+          {{ totalDebt.toLocaleString() }} Cr
         </span>
       </div>
+      <p v-if="psionicsTrainingCost" class="mt-2 text-xs text-zinc-400">
+        Psionics testing/training: {{ psionicsTrainingCost.toLocaleString() }} Cr
+      </p>
+      <p v-if="medicalDebt" class="mt-1 text-xs text-zinc-400">
+        Medical care: {{ medicalDebt.toLocaleString() }} Cr
+      </p>
       <div v-if="medicalCareLog.length" class="mt-3 grid gap-2">
         <div
           v-for="entry in medicalCareLog.slice(-3)"

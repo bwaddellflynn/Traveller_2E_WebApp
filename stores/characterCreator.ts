@@ -6,7 +6,6 @@ import careersData from '~/data/traveller2e/core/careers-summary.json'
 import creationRulesData from '~/data/traveller2e/core/character-creation-rules.json'
 import agingData from '~/data/traveller2e/core/aging-and-injuries.json'
 import careerTablesData from '~/data/traveller2e/core/career-tables.json'
-import psionicPowersData from '~/data/traveller2e/core/psionic-powers.json'
 import { getCareerEvent, getCareerMishap, getEducationEvent, getEventFromTable, normalizeTravellerEventEffect, type TravellerEvent, type TravellerEventEffect } from '~/utils/traveller/events'
 
 type CharacteristicId = 'str' | 'dex' | 'end' | 'int' | 'edu' | 'soc'
@@ -135,36 +134,6 @@ type PsionicTalentAttempt = {
   target: number
   success: boolean
   source: 'rolled' | 'manual' | 'automatic'
-}
-type PsionicPower = {
-  id: string
-  talentId: string
-  talentName: string
-  name: string
-  target: number
-  time: string
-  reach: string
-  psiCost: number
-  variableCostLabel?: string
-  passive?: boolean
-}
-type PsionicPowerUse = {
-  id: string
-  powerId: string
-  powerName: string
-  talentId: string
-  dice: number[]
-  skillLevel: number
-  psiDm: number
-  dm: number
-  total: number
-  target: number
-  effect: number
-  success: boolean
-  psiCost: number
-  psiSpent: number
-  overflowDamage: number
-  source: 'rolled' | 'manual'
 }
 type TravellerRollModifier = {
   id: string
@@ -297,10 +266,8 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
   const narrativeEvents = ref<TravellerNarrativeEvent[]>([])
   const psionicsPermissionSources = ref<string[]>([])
   const psiScore = ref<number | null>(null)
-  const currentPsi = ref<number | null>(null)
   const psiTestRoll = ref<RollResult | null>(null)
   const psionicTalentAttempts = ref<PsionicTalentAttempt[]>([])
-  const psionicPowerUses = ref<PsionicPowerUse[]>([])
   const psionicsTrainingCost = ref(0)
   const psionicsTestCharged = ref(false)
   const psionicsTrainingCharged = ref(false)
@@ -427,7 +394,6 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
   ]
   const psiTermsServed = computed(() => termHistory.value.length)
   const psiDm = computed(() => diceModifier(psiScore.value ?? 0))
-  const currentPsiDm = computed(() => diceModifier(currentPsi.value ?? 0))
   const psionicsTestingAvailable = computed(() => psionicsPermissionSources.value.length > 0)
   const psiTested = computed(() => Boolean(psiTestRoll.value))
   const psionicsTrainingAvailable = computed(() => (psiScore.value ?? 0) > 0)
@@ -435,14 +401,6 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     .filter((skill) => psionicTalents.some((talent) => talent.id === skill.id))
     .map((skill) => skill.id)))
   const learnedPsionicTalents = computed(() => psionicTalents.filter((talent) => learnedPsionicTalentIds.value.has(talent.id)))
-  const psionicPowers = computed<PsionicPower[]>(() => Object.entries(psionicPowersData.talents as Record<string, { name: string; powers: Array<Omit<PsionicPower, 'talentId' | 'talentName'>> }>).flatMap(([talentId, talent]) => {
-    return talent.powers.map((power) => ({
-      ...power,
-      talentId,
-      talentName: talent.name,
-    }))
-  }))
-  const availablePsionicPowers = computed(() => psionicPowers.value.filter((power) => learnedPsionicTalentIds.value.has(power.talentId)))
   const psionicTalentChecksAttempted = computed(() => psionicTalentAttempts.value.filter((attempt) => attempt.source !== 'automatic').length)
   const educationAvailable = computed(() => currentTermNumber.value <= 3)
   const agingRequired = computed(() => currentTermNumber.value >= 4)
@@ -578,6 +536,18 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
   }))
   const currentCareerTableData = computed(() => {
     return (careerTablesData.careers as Record<string, any>)[selectedCareerId.value] ?? null
+  })
+  const previousCareerCount = computed(() => new Set(termHistory.value
+    .map((term) => term.careerId)
+    .filter((careerId): careerId is string => Boolean(careerId) && careerId !== selectedCareerId.value)).size)
+  const currentCareerQualificationDm = computed(() => {
+    const modifiers = currentCareerTableData.value?.qualificationModifiers
+    if (!Array.isArray(modifiers)) return 0
+
+    return modifiers.reduce((sum: number, modifier: Record<string, unknown>) => {
+      if (modifier.condition !== 'previous_careers') return sum
+      return sum + (Number(modifier.dmPer ?? 0) * previousCareerCount.value)
+    }, 0)
   })
   const careerEvent = computed(() => {
     const roll = termRolls.careerEvent
@@ -815,11 +785,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
   }
 
   const changePsiScore = (amount: number) => {
-    const previousScore = psiScore.value ?? 0
-    const nextScore = Math.max(0, previousScore + amount)
-    const previousCurrent = currentPsi.value ?? previousScore
-    psiScore.value = nextScore
-    currentPsi.value = Math.max(0, Math.min(nextScore, previousCurrent + amount))
+    psiScore.value = Math.max(0, (psiScore.value ?? 0) + amount)
   }
 
   const applyCharacteristicIncrease = (result: string) => {
@@ -879,12 +845,12 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
         }
         return false
       }
+    }
 
-      const talentId = psionicTalentIdFromLabel(result)
-      if (talentId && !learnedPsionicTalentIds.value.has(talentId)) {
-        recordEventOutcome('Psion Service Skills', { type: 'psionic_talent_prompt', talentId }, `Attempt to learn ${skillOptionLabel(talentId)} in Psionics panel`, 'manual')
-        return false
-      }
+    const talentId = selectedCareerId.value === 'psion' ? psionicTalentIdFromLabel(result) : ''
+    if (talentId && !learnedPsionicTalentIds.value.has(talentId)) {
+      recordEventOutcome('Psion Training', { type: 'psionic_talent_prompt', talentId }, `Attempt to learn ${skillOptionLabel(talentId)} in Psionics panel`, 'manual')
+      return false
     }
 
     const choice = splitChoiceResult(result)
@@ -932,6 +898,16 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     applyTrainingResult(choice, pending.source)
   }
 
+  const applyBasicTrainingEntry = (entry: string) => {
+    const talentId = selectedCareerId.value === 'psion' ? psionicTalentIdFromLabel(entry) : ''
+    if (talentId && !learnedPsionicTalentIds.value.has(talentId)) {
+      recordEventOutcome('Psion Basic Training', { type: 'psionic_talent_prompt', talentId }, `Attempt to learn ${skillOptionLabel(talentId)} in Psionics panel`, 'manual')
+      return
+    }
+
+    setSkillMinimum(entry, 0, 'Basic Training')
+  }
+
   const applyBasicTraining = () => {
     pendingBasicTrainingChoices.value = []
 
@@ -945,7 +921,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
         continue
       }
 
-      setSkillMinimum(entry, 0, 'Basic Training')
+      applyBasicTrainingEntry(entry)
     }
 
     basicTrainingApplied.value = pendingBasicTrainingChoices.value.length === 0
@@ -955,7 +931,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     const pending = pendingBasicTrainingChoices.value[index]
     if (!pending || pending.selected) return
 
-    setSkillMinimum(choice, 0, 'Basic Training')
+    applyBasicTrainingEntry(choice)
     pendingBasicTrainingChoices.value[index] = {
       ...pending,
       selected: choice,
@@ -2056,14 +2032,17 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     const rule = preferredCheckRule(check)
     const matchingModifiers = activeRollModifiersFor(key)
     const modifierDm = matchingModifiers.reduce((sum, modifier) => sum + modifier.dm, 0)
-    const dm = checkDm(check) + modifierDm
+    const qualificationDm = key === 'careerQualification' ? currentCareerQualificationDm.value : 0
+    const dm = checkDm(check) + modifierDm + qualificationDm
     const diceTotal = dice.reduce((sum, value) => sum + value, 0)
     const total = diceTotal + dm
     const target = rule.target
     const success = rule.automatic ? true : total >= target
-    const modifierNotes = matchingModifiers.length
-      ? `Applied modifiers: ${matchingModifiers.map((modifier) => modifier.label).join(', ')}`
-      : undefined
+    const appliedNotes = [
+      matchingModifiers.length ? `Applied modifiers: ${matchingModifiers.map((modifier) => modifier.label).join(', ')}` : '',
+      qualificationDm ? `Previous careers DM ${formatDm(qualificationDm)}` : '',
+    ].filter(Boolean)
+    const modifierNotes = appliedNotes.length ? appliedNotes.join('; ') : undefined
 
     termRolls[key] = {
       label,
@@ -2455,7 +2434,6 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     chargePsionicsTest()
     const score = Math.max(0, diceTotal - psiTermsServed.value)
     psiScore.value = score
-    currentPsi.value = score
     psiTestRoll.value = {
       label: 'PSI Test',
       dice: [diceTotal],
@@ -2547,69 +2525,6 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
 
   const enterManualPsionicTalent = (talentId: string, total: number) => {
     resolvePsionicTalentAttempt(talentId, total, 'manual')
-  }
-
-  const findPsionicPower = (powerId: string) => availablePsionicPowers.value.find((power) => power.id === powerId)
-
-  const resolvePsionicPowerUse = (powerId: string, diceTotal: number, psiCost: number, source: 'rolled' | 'manual') => {
-    const power = findPsionicPower(powerId)
-    if (!power || power.passive || currentPsi.value === null || currentPsi.value <= 0) return
-    if (Number.isNaN(diceTotal) || diceTotal < 2 || diceTotal > 12) return
-
-    const resolvedCost = Math.max(0, Math.floor(Number.isNaN(psiCost) ? power.psiCost : psiCost))
-    if (resolvedCost <= 0) return
-
-    const powerSkillLevel = skillLevel(power.talentId)
-    const powerPsiDm = currentPsiDm.value
-    const dm = powerSkillLevel + powerPsiDm
-    const total = diceTotal + dm
-    const success = total >= power.target
-    const psiSpent = success ? resolvedCost : 1
-    const overflowDamage = Math.max(0, psiSpent - currentPsi.value)
-    currentPsi.value = Math.max(0, currentPsi.value - psiSpent)
-
-    psionicPowerUses.value = [
-      {
-        id: makeEventOutcomeId('psionic-power'),
-        powerId: power.id,
-        powerName: power.name,
-        talentId: power.talentId,
-        dice: [diceTotal],
-        skillLevel: powerSkillLevel,
-        psiDm: powerPsiDm,
-        dm,
-        total,
-        target: power.target,
-        effect: total - power.target,
-        success,
-        psiCost: resolvedCost,
-        psiSpent,
-        overflowDamage,
-        source,
-      },
-      ...psionicPowerUses.value,
-    ].slice(0, 12)
-
-    const damageText = overflowDamage ? `; ${overflowDamage} overflow damage` : ''
-    recordEventOutcome('Psionic Power', { type: 'psionic_power', powerId: power.id }, `${power.name}: ${success ? 'success' : 'failed'}, spent ${psiSpent} PSI${damageText}`, 'manual')
-  }
-
-  const rollPsionicPower = (powerId: string, psiCost: number) => {
-    resolvePsionicPowerUse(powerId, roll2D(), psiCost, 'rolled')
-  }
-
-  const enterManualPsionicPower = (powerId: string, diceTotal: number, psiCost: number) => {
-    resolvePsionicPowerUse(powerId, diceTotal, psiCost, 'manual')
-  }
-
-  const recoverPsi = (points: number) => {
-    if (currentPsi.value === null || psiScore.value === null || Number.isNaN(points) || points <= 0) return
-    currentPsi.value = Math.min(psiScore.value, currentPsi.value + Math.floor(points))
-  }
-
-  const restorePsi = () => {
-    if (psiScore.value === null) return
-    currentPsi.value = psiScore.value
   }
 
   const rollEventResolutionTable = (resolutionId: string) => {
@@ -3368,6 +3283,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     startingCredits,
     personalBenefits,
     medicalDebt,
+    totalDebt,
     medicalCareLog,
     careerConstraints,
     pendingSkillChoice,
@@ -3421,6 +3337,8 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     careerConstraintMessages,
     careerPathLocked,
     currentCareerTableData,
+    previousCareerCount,
+    currentCareerQualificationDm,
     careerEvent,
     careerMishap,
     currentCareerSkillTables,

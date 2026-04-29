@@ -83,6 +83,7 @@ const {
   careerOptions,
   careerConstraintMessages,
   careerPathLocked,
+  currentCareerQualificationDm,
   careerEvent,
   careerMishap,
   availableCareerSkillTables,
@@ -233,6 +234,9 @@ const {
               <div class="rounded-md bg-stone-50 p-4">
                 <p class="text-xs font-semibold uppercase tracking-wide text-zinc-500">Qualification</p>
                 <p class="mt-2 text-lg font-semibold">{{ checkLabel(selectedCareer.qualification) }}</p>
+                <p v-if="currentCareerQualificationDm" class="mt-1 text-xs text-zinc-500">
+                  Career DM {{ formatDm(currentCareerQualificationDm) }}
+                </p>
               </div>
               <div class="rounded-md bg-stone-50 p-4">
                 <p class="text-xs font-semibold uppercase tracking-wide text-zinc-500">Survival</p>
@@ -250,6 +254,9 @@ const {
                   <div>
                     <p class="text-sm font-semibold">Qualification Roll</p>
                     <p class="text-sm text-zinc-600">{{ checkLabel(selectedCareer.qualification) }}</p>
+                    <p v-if="currentCareerQualificationDm" class="text-xs text-zinc-500">
+                      Previous careers modifier {{ formatDm(currentCareerQualificationDm) }}
+                    </p>
                   </div>
                   <button class="h-10 rounded-md bg-zinc-950 px-4 text-sm font-semibold text-white hover:bg-zinc-800" type="button" @click="rollCheck('careerQualification', 'Qualification', selectedCareer.qualification)">
                     Roll 2D
