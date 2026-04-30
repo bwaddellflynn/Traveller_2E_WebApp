@@ -1,0 +1,29 @@
+{
+  "status": "seed",
+  "traits": [
+    { "id": "ap", "name": "AP", "hasRating": true, "sources": ["mgt2e-core-2022"] },
+    { "id": "auto", "name": "Auto", "hasRating": true, "sources": ["mgt2e-core-2022"] },
+    { "id": "blast", "name": "Blast", "hasRating": true, "sources": ["mgt2e-core-2022", "mgt2e-csc", "mgt2e-field-catalogue"] },
+    { "id": "bulky", "name": "Bulky", "hasRating": false, "sources": ["mgt2e-core-2022"] },
+    { "id": "radiation", "name": "Radiation", "hasRating": false, "sources": ["mgt2e-core-2022"] },
+    { "id": "scope", "name": "Scope", "hasRating": false, "sources": ["mgt2e-core-2022"] },
+    { "id": "smart", "name": "Smart", "hasRating": false, "sources": ["mgt2e-core-2022"] },
+    { "id": "stun", "name": "Stun", "hasRating": false, "sources": ["mgt2e-core-2022"] },
+    { "id": "very-bulky", "name": "Very Bulky", "hasRating": false, "sources": ["mgt2e-core-2022"] },
+    { "id": "zero-g", "name": "Zero-G", "hasRating": false, "sources": ["mgt2e-core-2022"] },
+    { "id": "burn", "name": "Burn", "hasRating": true, "sources": ["mgt2e-field-catalogue"] },
+    { "id": "corrosive", "name": "Corrosive", "hasRating": false, "sources": ["mgt2e-field-catalogue"] },
+    { "id": "dangerous", "name": "Dangerous", "hasRating": false, "sources": ["mgt2e-csc"] },
+    { "id": "fire", "name": "Fire", "hasRating": false, "sources": ["mgt2e-csc"] },
+    { "id": "hazardous", "name": "Hazardous", "hasRating": true, "sources": ["mgt2e-field-catalogue"] },
+    { "id": "inaccurate", "name": "Inaccurate", "hasRating": true, "sources": ["mgt2e-field-catalogue"] },
+    { "id": "incendiary", "name": "Incendiary", "hasRating": true, "sources": ["mgt2e-field-catalogue"] },
+    { "id": "lo-pen", "name": "Lo-Pen", "hasRating": true, "sources": ["mgt2e-field-catalogue"] },
+    { "id": "one-shot", "name": "One Shot", "hasRating": false, "sources": ["mgt2e-csc"] },
+    { "id": "ramshackle", "name": "Ramshackle", "hasRating": true, "sources": ["mgt2e-field-catalogue"] },
+    { "id": "silent", "name": "Silent", "hasRating": false, "sources": ["mgt2e-csc"] },
+    { "id": "slow-loader", "name": "Slow Loader", "hasRating": true, "sources": ["mgt2e-field-catalogue"] },
+    { "id": "spread", "name": "Spread", "hasRating": true, "sources": ["mgt2e-field-catalogue"] },
+    { "id": "unreliable", "name": "Unreliable", "hasRating": true, "sources": ["mgt2e-field-catalogue"] }
+  ]
+}

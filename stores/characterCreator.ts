@@ -7,7 +7,9 @@ import creationRulesData from '~/data/traveller2e/core/character-creation-rules.
 import agingData from '~/data/traveller2e/core/aging-and-injuries.json'
 import careerTablesData from '~/data/traveller2e/core/career-tables.json'
 import careerRanksData from '~/data/traveller2e/core/career-ranks.json'
+import type { TravellerCharacteristicId, TravellerProfile } from '~/types/traveller'
 import { getCareerEvent, getCareerMishap, getEducationEvent, getEventFromTable, normalizeTravellerEventEffect, type TravellerEvent, type TravellerEventEffect } from '~/utils/traveller/events'
+import { createBlankTravellerProfile } from '~/utils/traveller/profile'
 
 type CharacteristicId = 'str' | 'dex' | 'end' | 'int' | 'edu' | 'soc'
 type StatRoll = {
@@ -241,64 +243,8 @@ type AdvancementResult = {
   bonus?: string
   track: Array<CareerRankRow & { achieved: boolean, current: boolean }>
 }
-type PlayableTravellerProfile = {
-  name: string
-  age: number
-  lifepathComplete: boolean
-  characteristics: Array<{
-    id: CharacteristicId
-    name: string
-    abbreviation: string
-    category: string
-    value: number
-    dm: number
-  }>
-  characteristicAdjustments: Record<CharacteristicId, number>
-  backgroundSkills: string[]
-  skills: CharacterSkill[]
-  ranks: CareerRankState[]
-  terms: TermHistoryEntry[]
-  associates: TravellerAssociate[]
-  narrativeEvents: TravellerNarrativeEvent[]
-  psionics: {
-    permissionSources: string[]
-    psiScore: number | null
-    psiDm: number
-    tested: boolean
-    talents: Array<{ id: string; name: string; learningDm: number }>
-    talentAttempts: PsionicTalentAttempt[]
-    trainingCost: number
-  }
-  benefits: {
-    earnedRolls: number
-    adjustments: number
-    availableRolls: number
-    spentRolls: number
-    remainingRolls: number
-    cashRollsUsed: number
-    cashRollLimit: number
-    personal: string[]
-    musteringOut: MusteringOutResult[]
-  }
-  finances: {
-    credits: number
-    medicalDebt: number
-    psionicsTrainingDebt: number
-    totalDebt: number
-  }
-  logs: {
-    events: EventOutcomeLogEntry[]
-    constraints: CareerConstraint[]
-    medicalCare: MedicalCareEntry[]
-  }
-  draft: {
-    used: boolean
-    lastRoll: DraftRoll | null
-  }
-}
-
-
 export const useCharacterCreatorStore = defineStore('characterCreator', () => {
+  const creatorProfileSeed = createBlankTravellerProfile('lifepath')
   const characteristicOrder = characteristicsData.characteristics.map((item) => item.id as CharacteristicId)
   const statRolls = ref<StatRoll[]>(characteristicOrder.map((_, index) => ({
     id: `initial-${index}`,
@@ -340,6 +286,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
   const selectedAdvancementSkillTableId = ref('personal-development')
   const hasRolledCharacteristics = ref(false)
   const showRerollConfirm = ref(false)
+  const skipCharacteristicRerollConfirm = ref(false)
   const currentTermNumber = ref(1)
   const activeCreatorTab = ref<CreatorTab>('creation')
   const draftUsed = ref(false)
@@ -490,6 +437,10 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
 
   const rollCharacteristics = () => {
     if (hasRolledCharacteristics.value) {
+      if (skipCharacteristicRerollConfirm.value) {
+        performCharacteristicRoll()
+        return
+      }
       showRerollConfirm.value = true
       return
     }
@@ -504,6 +455,13 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
 
   const cancelCharacteristicReroll = () => {
     showRerollConfirm.value = false
+  }
+
+  if (import.meta.client) {
+    skipCharacteristicRerollConfirm.value = window.localStorage.getItem('traveller2e.skipCharacteristicRerollConfirm') === 'true'
+    watch(skipCharacteristicRerollConfirm, (value) => {
+      window.localStorage.setItem('traveller2e.skipCharacteristicRerollConfirm', value ? 'true' : 'false')
+    })
   }
 
   const currentAge = computed(() => 18 + ((currentTermNumber.value - 1) * 4))
@@ -2606,7 +2564,24 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
 
   const applyTravellerEventEffects = (event: TravellerEvent, sourcePrefix: string) => {
     resetEventResolutionState(event)
-    for (const effect of event.effects) {
+    const effects = event.effects
+    for (let index = 0; index < effects.length; index += 1) {
+      const effect = effects[index]
+      const isBareCheck = (effect.normalizedType ?? effect.type) === 'check'
+        && !effect.success
+        && !effect.failure
+        && !effect.always
+        && !effect.naturalTwo
+      const followingEffects = effects.slice(index + 1)
+
+      if (isBareCheck && followingEffects.length) {
+        applyEventEffect({
+          ...effect,
+          success: followingEffects,
+        }, event, sourcePrefix)
+        break
+      }
+
       applyEventEffect(effect, event, sourcePrefix)
     }
   }
@@ -3737,6 +3712,54 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     if (termRolls.careerAdvancement.finalSuccess && !termRolls.careerAdvancementSkill) return false
     return true
   })
+  const termCompletionBlockers = computed(() => {
+    const blockers: string[] = []
+    if (lifepathComplete.value) return blockers
+    if (agingRequired.value && !termRolls.aging) blockers.push('Resolve the aging roll.')
+    if (pendingEventResolutions.value.some((resolution) => !resolution.resolved)) blockers.push('Resolve pending event choices.')
+
+    if (selectedTermPath.value === 'education') {
+      if (!educationAvailable.value) blockers.push('Pre-career education is no longer available.')
+      if (!termRolls.educationEntry) blockers.push('Resolve education entry.')
+      else if (!termRolls.educationEntry.finalSuccess) blockers.push('Education entry failed; attempt a career this term.')
+      if (!educationSkillsApplied.value) blockers.push('Apply education skills.')
+      if (!termRolls.educationEvent) blockers.push('Roll the pre-career event.')
+      if (!termRolls.educationGraduation) blockers.push('Resolve graduation.')
+      return blockers
+    }
+
+    if (!termRolls.careerQualification) blockers.push('Resolve career qualification.')
+    else if (!termRolls.careerQualification.finalSuccess) blockers.push('Qualification failed; choose Draft or Drifter fallback.')
+    if (prisonerParoleThresholdRequired.value) blockers.push('Roll the Prisoner parole threshold.')
+    if (basicTrainingRequired.value && !basicTrainingApplied.value) {
+      blockers.push(pendingBasicTrainingChoices.value.some((choice) => !choice.selected)
+        ? 'Resolve basic training choices.'
+        : 'Apply basic training.')
+    }
+    if (!termRolls.careerSkill) blockers.push('Roll this term\'s career skill.')
+    if (pendingSkillChoice.value) blockers.push('Resolve the pending skill choice.')
+    if (!termRolls.careerSurvival) blockers.push('Resolve survival.')
+    if (termRolls.careerSurvival?.finalSuccess === false && !termRolls.careerMishap) blockers.push('Roll the mishap.')
+
+    if (selectedCareerId.value === 'prisoner') {
+      if (!termRolls.careerAdvancement) blockers.push('Resolve Prisoner advancement/parole.')
+      return blockers
+    }
+
+    if (termRolls.careerSurvival?.finalSuccess) {
+      if (!termRolls.careerEvent) blockers.push('Roll the career event.')
+      if (
+        termRolls.careerEvent
+        && !pendingEventResolutions.value.some((resolution) => !resolution.resolved)
+        && !automaticCommissionConstraint.value
+        && !termRolls.careerCommission?.finalSuccess
+        && !termRolls.careerAdvancement
+      ) blockers.push('Resolve advancement.')
+      if (termRolls.careerAdvancement?.finalSuccess && !termRolls.careerAdvancementSkill) blockers.push('Roll the advancement skill.')
+    }
+
+    return blockers
+  })
   const canAddTermTab = computed(() => {
     if (lifepathComplete.value) return false
     if (activeCreatorTab.value === 'creation') return setupComplete.value
@@ -4281,41 +4304,54 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     }
   }))
 
-  const characterProfile = computed<PlayableTravellerProfile>(() => ({
-    name: characterName.value.trim() || 'Unnamed Traveller',
-    age: currentAge.value,
-    lifepathComplete: lifepathComplete.value,
-    characteristics: characteristicRows.value.map((characteristic) => ({ ...characteristic })),
-    characteristicAdjustments: { ...characteristicAdjustments },
-    backgroundSkills: [...selectedBackgroundSkills.value],
-    skills: currentTravellerSkills.value.map((skill) => ({
+  const characterProfile = computed<TravellerProfile>(() => {
+    const profile = createBlankTravellerProfile('lifepath')
+    const groupedAssociates = {
+      allies: associates.value.filter((associate) => associate.type === 'ally'),
+      contacts: associates.value.filter((associate) => associate.type === 'contact'),
+      rivals: associates.value.filter((associate) => associate.type === 'rival'),
+      enemies: associates.value.filter((associate) => associate.type === 'enemy'),
+      other: associates.value.filter((associate) => !['ally', 'contact', 'rival', 'enemy'].includes(associate.type)),
+    }
+
+    profile.id = creatorProfileSeed.id
+    profile.userId = creatorProfileSeed.userId
+    profile.createdAt = creatorProfileSeed.createdAt
+    profile.updatedAt = new Date().toISOString()
+    profile.source = 'lifepath'
+    profile.identity.name = characterName.value.trim() || 'Unnamed Traveller'
+    profile.identity.age = currentAge.value
+    for (const characteristic of characteristicRows.value) {
+      profile.characteristics[characteristic.id as TravellerCharacteristicId] = { ...characteristic }
+    }
+    profile.characteristics.psi.value = psiScore.value ?? 0
+    profile.characteristics.psi.dm = psiDm.value
+    profile.skills = currentTravellerSkills.value.map((skill) => ({
       ...skill,
       sources: [...skill.sources],
-    })),
-    ranks: careerRanks.value.map((rank) => ({ ...rank })),
-    terms: termHistory.value.map((term) => ({
+    }))
+    profile.careers = termHistory.value.map((term) => ({
       ...term,
       details: [...term.details],
       rolls: term.rolls.map((roll) => ({ ...roll, dice: [...roll.dice] })),
-    })),
-    associates: associates.value.map((associate) => ({
-      ...associate,
-      tags: associate.tags ? [...associate.tags] : undefined,
-    })),
-    narrativeEvents: narrativeEvents.value.map((event) => ({ ...event })),
-    psionics: {
+    }))
+    profile.associates = {
+      allies: groupedAssociates.allies.map((associate) => ({ ...associate, tags: associate.tags ? [...associate.tags] : undefined })),
+      contacts: groupedAssociates.contacts.map((associate) => ({ ...associate, tags: associate.tags ? [...associate.tags] : undefined })),
+      rivals: groupedAssociates.rivals.map((associate) => ({ ...associate, tags: associate.tags ? [...associate.tags] : undefined })),
+      enemies: groupedAssociates.enemies.map((associate) => ({ ...associate, tags: associate.tags ? [...associate.tags] : undefined })),
+      other: groupedAssociates.other.map((associate) => ({ ...associate, tags: associate.tags ? [...associate.tags] : undefined })),
+    }
+    profile.psionics = {
       permissionSources: [...psionicsPermissionSources.value],
       psiScore: psiScore.value,
       psiDm: psiDm.value,
       tested: psiTested.value,
       talents: learnedPsionicTalents.value.map((talent) => ({ ...talent })),
-      talentAttempts: psionicTalentAttempts.value.map((attempt) => ({
-        ...attempt,
-        dice: [...attempt.dice],
-      })),
+      talentAttempts: psionicTalentAttempts.value.map((attempt) => ({ ...attempt, dice: [...attempt.dice] })),
       trainingCost: psionicsTrainingCost.value,
-    },
-    benefits: {
+    }
+    profile.benefits = {
       earnedRolls: totalBenefitRollsEarned.value,
       adjustments: totalBenefitRollAdjustments.value,
       availableRolls: totalAvailableBenefitRolls.value,
@@ -4324,27 +4360,15 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
       cashRollsUsed: cashRollsUsed.value,
       cashRollLimit,
       personal: [...personalBenefits.value],
-      musteringOut: musteringOutResults.value.map((result) => ({
-        ...result,
-        dice: [...result.dice],
-      })),
-    },
-    finances: {
-      credits: startingCredits.value,
-      medicalDebt: medicalDebt.value,
-      psionicsTrainingDebt: psionicsTrainingCost.value,
-      totalDebt: totalDebt.value,
-    },
-    logs: {
-      events: eventOutcomeLog.value.map((entry) => ({ ...entry })),
-      constraints: careerConstraints.value.map((constraint) => ({ ...constraint })),
-      medicalCare: medicalCareLog.value.map((entry) => ({ ...entry })),
-    },
-    draft: {
-      used: draftUsed.value,
-      lastRoll: draftRoll.value ? { ...draftRoll.value } : null,
-    },
-  }))
+      musteringOut: musteringOutResults.value.map((result) => ({ ...result, dice: [...result.dice] })),
+    }
+    profile.finances.cashOnHand = startingCredits.value
+    profile.finances.debt = totalDebt.value
+    profile.history.events = narrativeEvents.value.map((event) => ({ ...event }))
+    profile.history.background = selectedBackgroundSkills.value.map((skill) => skillOptionLabel(skill)).join(', ')
+    profile.metadata.creatorComplete = lifepathComplete.value
+    return profile
+  })
 
   return {
     careersData,
@@ -4365,6 +4389,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     selectedAdvancementSkillTableId,
     hasRolledCharacteristics,
     showRerollConfirm,
+    skipCharacteristicRerollConfirm,
     currentTermNumber,
     activeCreatorTab,
     draftUsed,
@@ -4595,6 +4620,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     rollAging,
     enterManualAging,
     canCompleteTerm,
+    termCompletionBlockers,
     canAddTermTab,
     nextTermButtonLabel,
     selectTermTab,

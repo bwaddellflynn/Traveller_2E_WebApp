@@ -9,8 +9,12 @@ import PsionicsPanel from '~/components/character/PsionicsPanel.vue'
 import RerollConfirmDialog from '~/components/character/RerollConfirmDialog.vue'
 import TermActionFooter from '~/components/character/TermActionFooter.vue'
 import { useCharacterCreatorStore } from '~/stores/characterCreator'
+import { useTravellersStore } from '~/stores/travellers'
 
 const characterCreator = useCharacterCreatorStore()
+const travellers = useTravellersStore()
+const router = useRouter()
+const creatorSaveMessage = ref('')
 const {
   formatDm,
   skillOptionLabel,
@@ -133,7 +137,19 @@ const {
   musteringCareerOptions,
   selectedMusteringCareerBenefits,
   advancementResult,
+  characterProfile,
 } = storeToRefs(characterCreator)
+
+const saveCreatedTraveller = () => {
+  const saved = travellers.saveCreatorProfile(characterProfile.value)
+  creatorSaveMessage.value = `Saved ${saved.identity.name || 'Traveller'}`
+  return saved
+}
+
+const saveAndOpenCreatedTraveller = () => {
+  const saved = saveCreatedTraveller()
+  router.push(`/character/sheet?id=${saved.id}`)
+}
 </script>
 
 <template>
@@ -1138,10 +1154,29 @@ const {
                   Resolve remaining benefit rolls. Cash rolls used: {{ cashRollsUsed }}/{{ cashRollLimit }}.
                 </p>
               </div>
-              <span class="rounded-md bg-stone-100 px-3 py-2 text-sm font-semibold text-zinc-700">
-                {{ remainingBenefitRolls }} rolls remaining
-              </span>
+              <div class="flex flex-wrap items-center gap-2">
+                <span class="rounded-md bg-stone-100 px-3 py-2 text-sm font-semibold text-zinc-700">
+                  {{ remainingBenefitRolls }} rolls remaining
+                </span>
+                <button
+                  class="rounded-md bg-amber-500 px-3 py-2 text-sm font-semibold text-zinc-950 hover:bg-amber-400"
+                  type="button"
+                  @click="saveCreatedTraveller"
+                >
+                  Save Sheet
+                </button>
+                <button
+                  class="rounded-md border border-zinc-300 px-3 py-2 text-sm font-semibold text-zinc-700 hover:border-amber-600"
+                  type="button"
+                  @click="saveAndOpenCreatedTraveller"
+                >
+                  Open Sheet
+                </button>
+              </div>
             </div>
+            <p v-if="creatorSaveMessage" class="mt-3 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-900">
+              {{ creatorSaveMessage }}
+            </p>
 
             <div class="mt-5 grid gap-4 md:grid-cols-3">
               <label class="grid gap-2">

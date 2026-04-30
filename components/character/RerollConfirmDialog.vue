@@ -9,6 +9,7 @@ const {
 } = characterCreator
 const {
   showRerollConfirm,
+  skipCharacteristicRerollConfirm,
 } = storeToRefs(characterCreator)
 </script>
 
@@ -36,6 +37,18 @@ const {
           </p>
         </div>
       </div>
+
+      <label class="mt-5 flex items-start gap-3 rounded-md bg-stone-50 p-3 text-sm text-zinc-700">
+        <input
+          v-model="skipCharacteristicRerollConfirm"
+          class="mt-1 h-4 w-4 rounded border-zinc-300 text-amber-600 focus:ring-amber-500"
+          type="checkbox"
+        >
+        <span>
+          <span class="font-semibold text-zinc-900">Do not ask me again</span>
+          <span class="block text-zinc-600">Future characteristic rerolls will replace the stat bank immediately.</span>
+        </span>
+      </label>
 
       <div class="mt-5 flex justify-end gap-3">
         <button

@@ -1,0 +1,139 @@
+{
+  "sourceId": "mgt2e-field-catalogue",
+  "sourceName": "Field Catalogue",
+  "status": "partial",
+  "process": [
+    "Choose general weapon type.",
+    "Choose ammunition type or power source.",
+    "Choose receiver and mode of operation.",
+    "Assign barrel length.",
+    "Assign furniture.",
+    "Choose feed device.",
+    "Add standard accessories.",
+    "Total cost and weight."
+  ],
+  "componentTables": {
+    "weaponTypes": [
+      { "id": "projectile", "name": "Projectile Weapon", "skill": "gun-combat", "notes": "Personal firearms and gauss weapons built from receiver, ammunition, mechanism, barrel, furniture and accessories." },
+      { "id": "energy", "name": "Energy Weapon", "skill": "gun-combat", "notes": "Manual scaffold for laser/plasma/fusion weapon designs until the energy weapon construction rules are implemented." },
+      { "id": "grenade", "name": "Grenade or Explosive", "skill": "athletics", "notes": "Manual scaffold for thrown, launched and demolition explosive designs until explosive construction rules are implemented." }
+    ],
+    "ammunitionTypes": [
+      { "id": "archaic-pistol", "name": "Archaic Pistol", "damage": "2D-3", "rangeMeters": 20, "costPer100Credits": 10, "capacityModifierPercent": 0, "traits": ["Unreliable 2", "Slow Loader 6"], "signature": "Physical very high", "penetration": -2 },
+      { "id": "archaic-smoothbore", "name": "Archaic Smoothbore", "damage": "3D-3", "rangeMeters": 40, "pelletRangeMeters": 10, "costPer100Credits": 25, "capacityModifierPercent": 0, "traits": ["Unreliable 2", "Slow Loader 8"], "signature": "Physical very high", "penetration": -2 },
+      { "id": "archaic-rifle", "name": "Archaic Rifle", "damage": "3D-3", "rangeMeters": 150, "costPer100Credits": 25, "capacityModifierPercent": 0, "traits": ["Unreliable 2", "Slow Loader 12"], "signature": "Physical very high", "penetration": -2 },
+      { "id": "light-handgun", "name": "Light Handgun", "damage": "2D", "rangeMeters": 40, "costPer100Credits": 60, "capacityModifierPercent": 20, "receiverCostModifierPercent": -20, "receiverWeightModifierPercent": -25, "traits": [], "signature": "Physical low", "penetration": 0 },
+      { "id": "medium-handgun", "name": "Medium Handgun", "damage": "3D-3", "rangeMeters": 50, "costPer100Credits": 75, "capacityModifierPercent": 0, "traits": [], "signature": "Physical normal", "penetration": 0 },
+      { "id": "heavy-handgun", "name": "Heavy Handgun", "damage": "3D-1", "rangeMeters": 60, "costPer100Credits": 100, "capacityModifierPercent": -20, "receiverCostModifierPercent": 20, "receiverWeightModifierPercent": -15, "traits": ["Bulky"], "signature": "Physical normal", "penetration": 0 },
+      { "id": "small-smoothbore", "name": "Small Smoothbore", "damage": "3D-2", "rangeMeters": 60, "pelletRangeMeters": 15, "costPer100Credits": 100, "capacityModifierPercent": 40, "receiverCostModifierPercent": -25, "receiverWeightModifierPercent": -40, "traits": ["Inaccurate -2"], "signature": "Physical high", "penetration": -1 },
+      { "id": "light-smoothbore", "name": "Light Smoothbore", "damage": "4D-4", "rangeMeters": 80, "pelletRangeMeters": 20, "costPer100Credits": 125, "capacityModifierPercent": 20, "receiverCostModifierPercent": -25, "receiverWeightModifierPercent": -20, "traits": ["Inaccurate -2"], "signature": "Physical high", "penetration": -1 },
+      { "id": "standard-smoothbore", "name": "Standard Smoothbore", "damage": "4D", "rangeMeters": 100, "pelletRangeMeters": 25, "costPer100Credits": 150, "capacityModifierPercent": 0, "receiverCostModifierPercent": -25, "receiverWeightModifierPercent": 0, "traits": ["Inaccurate -2"], "signature": "Physical high", "penetration": -1 },
+      { "id": "heavy-smoothbore", "name": "Heavy Smoothbore", "damage": "4D+4", "rangeMeters": 120, "pelletRangeMeters": 30, "costPer100Credits": 175, "capacityModifierPercent": -20, "receiverCostModifierPercent": -25, "receiverWeightModifierPercent": 20, "traits": ["Inaccurate -2"], "signature": "Physical high", "penetration": -1 },
+      { "id": "light-rifle", "name": "Light Rifle", "damage": "2D", "rangeMeters": 150, "costPer100Credits": 40, "capacityModifierPercent": 20, "receiverWeightModifierPercent": -40, "traits": [], "signature": "Physical low", "penetration": 0 },
+      { "id": "intermediate-rifle", "name": "Intermediate Rifle", "damage": "3D", "rangeMeters": 250, "costPer100Credits": 50, "capacityModifierPercent": 0, "receiverWeightModifierPercent": -20, "traits": [], "signature": "Physical normal", "penetration": 0 },
+      { "id": "battle-rifle", "name": "Battle Rifle", "damage": "3D+3", "rangeMeters": 300, "costPer100Credits": 100, "capacityModifierPercent": -20, "traits": [], "signature": "Physical normal", "penetration": 0 },
+      { "id": "heavy-rifle", "name": "Heavy Rifle", "damage": "4D", "rangeMeters": 400, "costPer100Credits": 250, "capacityModifierPercent": -40, "receiverCostModifierPercent": 25, "receiverWeightModifierPercent": 10, "traits": [], "signature": "Physical high", "penetration": 0 },
+      { "id": "anti-materiel", "name": "Anti-Materiel Rifle", "damage": "5D", "rangeMeters": 1000, "costPer100Credits": 1500, "capacityModifierPercent": -60, "receiverCostModifierPercent": 150, "receiverWeightModifierPercent": 50, "minimumReceiver": "light-support", "traits": ["Bulky"], "signature": "Physical extreme", "penetration": 0 },
+      { "id": "heavy-anti-materiel", "name": "Heavy Anti-Materiel Rifle", "damage": "6D", "rangeMeters": 1200, "costPer100Credits": 3000, "capacityModifierPercent": -80, "receiverCostModifierPercent": 250, "receiverWeightModifierPercent": 100, "minimumReceiver": "heavy", "traits": ["Very Bulky"], "signature": "Physical extreme", "penetration": 0 },
+      { "id": "snub", "name": "Low-Recoil Special-Purpose (Snub)", "damage": "3D-3", "rangeMeters": 40, "costPer100Credits": 150, "capacityModifierPercent": -20, "traits": ["Inaccurate -2", "Zero-G"], "signature": "Physical normal", "penetration": -1 },
+      { "id": "rocket", "name": "Rocket Projectile", "damage": "As type", "rangeMeters": 250, "costMultiplier": 2, "capacityModifierPercent": -40, "receiverWeightMultiplier": 0.5, "barrelWeightMultiplier": 0.5, "traits": ["Inaccurate -1", "Zero-G"], "signature": "Physical normal", "penetration": 0 },
+      { "id": "standard-gauss", "name": "Standard Gauss", "damage": "4D", "rangeMeters": 600, "costPer100Credits": 50, "capacityModifierPercent": 0, "receiverCostMultiplier": 2, "receiverWeightMultiplier": 1.25, "traits": [], "signature": "Emissions normal", "penetration": 2 },
+      { "id": "small-gauss", "name": "Small Gauss", "damage": "3D", "rangeMeters": 100, "costPer100Credits": 50, "capacityModifierPercent": 0, "receiverCostMultiplier": 2, "receiverWeightMultiplier": 1.25, "traits": [], "signature": "Emissions low", "penetration": 2 },
+      { "id": "enhanced-gauss", "name": "Enhanced Gauss", "damage": "5D", "rangeMeters": 650, "costPer100Credits": 50, "capacityModifierPercent": 0, "receiverCostMultiplier": 2, "receiverWeightMultiplier": 1.25, "traits": [], "signature": "Emissions high", "penetration": 2 }
+    ],
+    "receivers": [
+      { "id": "handgun", "name": "Handgun", "baseCostCredits": 175, "baseWeightKg": 0.8, "baseCapacity": 10, "quickdraw": 4, "recoilModifier": -2 },
+      { "id": "assault", "name": "Assault Weapon", "baseCostCredits": 300, "baseWeightKg": 2, "baseCapacity": 20, "quickdraw": 2, "recoilModifier": -4 },
+      { "id": "longarm", "name": "Longarm", "baseCostCredits": 400, "baseWeightKg": 2.5, "baseCapacity": 30, "quickdraw": 0, "recoilModifier": -6 },
+      { "id": "light-support", "name": "Light Support Weapon", "baseCostCredits": 1500, "baseWeightKg": 5, "baseCapacity": 50, "quickdraw": -4, "recoilModifier": -8 },
+      { "id": "heavy", "name": "Heavy Weapon", "baseCostCredits": 3000, "baseWeightKg": 10, "baseCapacity": 50, "quickdraw": -8, "recoilModifier": -8 }
+    ],
+    "mechanisms": [
+      { "id": "single-shot", "name": "Single Shot", "costModifierPercent": -75, "weightModifierPercent": 0, "capacityModifierPercent": 0, "traits": [] },
+      { "id": "repeater", "name": "Repeater", "costModifierPercent": -50, "weightModifierPercent": 0, "capacityModifierPercent": -50, "traits": [] },
+      { "id": "semi-automatic", "name": "Semi-Automatic", "costModifierPercent": 0, "weightModifierPercent": 0, "capacityModifierPercent": 0, "traits": [] },
+      { "id": "burst-capable", "name": "Burst-Capable", "costModifierPercent": 10, "weightModifierPercent": 0, "capacityModifierPercent": 0, "auto": 2, "traits": ["Auto 2"] },
+      { "id": "fully-automatic", "name": "Fully-Automatic", "costModifierPercent": 20, "weightModifierPercent": 0, "capacityModifierPercent": 0, "auto": 3, "traits": ["Auto 3"] },
+      { "id": "rapid-fire", "name": "Rapid-Fire", "costMultiplierFormula": "auto+2", "weightModifierPercent": 100, "capacityModifierPercent": 0, "auto": 4, "minimumAuto": 4, "traits": ["Bulky", "RF"] },
+      { "id": "very-rapid-fire", "name": "Very Rapid-Fire", "costModifierPercent": 500, "weightModifierPercent": 400, "capacityModifierPercent": 0, "auto": 6, "minimumAuto": 6, "traits": ["Very Bulky", "VRF"] }
+    ],
+    "receiverFeatures": [
+      { "id": "advanced-projectile", "name": "Advanced Projectile Weapon", "techLevel": 9, "costModifierPercent": 25, "weightModifierPercent": -10, "rangeModifierPercent": 25, "traits": [] },
+      { "id": "accurised", "name": "Accurised", "costModifierPercent": 100, "weightModifierPercent": 0, "traits": ["Accurised"] },
+      { "id": "bullpup", "name": "Bullpup", "costModifierPercent": 25, "weightModifierPercent": 0, "quickdrawModifier": 2, "requiresFurniture": "full-stock", "traits": [] },
+      { "id": "compact", "name": "Compact", "costModifierPercent": 25, "weightModifierPercent": -10, "capacityModifierPercent": -25, "traits": [] },
+      { "id": "high-capacity", "name": "High Capacity", "costModifierPercent": 20, "weightModifierPercent": 10, "capacityModifierPercent": 20, "traits": [] },
+      { "id": "lightweight", "name": "Lightweight", "costModifierPercent": 50, "weightModifierPercent": -20, "traits": [] },
+      { "id": "extreme-lightweight", "name": "Lightweight, Extreme", "costModifierPercent": 200, "weightModifierPercent": -40, "traits": [] },
+      { "id": "low-quality", "name": "Low Quality", "costModifierPercent": -10, "weightModifierPercent": 0, "traits": ["Inaccurate -1"] },
+      { "id": "very-low-quality", "name": "Very Low Quality", "costModifierPercent": -20, "weightModifierPercent": 0, "traits": ["Inaccurate -1", "Hazardous -1"] },
+      { "id": "quickdraw", "name": "Quickdraw", "costModifierPercent": 20, "weightModifierPercent": 0, "quickdrawModifier": 2, "traits": ["Quickdraw"] },
+      { "id": "recoil-compensation-1", "name": "Recoil Compensation 1", "costModifierPercent": 10, "weightModifierPercent": 5, "traits": ["Recoil Compensation 1"] },
+      { "id": "recoil-compensation-2", "name": "Recoil Compensation 2", "costModifierPercent": 20, "weightModifierPercent": 10, "traits": ["Recoil Compensation 2"] },
+      { "id": "rugged", "name": "Rugged", "costModifierPercent": 30, "weightModifierPercent": 10, "traits": ["Rugged"] },
+      { "id": "very-compact", "name": "Very Compact", "costModifierPercent": 40, "weightModifierPercent": -20, "capacityModifierPercent": -50, "traits": [] },
+      { "id": "vacuum", "name": "Vacuum", "costModifierPercent": 20, "weightModifierPercent": 0, "traits": ["Vacuum"] },
+      { "id": "basic-stealth", "name": "Stealth, Basic", "costModifierPercent": 50, "weightModifierPercent": 0, "traits": ["Stealth Basic"] },
+      { "id": "extreme-stealth", "name": "Stealth, Extreme", "costModifierPercent": 250, "weightModifierPercent": 0, "traits": ["Stealth Extreme"] }
+    ],
+    "barrels": [
+      { "id": "minimal", "name": "Minimal", "costPercentOfReceiver": 0, "weightPercentOfReceiver": 0, "rangeModifierPercent": null, "fixedRangeMeters": 5, "quickdrawModifier": 8, "penetrationModifier": -2, "physicalSignatureModifier": 2, "highVelocityDamageDiceModifier": -1 },
+      { "id": "short", "name": "Short", "costPercentOfReceiver": 10, "weightPercentOfReceiver": 10, "rangeModifierPercent": -90, "quickdrawModifier": 6, "penetrationModifier": -1, "physicalSignatureModifier": 1, "highVelocityDamageDiceModifier": -1 },
+      { "id": "handgun", "name": "Handgun", "costPercentOfReceiver": 15, "weightPercentOfReceiver": 20, "rangeModifierPercent": -80, "quickdrawModifier": 4, "penetrationModifier": -1, "highVelocityDamageDiceModifier": -1 },
+      { "id": "assault", "name": "Assault", "costPercentOfReceiver": 20, "weightPercentOfReceiver": 30, "rangeModifierPercent": -50, "quickdrawModifier": 2, "highVelocityDamageDiceModifier": -1 },
+      { "id": "carbine", "name": "Carbine", "costPercentOfReceiver": 25, "weightPercentOfReceiver": 40, "rangeModifierPercent": -10, "quickdrawModifier": 0 },
+      { "id": "rifle", "name": "Rifle", "costPercentOfReceiver": 30, "weightPercentOfReceiver": 50, "rangeModifierPercent": 0, "quickdrawModifier": 0 },
+      { "id": "long", "name": "Long", "costPercentOfReceiver": 50, "weightPercentOfReceiver": 75, "rangeModifierPercent": 10, "quickdrawModifier": 0 },
+      { "id": "very-long", "name": "Very Long", "costPercentOfReceiver": 100, "weightPercentOfReceiver": 100, "rangeModifierPercent": 25, "quickdrawModifier": 0 }
+    ],
+    "furniture": [
+      { "id": "stockless", "name": "No Stock", "costPercentOfReceiver": 0, "weightPercentOfReceiver": 0, "quickdrawModifier": 2 },
+      { "id": "folding-stock", "name": "Folding Stock", "costPercentOfReceiver": 15, "weightPercentOfReceiver": 5, "quickdrawModifier": 0 },
+      { "id": "full-stock", "name": "Full Stock", "costPercentOfReceiver": 10, "weightPercentOfReceiver": 10, "quickdrawModifier": 0 },
+      { "id": "modularisation", "name": "Modularisation", "costPercentOfReceiver": 20, "weightPercentOfReceiver": 10, "quickdrawModifier": 0 },
+      { "id": "bipod", "name": "Bipod", "costPercentOfReceiver": 10, "weightPercentOfReceiver": 20, "quickdrawModifier": -4 },
+      { "id": "detachable-bipod", "name": "Detachable Bipod", "costPercentOfReceiver": 15, "weightPercentOfReceiver": 20, "quickdrawModifier": -4 },
+      { "id": "support-mount", "name": "Support Mount", "costPercentOfReceiver": 25, "weightPercentOfReceiver": 100, "quickdrawModifier": 0 }
+    ],
+    "feedDevices": [
+      { "id": "fixed-magazine", "name": "Fixed Magazine", "costModifierPercent": -10, "weightModifierPercent": -10, "capacityMultiplier": 1, "quickdrawModifier": 0, "traits": [] },
+      { "id": "standard-magazine", "name": "Standard Magazine", "costPercentOfWeapon": 1, "capacityMultiplier": 1, "quickdrawModifier": 0, "traits": [] },
+      { "id": "extended-magazine", "name": "Extended Magazine", "costMultiplier": 2, "capacityMultiplier": 1.5, "quickdrawModifier": -2, "traits": [] },
+      { "id": "drum-magazine", "name": "Drum Magazine", "costMultiplier": 5, "capacityMultiplier": 2.5, "quickdrawModifier": -6, "traits": ["Inaccurate -1", "Hazardous -1"] },
+      { "id": "belt", "name": "Belt", "capacityMultiplier": 3, "quickdrawModifier": -8, "traits": ["Inaccurate -1"] }
+    ],
+    "specialAmmunition": [
+      { "id": "armour-piercing", "name": "Armour-Piercing", "techLevel": 4, "costMultiplier": 2, "penetrationModifier": 1, "traits": [] },
+      { "id": "advanced-armour-piercing", "name": "Armour-Piercing, Advanced", "techLevel": 7, "costMultiplier": 4, "penetrationModifier": 2, "traits": [] },
+      { "id": "distraction", "name": "Distraction", "techLevel": 5, "costMultiplier": 4, "traits": ["Distraction"] },
+      { "id": "enhanced-wounding", "name": "Enhanced Wounding", "techLevel": 5, "costMultiplier": 2, "penetrationModifier": -2, "damagePerDieModifier": 2, "traits": [] },
+      { "id": "explosive", "name": "Explosive", "techLevel": 6, "costMultiplier": 6, "penetrationModifier": -1, "damageDiceModifier": 1, "traits": ["Physical Signature +1"] },
+      { "id": "flechette", "name": "Flechette", "techLevel": 7, "costMultiplier": 1, "fixedRangeMeters": 10, "damageDiceDivisor": "d3", "traits": ["Spread"] },
+      { "id": "gas", "name": "Gas", "techLevel": 7, "costMultiplier": 6, "traits": ["Gas"] },
+      { "id": "heap", "name": "HEAP", "techLevel": 8, "costMultiplier": 10, "penetrationModifier": 2, "traits": ["Physical Signature +1"] },
+      { "id": "incendiary", "name": "Incendiary", "techLevel": 6, "costMultiplier": 6, "traits": ["Incendiary"] },
+      { "id": "low-penetration", "name": "Low-Penetration", "techLevel": 6, "costMultiplier": 1, "penetrationModifier": -1, "damageDiceDivisor": "d3", "traits": [] },
+      { "id": "pellet", "name": "Pellet", "techLevel": 3, "costMultiplier": 1, "traits": ["Spread"] },
+      { "id": "smart", "name": "Smart", "techLevel": 10, "costMultiplier": 6, "traits": ["Smart"] }
+    ],
+    "accessories": [
+      { "id": "scope", "name": "Scope", "techLevel": 5, "costCredits": 50, "weightKg": 0.2, "quickdrawModifier": -2, "traits": ["Scope"] },
+      { "id": "long-range-scope", "name": "Long-Range Scope", "techLevel": 6, "costCredits": 500, "weightKg": 1, "quickdrawModifier": -2, "traits": ["Scope"] },
+      { "id": "low-light-scope", "name": "Low-Light Scope", "techLevel": 6, "costCredits": 150, "weightKg": 0.4, "quickdrawModifier": -2, "traits": [] },
+      { "id": "thermal-scope", "name": "Thermal Scope", "techLevel": 6, "costCredits": 250, "weightKg": 0.5, "quickdrawModifier": -2, "traits": [] },
+      { "id": "combination-scope", "name": "Combination Scope", "techLevel": 7, "costCredits": 400, "weightKg": 0.5, "quickdrawModifier": -2, "traits": ["Scope"] },
+      { "id": "multispectral-scope", "name": "Multispectral Scope", "techLevel": 9, "costCredits": 600, "weightKg": 0.5, "quickdrawModifier": -2, "traits": ["Scope"] },
+      { "id": "laser-pointer", "name": "Laser Pointer", "techLevel": 8, "costCredits": 200, "weightKg": 0.1, "quickdrawModifier": 0, "traits": [] },
+      { "id": "integrated-sighting-system", "name": "Integrated Sighting System", "techLevel": 10, "costCredits": 500, "weightKg": 0.4, "quickdrawModifier": 0, "traits": ["Scope"] },
+      { "id": "holographic-sight", "name": "Holographic Sight", "techLevel": 12, "costCredits": 750, "weightKg": 0, "quickdrawModifier": 0, "traits": ["Scope"] },
+      { "id": "basic-suppressor", "name": "Suppressor, Basic", "costPercentOfReceiver": 50, "weightKg": 0.2, "rangeModifierPercent": -25, "quickdrawModifier": -2, "traits": ["Inaccurate -1"] },
+      { "id": "suppressor", "name": "Suppressor", "costPercentOfReceiver": 100, "weightKg": 0.3, "rangeModifierPercent": -50, "quickdrawModifier": -3, "penetrationModifier": -1, "traits": ["Inaccurate -1"] },
+      { "id": "extreme-suppressor", "name": "Suppressor, Extreme", "costPercentOfReceiver": 200, "weightKg": 0.5, "rangeModifierPercent": -75, "quickdrawModifier": -4, "penetrationModifier": -2, "traits": ["Inaccurate -1"] },
+      { "id": "gyrostabiliser", "name": "Gyrostabiliser", "techLevel": 9, "costCredits": 300, "weightPercentOfReceiver": 20, "quickdrawModifier": 0, "traits": [] },
+      { "id": "flashlight", "name": "Flashlight", "costCredits": 50, "weightKg": 0, "quickdrawModifier": -2, "traits": [] },
+      { "id": "secure-weapon", "name": "Secure Weapon", "techLevel": 10, "costCredits": 100, "weightKg": 0, "quickdrawModifier": 0, "traits": [] },
+      { "id": "intelligent-weapon-tl11", "name": "Intelligent Weapon TL11", "techLevel": 11, "costCredits": 1000, "weightKg": 0, "quickdrawModifier": 0, "traits": ["Computer/0"] },
+      { "id": "intelligent-weapon-tl13", "name": "Intelligent Weapon TL13", "techLevel": 13, "costCredits": 5000, "weightKg": 0, "quickdrawModifier": 0, "traits": ["Computer/1"] }
+    ]
+  }
+}

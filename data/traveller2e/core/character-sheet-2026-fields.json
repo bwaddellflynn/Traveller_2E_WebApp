@@ -1,0 +1,69 @@
+{
+  "template": "Character Sheet 2026_fillable.pdf",
+  "source": "MgT 2E Core/Character Sheet 2026_fillable.pdf",
+  "status": "seed-with-full-field-list",
+  "notes": [
+    "This is a starter mapping for future PDF export. The PDF is an unencrypted two-page AcroForm.",
+    "The complete extracted AcroForm field list is stored in character-sheet-2026-acroform-fields.json."
+  ],
+  "identity": {
+    "name": "Name",
+    "title": "Title",
+    "age": "Age",
+    "species": "Species",
+    "homeworld": "Homeworld",
+    "traits": "Traits"
+  },
+  "characteristics": {
+    "str": { "value": "Strength", "dm": "Strength DM" },
+    "dex": { "value": "Dexterity", "dm": "Dexterity DM" },
+    "end": { "value": "Endurance", "dm": "Endurance DM" },
+    "int": { "value": "Intellect", "dm": "Intellect DM" },
+    "edu": { "value": "Education", "dm": "Education DM" },
+    "soc": { "value": "Social", "dm": "Social DM" },
+    "other1": { "label": "Other Characteristic 1", "value": "Other Stat 1", "dm": "Other DM 1" },
+    "other2": { "label": "Other Characteristic 2", "value": "Other Stat 2", "dm": "Other DM 2" }
+  },
+  "repeatingPatterns": {
+    "specialitySkill": {
+      "speciality": "{Skill} Specialism {index}",
+      "modifier": "{Skill} {index} Modifier"
+    },
+    "genericSkillAbility": {
+      "name": "Skill/Ability {index}",
+      "modifier": "Skill/Ability DM {index}"
+    },
+    "weapon": {
+      "type": "Weapon Type {index}",
+      "techLevel": "Weapon TL {index}",
+      "range": "Weapon Range {index}",
+      "damage": "Weapon Damage {index}",
+      "kg": "Weapon KG {index}",
+      "magazine": "Weapon Magazine {index}",
+      "traits": "Weapon Traits {index}",
+      "notes": "Weapon Notes {index}"
+    },
+    "equipment": {
+      "name": "Equipment Type {index}",
+      "techLevel": "Equipment TL {index}",
+      "kg": "Equipment KG {index}",
+      "notes": "Equipment Notes {index}"
+    },
+    "armour": {
+      "type": "Armour Type {index}",
+      "protection": "Armour Protection {index}",
+      "radiationProtection": "Armour Radiation {index}",
+      "kg": "Armour KG {index}",
+      "options": "Armour Options {index}"
+    },
+    "augment": {
+      "type": "Augment Type {index}",
+      "techLevel": "Augment TL {index}",
+      "traits": "Augment Traits {index}"
+    }
+  },
+  "futureWork": [
+    "Add profile-to-PDF flattening rules.",
+    "Add PDF export service once a PDF form library is available in the project."
+  ]
+}

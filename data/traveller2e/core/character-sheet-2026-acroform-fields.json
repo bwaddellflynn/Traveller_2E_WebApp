@@ -1,0 +1,1163 @@
+{
+  "template": "Character Sheet 2026_fillable.pdf",
+  "source": "MgT 2E Core/Character Sheet 2026_fillable.pdf",
+  "fieldCount": 420,
+  "fields": [
+    "Admin Modifier",
+    "Advocate Modifier",
+    "Age",
+    "Ally Name 1",
+    "Ally Name 2",
+    "Ally Name 3",
+    "Ally Name 4",
+    "Ally Name 5",
+    "Ally Name 6",
+    "Ally Notes 1",
+    "Ally Notes 2",
+    "Ally Notes 3",
+    "Ally Notes 4",
+    "Ally Notes 5",
+    "Ally Notes 6",
+    "Animals 1 Modifier",
+    "Animals 2 Modifier",
+    "Animals 3 Modifier",
+    "Animals Specialism 1",
+    "Animals Specialism 3",
+    "Animals Speciialism 2",
+    "Annual Pension",
+    "Armour KG 1",
+    "Armour KG 2",
+    "Armour KG 3",
+    "Armour KG 4",
+    "Armour KG 5",
+    "Armour KG 6",
+    "Armour KG 7",
+    "Armour KG 8",
+    "Armour Options 1",
+    "Armour Options 2",
+    "Armour Options 3",
+    "Armour Options 4",
+    "Armour Options 5",
+    "Armour Options 6",
+    "Armour Options 7",
+    "Armour Options 8",
+    "Armour Protection 1",
+    "Armour Protection 2",
+    "Armour Protection 3",
+    "Armour Protection 4",
+    "Armour Protection 5",
+    "Armour Protection 6",
+    "Armour Protection 7",
+    "Armour Protection 8",
+    "Armour Radiation 1",
+    "Armour Radiation 2",
+    "Armour Radiation 3",
+    "Armour Radiation 4",
+    "Armour Radiation 5",
+    "Armour Radiation 6",
+    "Armour Radiation 7",
+    "Armour Radiation 8",
+    "Armour Type 1",
+    "Armour Type 2",
+    "Armour Type 3",
+    "Armour Type 4",
+    "Armour Type 5",
+    "Armour Type 6",
+    "Armour Type 7",
+    "Armour Type 8",
+    "Art 1 Modifier",
+    "Art 2 Modifier",
+    "Art 3 Modifier",
+    "Art Specialism 1",
+    "Art Specialism 2",
+    "Art Specialism 3",
+    "Astrogation Modifier",
+    "Athletics 1 Modifier",
+    "Athletics 2 Modifier",
+    "Athletics 3 Modifier",
+    "Athletics Specialism 1",
+    "Athletics Specialism 2",
+    "Athletics Specialism 3",
+    "Augment TL 1",
+    "Augment TL 2",
+    "Augment TL 3",
+    "Augment TL 4",
+    "Augment TL 5",
+    "Augment Traits 1",
+    "Augment Traits 2",
+    "Augment Traits 3",
+    "Augment Traits 4",
+    "Augment Traits 5",
+    "Augment Type 1",
+    "Augment Type 2",
+    "Augment Type 3",
+    "Augment Type 4",
+    "Augment Type 5",
+    "Broker Modifier",
+    "Career 1",
+    "Career 2",
+    "Career 3",
+    "Career 4",
+    "Career 5",
+    "Career Advancement 1",
+    "Career Advancement 2",
+    "Career Advancement 3",
+    "Career Advancement 4",
+    "Career Advancement 5",
+    "Career Notes 1",
+    "Career Notes 2",
+    "Career Notes 3",
+    "Career Notes 4",
+    "Career Notes 5",
+    "Career Rank 1",
+    "Career Rank 2",
+    "Career Rank 3",
+    "Career Rank 4",
+    "Career Rank 5",
+    "Career Survival 1",
+    "Career Survival 2",
+    "Career Survival 3",
+    "Career Survival 4",
+    "Career Survival 5",
+    "Career Term 1",
+    "Career Term 2",
+    "Career Term 3",
+    "Career Term 4",
+    "Career Term 5",
+    "Carouse Modifier",
+    "Cash on Hand",
+    "Completed Study Periods",
+    "Completed Weeks",
+    "Contact Name 1",
+    "Contact Name 2",
+    "Contact Name 3",
+    "Contact Name 4",
+    "Contact Name 5",
+    "Contact Name 6",
+    "Contact Notes 1",
+    "Contact Notes 2",
+    "Contact Notes 3",
+    "Contact Notes 4",
+    "Contact Notes 5",
+    "Contact Notes 6",
+    "Debt",
+    "Deception Modifier",
+    "Dexterity",
+    "Dexterity DM",
+    "Diplomat Modifier",
+    "Distinguishing Features",
+    "Drive 1 Modifier",
+    "Drive 2 Modifier",
+    "Drive 3 Modifier",
+    "Drive Specialism 1",
+    "Drive Specialism 2",
+    "Drive Specialism 3",
+    "Education",
+    "Education DM",
+    "Electronics 1 Modifier",
+    "Electronics 2 Modifier",
+    "Electronics 3 Modifier",
+    "Electronics Specialism 1",
+    "Electronics Specialism 2",
+    "Electronics Specialism 3",
+    "Endurance",
+    "Endurance DM",
+    "Enemy Name 1",
+    "Enemy Name 2",
+    "Enemy Name 3",
+    "Enemy Name 4",
+    "Enemy Name 5",
+    "Enemy Name 6",
+    "Enemy Notes 1",
+    "Enemy Notes 2",
+    "Enemy Notes 3",
+    "Enemy Notes 4",
+    "Enemy Notes 5",
+    "Enemy Notes 6",
+    "Engineer 1 Modifier",
+    "Engineer 2 Modifier",
+    "Engineer 3 Modifier",
+    "Engineer Specialism 1",
+    "Engineer Specialism 2",
+    "Engineer Specialism 3",
+    "Equipment KG 1",
+    "Equipment KG 2",
+    "Equipment KG 3",
+    "Equipment KG 4",
+    "Equipment KG 5",
+    "Equipment KG 6",
+    "Equipment KG 7",
+    "Equipment KG 8",
+    "Equipment Notes 1",
+    "Equipment Notes 2",
+    "Equipment Notes 3",
+    "Equipment Notes 4",
+    "Equipment Notes 5",
+    "Equipment Notes 6",
+    "Equipment Notes 7",
+    "Equipment Notes 8",
+    "Equipment TL 1",
+    "Equipment TL 2",
+    "Equipment TL 3",
+    "Equipment TL 4",
+    "Equipment TL 5",
+    "Equipment TL 6",
+    "Equipment TL 7",
+    "Equipment TL 8",
+    "Equipment Type 1",
+    "Equipment Type 2",
+    "Equipment Type 3",
+    "Equipment Type 4",
+    "Equipment Type 5",
+    "Equipment Type 6",
+    "Equipment Type 7",
+    "Equipment Type 8",
+    "Explosives Modifier",
+    "Flyer 1 Modifier",
+    "Flyer 2 Modifier",
+    "Flyer 3 Modifier",
+    "Flyer Specialism 1",
+    "Flyer Specialism 2",
+    "Flyer Specialism 3",
+    "Gambler Modifier",
+    "Gun Combat 1 Modifier",
+    "Gun Combat 2 Modifier",
+    "Gun Combat 3 Modifier",
+    "Gun Combat Specialism 1",
+    "Gun Combat Specialism 2",
+    "Gun Combat Specialism 3",
+    "Gunner 1 Modifier",
+    "Gunner 2 Modifier",
+    "Gunner 3 Modifier",
+    "Gunner Specialism 1",
+    "Gunner Specialism 2",
+    "Gunner Specialism 3",
+    "Heavy Weapons 1 Modifier",
+    "Heavy Weapons 2 Modifier",
+    "Heavy Weapons 3 Modifier",
+    "Heavy Weapons Specialism 1",
+    "Heavy Weapons Specialism 2",
+    "Heavy Weapons Specialism 3",
+    "History & Background",
+    "Homeworld",
+    "Income",
+    "Intellect",
+    "Intellect DM",
+    "Investigate Modifier",
+    "Jack-of-All-Trades Modifier",
+    "Language 1 Modifier",
+    "Language 2 Modifier",
+    "Language 3 Modifier",
+    "Language Specialism 1",
+    "Language Specialism 2",
+    "Language Specialism 3",
+    "Leadership Modifier",
+    "Living Cost",
+    "Mechanic Modifier",
+    "Medic Modifier",
+    "Melee 1 Modifier",
+    "Melee 2 Modifier",
+    "Melee 3 Modifier",
+    "Melee Specialism 1",
+    "Melee Specialism 2",
+    "Melee Specialism 3",
+    "Monthly Cash Flow",
+    "Name",
+    "Navigation Modifier",
+    "Other Characteristic 1",
+    "Other Characteristic 2",
+    "Other DM 1",
+    "Other Dm 2",
+    "Other Stat 1",
+    "Other Stat 2",
+    "Persuade Modifier",
+    "Pilot 1 Modifier",
+    "Pilot 2 Modifier",
+    "Pilot 3 Modifier",
+    "Pilot Specialism 1",
+    "Pilot Specialism 2",
+    "Pilot Specialism 3",
+    "Profession 1 Modifier",
+    "Profession 2 Modifier",
+    "Profession 3 Modifier",
+    "Profession Specialiasm 1",
+    "Profession Specialism 2",
+    "Profession Specialism 3",
+    "Recon Modifier",
+    "Rival Name 1",
+    "Rival Name 2",
+    "Rival Name 3",
+    "Rival Name 4",
+    "Rival Name 5",
+    "Rival Name 6",
+    "Rival Notes 1",
+    "Rival Notes 2",
+    "Rival Notes 3",
+    "Rival Notes 4",
+    "Rival Notes 5",
+    "Rival Notes 6",
+    "Science 1 Modifier",
+    "Science 2 Modifier",
+    "Science 3 Modifier",
+    "Science Specialism 1",
+    "Science Specialism 2",
+    "Science Specialism 3",
+    "Seafarer 1 Modifier",
+    "Seafarer 2 Modifier",
+    "Seafarer 3 Modifier",
+    "Seafarer Specialism 1",
+    "Seafarer Specialism 2",
+    "Seafarer Specialism 3",
+    "Ship Payments",
+    "Ship Shares",
+    "Skill/Ability 1",
+    "Skill/Ability 10",
+    "Skill/Ability 11",
+    "Skill/Ability 2",
+    "Skill/Ability 3",
+    "Skill/Ability 4",
+    "Skill/Ability 5",
+    "Skill/Ability 6",
+    "Skill/Ability 7",
+    "Skill/Ability 8",
+    "Skill/Ability 9",
+    "Skill/Ability DM 1",
+    "Skill/Ability DM 10",
+    "Skill/Ability DM 11",
+    "Skill/Ability DM 2",
+    "Skill/Ability DM 3",
+    "Skill/Ability DM 4",
+    "Skill/Ability DM 5",
+    "Skill/Ability DM 6",
+    "Skill/Ability DM 7",
+    "Skill/Ability DM 8",
+    "Skill/Ability DM 9",
+    "Social",
+    "Social DM",
+    "Species",
+    "Stealth Modifier",
+    "Steward Modifier",
+    "Streetwise Modifier",
+    "Strength",
+    "Strength DM",
+    "Survival Modifier",
+    "Tactics 1 Modifier",
+    "Tactics 2 Modifier",
+    "Tactics 3 Modifier",
+    "Tactics Specialism 1",
+    "Tactics Specialism 2",
+    "Tactics Specialism 3",
+    "Title",
+    "Training Skill",
+    "Traits",
+    "Vacc Suit Modifier",
+    "Weapon Damage 1",
+    "Weapon Damage 2",
+    "Weapon Damage 3",
+    "Weapon Damage 4",
+    "Weapon Damage 5",
+    "Weapon Damage 6",
+    "Weapon Damage 7",
+    "Weapon Damage 8",
+    "Weapon KG 1",
+    "Weapon KG 2",
+    "Weapon KG 3",
+    "Weapon KG 4",
+    "Weapon KG 5",
+    "Weapon KG 6",
+    "Weapon KG 7",
+    "Weapon KG 8",
+    "Weapon Magazine 1",
+    "Weapon Magazine 2",
+    "Weapon Magazine 3",
+    "Weapon Magazine 4",
+    "Weapon Magazine 5",
+    "Weapon Magazine 6",
+    "Weapon Magazine 7",
+    "Weapon Magazine 8",
+    "Weapon Range 1",
+    "Weapon Range 2",
+    "Weapon Range 3",
+    "Weapon Range 4",
+    "Weapon Range 5",
+    "Weapon Range 6",
+    "Weapon Range 7",
+    "Weapon Range 8",
+    "Weapon TL 1",
+    "Weapon TL 2",
+    "Weapon TL 3",
+    "Weapon TL 4",
+    "Weapon TL 5",
+    "Weapon TL 6",
+    "Weapon TL 7",
+    "Weapon TL 8",
+    "Weapon Traits 1",
+    "Weapon Traits 2",
+    "Weapon Traits 3",
+    "Weapon Traits 4",
+    "Weapon Traits 5",
+    "Weapon Traits 6",
+    "Weapon Traits 7",
+    "Weapon Traits 8",
+    "Weapon Type 1",
+    "Weapon Type 2",
+    "Weapon Type 3",
+    "Weapon Type 4",
+    "Weapon Type 5",
+    "Weapon Type 6",
+    "Weapon Type 7",
+    "Weapon Type 8",
+    "Wound Location 1",
+    "Wound Location 2",
+    "Wound Location 3",
+    "Wound Location 4",
+    "Wound Notes 1",
+    "Wound Notes 2",
+    "Wound Notes 3",
+    "Wound Notes 4",
+    "Wound Recovery Period 1",
+    "Wound Recovery Period 2",
+    "Wound Recovery Period 3",
+    "Wound Recovery Period 4",
+    "Wound Type 1",
+    "Wound Type 2",
+    "Wound Type 3",
+    "Wound Type 4"
+  ],
+  "groups": {
+    "Admin": [
+      "Admin Modifier"
+    ],
+    "Advocate": [
+      "Advocate Modifier"
+    ],
+    "Age": [
+      "Age"
+    ],
+    "Ally Name": [
+      "Ally Name 1",
+      "Ally Name 2",
+      "Ally Name 3",
+      "Ally Name 4",
+      "Ally Name 5",
+      "Ally Name 6"
+    ],
+    "Ally Notes": [
+      "Ally Notes 1",
+      "Ally Notes 2",
+      "Ally Notes 3",
+      "Ally Notes 4",
+      "Ally Notes 5",
+      "Ally Notes 6"
+    ],
+    "Animals 1": [
+      "Animals 1 Modifier"
+    ],
+    "Animals 2": [
+      "Animals 2 Modifier"
+    ],
+    "Animals 3": [
+      "Animals 3 Modifier"
+    ],
+    "Animals": [
+      "Animals Specialism 1",
+      "Animals Specialism 3",
+      "Animals Speciialism 2"
+    ],
+    "Annual Pension": [
+      "Annual Pension"
+    ],
+    "Armour KG": [
+      "Armour KG 1",
+      "Armour KG 2",
+      "Armour KG 3",
+      "Armour KG 4",
+      "Armour KG 5",
+      "Armour KG 6",
+      "Armour KG 7",
+      "Armour KG 8"
+    ],
+    "Armour Options": [
+      "Armour Options 1",
+      "Armour Options 2",
+      "Armour Options 3",
+      "Armour Options 4",
+      "Armour Options 5",
+      "Armour Options 6",
+      "Armour Options 7",
+      "Armour Options 8"
+    ],
+    "Armour Protection": [
+      "Armour Protection 1",
+      "Armour Protection 2",
+      "Armour Protection 3",
+      "Armour Protection 4",
+      "Armour Protection 5",
+      "Armour Protection 6",
+      "Armour Protection 7",
+      "Armour Protection 8"
+    ],
+    "Armour Radiation": [
+      "Armour Radiation 1",
+      "Armour Radiation 2",
+      "Armour Radiation 3",
+      "Armour Radiation 4",
+      "Armour Radiation 5",
+      "Armour Radiation 6",
+      "Armour Radiation 7",
+      "Armour Radiation 8"
+    ],
+    "Armour Type": [
+      "Armour Type 1",
+      "Armour Type 2",
+      "Armour Type 3",
+      "Armour Type 4",
+      "Armour Type 5",
+      "Armour Type 6",
+      "Armour Type 7",
+      "Armour Type 8"
+    ],
+    "Art 1": [
+      "Art 1 Modifier"
+    ],
+    "Art 2": [
+      "Art 2 Modifier"
+    ],
+    "Art 3": [
+      "Art 3 Modifier"
+    ],
+    "Art": [
+      "Art Specialism 1",
+      "Art Specialism 2",
+      "Art Specialism 3"
+    ],
+    "Astrogation": [
+      "Astrogation Modifier"
+    ],
+    "Athletics 1": [
+      "Athletics 1 Modifier"
+    ],
+    "Athletics 2": [
+      "Athletics 2 Modifier"
+    ],
+    "Athletics 3": [
+      "Athletics 3 Modifier"
+    ],
+    "Athletics": [
+      "Athletics Specialism 1",
+      "Athletics Specialism 2",
+      "Athletics Specialism 3"
+    ],
+    "Augment TL": [
+      "Augment TL 1",
+      "Augment TL 2",
+      "Augment TL 3",
+      "Augment TL 4",
+      "Augment TL 5"
+    ],
+    "Augment Traits": [
+      "Augment Traits 1",
+      "Augment Traits 2",
+      "Augment Traits 3",
+      "Augment Traits 4",
+      "Augment Traits 5"
+    ],
+    "Augment Type": [
+      "Augment Type 1",
+      "Augment Type 2",
+      "Augment Type 3",
+      "Augment Type 4",
+      "Augment Type 5"
+    ],
+    "Broker": [
+      "Broker Modifier"
+    ],
+    "Career": [
+      "Career 1",
+      "Career 2",
+      "Career 3",
+      "Career 4",
+      "Career 5"
+    ],
+    "Career Advancement": [
+      "Career Advancement 1",
+      "Career Advancement 2",
+      "Career Advancement 3",
+      "Career Advancement 4",
+      "Career Advancement 5"
+    ],
+    "Career Notes": [
+      "Career Notes 1",
+      "Career Notes 2",
+      "Career Notes 3",
+      "Career Notes 4",
+      "Career Notes 5"
+    ],
+    "Career Rank": [
+      "Career Rank 1",
+      "Career Rank 2",
+      "Career Rank 3",
+      "Career Rank 4",
+      "Career Rank 5"
+    ],
+    "Career Survival": [
+      "Career Survival 1",
+      "Career Survival 2",
+      "Career Survival 3",
+      "Career Survival 4",
+      "Career Survival 5"
+    ],
+    "Career Term": [
+      "Career Term 1",
+      "Career Term 2",
+      "Career Term 3",
+      "Career Term 4",
+      "Career Term 5"
+    ],
+    "Carouse": [
+      "Carouse Modifier"
+    ],
+    "Cash on Hand": [
+      "Cash on Hand"
+    ],
+    "Completed Study Periods": [
+      "Completed Study Periods"
+    ],
+    "Completed Weeks": [
+      "Completed Weeks"
+    ],
+    "Contact Name": [
+      "Contact Name 1",
+      "Contact Name 2",
+      "Contact Name 3",
+      "Contact Name 4",
+      "Contact Name 5",
+      "Contact Name 6"
+    ],
+    "Contact Notes": [
+      "Contact Notes 1",
+      "Contact Notes 2",
+      "Contact Notes 3",
+      "Contact Notes 4",
+      "Contact Notes 5",
+      "Contact Notes 6"
+    ],
+    "Debt": [
+      "Debt"
+    ],
+    "Deception": [
+      "Deception Modifier"
+    ],
+    "Dexterity": [
+      "Dexterity",
+      "Dexterity DM"
+    ],
+    "Diplomat": [
+      "Diplomat Modifier"
+    ],
+    "Distinguishing Features": [
+      "Distinguishing Features"
+    ],
+    "Drive 1": [
+      "Drive 1 Modifier"
+    ],
+    "Drive 2": [
+      "Drive 2 Modifier"
+    ],
+    "Drive 3": [
+      "Drive 3 Modifier"
+    ],
+    "Drive": [
+      "Drive Specialism 1",
+      "Drive Specialism 2",
+      "Drive Specialism 3"
+    ],
+    "Education": [
+      "Education",
+      "Education DM"
+    ],
+    "Electronics 1": [
+      "Electronics 1 Modifier"
+    ],
+    "Electronics 2": [
+      "Electronics 2 Modifier"
+    ],
+    "Electronics 3": [
+      "Electronics 3 Modifier"
+    ],
+    "Electronics": [
+      "Electronics Specialism 1",
+      "Electronics Specialism 2",
+      "Electronics Specialism 3"
+    ],
+    "Endurance": [
+      "Endurance",
+      "Endurance DM"
+    ],
+    "Enemy Name": [
+      "Enemy Name 1",
+      "Enemy Name 2",
+      "Enemy Name 3",
+      "Enemy Name 4",
+      "Enemy Name 5",
+      "Enemy Name 6"
+    ],
+    "Enemy Notes": [
+      "Enemy Notes 1",
+      "Enemy Notes 2",
+      "Enemy Notes 3",
+      "Enemy Notes 4",
+      "Enemy Notes 5",
+      "Enemy Notes 6"
+    ],
+    "Engineer 1": [
+      "Engineer 1 Modifier"
+    ],
+    "Engineer 2": [
+      "Engineer 2 Modifier"
+    ],
+    "Engineer 3": [
+      "Engineer 3 Modifier"
+    ],
+    "Engineer": [
+      "Engineer Specialism 1",
+      "Engineer Specialism 2",
+      "Engineer Specialism 3"
+    ],
+    "Equipment KG": [
+      "Equipment KG 1",
+      "Equipment KG 2",
+      "Equipment KG 3",
+      "Equipment KG 4",
+      "Equipment KG 5",
+      "Equipment KG 6",
+      "Equipment KG 7",
+      "Equipment KG 8"
+    ],
+    "Equipment Notes": [
+      "Equipment Notes 1",
+      "Equipment Notes 2",
+      "Equipment Notes 3",
+      "Equipment Notes 4",
+      "Equipment Notes 5",
+      "Equipment Notes 6",
+      "Equipment Notes 7",
+      "Equipment Notes 8"
+    ],
+    "Equipment TL": [
+      "Equipment TL 1",
+      "Equipment TL 2",
+      "Equipment TL 3",
+      "Equipment TL 4",
+      "Equipment TL 5",
+      "Equipment TL 6",
+      "Equipment TL 7",
+      "Equipment TL 8"
+    ],
+    "Equipment Type": [
+      "Equipment Type 1",
+      "Equipment Type 2",
+      "Equipment Type 3",
+      "Equipment Type 4",
+      "Equipment Type 5",
+      "Equipment Type 6",
+      "Equipment Type 7",
+      "Equipment Type 8"
+    ],
+    "Explosives": [
+      "Explosives Modifier"
+    ],
+    "Flyer 1": [
+      "Flyer 1 Modifier"
+    ],
+    "Flyer 2": [
+      "Flyer 2 Modifier"
+    ],
+    "Flyer 3": [
+      "Flyer 3 Modifier"
+    ],
+    "Flyer": [
+      "Flyer Specialism 1",
+      "Flyer Specialism 2",
+      "Flyer Specialism 3"
+    ],
+    "Gambler": [
+      "Gambler Modifier"
+    ],
+    "Gun Combat 1": [
+      "Gun Combat 1 Modifier"
+    ],
+    "Gun Combat 2": [
+      "Gun Combat 2 Modifier"
+    ],
+    "Gun Combat 3": [
+      "Gun Combat 3 Modifier"
+    ],
+    "Gun Combat": [
+      "Gun Combat Specialism 1",
+      "Gun Combat Specialism 2",
+      "Gun Combat Specialism 3"
+    ],
+    "Gunner 1": [
+      "Gunner 1 Modifier"
+    ],
+    "Gunner 2": [
+      "Gunner 2 Modifier"
+    ],
+    "Gunner 3": [
+      "Gunner 3 Modifier"
+    ],
+    "Gunner": [
+      "Gunner Specialism 1",
+      "Gunner Specialism 2",
+      "Gunner Specialism 3"
+    ],
+    "Heavy Weapons 1": [
+      "Heavy Weapons 1 Modifier"
+    ],
+    "Heavy Weapons 2": [
+      "Heavy Weapons 2 Modifier"
+    ],
+    "Heavy Weapons 3": [
+      "Heavy Weapons 3 Modifier"
+    ],
+    "Heavy Weapons": [
+      "Heavy Weapons Specialism 1",
+      "Heavy Weapons Specialism 2",
+      "Heavy Weapons Specialism 3"
+    ],
+    "History & Background": [
+      "History & Background"
+    ],
+    "Homeworld": [
+      "Homeworld"
+    ],
+    "Income": [
+      "Income"
+    ],
+    "Intellect": [
+      "Intellect",
+      "Intellect DM"
+    ],
+    "Investigate": [
+      "Investigate Modifier"
+    ],
+    "Jack-of-All-Trades": [
+      "Jack-of-All-Trades Modifier"
+    ],
+    "Language 1": [
+      "Language 1 Modifier"
+    ],
+    "Language 2": [
+      "Language 2 Modifier"
+    ],
+    "Language 3": [
+      "Language 3 Modifier"
+    ],
+    "Language": [
+      "Language Specialism 1",
+      "Language Specialism 2",
+      "Language Specialism 3"
+    ],
+    "Leadership": [
+      "Leadership Modifier"
+    ],
+    "Living Cost": [
+      "Living Cost"
+    ],
+    "Mechanic": [
+      "Mechanic Modifier"
+    ],
+    "Medic": [
+      "Medic Modifier"
+    ],
+    "Melee 1": [
+      "Melee 1 Modifier"
+    ],
+    "Melee 2": [
+      "Melee 2 Modifier"
+    ],
+    "Melee 3": [
+      "Melee 3 Modifier"
+    ],
+    "Melee": [
+      "Melee Specialism 1",
+      "Melee Specialism 2",
+      "Melee Specialism 3"
+    ],
+    "Monthly Cash Flow": [
+      "Monthly Cash Flow"
+    ],
+    "Name": [
+      "Name"
+    ],
+    "Navigation": [
+      "Navigation Modifier"
+    ],
+    "Other Characteristic": [
+      "Other Characteristic 1",
+      "Other Characteristic 2"
+    ],
+    "Other": [
+      "Other DM 1"
+    ],
+    "Other Dm": [
+      "Other Dm 2"
+    ],
+    "Other Stat": [
+      "Other Stat 1",
+      "Other Stat 2"
+    ],
+    "Persuade": [
+      "Persuade Modifier"
+    ],
+    "Pilot 1": [
+      "Pilot 1 Modifier"
+    ],
+    "Pilot 2": [
+      "Pilot 2 Modifier"
+    ],
+    "Pilot 3": [
+      "Pilot 3 Modifier"
+    ],
+    "Pilot": [
+      "Pilot Specialism 1",
+      "Pilot Specialism 2",
+      "Pilot Specialism 3"
+    ],
+    "Profession 1": [
+      "Profession 1 Modifier"
+    ],
+    "Profession 2": [
+      "Profession 2 Modifier"
+    ],
+    "Profession 3": [
+      "Profession 3 Modifier"
+    ],
+    "Profession": [
+      "Profession Specialiasm 1",
+      "Profession Specialism 2",
+      "Profession Specialism 3"
+    ],
+    "Recon": [
+      "Recon Modifier"
+    ],
+    "Rival Name": [
+      "Rival Name 1",
+      "Rival Name 2",
+      "Rival Name 3",
+      "Rival Name 4",
+      "Rival Name 5",
+      "Rival Name 6"
+    ],
+    "Rival Notes": [
+      "Rival Notes 1",
+      "Rival Notes 2",
+      "Rival Notes 3",
+      "Rival Notes 4",
+      "Rival Notes 5",
+      "Rival Notes 6"
+    ],
+    "Science 1": [
+      "Science 1 Modifier"
+    ],
+    "Science 2": [
+      "Science 2 Modifier"
+    ],
+    "Science 3": [
+      "Science 3 Modifier"
+    ],
+    "Science": [
+      "Science Specialism 1",
+      "Science Specialism 2",
+      "Science Specialism 3"
+    ],
+    "Seafarer 1": [
+      "Seafarer 1 Modifier"
+    ],
+    "Seafarer 2": [
+      "Seafarer 2 Modifier"
+    ],
+    "Seafarer 3": [
+      "Seafarer 3 Modifier"
+    ],
+    "Seafarer": [
+      "Seafarer Specialism 1",
+      "Seafarer Specialism 2",
+      "Seafarer Specialism 3"
+    ],
+    "Ship Payments": [
+      "Ship Payments"
+    ],
+    "Ship Shares": [
+      "Ship Shares"
+    ],
+    "Skill/Ability": [
+      "Skill/Ability 1",
+      "Skill/Ability 10",
+      "Skill/Ability 11",
+      "Skill/Ability 2",
+      "Skill/Ability 3",
+      "Skill/Ability 4",
+      "Skill/Ability 5",
+      "Skill/Ability 6",
+      "Skill/Ability 7",
+      "Skill/Ability 8",
+      "Skill/Ability 9",
+      "Skill/Ability DM 1",
+      "Skill/Ability DM 10",
+      "Skill/Ability DM 11",
+      "Skill/Ability DM 2",
+      "Skill/Ability DM 3",
+      "Skill/Ability DM 4",
+      "Skill/Ability DM 5",
+      "Skill/Ability DM 6",
+      "Skill/Ability DM 7",
+      "Skill/Ability DM 8",
+      "Skill/Ability DM 9"
+    ],
+    "Social": [
+      "Social",
+      "Social DM"
+    ],
+    "Species": [
+      "Species"
+    ],
+    "Stealth": [
+      "Stealth Modifier"
+    ],
+    "Steward": [
+      "Steward Modifier"
+    ],
+    "Streetwise": [
+      "Streetwise Modifier"
+    ],
+    "Strength": [
+      "Strength",
+      "Strength DM"
+    ],
+    "Survival": [
+      "Survival Modifier"
+    ],
+    "Tactics 1": [
+      "Tactics 1 Modifier"
+    ],
+    "Tactics 2": [
+      "Tactics 2 Modifier"
+    ],
+    "Tactics 3": [
+      "Tactics 3 Modifier"
+    ],
+    "Tactics": [
+      "Tactics Specialism 1",
+      "Tactics Specialism 2",
+      "Tactics Specialism 3"
+    ],
+    "Title": [
+      "Title"
+    ],
+    "Training Skill": [
+      "Training Skill"
+    ],
+    "Traits": [
+      "Traits"
+    ],
+    "Vacc Suit": [
+      "Vacc Suit Modifier"
+    ],
+    "Weapon Damage": [
+      "Weapon Damage 1",
+      "Weapon Damage 2",
+      "Weapon Damage 3",
+      "Weapon Damage 4",
+      "Weapon Damage 5",
+      "Weapon Damage 6",
+      "Weapon Damage 7",
+      "Weapon Damage 8"
+    ],
+    "Weapon KG": [
+      "Weapon KG 1",
+      "Weapon KG 2",
+      "Weapon KG 3",
+      "Weapon KG 4",
+      "Weapon KG 5",
+      "Weapon KG 6",
+      "Weapon KG 7",
+      "Weapon KG 8"
+    ],
+    "Weapon Magazine": [
+      "Weapon Magazine 1",
+      "Weapon Magazine 2",
+      "Weapon Magazine 3",
+      "Weapon Magazine 4",
+      "Weapon Magazine 5",
+      "Weapon Magazine 6",
+      "Weapon Magazine 7",
+      "Weapon Magazine 8"
+    ],
+    "Weapon Range": [
+      "Weapon Range 1",
+      "Weapon Range 2",
+      "Weapon Range 3",
+      "Weapon Range 4",
+      "Weapon Range 5",
+      "Weapon Range 6",
+      "Weapon Range 7",
+      "Weapon Range 8"
+    ],
+    "Weapon TL": [
+      "Weapon TL 1",
+      "Weapon TL 2",
+      "Weapon TL 3",
+      "Weapon TL 4",
+      "Weapon TL 5",
+      "Weapon TL 6",
+      "Weapon TL 7",
+      "Weapon TL 8"
+    ],
+    "Weapon Traits": [
+      "Weapon Traits 1",
+      "Weapon Traits 2",
+      "Weapon Traits 3",
+      "Weapon Traits 4",
+      "Weapon Traits 5",
+      "Weapon Traits 6",
+      "Weapon Traits 7",
+      "Weapon Traits 8"
+    ],
+    "Weapon Type": [
+      "Weapon Type 1",
+      "Weapon Type 2",
+      "Weapon Type 3",
+      "Weapon Type 4",
+      "Weapon Type 5",
+      "Weapon Type 6",
+      "Weapon Type 7",
+      "Weapon Type 8"
+    ],
+    "Wound Location": [
+      "Wound Location 1",
+      "Wound Location 2",
+      "Wound Location 3",
+      "Wound Location 4"
+    ],
+    "Wound Notes": [
+      "Wound Notes 1",
+      "Wound Notes 2",
+      "Wound Notes 3",
+      "Wound Notes 4"
+    ],
+    "Wound Recovery Period": [
+      "Wound Recovery Period 1",
+      "Wound Recovery Period 2",
+      "Wound Recovery Period 3",
+      "Wound Recovery Period 4"
+    ],
+    "Wound Type": [
+      "Wound Type 1",
+      "Wound Type 2",
+      "Wound Type 3",
+      "Wound Type 4"
+    ]
+  }
+}

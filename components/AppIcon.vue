@@ -1,6 +1,6 @@
 <script setup lang="ts">
 const props = defineProps<{
-  name: 'user' | 'briefcase' | 'wrench' | 'car' | 'bot' | 'rocket' | 'ship' | 'dice' | 'arrow' | 'check' | 'lock' | 'sliders'
+  name: 'user' | 'briefcase' | 'wrench' | 'car' | 'bot' | 'rocket' | 'ship' | 'dice' | 'arrow' | 'check' | 'lock' | 'sliders' | 'sort-asc' | 'sort-desc'
 }>()
 
 const paths = {
@@ -67,6 +67,20 @@ const paths = {
     'M4 18h12',
     'M20 18h0',
     'M16 18a2 2 0 1 0 4 0 2 2 0 0 0-4 0',
+  ],
+  'sort-asc': [
+    'M6 17V7',
+    'M3 10l3-3 3 3',
+    'M11 8h10',
+    'M11 12h7',
+    'M11 16h4',
+  ],
+  'sort-desc': [
+    'M6 7v10',
+    'M3 14l3 3 3-3',
+    'M11 8h4',
+    'M11 12h7',
+    'M11 16h10',
   ],
 }
 </script>

@@ -1,0 +1,22 @@
+{
+  "sources": [
+    {
+      "id": "mgt2e-core-2022",
+      "title": "Traveller Core Rulebook",
+      "pdf": "MgT 2E Core/Traveller Core Rulebook.pdf",
+      "status": "seeded"
+    },
+    {
+      "id": "mgt2e-csc",
+      "title": "Central Supply Catalogue",
+      "pdf": "MgT 2E Core/Central Supply Catalogue.pdf",
+      "status": "pending-extraction"
+    },
+    {
+      "id": "mgt2e-field-catalogue",
+      "title": "Field Catalogue",
+      "pdf": "MgT 2E Core/Field Catalogue.pdf",
+      "status": "design-rules-pending-extraction"
+    }
+  ]
+}

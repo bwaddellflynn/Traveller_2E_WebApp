@@ -1,0 +1,9 @@
+{
+  "sourceId": "mgt2e-field-catalogue",
+  "sourceName": "Field Catalogue",
+  "status": "pending-extraction",
+  "notes": [
+    "Field Catalogue primarily adds weapon design rules and named example weapons. Its example stat blocks will be populated here; design components live in field-catalogue-design.json."
+  ],
+  "weapons": []
+}
