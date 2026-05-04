@@ -498,7 +498,7 @@
   }
 
   .travellers-mobile-manual-create-link {
-    display: none;
+    display: none !important;
   }
 
   .app-footer {
