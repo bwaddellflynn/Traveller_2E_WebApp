@@ -21,10 +21,13 @@ const currentTravellerTabs = [
 const currentTravellerTabIndex = computed(() => Math.max(0, currentTravellerTabs.findIndex((tab) => tab.id === currentTravellerTab.value)))
 const folderTabPosition = (index: number, count: number) => count <= 1 ? 0 : index / (count - 1)
 const {
+  activeCreatorTab,
   characterName,
   characteristicRows,
+  currentAge,
   currentTravellerSkills,
   currentTermNumber,
+  endOfTermAge,
   selectedTermPath,
   selectedCareer,
   selectedAssignment,
@@ -52,12 +55,21 @@ const {
   medicalCareLog,
   careerConstraints,
 } = storeToRefs(characterCreator)
+const currentTravellerAgeLabel = computed(() => {
+  if (['creation', 'setup-stats', 'setup-skills'].includes(activeCreatorTab.value)) return 'Age 18'
+  return `Age ${currentAge.value}-${endOfTermAge.value}`
+})
 </script>
 
 <template>
   <aside class="current-traveller-card h-fit rounded-lg border border-zinc-300 bg-zinc-950 p-5 text-white shadow-sm lg:sticky lg:top-6">
     <p class="text-sm font-semibold uppercase tracking-wide text-amber-300">Current Traveller</p>
-    <h2 class="mt-2 text-2xl font-semibold">{{ characterName || 'Unnamed Traveller' }}</h2>
+    <div class="mt-2 flex flex-wrap items-center justify-between gap-3">
+      <h2 class="text-2xl font-semibold">{{ characterName || 'Unnamed Traveller' }}</h2>
+      <span class="rounded-md bg-white/10 px-3 py-2 text-sm font-semibold text-zinc-300">
+        {{ currentTravellerAgeLabel }}
+      </span>
+    </div>
 
     <div class="hud-folder-tabs mt-5">
       <button

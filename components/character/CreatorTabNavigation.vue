@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { storeToRefs } from 'pinia'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useCharacterCreatorStore } from '~/stores/characterCreator'
 
 const characterCreator = useCharacterCreatorStore()
@@ -17,39 +18,90 @@ const {
   setupComplete,
   termTabs,
 } = storeToRefs(characterCreator)
+
+const isMobileViewport = ref(false)
+const setupTabActive = computed(() => ['creation', 'setup-stats', 'setup-skills'].includes(activeCreatorTab.value))
+let mobileViewportQuery: MediaQueryList | null = null
+const handleViewportChange = (event: MediaQueryListEvent) => syncViewportMode(event.matches)
+
+const syncViewportMode = (matches: boolean) => {
+  isMobileViewport.value = matches
+  if (matches && activeCreatorTab.value === 'creation') activeCreatorTab.value = 'setup-stats'
+  if (!matches && ['setup-stats', 'setup-skills'].includes(activeCreatorTab.value)) activeCreatorTab.value = 'creation'
+}
+
+onMounted(() => {
+  mobileViewportQuery = window.matchMedia('(max-width: 639px)')
+  syncViewportMode(mobileViewportQuery.matches)
+  mobileViewportQuery.addEventListener('change', handleViewportChange)
+})
+
+onBeforeUnmount(() => {
+  if (!mobileViewportQuery) return
+  mobileViewportQuery.removeEventListener('change', handleViewportChange)
+})
+
 </script>
 
 <template>
-  <div class="flex flex-wrap items-center gap-2 border-b border-zinc-200 p-3">
-    <button
-      :class="[
-        'h-10 rounded-md px-3 text-sm font-semibold',
-        activeCreatorTab === 'creation'
-          ? 'bg-zinc-950 text-white'
-          : 'text-zinc-700 hover:bg-stone-100 hover:text-zinc-950'
-      ]"
-      type="button"
-      @click="activeCreatorTab = 'creation'"
-    >
-      Setup
-    </button>
-    <button
-      v-for="termNumber in termTabs"
-      :key="termNumber"
-      :class="[
-        'h-10 rounded-md px-3 text-sm font-semibold',
-        activeCreatorTab === `term-${termNumber}`
-          ? 'bg-zinc-950 text-white'
-          : termNumber === 1 && !setupComplete
-            ? 'cursor-not-allowed text-zinc-300'
-            : 'text-zinc-700 hover:bg-stone-100 hover:text-zinc-950'
-      ]"
-      :disabled="termNumber === 1 && !setupComplete"
-      type="button"
-      @click="selectTermTab(termNumber)"
-    >
-      Term {{ termNumber }}
-    </button>
+  <div class="flex items-start gap-2 border-b border-zinc-200 p-3">
+    <div class="creator-tab-strip no-scrollbar min-w-0 flex-1 overflow-x-auto">
+      <div class="flex min-w-max items-center gap-2 pr-1">
+        <button
+          :class="[
+            'hidden h-10 shrink-0 rounded-md px-3 text-sm font-semibold sm:inline-flex',
+            setupTabActive
+              ? 'bg-zinc-950 text-white'
+              : 'text-zinc-700 hover:bg-stone-100 hover:text-zinc-950'
+          ]"
+          type="button"
+          @click="activeCreatorTab = 'creation'"
+        >
+          Setup
+        </button>
+        <button
+          :class="[
+            'inline-flex h-10 shrink-0 items-center justify-center rounded-md px-3 text-center text-sm font-semibold sm:hidden',
+            activeCreatorTab === 'setup-stats'
+              ? 'bg-zinc-950 text-white'
+              : 'text-zinc-700 hover:bg-stone-100 hover:text-zinc-950'
+          ]"
+          type="button"
+          @click="activeCreatorTab = 'setup-stats'"
+        >
+          Stats
+        </button>
+        <button
+          :class="[
+            'inline-flex h-10 shrink-0 items-center justify-center rounded-md px-3 text-center text-sm font-semibold sm:hidden',
+            activeCreatorTab === 'setup-skills'
+              ? 'bg-zinc-950 text-white'
+              : 'text-zinc-700 hover:bg-stone-100 hover:text-zinc-950'
+          ]"
+          type="button"
+          @click="activeCreatorTab = 'setup-skills'"
+        >
+          Skills
+        </button>
+        <button
+          v-for="termNumber in termTabs"
+          :key="termNumber"
+          :class="[
+            'h-10 shrink-0 rounded-md px-3 text-sm font-semibold',
+            activeCreatorTab === `term-${termNumber}`
+              ? 'bg-zinc-950 text-white'
+              : termNumber === 1 && !setupComplete
+                ? 'cursor-not-allowed text-zinc-300'
+                : 'text-zinc-700 hover:bg-stone-100 hover:text-zinc-950'
+          ]"
+          :disabled="termNumber === 1 && !setupComplete"
+          type="button"
+          @click="selectTermTab(termNumber)"
+        >
+          Term {{ termNumber }}
+        </button>
+      </div>
+    </div>
     <div class="relative ml-auto">
       <button
         :class="[

@@ -60,12 +60,13 @@ type TermHistoryEntry = {
   details: string[]
   rolls: RollResult[]
 }
-type CreatorTab = 'creation' | `term-${number}`
+type CreatorTab = 'creation' | 'setup-stats' | 'setup-skills' | `term-${number}`
 type GmOverrideOptionId = 'manualCheckRollEntry' | 'manualTableRollEntry' | 'manualAgingRollEntry' | 'manualBenefitRollEntry' | 'manualPsionicsRollEntry' | 'outcomeOverrides' | 'characteristicAdjustments'
 type EventResolutionKind = 'manual' | 'skill_choice' | 'skill_table_roll' | 'benefit_wager' | 'table_roll' | 'check' | 'choice' | 'associate' | 'narrative' | 'characteristic_adjustment' | 'medical_care' | 'prison_lawyer'
 type EventChoiceOption = {
   id: string
   label: string
+  buttonLabel?: string
   effects: TravellerEventEffect[]
 }
 type PendingEventResolution = {
@@ -291,6 +292,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
   const skipCharacteristicRerollConfirm = ref(false)
   const currentTermNumber = ref(1)
   const activeCreatorTab = ref<CreatorTab>('creation')
+  const isSetupCreatorTab = computed(() => ['creation', 'setup-stats', 'setup-skills'].includes(activeCreatorTab.value))
   const setupAutoAdvancedToTermOne = ref(false)
   const draftUsed = ref(false)
   const draftRoll = ref<DraftRoll | null>(null)
@@ -494,7 +496,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
   const currentTermTabId = computed<CreatorTab>(() => `term-${currentTermNumber.value}` as CreatorTab)
   const termTabs = computed(() => Array.from({ length: currentTermNumber.value }, (_, index) => index + 1))
   const activeTermNumber = computed(() => {
-    if (activeCreatorTab.value === 'creation') return null
+    if (isSetupCreatorTab.value) return null
     return Number(activeCreatorTab.value.replace('term-', ''))
   })
   const activeTermHistoryEntry = computed(() => {
@@ -1421,7 +1423,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
   }
 
   const applyBasicTraining = () => {
-    if (!basicTrainingAvailable.value) return
+    if (!basicTrainingAvailable.value || !termRolls.careerQualification?.finalSuccess) return
     pendingBasicTrainingChoices.value = []
 
     if (basicTrainingMode.value === 'single') {
@@ -1451,6 +1453,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
   }
 
   const resolveBasicTrainingChoice = (index: number, choice: string) => {
+    if (!termRolls.careerQualification?.finalSuccess) return
     const pending = pendingBasicTrainingChoices.value[index]
     if (!pending || pending.selected) return
 
@@ -1467,7 +1470,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
   const applyEducationSkills = () => {
     pendingEducationSkillChoices.value = []
 
-    if (!selectedEducation.value) return
+    if (!selectedEducation.value || !termRolls.educationEntry?.finalSuccess) return
 
     if (selectedEducation.value.id === 'university') {
       if (!universityLevel0Skill.value || !universityLevel1Skill.value) return
@@ -1495,6 +1498,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
   }
 
   const resolveEducationSkillChoice = (index: number, choice: string) => {
+    if (!termRolls.educationEntry?.finalSuccess) return
     const pending = pendingEducationSkillChoices.value[index]
     if (!pending || pending.selected) return
 
@@ -1866,6 +1870,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
       return {
         id: `${index}-${label}`,
         label,
+        buttonLabel: typeof optionRecord.shortLabel === 'string' ? optionRecord.shortLabel : undefined,
         effects,
       }
     })
@@ -3540,7 +3545,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
 
     recordEventOutcome(resolution.source, resolution.effect, `${resolution.label}: ${selected}`, 'manual')
 
-    if (amount < 0) {
+    if (amount < 0 && resolution.source !== 'Aging') {
       const restoreMinimum = adjustedValue <= 0 ? 1 - adjustedValue : 0
       const maxRestore = Math.abs(amount)
       addMedicalCareResolution(resolution.source, characteristicId, Math.max(restoreMinimum, maxRestore), adjustedValue <= 0)
@@ -3887,9 +3892,11 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
       if (!educationAvailable.value) blockers.push('Pre-career education is no longer available.')
       if (!termRolls.educationEntry) blockers.push('Resolve education entry.')
       else if (!termRolls.educationEntry.finalSuccess) blockers.push('Education entry failed; attempt a career this term.')
-      if (!educationSkillsApplied.value) blockers.push('Apply education skills.')
-      if (!termRolls.educationEvent) blockers.push('Roll the pre-career event.')
-      if (!termRolls.educationGraduation) blockers.push('Resolve graduation.')
+      if (termRolls.educationEntry?.finalSuccess) {
+        if (!educationSkillsApplied.value) blockers.push('Apply education skills.')
+        if (!termRolls.educationEvent) blockers.push('Roll the pre-career event.')
+        if (!termRolls.educationGraduation) blockers.push('Resolve graduation.')
+      }
       return blockers
     }
 
@@ -3928,12 +3935,12 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
   })
   const canAddTermTab = computed(() => {
     if (lifepathComplete.value) return false
-    if (activeCreatorTab.value === 'creation') return setupComplete.value
+    if (isSetupCreatorTab.value) return setupComplete.value
     if (activeCreatorTab.value !== currentTermTabId.value) return false
     return canCompleteTerm.value
   })
   const nextTermButtonLabel = computed(() => {
-    if (activeCreatorTab.value === 'creation') return 'Start Term 1'
+    if (isSetupCreatorTab.value) return 'Start Term 1'
     return `Start Term ${currentTermNumber.value + 1}`
   })
 
@@ -3943,7 +3950,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
   }
 
   const addTermTab = () => {
-    if (activeCreatorTab.value === 'creation') {
+    if (isSetupCreatorTab.value) {
       if (!setupComplete.value) return
       activeCreatorTab.value = 'term-1'
       return

@@ -153,18 +153,84 @@ const {
   selectedMusteringCareerBenefits,
   advancementResult,
   characterProfile,
+  values,
 } = storeToRefs(characterCreator)
+
+const setupCreatorTabs = ['creation', 'setup-stats', 'setup-skills'] as const
+const setupTabSet = new Set<string>(setupCreatorTabs)
+const activeCreatorTabIsSetup = computed(() => setupTabSet.has(activeCreatorTab.value))
+const isMobileViewport = ref(false)
+let mobileViewportQuery: MediaQueryList | null = null
+const handleCreatorViewportChange = (event: MediaQueryListEvent) => syncCreatorViewportMode(event.matches)
+
+const syncCreatorViewportMode = (matches: boolean) => {
+  isMobileViewport.value = matches
+  if (matches && activeCreatorTab.value === 'creation') {
+    activeCreatorTab.value = 'setup-stats'
+    return
+  }
+
+  if (!matches && (activeCreatorTab.value === 'setup-stats' || activeCreatorTab.value === 'setup-skills')) {
+    activeCreatorTab.value = 'creation'
+  }
+}
+
+const creationStepPanelMode = computed<'all' | 'stats' | 'skills'>(() => {
+  if (!isMobileViewport.value) return 'all'
+  if (activeCreatorTab.value === 'setup-skills') return 'skills'
+  return 'stats'
+})
+const creatorNavigationAnchor = ref<HTMLElement | null>(null)
+
+const scrollToCreatorNavigation = async () => {
+  if (!import.meta.client) return
+  await nextTick()
+  const anchor = creatorNavigationAnchor.value
+  if (!anchor) return
+  const topOffset = 88
+  const top = anchor.getBoundingClientRect().top + window.scrollY - topOffset
+  window.scrollTo({
+    top: Math.max(0, top),
+    behavior: 'smooth',
+  })
+}
+
+const educationEntryModifierApplies = (condition: string) => {
+  if (condition === 'term == 2') return currentTermNumber.value === 2
+  if (condition === 'term == 3') return currentTermNumber.value === 3
+  if (condition === 'soc >= 9') return values.value.soc >= 9
+  if (condition === 'soc >= 8') return values.value.soc >= 8
+  if (condition === 'end >= 8') return values.value.end >= 8
+  return true
+}
+
+const educationEntryModifierWarningLabel = (modifier: { condition: string; dm: number }) => {
+  const conditionLabels: Record<string, string> = {
+    'term == 2': 'Term 2',
+    'term == 3': 'Term 3',
+    'soc >= 9': 'SOC 9+',
+    'soc >= 8': 'SOC 8+',
+    'end >= 8': 'END 8+',
+  }
+
+  return `${conditionLabels[modifier.condition] ?? modifier.condition}: DM${formatDm(modifier.dm)}`
+}
+
+const activeEducationEntryModifiers = computed(() => {
+  return (selectedEducation.value?.entryModifiers ?? []).filter((modifier) => educationEntryModifierApplies(modifier.condition))
+})
 
 const termStepTabs = computed(() => {
   if (selectedTermPath.value === 'education') {
     const steps = [
       { id: 'direction', label: 'Direction' },
       { id: 'education-entry', label: 'Entry' },
+      { id: 'education-skills', label: 'Skills' },
       { id: 'education-event', label: 'Event' },
       { id: 'education-graduation', label: 'Graduation' },
       { id: 'complete', label: 'Complete' },
     ]
-    if (agingRequired.value) steps.splice(4, 0, { id: 'aging', label: 'Aging' })
+    if (agingRequired.value) steps.splice(5, 0, { id: 'aging', label: 'Aging' })
     return steps
   }
 
@@ -189,7 +255,8 @@ const activeTermStepComplete = computed(() => {
 
   if (selectedTermPath.value === 'education') {
     if (activeTermStep.value === 'direction') return Boolean(selectedEducation.value && selectedEducationEntry.value)
-    if (activeTermStep.value === 'education-entry') {
+    if (activeTermStep.value === 'education-entry') return Boolean(termRolls.value.educationEntry)
+    if (activeTermStep.value === 'education-skills') {
       return Boolean(
         termRolls.value.educationEntry?.finalSuccess
         && educationSkillsApplied.value
@@ -238,9 +305,11 @@ const activeTermStepComplete = computed(() => {
 })
 const previousTermStep = () => {
   activeTermStep.value = termStepTabs.value[Math.max(0, activeTermStepIndex.value - 1)]?.id ?? 'direction'
+  scrollToCreatorNavigation()
 }
 const nextTermStep = () => {
   activeTermStep.value = termStepTabs.value[Math.min(termStepTabs.value.length - 1, activeTermStepIndex.value + 1)]?.id ?? 'direction'
+  scrollToCreatorNavigation()
 }
 
 watch([currentTermNumber, selectedTermPath], () => {
@@ -252,15 +321,13 @@ watch(termStepTabs, (steps) => {
   activeTermStep.value = steps[steps.length - 1]?.id ?? 'direction'
 })
 
-watch(() => [activeTermStep.value, activeTermStepComplete.value] as const, async ([step, complete], [previousStep, wasComplete]) => {
-  if (!complete || wasComplete || step !== previousStep) return
-  await nextTick()
-  const currentIndex = termStepTabs.value.findIndex((step) => step.id === activeTermStep.value)
-  const nextStep = termStepTabs.value[currentIndex + 1]
-  if (nextStep) activeTermStep.value = nextStep.id
-})
-
 onMounted(() => {
+  if (import.meta.client) {
+    mobileViewportQuery = window.matchMedia('(max-width: 639px)')
+    syncCreatorViewportMode(mobileViewportQuery.matches)
+    mobileViewportQuery.addEventListener('change', handleCreatorViewportChange)
+  }
+
   const cachedDraft = loadBuilderDraft<Record<string, unknown>>(
     CHARACTER_CREATOR_DRAFT_CACHE_KEY,
     CHARACTER_CREATOR_DRAFT_CACHE_VERSION,
@@ -272,6 +339,11 @@ onMounted(() => {
   }
 
   characterCreatorDraftRestored.value = true
+})
+
+onBeforeUnmount(() => {
+  if (!mobileViewportQuery) return
+  mobileViewportQuery.removeEventListener('change', handleCreatorViewportChange)
 })
 
 watch(
@@ -338,11 +410,15 @@ if (import.meta.client) {
 
     <div class="mx-auto grid w-full max-w-7xl gap-6 px-5 py-6 sm:px-8 lg:grid-cols-[1fr_24rem] lg:px-10">
       <section class="grid gap-6">
-        <div class="rounded-lg border border-zinc-300 bg-white shadow-sm">
+        <div ref="creatorNavigationAnchor" class="rounded-lg border border-zinc-300 bg-white shadow-sm">
           <CreatorTabNavigation />
 
           <div class="p-5">
-            <CreationStepPanel v-if="activeCreatorTab === 'creation'" />
+            <CreationStepPanel
+              v-if="activeCreatorTabIsSetup"
+              :allow-background-skill-collapse="!isMobileViewport"
+              :mode="creationStepPanelMode"
+            />
 
             <div v-else-if="activeCreatorTab !== currentTermTabId" class="rounded-lg border border-zinc-300 bg-white p-5 shadow-sm">
               <div v-if="activeTermHistoryEntry">
@@ -497,7 +573,7 @@ if (import.meta.client) {
               </ul>
             </div>
 
-            <div v-show="activeTermStep === 'direction'" class="mt-5 grid gap-3 sm:grid-cols-3">
+            <div v-if="selectedCareerId" v-show="activeTermStep === 'direction'" class="mt-5 grid gap-3 sm:grid-cols-3">
               <div class="rounded-md bg-stone-50 p-4">
                 <p class="text-xs font-semibold uppercase tracking-wide text-zinc-500">Qualification</p>
                 <p class="mt-2 text-lg font-semibold">{{ automaticCareerEntryConstraint || sameCareerContinuationAvailable ? 'Automatic' : checkLabel(selectedCareer.qualification) }}</p>
@@ -1171,17 +1247,43 @@ if (import.meta.client) {
                     : 'sm:grid-cols-2',
                 ]"
               >
-                <div class="rounded-md bg-stone-50 p-4">
-                  <p class="text-xs font-semibold uppercase tracking-wide text-zinc-500">Entry</p>
-                  <p class="mt-2 text-lg font-semibold">{{ checkLabel(selectedEducationEntry) }}</p>
-                  <div v-if="selectedEducation.entryModifiers?.length" class="mt-3 flex flex-wrap gap-2">
+                <div v-show="activeTermStep === 'education-entry'" class="rounded-md border border-zinc-200 p-4">
+                  <div class="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <p class="text-sm font-semibold">Entry Roll</p>
+                      <p class="text-sm text-zinc-600">{{ checkLabel(selectedEducationEntry) }}</p>
+                    </div>
+                    <button class="h-10 rounded-md bg-zinc-950 px-4 text-sm font-semibold text-white hover:bg-zinc-800" type="button" @click="rollCheck('educationEntry', 'Education Entry', selectedEducationEntry)">
+                      Roll 2D
+                    </button>
+                  </div>
+                  <div
+                    v-if="activeEducationEntryModifiers.length"
+                    :class="[
+                      'mt-3 flex flex-wrap gap-2',
+                      activeEducationEntryModifiers.length === 1 ? 'justify-center' : '',
+                    ]"
+                  >
                     <span
-                      v-for="modifier in selectedEducation.entryModifiers"
+                      v-for="modifier in activeEducationEntryModifiers"
                       :key="modifier.condition"
-                      class="rounded-md bg-white px-2 py-1 text-xs font-medium text-zinc-600"
+                      class="rounded-md border border-amber-300 bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-900"
                     >
-                      {{ modifierLabel(modifier) }}
+                      {{ educationEntryModifierWarningLabel(modifier) }}
                     </span>
+                  </div>
+                  <div v-if="gmManualCheckRollEntryEnabled" class="mt-3 flex flex-wrap gap-2">
+                    <input v-model.number="manualRollTotals.educationEntry" class="h-10 w-28 rounded-md border border-zinc-300 px-3 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200" placeholder="2D total" type="number">
+                    <button class="h-10 rounded-md border border-zinc-300 px-3 text-sm font-semibold text-zinc-700 hover:border-amber-600" type="button" @click="enterManualCheck('educationEntry', 'Education Entry', selectedEducationEntry)">
+                      Manual
+                    </button>
+                  </div>
+                  <div v-if="termRolls.educationEntry" class="mt-3 rounded-md bg-stone-50 p-3 text-sm">
+                    <p class="font-semibold">{{ rollSummary(termRolls.educationEntry) }} · {{ termRolls.educationEntry.finalSuccess ? 'Entered' : 'Failed entry' }}</p>
+                    <p v-if="!termRolls.educationEntry.finalSuccess" class="mt-1 text-zinc-600">Failed entry has moved this term to a career attempt.</p>
+                    <button v-if="gmOutcomeOverridesEnabled" class="mt-2 text-xs font-semibold text-amber-700 hover:text-amber-900" type="button" @click="toggleRollOverride('educationEntry')">
+                      {{ termRolls.educationEntry.overridden ? 'Remove override' : 'Override outcome' }}
+                    </button>
                   </div>
                 </div>
                 <div class="rounded-md bg-stone-50 p-4">
@@ -1201,7 +1303,8 @@ if (import.meta.client) {
               </div>
 
               <div
-                v-show="activeTermStep === 'education-entry'"
+                v-if="termRolls.educationEntry?.finalSuccess"
+                v-show="activeTermStep === 'education-skills'"
                 class="grid gap-3 xl:col-start-1 xl:row-start-2"
               >
                 <div class="rounded-md border border-zinc-200 p-4">
@@ -1305,31 +1408,6 @@ if (import.meta.client) {
                   activeTermStep === 'education-entry' ? 'xl:col-start-1 xl:row-start-1' : '',
                 ]"
               >
-                <div v-show="activeTermStep === 'education-entry'" class="rounded-md border border-zinc-200 p-4">
-                  <div class="flex flex-wrap items-center justify-between gap-3">
-                    <div>
-                      <p class="text-sm font-semibold">Entry Roll</p>
-                      <p class="text-sm text-zinc-600">{{ checkLabel(selectedEducationEntry) }}</p>
-                    </div>
-                    <button class="h-10 rounded-md bg-zinc-950 px-4 text-sm font-semibold text-white hover:bg-zinc-800" type="button" @click="rollCheck('educationEntry', 'Education Entry', selectedEducationEntry)">
-                      Roll 2D
-                    </button>
-                  </div>
-                  <div v-if="gmManualCheckRollEntryEnabled" class="mt-3 flex flex-wrap gap-2">
-                    <input v-model.number="manualRollTotals.educationEntry" class="h-10 w-28 rounded-md border border-zinc-300 px-3 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200" placeholder="2D total" type="number">
-                    <button class="h-10 rounded-md border border-zinc-300 px-3 text-sm font-semibold text-zinc-700 hover:border-amber-600" type="button" @click="enterManualCheck('educationEntry', 'Education Entry', selectedEducationEntry)">
-                      Manual
-                    </button>
-                  </div>
-                  <div v-if="termRolls.educationEntry" class="mt-3 rounded-md bg-stone-50 p-3 text-sm">
-                    <p class="font-semibold">{{ rollSummary(termRolls.educationEntry) }} · {{ termRolls.educationEntry.finalSuccess ? 'Entered' : 'Failed entry' }}</p>
-                    <p v-if="!termRolls.educationEntry.finalSuccess" class="mt-1 text-zinc-600">Failed entry has moved this term to a career attempt.</p>
-                    <button v-if="gmOutcomeOverridesEnabled" class="mt-2 text-xs font-semibold text-amber-700 hover:text-amber-900" type="button" @click="toggleRollOverride('educationEntry')">
-                      {{ termRolls.educationEntry.overridden ? 'Remove override' : 'Override outcome' }}
-                    </button>
-                  </div>
-                </div>
-
                 <div v-if="termRolls.educationEntry?.finalSuccess && educationSkillsApplied" v-show="activeTermStep === 'education-event'" class="rounded-md border border-zinc-200 p-4">
                   <div class="flex flex-wrap items-center justify-between gap-3">
                     <div>
@@ -1580,25 +1658,30 @@ if (import.meta.client) {
             </div>
           </div>
 
-          <div class="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-cyan-400/20 pt-4">
+          <div class="mt-6 flex items-center justify-between gap-3 border-t border-cyan-400/20 pt-4">
             <button
-              class="h-10 rounded-md border border-amber-300 bg-amber-50 px-4 text-sm font-semibold text-amber-950 hover:border-amber-500 hover:bg-amber-100"
+              class="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 text-sm font-semibold text-amber-950 hover:border-amber-500 hover:bg-amber-100 sm:px-4"
+              aria-label="Restart Character"
+              title="Restart Character"
               type="button"
               @click="requestRestartCharacterCreation"
             >
-              Restart Character
+              <span class="text-red-500">
+                <AppIcon name="restart" />
+              </span>
+              <span class="hidden sm:inline">Restart Character</span>
             </button>
-            <div class="flex flex-wrap justify-end gap-2">
+            <div class="flex justify-end gap-2">
               <button
-                class="hud-link h-10 px-4 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-40"
+                class="hud-link h-10 w-20 px-4 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-40"
                 :disabled="activeTermStepIndex === 0"
                 type="button"
                 @click="previousTermStep"
               >
-                Previous
+                Prev
               </button>
               <button
-                class="hud-link h-10 px-4 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-40"
+                class="hud-link h-10 w-20 px-4 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-40"
                 :disabled="activeTermStepIndex === termStepTabs.length - 1"
                 type="button"
                 @click="nextTermStep"
@@ -1701,9 +1784,7 @@ if (import.meta.client) {
               :class="[
                 'flex items-center justify-between gap-3 border-t border-zinc-200 px-3 py-2 first:border-t-0',
                 rank.current
-                  ? advancementResult.success
-                    ? 'bg-emerald-50 text-emerald-950'
-                    : 'bg-amber-50 text-amber-950'
+                  ? 'bg-amber-50 text-amber-950'
                   : rank.achieved
                     ? 'bg-stone-50 text-zinc-700'
                     : 'bg-white text-zinc-400'
@@ -1713,9 +1794,6 @@ if (import.meta.client) {
                 <p class="text-sm font-semibold">Rank {{ rank.rank }} · {{ rank.title ?? `Rank ${rank.rank}` }}</p>
                 <p v-if="rank.bonus" class="text-xs">Bonus: {{ rank.bonus }}</p>
               </div>
-              <span v-if="rank.current" class="rounded-md bg-white px-2 py-1 text-xs font-semibold shadow-sm">
-                Current
-              </span>
             </div>
           </div>
 

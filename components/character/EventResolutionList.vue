@@ -55,6 +55,17 @@ const manualCharacteristicAmounts = reactive<Record<string, number | null>>({})
 const medicalRestorePoints = reactive<Record<string, number | null>>({})
 const associateForms = reactive<Record<string, { type: string; name: string; notes: string }>>({})
 
+const eventChoiceButtonLabel = (option: { label: string; buttonLabel?: string }) => {
+  if (option.buttonLabel) return option.buttonLabel
+
+  const shortenedLabels: Record<string, string> = {
+    'Report the commanding officer': 'Report',
+    'Protect the commanding officer': 'Protect',
+  }
+
+  return shortenedLabels[option.label] ?? option.label
+}
+
 const associateForm = (resolution: { id: string; associateTypes?: string[] }) => {
   if (!associateForms[resolution.id]) {
     associateForms[resolution.id] = {
@@ -206,7 +217,7 @@ const prisonLawyerForm = (resolution: { id: string }) => {
           <button
             class="h-9 rounded-md border border-amber-300 bg-white px-3 text-sm font-semibold text-amber-900 hover:border-amber-600"
             type="button"
-            @click="resolveEventMedicalCare(resolution.id, medicalRestorePoints[resolution.id] ?? (resolution.medicalCrisis ? 1 : 0))"
+            @click="resolveEventMedicalCare(resolution.id, medicalRestorePoints[resolution.id] ?? resolution.medicalMaxRestore ?? (resolution.medicalCrisis ? 1 : 0))"
           >
             Apply Care
           </button>
@@ -226,10 +237,11 @@ const prisonLawyerForm = (resolution: { id: string }) => {
           v-for="option in resolution.choiceOptions"
           :key="option.id"
           class="h-9 rounded-md border border-amber-300 bg-white px-3 text-sm font-semibold text-amber-900 hover:border-amber-600"
+          :title="option.label"
           type="button"
           @click="resolveEventOutcomeChoice(resolution.id, option.id)"
         >
-          {{ option.label }}
+          {{ eventChoiceButtonLabel(option) }}
         </button>
       </div>
 

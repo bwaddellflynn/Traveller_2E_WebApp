@@ -1847,6 +1847,7 @@
               "type": "choice",
               "options": [
                 {
+                  "shortLabel": "Report",
                   "label": "Report the commanding officer",
                   "effects": [
                     {
@@ -1862,6 +1863,7 @@
                   ]
                 },
                 {
+                  "shortLabel": "Protect",
                   "label": "Protect the commanding officer",
                   "effects": [
                     {
