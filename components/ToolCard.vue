@@ -40,6 +40,10 @@ defineProps<{
       <div>
         <p class="text-xs font-semibold uppercase tracking-wide text-zinc-500">{{ eyebrow }}</p>
         <h2 class="mt-2 text-xl font-semibold text-zinc-700">{{ title }}</h2>
+        <p class="mt-2 inline-flex items-center gap-2 text-sm font-semibold text-[rgba(253,230,138,0.82)]">
+          <AppIcon name="warning" />
+          Coming soon
+        </p>
       </div>
       <span class="hud-glyph grid h-10 w-10 shrink-0 place-items-center rounded-md opacity-60">
         <AppIcon :name="icon" />

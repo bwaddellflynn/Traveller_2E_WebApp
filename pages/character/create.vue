@@ -252,8 +252,8 @@ watch(termStepTabs, (steps) => {
   activeTermStep.value = steps[steps.length - 1]?.id ?? 'direction'
 })
 
-watch(() => [activeTermStep.value, activeTermStepComplete.value] as const, async ([, complete]) => {
-  if (!complete) return
+watch(() => [activeTermStep.value, activeTermStepComplete.value] as const, async ([step, complete], [previousStep, wasComplete]) => {
+  if (!complete || wasComplete || step !== previousStep) return
   await nextTick()
   const currentIndex = termStepTabs.value.findIndex((step) => step.id === activeTermStep.value)
   const nextStep = termStepTabs.value[currentIndex + 1]
@@ -301,6 +301,8 @@ const saveAndOpenCreatedTraveller = () => {
 
 const restartCharacterCreation = () => {
   restartInProgress.value = true
+  activeCreatorTab.value = 'creation'
+  activeTermStep.value = 'direction'
   clearBuilderDraft(CHARACTER_CREATOR_DRAFT_CACHE_KEY)
   if (import.meta.client) window.location.reload()
 }
@@ -394,13 +396,18 @@ if (import.meta.client) {
             </span>
           </div>
 
-          <div class="mt-5 inline-grid grid-cols-2 rounded-md border border-zinc-300 bg-stone-50 p-1">
+          <div
+            :class="[
+              'term-path-slider mt-5',
+              selectedTermPath === 'education' ? 'is-education' : 'is-career',
+              (!educationAvailable || careerPathLocked) ? 'is-education-disabled' : '',
+            ]"
+          >
+            <span class="term-path-slider__thumb" aria-hidden="true" />
             <button
               :class="[
-                'h-10 rounded px-4 text-sm font-semibold',
-                selectedTermPath === 'career'
-                  ? 'bg-zinc-950 text-white shadow-sm'
-                  : 'text-zinc-700 hover:text-zinc-950'
+                'term-path-slider__option',
+                selectedTermPath === 'career' ? 'is-active' : '',
               ]"
               type="button"
               @click="selectedTermPath = 'career'"
@@ -409,12 +416,8 @@ if (import.meta.client) {
             </button>
             <button
               :class="[
-                'h-10 rounded px-4 text-sm font-semibold',
-                selectedTermPath === 'education'
-                  ? 'bg-zinc-950 text-white shadow-sm'
-                  : educationAvailable && !careerPathLocked
-                    ? 'text-zinc-700 hover:text-zinc-950'
-                    : 'cursor-not-allowed text-zinc-400'
+                'term-path-slider__option',
+                selectedTermPath === 'education' ? 'is-active' : '',
               ]"
               :disabled="!educationAvailable || careerPathLocked"
               type="button"
@@ -1144,6 +1147,7 @@ if (import.meta.client) {
                 v-model="selectedEducationId"
                 class="h-11 rounded-md border border-zinc-300 bg-white px-3 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200"
               >
+                <option value="">No Education Selected</option>
                 <option v-for="option in educationOptions" :key="option.id" :value="option.id">
                   {{ option.name }}
                 </option>

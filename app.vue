@@ -6,6 +6,7 @@
       <TravellersSideNav />
       <div class="app-shell-content">
         <NuxtPage />
+        <AppFooter />
       </div>
     </div>
   </div>

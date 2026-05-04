@@ -280,7 +280,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
   const selectedBackgroundSkills = ref<string[]>([])
   const backgroundSkillsCollapsed = ref(false)
   const backgroundSkillsAutoCollapsed = ref(false)
-  const selectedEducationId = ref('university')
+  const selectedEducationId = ref('')
   const selectedTermPath = ref<'career' | 'education'>('career')
   const selectedCareerId = ref('')
   const selectedAssignmentId = ref('')
@@ -554,8 +554,9 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
       variant: 'navy',
     },
   ])
-  const selectedEducationOption = computed(() => educationOptions.value.find((option) => option.id === selectedEducationId.value) ?? educationOptions.value[0])
+  const selectedEducationOption = computed(() => educationOptions.value.find((option) => option.id === selectedEducationId.value) ?? null)
   const selectedEducation = computed(() => {
+    if (!selectedEducationOption.value) return null
     return preCareerEducation.find((option) => option.id === selectedEducationOption.value.type) ?? null
   })
   const educationGraduationHonours = computed(() => {
@@ -564,7 +565,8 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     if (!graduation?.finalSuccess || typeof honoursTarget !== 'number') return false
     return graduation.total >= honoursTarget
   })
-  const selectedEducationVariant = computed(() => selectedEducationOption.value.variant)
+  const selectedEducationVariant = computed(() => selectedEducationOption.value?.variant)
+  const selectedEducationName = computed(() => selectedEducationOption.value?.name ?? 'Education')
   const educationSkillOptions = computed(() => selectedEducation.value?.skillOptions ?? [])
   const selectedEducationEntry = computed(() => {
     if (!selectedEducation.value) return null
@@ -1538,8 +1540,8 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     if (!selectedEducation.value || !graduation?.finalSuccess) return
 
     const source = educationGraduationHonours.value
-      ? `${selectedEducationOption.value.name} Honours`
-      : `${selectedEducationOption.value.name} Graduation`
+      ? `${selectedEducationName.value} Honours`
+      : `${selectedEducationName.value} Graduation`
 
     for (const benefit of selectedEducation.value.graduationBenefits ?? []) {
       if (benefit.type === 'characteristic_increase' && benefit.characteristic) {
@@ -1569,7 +1571,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
           {
             id: makeEventOutcomeId('education-career-entry'),
             source,
-            label: `Automatic entry from ${selectedEducationOption.value.name}`,
+            label: `Automatic entry from ${selectedEducationName.value}`,
             effectType: 'automatic_career_entry',
             appliesTermNumber: currentTermNumber.value + 1,
             careerId: militaryAcademyCareerId.value,
@@ -1584,7 +1586,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
             {
               id: makeEventOutcomeId('education-automatic-commission'),
               source,
-              label: `Automatic commission from ${selectedEducationOption.value.name} honours`,
+              label: `Automatic commission from ${selectedEducationName.value} honours`,
               effectType: 'automatic_commission',
               appliesTermNumber: currentTermNumber.value + 1,
               careerId: militaryAcademyCareerId.value,
@@ -3845,6 +3847,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     if (pendingEventResolutions.value.some((resolution) => !resolution.resolved)) return false
 
     if (selectedTermPath.value === 'education') {
+      if (!selectedEducation.value) return false
       if (!educationAvailable.value) return false
       if (!termRolls.educationEntry) return false
       if (!termRolls.educationEntry.finalSuccess) return false
@@ -3877,6 +3880,10 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     if (pendingEventResolutions.value.some((resolution) => !resolution.resolved)) blockers.push('Resolve pending event choices.')
 
     if (selectedTermPath.value === 'education') {
+      if (!selectedEducation.value) {
+        blockers.push('Select an education option.')
+        return blockers
+      }
       if (!educationAvailable.value) blockers.push('Pre-career education is no longer available.')
       if (!termRolls.educationEntry) blockers.push('Resolve education entry.')
       else if (!termRolls.educationEntry.finalSuccess) blockers.push('Education entry failed; attempt a career this term.')
@@ -3980,7 +3987,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     const details: string[] = []
 
     if (selectedTermPath.value === 'education') {
-      details.push(`Path: ${selectedEducationOption.value.name}`)
+      details.push(`Path: ${selectedEducationName.value}`)
       const entryRoll = termRollDetail(termRolls.educationEntry)
       const eventRoll = termRollDetail(termRolls.educationEvent)
       const graduationRoll = termRollDetail(termRolls.educationGraduation)
@@ -4201,7 +4208,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     }
 
     const summary = selectedTermPath.value === 'education'
-      ? `${selectedEducationOption.value.name}${termRolls.educationGraduation?.finalSuccess ? educationGraduationHonours.value ? ' honours graduate' : ' graduate' : ' incomplete'}`
+      ? `${selectedEducationName.value}${termRolls.educationGraduation?.finalSuccess ? educationGraduationHonours.value ? ' honours graduate' : ' graduate' : ' incomplete'}`
       : `${selectedCareer.value.name} - ${selectedAssignment.value.name}${termRolls.careerSurvival?.finalSuccess ? '' : ' mishap'}`
     const details = [
       ...buildTermHistoryDetails(advancement),
