@@ -10,6 +10,34 @@
   body {
     margin: 0;
     background: #030711;
+    scrollbar-color: rgba(34, 211, 238, 0.72) rgba(2, 6, 23, 0.75);
+    scrollbar-width: thin;
+  }
+
+  * {
+    scrollbar-color: rgba(34, 211, 238, 0.72) rgba(2, 6, 23, 0.75);
+    scrollbar-width: thin;
+  }
+
+  *::-webkit-scrollbar {
+    width: 0.55rem;
+    height: 0.55rem;
+  }
+
+  *::-webkit-scrollbar-track {
+    border: 1px solid rgba(34, 211, 238, 0.18);
+    background: rgba(2, 6, 23, 0.76);
+  }
+
+  *::-webkit-scrollbar-thumb {
+    border: 1px solid rgba(103, 232, 249, 0.7);
+    background:
+      linear-gradient(90deg, rgba(34, 211, 238, 0.86), rgba(20, 184, 166, 0.66));
+    box-shadow: 0 0 12px rgba(34, 211, 238, 0.35);
+  }
+
+  *::-webkit-scrollbar-corner {
+    background: rgba(2, 6, 23, 0.9);
   }
 
   button,
@@ -301,8 +329,6 @@
     min-height: calc(100vh - 4.5rem);
     max-height: calc(100vh - 4.5rem);
     overflow: auto;
-    scrollbar-color: rgba(34, 211, 238, 0.72) rgba(2, 6, 23, 0.75);
-    scrollbar-width: thin;
     border-right: 1px solid rgba(34, 211, 238, 0.38);
     border-left: 0;
     background:

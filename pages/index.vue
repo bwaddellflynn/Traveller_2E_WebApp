@@ -31,8 +31,8 @@ const tools = [
     eyebrow: 'Vehicles',
     description: 'Vehicle records and construction tools for ground, air, and specialist designs.',
     icon: 'car',
-    to: undefined,
-    disabled: true,
+    to: '/vehicles',
+    disabled: false,
   },
   {
     title: 'Factory',

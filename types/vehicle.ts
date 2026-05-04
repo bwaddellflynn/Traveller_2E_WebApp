@@ -1,0 +1,69 @@
+export type TravellerVehicleSourceId =
+  | 'mgt2e-core-2022'
+  | 'mgt2e-csc'
+  | 'mgt2e-field-catalogue'
+  | 'mgt2e-mercenary-vehicle-recognition-cards'
+  | 'mgt2e-vehicle-handbook'
+
+export type TravellerVehicleCategory =
+  | 'ground'
+  | 'grav'
+  | 'aircraft'
+  | 'watercraft'
+  | 'hovercraft'
+  | 'walker'
+  | 'rail'
+  | 'biotech'
+  | 'other'
+
+export type TravellerVehicleArmour = {
+  forward: string
+  port: string
+  dorsal: string
+  aft: string
+  starboard: string
+  ventral: string
+}
+
+export type TravellerVehicleWeapon = {
+  name: string
+  range: string
+  damage: string
+  magazine: string
+  cost: string
+  traits: string[]
+  fireControl: string
+}
+
+export type TravellerVehicleRecord = {
+  id: string
+  name: string
+  sourceId: TravellerVehicleSourceId
+  sourceName?: string
+  sourcePage?: number
+  category: TravellerVehicleCategory
+  type: string
+  spaces: number
+  hitDm: string
+  hull: string
+  techLevel: number
+  skill: string
+  agility: string
+  speed: string
+  cruiseSpeed: string
+  range: string
+  cruiseRange: string
+  crew: string
+  passengers: string
+  comfortLevel: string
+  cargo: string
+  structure: string
+  shipping: string
+  costCredits: number | null
+  cost: string
+  traits: string[]
+  armour: TravellerVehicleArmour
+  equipment: string[]
+  weapons: TravellerVehicleWeapon[]
+  notes?: string
+}

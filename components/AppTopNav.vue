@@ -48,6 +48,9 @@ const logout = () => {
       <NuxtLink class="hud-link px-3 py-2 text-sm font-semibold" to="/weapons">
         Armory
       </NuxtLink>
+      <NuxtLink class="hud-link px-3 py-2 text-sm font-semibold" to="/vehicles">
+        Garage
+      </NuxtLink>
     </nav>
 
     <form v-if="!signedInUser" class="app-top-nav-auth" @submit.prevent="login">
