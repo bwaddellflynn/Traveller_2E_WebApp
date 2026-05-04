@@ -570,21 +570,21 @@ const copyReferenceWeapon = (weapon: typeof referenceWeapons.value[number]) => {
 </script>
 
 <template>
-  <main class="min-h-screen">
-    <section class="border-b border-zinc-300 bg-zinc-950 text-white">
+  <main class="armory-hud min-h-screen text-cyan-50">
+    <section class="hud-hero border-b border-cyan-400/30 text-white">
       <div class="mx-auto flex w-full max-w-[96rem] flex-wrap items-center justify-between gap-4 px-5 py-6 sm:px-8 lg:px-10">
         <div>
-          <p class="text-sm font-semibold uppercase tracking-wide text-amber-300">Armory</p>
+          <p class="hud-kicker text-sm font-semibold uppercase tracking-wide">Armory</p>
           <h1 class="mt-2 text-3xl font-semibold">Equipment Armory</h1>
         </div>
-        <NuxtLink class="rounded-md border border-white/20 px-3 py-2 text-sm font-semibold text-zinc-100 hover:border-amber-400 hover:text-amber-200" to="/">
+        <NuxtLink class="hud-link px-3 py-2 text-sm font-semibold" to="/">
           Hub
         </NuxtLink>
       </div>
     </section>
 
     <section class="mx-auto w-full max-w-[96rem] px-5 pt-5 sm:px-8 lg:px-10">
-      <div class="flex flex-wrap gap-2 border-b border-zinc-300">
+      <div class="hud-tabs flex flex-wrap gap-2 border-b border-cyan-400/30">
         <button
           v-for="tab in armoryTabs"
           :key="tab.id"
@@ -600,7 +600,7 @@ const copyReferenceWeapon = (weapon: typeof referenceWeapons.value[number]) => {
 
     <section class="mx-auto grid w-full max-w-[96rem] gap-5 px-5 py-6 sm:px-8 lg:grid-cols-[17rem_minmax(0,1fr)] lg:px-10">
       <div v-if="activeArmoryTab === 'weapons'" class="grid gap-5 lg:col-span-2">
-        <section class="rounded-lg border border-zinc-300 bg-white p-5 shadow-sm">
+        <section class="hud-panel rounded-lg border p-5 shadow-sm">
           <div class="flex flex-wrap items-center justify-between gap-3">
             <div>
               <h2 class="text-xl font-semibold">Reference Weapons</h2>
@@ -622,7 +622,7 @@ const copyReferenceWeapon = (weapon: typeof referenceWeapons.value[number]) => {
             </button>
           </div>
 
-          <div class="mt-4 max-h-[42rem] overflow-auto rounded-md border border-zinc-200">
+          <div class="hud-table-shell mt-4 max-h-[42rem] overflow-auto rounded-md border">
             <table class="w-full min-w-[60rem] text-left text-sm">
               <thead class="sticky top-0 z-10 bg-stone-100 text-xs uppercase tracking-wide text-zinc-500">
                 <tr>
@@ -661,11 +661,11 @@ const copyReferenceWeapon = (weapon: typeof referenceWeapons.value[number]) => {
         </section>
       </div>
 
-      <section v-else-if="activeArmoryTab === 'armor'" class="rounded-lg border border-zinc-300 bg-white p-5 shadow-sm lg:col-span-2">
+      <section v-else-if="activeArmoryTab === 'armor'" class="hud-panel rounded-lg border p-5 shadow-sm lg:col-span-2">
         <div class="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 class="text-xl font-semibold">Reference Armor</h2>
-            <p class="mt-1 text-sm text-zinc-600">{{ filteredReferenceArmor.length }} shown from seeded Core and Field Catalogue data.</p>
+            <p class="mt-1 text-sm text-zinc-600">{{ filteredReferenceArmor.length }} shown from seeded Core, Central Supply Catalogue, and Field Catalogue data.</p>
           </div>
           <input v-model="search" class="h-10 rounded-md border border-zinc-300 px-3 text-sm outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200" placeholder="Search">
         </div>
@@ -683,7 +683,7 @@ const copyReferenceWeapon = (weapon: typeof referenceWeapons.value[number]) => {
           </button>
         </div>
 
-        <div class="mt-4 max-h-[42rem] overflow-auto rounded-md border border-zinc-200">
+        <div class="hud-table-shell mt-4 max-h-[42rem] overflow-auto rounded-md border">
           <table class="w-full min-w-[64rem] text-left text-sm">
             <thead class="sticky top-0 z-10 bg-stone-100 text-xs uppercase tracking-wide text-zinc-500">
               <tr>
@@ -717,7 +717,7 @@ const copyReferenceWeapon = (weapon: typeof referenceWeapons.value[number]) => {
         </div>
       </section>
 
-      <section v-else-if="activeArmoryTab === 'support'" class="rounded-lg border border-zinc-300 bg-white p-5 shadow-sm lg:col-span-2">
+      <section v-else-if="activeArmoryTab === 'support'" class="hud-panel rounded-lg border p-5 shadow-sm lg:col-span-2">
         <div class="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 class="text-xl font-semibold">Equipment</h2>
@@ -739,7 +739,7 @@ const copyReferenceWeapon = (weapon: typeof referenceWeapons.value[number]) => {
           </button>
         </div>
 
-        <div class="mt-4 max-h-[42rem] overflow-auto rounded-md border border-zinc-200">
+        <div class="hud-table-shell mt-4 max-h-[42rem] overflow-auto rounded-md border">
           <table class="w-full min-w-[68rem] text-left text-sm">
             <thead class="sticky top-0 z-10 bg-stone-100 text-xs uppercase tracking-wide text-zinc-500">
               <tr>
@@ -773,7 +773,7 @@ const copyReferenceWeapon = (weapon: typeof referenceWeapons.value[number]) => {
       </section>
 
       <div v-else class="grid gap-5">
-        <section class="rounded-lg border border-zinc-300 bg-white p-5 shadow-sm">
+        <section class="hud-panel rounded-lg border p-5 shadow-sm">
           <div class="flex flex-wrap items-center justify-between gap-3">
             <h2 class="text-lg font-semibold">Saved Weapons</h2>
             <button class="rounded-md bg-zinc-950 px-3 py-2 text-sm font-semibold text-white hover:bg-zinc-800" type="button" @click="newWeapon">
@@ -796,7 +796,7 @@ const copyReferenceWeapon = (weapon: typeof referenceWeapons.value[number]) => {
         </section>
       </div>
 
-      <section v-if="activeArmoryTab === 'create'" class="rounded-lg border border-zinc-300 bg-white p-5 shadow-sm">
+      <section v-if="activeArmoryTab === 'create'" class="hud-panel rounded-lg border p-5 shadow-sm">
         <div class="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h2 class="text-xl font-semibold">Weapon Design</h2>
@@ -1092,3 +1092,193 @@ const copyReferenceWeapon = (weapon: typeof referenceWeapons.value[number]) => {
     </section>
   </main>
 </template>
+
+<style scoped>
+.armory-hud {
+  min-height: 100vh;
+  background:
+    linear-gradient(rgba(31, 211, 238, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(31, 211, 238, 0.035) 1px, transparent 1px),
+    radial-gradient(circle at 18% 0%, rgba(34, 211, 238, 0.18), transparent 32rem),
+    radial-gradient(circle at 86% 18%, rgba(20, 184, 166, 0.12), transparent 30rem),
+    linear-gradient(180deg, #07111f 0%, #050914 48%, #030711 100%);
+  background-size: 28px 28px, 28px 28px, auto, auto, auto;
+}
+
+.armory-hud::before {
+  content: "";
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  background:
+    linear-gradient(180deg, transparent 0, rgba(103, 232, 249, 0.035) 50%, transparent 100%),
+    repeating-linear-gradient(180deg, rgba(255, 255, 255, 0.025) 0, rgba(255, 255, 255, 0.025) 1px, transparent 1px, transparent 5px);
+  mix-blend-mode: screen;
+}
+
+.armory-hud > * {
+  position: relative;
+  z-index: 1;
+}
+
+.hud-hero {
+  background:
+    linear-gradient(90deg, rgba(34, 211, 238, 0.18), transparent 28%, transparent 72%, rgba(20, 184, 166, 0.16)),
+    rgba(2, 6, 23, 0.88);
+  box-shadow: 0 0 32px rgba(34, 211, 238, 0.12);
+}
+
+.hud-kicker,
+.armory-hud h1,
+.armory-hud h2,
+.armory-hud h3 {
+  color: #e0fbff;
+  text-shadow: 0 0 16px rgba(34, 211, 238, 0.42);
+}
+
+.hud-kicker {
+  color: #67e8f9;
+  letter-spacing: 0.18em;
+}
+
+.hud-link,
+.armory-hud button {
+  border: 1px solid rgba(34, 211, 238, 0.48);
+  background:
+    linear-gradient(135deg, rgba(34, 211, 238, 0.16), rgba(15, 23, 42, 0.92) 42%, rgba(20, 184, 166, 0.12));
+  color: #cffafe;
+  box-shadow: inset 0 0 18px rgba(34, 211, 238, 0.08), 0 0 12px rgba(34, 211, 238, 0.08);
+  clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px));
+  transition: border-color 140ms ease, box-shadow 140ms ease, color 140ms ease, background 140ms ease;
+}
+
+.hud-link:hover,
+.armory-hud button:hover:not(:disabled) {
+  border-color: rgba(103, 232, 249, 0.92);
+  color: #ffffff;
+  box-shadow: inset 0 0 22px rgba(34, 211, 238, 0.16), 0 0 18px rgba(34, 211, 238, 0.22);
+}
+
+.armory-hud button.bg-white,
+.armory-hud button.bg-zinc-950,
+.armory-hud button[class*="bg-zinc-950"],
+.armory-hud button[class*="bg-white"] {
+  border-color: rgba(34, 211, 238, 0.95) !important;
+  background:
+    linear-gradient(135deg, rgba(34, 211, 238, 0.34), rgba(8, 47, 73, 0.92) 52%, rgba(45, 212, 191, 0.24)) !important;
+  color: #ffffff !important;
+  box-shadow: inset 0 0 22px rgba(34, 211, 238, 0.24), 0 0 22px rgba(34, 211, 238, 0.2);
+}
+
+.hud-tabs button {
+  border-bottom-color: rgba(34, 211, 238, 0.48);
+  border-radius: 0;
+}
+
+.hud-panel {
+  position: relative;
+  overflow: hidden;
+  border-color: rgba(34, 211, 238, 0.52);
+  background:
+    linear-gradient(180deg, rgba(8, 18, 32, 0.96), rgba(3, 7, 18, 0.96)),
+    radial-gradient(circle at 0 0, rgba(34, 211, 238, 0.16), transparent 24rem);
+  box-shadow:
+    0 0 26px rgba(34, 211, 238, 0.13),
+    inset 0 0 36px rgba(34, 211, 238, 0.07);
+  clip-path: polygon(0 0, calc(100% - 18px) 0, 100% 18px, 100% 100%, 18px 100%, 0 calc(100% - 18px));
+}
+
+.hud-panel::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-top: 1px solid rgba(103, 232, 249, 0.65);
+  background:
+    linear-gradient(90deg, rgba(34, 211, 238, 0.44), transparent 22%, transparent 78%, rgba(34, 211, 238, 0.38)) top / 100% 2px no-repeat;
+}
+
+.armory-hud p,
+.armory-hud span,
+.armory-hud label,
+.armory-hud td {
+  color: #bfdbfe;
+}
+
+.armory-hud .text-zinc-950,
+.armory-hud .text-zinc-900,
+.armory-hud .text-zinc-800,
+.armory-hud .text-zinc-700,
+.armory-hud .text-zinc-600,
+.armory-hud .text-zinc-500 {
+  color: #bae6fd !important;
+}
+
+.armory-hud input,
+.armory-hud select,
+.armory-hud textarea {
+  border-color: rgba(34, 211, 238, 0.45);
+  background: rgba(2, 6, 23, 0.72);
+  color: #e0fbff;
+  box-shadow: inset 0 0 18px rgba(34, 211, 238, 0.08);
+}
+
+.armory-hud input::placeholder,
+.armory-hud textarea::placeholder {
+  color: rgba(186, 230, 253, 0.58);
+}
+
+.armory-hud input:focus,
+.armory-hud select:focus,
+.armory-hud textarea:focus {
+  border-color: rgba(103, 232, 249, 0.96);
+  box-shadow: 0 0 0 2px rgba(34, 211, 238, 0.24), inset 0 0 18px rgba(34, 211, 238, 0.1);
+}
+
+.hud-table-shell {
+  border-color: rgba(34, 211, 238, 0.4);
+  background: rgba(2, 6, 23, 0.5);
+  box-shadow: inset 0 0 28px rgba(34, 211, 238, 0.06);
+}
+
+.armory-hud table {
+  color: #dffbff;
+}
+
+.armory-hud thead {
+  background: rgba(8, 47, 73, 0.92);
+  color: #67e8f9;
+  box-shadow: 0 1px 0 rgba(34, 211, 238, 0.42);
+}
+
+.armory-hud th,
+.armory-hud td {
+  border-color: rgba(34, 211, 238, 0.18);
+}
+
+.armory-hud tbody tr {
+  border-color: rgba(34, 211, 238, 0.16);
+  background: rgba(8, 18, 32, 0.34);
+}
+
+.armory-hud tbody tr:hover {
+  background: rgba(14, 116, 144, 0.14);
+  box-shadow: inset 3px 0 0 rgba(34, 211, 238, 0.85);
+}
+
+.armory-hud .bg-white,
+.armory-hud .bg-stone-50,
+.armory-hud .bg-stone-100,
+.armory-hud .bg-amber-50,
+.armory-hud .bg-emerald-50 {
+  background-color: rgba(8, 18, 32, 0.78) !important;
+}
+
+.armory-hud .border-zinc-200,
+.armory-hud .border-zinc-300,
+.armory-hud .border-amber-200,
+.armory-hud .border-emerald-200 {
+  border-color: rgba(34, 211, 238, 0.32) !important;
+}
+</style>

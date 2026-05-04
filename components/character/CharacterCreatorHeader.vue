@@ -9,10 +9,10 @@ const {
 </script>
 
 <template>
-  <header class="border-b border-zinc-300 bg-white">
+  <header class="hud-hero border-b border-cyan-400/30">
     <div class="mx-auto flex w-full max-w-7xl flex-col gap-5 px-5 py-5 sm:px-8 lg:px-10">
       <nav class="flex items-center justify-between gap-4">
-        <NuxtLink class="text-sm font-semibold text-zinc-700 hover:text-zinc-950" to="/">
+        <NuxtLink class="hud-link px-3 py-2 text-sm font-semibold" to="/">
           Tools hub
         </NuxtLink>
         <div class="flex items-center gap-2 text-sm text-zinc-600">
@@ -22,7 +22,7 @@ const {
       </nav>
       <div class="grid gap-5 lg:grid-cols-[1fr_22rem] lg:items-end">
         <div>
-          <p class="text-sm font-semibold uppercase tracking-wide text-amber-700">Core Rulebook</p>
+          <p class="hud-kicker text-sm font-semibold uppercase tracking-wide">Core Rulebook</p>
           <h1 class="mt-2 text-3xl font-semibold text-zinc-950 sm:text-4xl">Create a Traveller</h1>
         </div>
         <label class="grid gap-2">

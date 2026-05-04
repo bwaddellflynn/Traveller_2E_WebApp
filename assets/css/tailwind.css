@@ -9,12 +9,229 @@
 
   body {
     margin: 0;
-    background: #f5f2ea;
+    background: #030711;
   }
 
   button,
   input,
   select {
     font: inherit;
+  }
+}
+
+@layer components {
+  .traveller-hud {
+    min-height: 100vh;
+    background:
+      linear-gradient(rgba(31, 211, 238, 0.035) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(31, 211, 238, 0.035) 1px, transparent 1px),
+      radial-gradient(circle at 18% 0%, rgba(34, 211, 238, 0.18), transparent 32rem),
+      radial-gradient(circle at 86% 18%, rgba(20, 184, 166, 0.12), transparent 30rem),
+      linear-gradient(180deg, #07111f 0%, #050914 48%, #030711 100%);
+    background-size: 28px 28px, 28px 28px, auto, auto, auto;
+  }
+
+  .traveller-hud::before {
+    content: "";
+    pointer-events: none;
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    background:
+      linear-gradient(180deg, transparent 0, rgba(103, 232, 249, 0.035) 50%, transparent 100%),
+      repeating-linear-gradient(180deg, rgba(255, 255, 255, 0.025) 0, rgba(255, 255, 255, 0.025) 1px, transparent 1px, transparent 5px);
+    mix-blend-mode: screen;
+  }
+
+  .traveller-hud > * {
+    position: relative;
+    z-index: 1;
+  }
+
+  .hud-hero {
+    background:
+      linear-gradient(90deg, rgba(34, 211, 238, 0.18), transparent 28%, transparent 72%, rgba(20, 184, 166, 0.16)),
+      rgba(2, 6, 23, 0.88);
+    box-shadow: 0 0 32px rgba(34, 211, 238, 0.12);
+  }
+
+  .hud-kicker,
+  .traveller-hud h1,
+  .traveller-hud h2,
+  .traveller-hud h3 {
+    color: #e0fbff;
+    text-shadow: 0 0 16px rgba(34, 211, 238, 0.42);
+  }
+
+  .hud-kicker {
+    color: #67e8f9;
+    letter-spacing: 0.18em;
+  }
+
+  .hud-glyph {
+    border: 1px solid rgba(34, 211, 238, 0.72);
+    background: rgba(8, 47, 73, 0.86);
+    color: #67e8f9;
+    box-shadow: inset 0 0 18px rgba(34, 211, 238, 0.16), 0 0 16px rgba(34, 211, 238, 0.18);
+    clip-path: polygon(0 0, calc(100% - 9px) 0, 100% 9px, 100% 100%, 9px 100%, 0 calc(100% - 9px));
+  }
+
+  .hud-link,
+  .traveller-hud button {
+    border: 1px solid rgba(34, 211, 238, 0.48);
+    background:
+      linear-gradient(135deg, rgba(34, 211, 238, 0.16), rgba(15, 23, 42, 0.92) 42%, rgba(20, 184, 166, 0.12));
+    color: #cffafe;
+    box-shadow: inset 0 0 18px rgba(34, 211, 238, 0.08), 0 0 12px rgba(34, 211, 238, 0.08);
+    clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px));
+    transition: border-color 140ms ease, box-shadow 140ms ease, color 140ms ease, background 140ms ease;
+  }
+
+  .hud-link:hover,
+  .traveller-hud button:hover:not(:disabled) {
+    border-color: rgba(103, 232, 249, 0.92);
+    color: #ffffff;
+    box-shadow: inset 0 0 22px rgba(34, 211, 238, 0.16), 0 0 18px rgba(34, 211, 238, 0.22);
+  }
+
+  .traveller-hud button.bg-white,
+  .traveller-hud button.bg-zinc-950,
+  .traveller-hud button[class*="bg-zinc-950"],
+  .traveller-hud button[class*="bg-white"] {
+    border-color: rgba(34, 211, 238, 0.95) !important;
+    background:
+      linear-gradient(135deg, rgba(34, 211, 238, 0.34), rgba(8, 47, 73, 0.92) 52%, rgba(45, 212, 191, 0.24)) !important;
+    color: #ffffff !important;
+    box-shadow: inset 0 0 22px rgba(34, 211, 238, 0.24), 0 0 22px rgba(34, 211, 238, 0.2);
+  }
+
+  .hud-panel,
+  .traveller-hud .rounded-lg.border.bg-white,
+  .traveller-hud aside.bg-zinc-950 {
+    position: relative;
+    overflow: hidden;
+    border-color: rgba(34, 211, 238, 0.52) !important;
+    background:
+      linear-gradient(180deg, rgba(8, 18, 32, 0.96), rgba(3, 7, 18, 0.96)),
+      radial-gradient(circle at 0 0, rgba(34, 211, 238, 0.16), transparent 24rem) !important;
+    box-shadow:
+      0 0 26px rgba(34, 211, 238, 0.13),
+      inset 0 0 36px rgba(34, 211, 238, 0.07) !important;
+    clip-path: polygon(0 0, calc(100% - 18px) 0, 100% 18px, 100% 100%, 18px 100%, 0 calc(100% - 18px));
+  }
+
+  .hud-panel::before,
+  .traveller-hud .rounded-lg.border.bg-white::before,
+  .traveller-hud aside.bg-zinc-950::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    border-top: 1px solid rgba(103, 232, 249, 0.65);
+    background:
+      linear-gradient(90deg, rgba(34, 211, 238, 0.44), transparent 22%, transparent 78%, rgba(34, 211, 238, 0.38)) top / 100% 2px no-repeat;
+  }
+
+  .hud-stat {
+    border-color: rgba(34, 211, 238, 0.34);
+    background: rgba(8, 18, 32, 0.58);
+    box-shadow: inset 0 0 18px rgba(34, 211, 238, 0.07);
+  }
+
+  .traveller-hud p,
+  .traveller-hud span,
+  .traveller-hud label,
+  .traveller-hud td,
+  .traveller-hud li {
+    color: #bfdbfe;
+  }
+
+  .traveller-hud .text-zinc-950,
+  .traveller-hud .text-zinc-900,
+  .traveller-hud .text-zinc-800,
+  .traveller-hud .text-zinc-700,
+  .traveller-hud .text-zinc-600,
+  .traveller-hud .text-zinc-500,
+  .traveller-hud .text-amber-900,
+  .traveller-hud .text-amber-800,
+  .traveller-hud .text-amber-700,
+  .traveller-hud .text-violet-900,
+  .traveller-hud .text-violet-950 {
+    color: #bae6fd !important;
+  }
+
+  .traveller-hud input,
+  .traveller-hud select,
+  .traveller-hud textarea {
+    border-color: rgba(34, 211, 238, 0.45) !important;
+    background: rgba(2, 6, 23, 0.72) !important;
+    color: #e0fbff !important;
+    box-shadow: inset 0 0 18px rgba(34, 211, 238, 0.08);
+  }
+
+  .traveller-hud input::placeholder,
+  .traveller-hud textarea::placeholder {
+    color: rgba(186, 230, 253, 0.58);
+  }
+
+  .traveller-hud input:focus,
+  .traveller-hud select:focus,
+  .traveller-hud textarea:focus {
+    border-color: rgba(103, 232, 249, 0.96) !important;
+    box-shadow: 0 0 0 2px rgba(34, 211, 238, 0.24), inset 0 0 18px rgba(34, 211, 238, 0.1) !important;
+  }
+
+  .hud-table-shell,
+  .traveller-hud .overflow-hidden.rounded-md.border,
+  .traveller-hud .overflow-auto.rounded-md.border {
+    border-color: rgba(34, 211, 238, 0.4) !important;
+    background: rgba(2, 6, 23, 0.5);
+    box-shadow: inset 0 0 28px rgba(34, 211, 238, 0.06);
+  }
+
+  .traveller-hud table {
+    color: #dffbff;
+  }
+
+  .traveller-hud thead {
+    background: rgba(8, 47, 73, 0.92) !important;
+    color: #67e8f9;
+    box-shadow: 0 1px 0 rgba(34, 211, 238, 0.42);
+  }
+
+  .traveller-hud th,
+  .traveller-hud td {
+    border-color: rgba(34, 211, 238, 0.18) !important;
+  }
+
+  .traveller-hud tbody tr {
+    border-color: rgba(34, 211, 238, 0.16) !important;
+    background: rgba(8, 18, 32, 0.34);
+  }
+
+  .traveller-hud tbody tr:hover {
+    background: rgba(14, 116, 144, 0.14);
+    box-shadow: inset 3px 0 0 rgba(34, 211, 238, 0.85);
+  }
+
+  .traveller-hud .bg-white,
+  .traveller-hud .bg-stone-50,
+  .traveller-hud .bg-stone-100,
+  .traveller-hud .bg-zinc-50,
+  .traveller-hud .bg-zinc-100,
+  .traveller-hud .bg-zinc-200,
+  .traveller-hud .bg-amber-50,
+  .traveller-hud .bg-emerald-50,
+  .traveller-hud .bg-violet-50 {
+    background-color: rgba(8, 18, 32, 0.78) !important;
+  }
+
+  .traveller-hud .border-zinc-200,
+  .traveller-hud .border-zinc-300,
+  .traveller-hud .border-amber-200,
+  .traveller-hud .border-amber-300,
+  .traveller-hud .border-emerald-200,
+  .traveller-hud .border-violet-300 {
+    border-color: rgba(34, 211, 238, 0.32) !important;
   }
 }

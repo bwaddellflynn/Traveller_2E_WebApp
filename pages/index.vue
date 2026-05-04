@@ -71,11 +71,11 @@ const tools = [
 
 <template>
   <main class="min-h-screen">
-    <section class="border-b border-zinc-300 bg-zinc-950 text-white">
+    <section class="hud-hero border-b border-cyan-400/30 text-white">
       <div class="mx-auto flex w-full max-w-7xl flex-col gap-8 px-5 py-8 sm:px-8 lg:px-10">
         <nav class="flex items-center justify-between gap-4">
           <div class="flex items-center gap-3">
-            <span class="grid h-10 w-10 place-items-center rounded-md bg-amber-500 text-zinc-950">
+            <span class="hud-glyph grid h-10 w-10 place-items-center rounded-md">
               <AppIcon name="dice" />
             </span>
             <div>
@@ -84,7 +84,7 @@ const tools = [
             </div>
           </div>
           <NuxtLink
-            class="rounded-md border border-white/20 px-3 py-2 text-sm font-medium text-zinc-100 hover:border-amber-400 hover:text-amber-200"
+            class="hud-link px-3 py-2 text-sm font-medium"
             to="/character/create"
           >
             Open creator
@@ -93,21 +93,21 @@ const tools = [
 
         <div class="grid gap-8 lg:grid-cols-[1.2fr_0.8fr] lg:items-end">
           <div>
-            <p class="text-sm font-semibold uppercase tracking-wide text-amber-300">Creation tools</p>
+            <p class="hud-kicker text-sm font-semibold uppercase tracking-wide">Creation tools</p>
             <h1 class="mt-4 max-w-3xl text-4xl font-semibold leading-tight sm:text-5xl">
               Build and reference Traveller records from structured book data.
             </h1>
           </div>
           <div class="grid grid-cols-3 gap-3 text-sm">
-            <div class="rounded-md border border-white/15 p-4">
+            <div class="hud-stat rounded-md border p-4">
               <p class="text-2xl font-semibold">7</p>
               <p class="mt-1 text-zinc-400">Core JSON files</p>
             </div>
-            <div class="rounded-md border border-white/15 p-4">
+            <div class="hud-stat rounded-md border p-4">
               <p class="text-2xl font-semibold">12</p>
               <p class="mt-1 text-zinc-400">Core careers</p>
             </div>
-            <div class="rounded-md border border-white/15 p-4">
+            <div class="hud-stat rounded-md border p-4">
               <p class="text-2xl font-semibold">{{ userProfiles.length }}</p>
               <p class="mt-1 text-zinc-400">Saved Travellers</p>
             </div>
@@ -130,7 +130,7 @@ const tools = [
         />
       </div>
 
-      <div class="mt-8 rounded-lg border border-zinc-300 bg-white p-5 shadow-sm">
+      <div class="hud-panel mt-8 rounded-lg border p-5 shadow-sm">
         <div class="flex flex-wrap items-center justify-between gap-3">
           <div>
             <p class="text-xs font-semibold uppercase tracking-wide text-amber-700">Saved profiles</p>
