@@ -35,7 +35,6 @@ type WeaponSortIcon = 'sort-asc' | 'sort-desc'
 
 type WeaponBuilderDraftCache = {
   draft: CustomWeaponDesign
-  activeArmoryTab: string
   activeDesignStep: number
   traitInput: string
   accessoryInput: string
@@ -74,18 +73,16 @@ onMounted(() => {
 
   if (cachedDraft?.draft) {
     draft.value = cloneWeapon(cachedDraft.draft)
-    activeArmoryTab.value = cachedDraft.activeArmoryTab || 'create'
     activeDesignStep.value = cachedDraft.activeDesignStep ?? 0
     traitInput.value = cachedDraft.traitInput ?? ''
     accessoryInput.value = cachedDraft.accessoryInput ?? ''
-    saveMessage.value = 'Restored cached weapon builder draft.'
   }
 
   weaponBuilderDraftRestored.value = true
 })
 
 watch(
-  [draft, activeArmoryTab, activeDesignStep, traitInput, accessoryInput],
+  [draft, activeDesignStep, traitInput, accessoryInput],
   () => {
     if (!weaponBuilderDraftRestored.value) return
     saveBuilderDraft<WeaponBuilderDraftCache>(
@@ -93,7 +90,6 @@ watch(
       WEAPON_BUILDER_DRAFT_CACHE_VERSION,
       {
         draft: cloneWeapon(draft.value),
-        activeArmoryTab: activeArmoryTab.value,
         activeDesignStep: activeDesignStep.value,
         traitInput: traitInput.value,
         accessoryInput: accessoryInput.value,
@@ -615,30 +611,35 @@ const copyReferenceWeapon = (weapon: typeof referenceWeapons.value[number]) => {
   activeArmoryTab.value = 'create'
   activeDesignStep.value = 0
 }
+
+const setArmoryTab = (tabId: string) => {
+  activeArmoryTab.value = tabId
+  saveMessage.value = ''
+}
 </script>
 
 <template>
   <main class="min-h-screen text-cyan-50">
-    <section class="mx-auto w-full max-w-[96rem] px-5 pt-6 sm:px-8 lg:px-10">
+    <section class="relative z-20 mx-auto w-full max-w-[96rem] px-5 pt-6 sm:px-8 lg:px-10">
       <div class="mb-5">
         <p class="hud-kicker text-sm font-semibold uppercase tracking-wide">Armory</p>
         <h1 class="mt-2 text-3xl font-semibold">Equipment Armory</h1>
       </div>
-      <div class="hud-tabs flex flex-wrap gap-2 border-b border-cyan-400/30">
+      <div class="armory-view-buttons relative z-50 flex flex-wrap gap-2">
         <button
           v-for="tab in armoryTabs"
           :key="tab.id"
-          class="-mb-px rounded-t-md border border-transparent px-4 py-3 text-sm font-semibold"
-          :class="activeArmoryTab === tab.id ? 'border-zinc-300 border-b-white bg-white text-zinc-950' : 'text-zinc-600 hover:text-zinc-950'"
+          class="relative z-10 rounded-md border px-4 py-3 text-sm font-semibold"
+          :class="activeArmoryTab === tab.id ? 'border-zinc-950 bg-zinc-950 text-white' : 'border-zinc-300 text-zinc-700 hover:border-amber-600'"
           type="button"
-          @click="activeArmoryTab = tab.id"
+          @click.stop.prevent="setArmoryTab(tab.id)"
         >
           {{ tab.label }}
         </button>
       </div>
     </section>
 
-    <section class="mx-auto grid w-full max-w-[96rem] gap-5 px-5 py-6 sm:px-8 lg:grid-cols-[17rem_minmax(0,1fr)] lg:px-10">
+    <section class="relative z-10 mx-auto grid w-full max-w-[96rem] gap-5 px-5 py-6 sm:px-8 lg:grid-cols-[17rem_minmax(0,1fr)] lg:px-10">
       <div v-if="activeArmoryTab === 'weapons'" class="grid gap-5 lg:col-span-2">
         <section class="hud-panel rounded-lg border p-5 shadow-sm">
           <div class="flex flex-wrap items-center justify-between gap-3">
@@ -656,13 +657,13 @@ const copyReferenceWeapon = (weapon: typeof referenceWeapons.value[number]) => {
               class="rounded-md border px-3 py-2 text-sm font-semibold"
               :class="selectedCategory === category.id ? 'border-zinc-950 bg-zinc-950 text-white' : 'border-zinc-300 text-zinc-700 hover:border-amber-600'"
               type="button"
-              @click="selectedCategory = category.id"
+              @click.stop.prevent="selectedCategory = category.id"
             >
               {{ category.label }}
             </button>
           </div>
 
-          <div class="hud-table-shell mt-4 max-h-[42rem] overflow-auto rounded-md border">
+          <div class="hud-table-shell hud-scrollbar mt-4 max-h-[42rem] overflow-auto rounded-md border">
             <table class="w-full min-w-[60rem] text-left text-sm">
               <thead class="sticky top-0 z-10 bg-stone-100 text-xs uppercase tracking-wide text-zinc-500">
                 <tr>
@@ -690,7 +691,7 @@ const copyReferenceWeapon = (weapon: typeof referenceWeapons.value[number]) => {
                   <td class="px-3 py-2">{{ weapon.costCredits === null ? '-' : `Cr${weapon.costCredits}` }}</td>
                   <td class="max-w-xs px-3 py-2 text-zinc-600">{{ weapon.traits.join(', ') || '-' }}</td>
                   <td class="px-3 py-2 text-right">
-                    <button class="rounded-md border border-zinc-300 px-2 py-1 text-xs font-semibold text-zinc-700 hover:border-amber-600" type="button" @click="copyReferenceWeapon(weapon)">
+                    <button class="rounded-md border border-zinc-300 px-2 py-1 text-xs font-semibold text-zinc-700 hover:border-amber-600" type="button" @click.stop.prevent="copyReferenceWeapon(weapon)">
                       Add
                     </button>
                   </td>
@@ -717,13 +718,13 @@ const copyReferenceWeapon = (weapon: typeof referenceWeapons.value[number]) => {
             class="rounded-md border px-3 py-2 text-sm font-semibold"
             :class="selectedArmorCategory === category.id ? 'border-zinc-950 bg-zinc-950 text-white' : 'border-zinc-300 text-zinc-700 hover:border-amber-600'"
             type="button"
-            @click="selectedArmorCategory = category.id"
+            @click.stop.prevent="selectedArmorCategory = category.id"
           >
             {{ category.label }}
           </button>
         </div>
 
-        <div class="hud-table-shell mt-4 max-h-[42rem] overflow-auto rounded-md border">
+        <div class="hud-table-shell hud-scrollbar mt-4 max-h-[42rem] overflow-auto rounded-md border">
           <table class="w-full min-w-[64rem] text-left text-sm">
             <thead class="sticky top-0 z-10 bg-stone-100 text-xs uppercase tracking-wide text-zinc-500">
               <tr>
@@ -773,13 +774,13 @@ const copyReferenceWeapon = (weapon: typeof referenceWeapons.value[number]) => {
             class="rounded-md border px-3 py-2 text-sm font-semibold"
             :class="selectedEquipmentCategory === category.id ? 'border-zinc-950 bg-zinc-950 text-white' : 'border-zinc-300 text-zinc-700 hover:border-amber-600'"
             type="button"
-            @click="selectedEquipmentCategory = category.id"
+            @click.stop.prevent="selectedEquipmentCategory = category.id"
           >
             {{ category.label }}
           </button>
         </div>
 
-        <div class="hud-table-shell mt-4 max-h-[42rem] overflow-auto rounded-md border">
+        <div class="hud-table-shell hud-scrollbar mt-4 max-h-[42rem] overflow-auto rounded-md border">
           <table class="w-full min-w-[68rem] text-left text-sm">
             <thead class="sticky top-0 z-10 bg-stone-100 text-xs uppercase tracking-wide text-zinc-500">
               <tr>
