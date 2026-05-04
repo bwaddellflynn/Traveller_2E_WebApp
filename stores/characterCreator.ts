@@ -1,4 +1,4 @@
-import { computed, reactive, ref, watch } from 'vue'
+import { computed, nextTick, reactive, ref, watch } from 'vue'
 import { defineStore } from 'pinia'
 import characteristicsData from '~/data/traveller2e/core/characteristics.json'
 import skillsData from '~/data/traveller2e/core/skills.json'
@@ -207,6 +207,7 @@ type EventOutcomeLogEntry = {
   effectType: string
   normalizedType?: string
   status: 'automatic' | 'pending' | 'manual'
+  termNumber?: number
 }
 type PrisonerParoleThresholdRoll = {
   dice: number
@@ -290,6 +291,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
   const skipCharacteristicRerollConfirm = ref(false)
   const currentTermNumber = ref(1)
   const activeCreatorTab = ref<CreatorTab>('creation')
+  const setupAutoAdvancedToTermOne = ref(false)
   const draftUsed = ref(false)
   const draftRoll = ref<DraftRoll | null>(null)
   const gmOverrideMenuOpen = ref(false)
@@ -872,6 +874,33 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
       backgroundSkillsCollapsed.value = false
       backgroundSkillsAutoCollapsed.value = false
     }
+  })
+
+  watch(setupComplete, (complete) => {
+    if (!complete) {
+      setupAutoAdvancedToTermOne.value = false
+      return
+    }
+
+    if (
+      setupAutoAdvancedToTermOne.value
+      || activeCreatorTab.value !== 'creation'
+      || currentTermNumber.value !== 1
+      || termHistory.value.length
+      || lifepathComplete.value
+    ) return
+
+    nextTick(() => {
+      if (
+        !setupComplete.value
+        || activeCreatorTab.value !== 'creation'
+        || currentTermNumber.value !== 1
+        || termHistory.value.length
+        || lifepathComplete.value
+      ) return
+      setupAutoAdvancedToTermOne.value = true
+      activeCreatorTab.value = 'term-1'
+    })
   })
 
   watch(assignedRollIds, () => {
@@ -1704,6 +1733,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
       effectType: effect.type,
       normalizedType: effect.normalizedType,
       status,
+      termNumber: currentTermNumber.value,
     }
 
     eventOutcomeLog.value = [entry, ...eventOutcomeLog.value].slice(0, 24)
@@ -3901,38 +3931,92 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     completeCurrentTerm()
   }
 
+  const termRollDetail = (roll?: RollResult | null) => {
+    if (!roll) return null
+    const outcome = (roll.finalSuccess ?? roll.success) ? 'success' : 'failure'
+    const target = roll.target ? ` vs ${roll.target}+` : ''
+    const notes = roll.notes ? ` - ${roll.notes}` : ''
+    return `${roll.label}: ${rollSummary(roll)}${target}; ${outcome}${notes}`
+  }
+
+  const eventHistoryDetails = (event: TravellerEvent | null, prefix: string) => {
+    if (!event) return []
+
+    const effectLabels = event.effects
+      .map((effect) => tableEffectLabel(effect))
+      .filter((label) => label && label !== 'Resolve manually')
+
+    return [
+      `${prefix}: ${event.name}`,
+      event.text ? `${prefix} text: ${event.text}` : '',
+      ...effectLabels.map((label) => `${prefix} effect: ${label}`),
+    ].filter(Boolean)
+  }
+
+  const currentTermOutcomeDetails = () => eventOutcomeLog.value
+    .filter((entry) => entry.termNumber === currentTermNumber.value)
+    .reverse()
+    .map((entry) => {
+      const status = entry.status === 'pending' ? 'pending' : entry.status
+      return `Resolved outcome: ${entry.source} - ${entry.label} (${status})`
+    })
+
   const buildTermHistoryDetails = (advancement?: AdvancementResult | null) => {
     const details: string[] = []
 
     if (selectedTermPath.value === 'education') {
       details.push(`Path: ${selectedEducationOption.value.name}`)
-      if (preCareerEvent.value) details.push(`Event: ${preCareerEvent.value.name}`)
+      const entryRoll = termRollDetail(termRolls.educationEntry)
+      const eventRoll = termRollDetail(termRolls.educationEvent)
+      const graduationRoll = termRollDetail(termRolls.educationGraduation)
+      if (entryRoll) details.push(entryRoll)
+      if (eventRoll) details.push(eventRoll)
+      details.push(...eventHistoryDetails(preCareerEvent.value, 'Event'))
+      if (graduationRoll) details.push(graduationRoll)
       if (termRolls.educationGraduation) {
         details.push(termRolls.educationGraduation.finalSuccess
           ? educationGraduationHonours.value ? 'Graduated with honours' : 'Graduated successfully'
           : 'Did not graduate')
       }
       if (educationSkillsApplied.value) details.push('Education skills applied')
+      if (termRolls.aging) details.push(`Aging: ${rollSummary(termRolls.aging)} - ${agingEffect.value ?? 'No aging effect'}`)
+      details.push(...currentTermOutcomeDetails())
       return details
     }
 
     details.push(`Career: ${selectedCareer.value.name} - ${selectedAssignment.value.name}`)
     if (termRolls.careerQualification) {
+      const qualificationRoll = termRollDetail(termRolls.careerQualification)
+      if (qualificationRoll) details.push(qualificationRoll)
       details.push(`Qualification: ${termRolls.careerQualification.finalSuccess ? 'qualified' : 'failed'}`)
       if (termRolls.careerQualification.notes) details.push(termRolls.careerQualification.notes)
     }
     if (termRolls.draft) details.push(`Draft result: ${termRolls.draft.notes}`)
     if (careerSkillResult.value) details.push(`Skill training: ${careerSkillResult.value}`)
     if (termRolls.careerSurvival) {
+      const survivalRoll = termRollDetail(termRolls.careerSurvival)
+      if (survivalRoll) details.push(survivalRoll)
       details.push(`Survival: ${termRolls.careerSurvival.finalSuccess ? 'survived' : 'mishap'}`)
     }
-    if (careerMishap.value) details.push(`Mishap: ${careerMishap.value.name}`)
-    if (careerEvent.value) details.push(`Event: ${careerEvent.value.name}`)
+    if (termRolls.careerMishap) {
+      const mishapRoll = termRollDetail(termRolls.careerMishap)
+      if (mishapRoll) details.push(mishapRoll)
+    }
+    details.push(...eventHistoryDetails(careerMishap.value, 'Mishap'))
+    if (termRolls.careerEvent) {
+      const eventRoll = termRollDetail(termRolls.careerEvent)
+      if (eventRoll) details.push(eventRoll)
+    }
+    details.push(...eventHistoryDetails(careerEvent.value, 'Event'))
     if (automaticCommissionConstraint.value) details.push('Commissioned automatically')
     if (termRolls.careerCommission) {
+      const commissionRoll = termRollDetail(termRolls.careerCommission)
+      if (commissionRoll) details.push(commissionRoll)
       details.push(termRolls.careerCommission.finalSuccess ? 'Commissioned as officer rank 1' : 'Commission failed')
     }
     if (termRolls.careerAdvancement) {
+      const advancementRoll = termRollDetail(termRolls.careerAdvancement)
+      if (advancementRoll) details.push(advancementRoll)
       details.push(advancement?.success
         ? `Advanced to ${advancement?.newTitle ?? 'next rank'}`
         : 'No advancement')
@@ -3945,6 +4029,14 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     if (selectedCareerId.value === 'prisoner' && prisonerParoleThreshold.value !== null) {
       details.push(`Parole Threshold: ${prisonerParoleThreshold.value}`)
     }
+    if (termRolls.careerAdvancementSkill) {
+      const advancementSkillRoll = termRollDetail(termRolls.careerAdvancementSkill)
+      if (advancementSkillRoll) details.push(advancementSkillRoll)
+    }
+    if (termRolls.aging) details.push(`Aging: ${rollSummary(termRolls.aging)} - ${agingEffect.value ?? 'No aging effect'}`)
+    const benefitRoll = benefitRollLedger.value.find((entry) => entry.termNumber === currentTermNumber.value && entry.careerId === selectedCareerId.value)
+    if (benefitRoll) details.push(`Benefit roll ledger: ${benefitRoll.label} (${benefitRoll.count})`)
+    details.push(...currentTermOutcomeDetails())
 
     return details
   }

@@ -32,7 +32,7 @@ const {
 
 <template>
   <div class="grid gap-6">
-    <div class="rounded-lg border border-zinc-300 bg-white p-5 shadow-sm">
+    <div class="hud-panel rounded-lg border p-5 shadow-sm">
       <div class="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 class="text-xl font-semibold">Characteristics</h2>
@@ -65,8 +65,8 @@ const {
           :class="[
             'rounded-md border px-3 py-2 text-sm font-semibold',
             assignedRollIdSet.has(roll.id)
-              ? 'border-zinc-300 bg-zinc-100 text-zinc-500'
-              : 'border-amber-300 bg-amber-50 text-amber-900'
+              ? 'border-cyan-400/25 bg-slate-900/80 text-cyan-200/60'
+              : 'border-cyan-300/70 bg-cyan-400/10 text-cyan-100'
           ]"
         >
           {{ roll.value }}
@@ -84,7 +84,7 @@ const {
               <span class="block text-sm font-semibold">{{ item.abbreviation }}</span>
               <span class="block text-xs text-zinc-600">{{ item.name }}</span>
             </span>
-            <span class="rounded-md bg-white px-2 py-1 text-sm font-semibold text-zinc-700">DM {{ formatDm(item.dm) }}</span>
+            <span class="rounded-md border border-cyan-400/30 bg-slate-950/70 px-2 py-1 text-sm font-semibold text-cyan-100">DM {{ formatDm(item.dm) }}</span>
           </span>
           <select
             v-model="assignedRollIds[item.id]"
@@ -112,18 +112,18 @@ const {
       </div>
     </div>
 
-    <div class="rounded-lg border border-zinc-300 bg-white p-5 shadow-sm">
+    <div class="hud-panel rounded-lg border p-5 shadow-sm">
       <div class="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 class="text-xl font-semibold">Background Skills</h2>
           <p class="mt-1 text-sm text-zinc-600">Choose {{ backgroundSkillLimit }} based on EDU DM {{ formatDm(diceModifier(values.edu)) }}.</p>
         </div>
         <div class="flex flex-wrap items-center gap-2">
-          <span class="rounded-md bg-amber-100 px-3 py-2 text-sm font-semibold text-amber-900">
+          <span class="rounded-md border border-cyan-300/60 bg-cyan-400/10 px-3 py-2 font-mono text-sm font-semibold text-cyan-100 shadow-[0_0_18px_rgba(34,211,238,0.18)]">
             {{ selectedBackgroundSkills.length }} / {{ backgroundSkillLimit }}
           </span>
           <button
-            class="h-10 rounded-md border border-zinc-300 px-3 text-sm font-semibold text-zinc-700 hover:border-amber-600"
+            class="hud-link h-10 rounded-md px-3 text-sm font-semibold"
             type="button"
             @click="toggleBackgroundSkillsCollapsed"
           >
@@ -136,7 +136,7 @@ const {
         <span
           v-for="skillId in selectedBackgroundSkills"
           :key="skillId"
-          class="rounded-md bg-zinc-100 px-2 py-1 text-xs font-medium text-zinc-700"
+          class="rounded-md border border-cyan-400/25 bg-slate-950/70 px-2 py-1 text-xs font-medium text-cyan-100"
         >
           {{ skillName(skillId) }}
         </span>
@@ -150,10 +150,10 @@ const {
           :class="[
             'flex h-11 items-center justify-between rounded-md border px-3 text-left text-sm font-medium',
             selectedBackgroundSkills.includes(skill.id)
-              ? 'border-zinc-950 bg-zinc-950 text-white'
+              ? 'border-cyan-300 bg-cyan-400/20 text-cyan-50 shadow-[0_0_18px_rgba(34,211,238,0.2)]'
               : canSelectBackgroundSkill(skill.id)
-                ? 'border-zinc-300 bg-white text-zinc-700 hover:border-amber-600'
-                : 'cursor-not-allowed border-zinc-200 bg-zinc-50 text-zinc-400'
+                ? 'border-cyan-400/25 bg-slate-950/55 text-cyan-100 hover:border-cyan-300'
+                : 'cursor-not-allowed border-cyan-950/60 bg-slate-950/35 text-cyan-100/35'
           ]"
           :disabled="!canSelectBackgroundSkill(skill.id)"
           type="button"

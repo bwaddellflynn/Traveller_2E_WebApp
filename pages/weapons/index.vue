@@ -570,20 +570,12 @@ const copyReferenceWeapon = (weapon: typeof referenceWeapons.value[number]) => {
 </script>
 
 <template>
-  <main class="armory-hud min-h-screen text-cyan-50">
-    <section class="hud-hero border-b border-cyan-400/30 text-white">
-      <div class="mx-auto flex w-full max-w-[96rem] flex-wrap items-center justify-between gap-4 px-5 py-6 sm:px-8 lg:px-10">
-        <div>
-          <p class="hud-kicker text-sm font-semibold uppercase tracking-wide">Armory</p>
-          <h1 class="mt-2 text-3xl font-semibold">Equipment Armory</h1>
-        </div>
-        <NuxtLink class="hud-link px-3 py-2 text-sm font-semibold" to="/">
-          Hub
-        </NuxtLink>
+  <main class="min-h-screen text-cyan-50">
+    <section class="mx-auto w-full max-w-[96rem] px-5 pt-6 sm:px-8 lg:px-10">
+      <div class="mb-5">
+        <p class="hud-kicker text-sm font-semibold uppercase tracking-wide">Armory</p>
+        <h1 class="mt-2 text-3xl font-semibold">Equipment Armory</h1>
       </div>
-    </section>
-
-    <section class="mx-auto w-full max-w-[96rem] px-5 pt-5 sm:px-8 lg:px-10">
       <div class="hud-tabs flex flex-wrap gap-2 border-b border-cyan-400/30">
         <button
           v-for="tab in armoryTabs"

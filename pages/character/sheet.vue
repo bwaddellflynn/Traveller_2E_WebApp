@@ -259,16 +259,13 @@ onMounted(() => {
 
 <template>
   <main class="min-h-screen">
-    <section class="hud-hero border-b border-cyan-400/30 text-white">
-      <div class="mx-auto flex w-full max-w-7xl flex-wrap items-center justify-between gap-4 px-5 py-6 sm:px-8 lg:px-10">
+    <section class="mx-auto w-full max-w-7xl px-5 pt-6 sm:px-8 lg:px-10">
+      <div class="hud-panel flex flex-wrap items-center justify-between gap-4 rounded-lg border p-5">
         <div>
           <p class="hud-kicker text-sm font-semibold uppercase tracking-wide">Traveller Record</p>
           <h1 class="mt-2 text-3xl font-semibold">Character Sheet</h1>
         </div>
         <div class="flex flex-wrap gap-2">
-          <NuxtLink class="hud-link px-3 py-2 text-sm font-semibold" to="/">
-            Hub
-          </NuxtLink>
           <button class="rounded-md border border-white/20 px-3 py-2 text-sm font-semibold text-zinc-100 hover:border-amber-400 hover:text-amber-200" type="button" @click="openImportPicker">
             Import JSON
           </button>

@@ -9,17 +9,8 @@ const {
 </script>
 
 <template>
-  <header class="hud-hero border-b border-cyan-400/30">
-    <div class="mx-auto flex w-full max-w-7xl flex-col gap-5 px-5 py-5 sm:px-8 lg:px-10">
-      <nav class="flex items-center justify-between gap-4">
-        <NuxtLink class="hud-link px-3 py-2 text-sm font-semibold" to="/">
-          Tools hub
-        </NuxtLink>
-        <div class="flex items-center gap-2 text-sm text-zinc-600">
-          <AppIcon name="user" />
-          <span>Character Creator</span>
-        </div>
-      </nav>
+  <header class="mx-auto w-full max-w-7xl px-5 pt-6 sm:px-8 lg:px-10">
+    <div class="hud-panel rounded-lg border p-5">
       <div class="grid gap-5 lg:grid-cols-[1fr_22rem] lg:items-end">
         <div>
           <p class="hud-kicker text-sm font-semibold uppercase tracking-wide">Core Rulebook</p>
