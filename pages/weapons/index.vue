@@ -49,6 +49,12 @@ const selectedCategory = ref('all')
 const selectedArmorCategory = ref('all')
 const selectedEquipmentCategory = ref('all')
 const activeArmoryTab = ref('weapons')
+const weaponCategoryMenuOpen = ref(false)
+const armorCategoryMenuOpen = ref(false)
+const equipmentCategoryMenuOpen = ref(false)
+const expandedWeaponId = ref('')
+const expandedArmorId = ref('')
+const expandedEquipmentId = ref('')
 const activeDesignStep = ref(0)
 const weaponSortKey = ref<WeaponSortKey>('name')
 const armorSortKey = ref<ArmorSortKey>('name')
@@ -141,6 +147,7 @@ const armoryTabs = [
   { id: 'support', label: 'Equipment' },
   { id: 'create', label: 'Create Weapon' },
 ]
+const armoryTabPosition = (index: number, count: number) => count <= 1 ? 0 : index / (count - 1)
 
 const designSteps = [
   { id: 'frame', label: 'Frame', title: 'Frame', description: 'Name the weapon and choose its broad construction path.' },
@@ -614,7 +621,37 @@ const copyReferenceWeapon = (weapon: typeof referenceWeapons.value[number]) => {
 
 const setArmoryTab = (tabId: string) => {
   activeArmoryTab.value = tabId
+  weaponCategoryMenuOpen.value = false
+  armorCategoryMenuOpen.value = false
+  equipmentCategoryMenuOpen.value = false
   saveMessage.value = ''
+}
+
+const selectWeaponCategory = (categoryId: string) => {
+  selectedCategory.value = categoryId
+  weaponCategoryMenuOpen.value = false
+}
+
+const selectArmorCategory = (categoryId: string) => {
+  selectedArmorCategory.value = categoryId
+  armorCategoryMenuOpen.value = false
+}
+
+const selectEquipmentCategory = (categoryId: string) => {
+  selectedEquipmentCategory.value = categoryId
+  equipmentCategoryMenuOpen.value = false
+}
+
+const toggleExpandedWeapon = (weaponId: string) => {
+  expandedWeaponId.value = expandedWeaponId.value === weaponId ? '' : weaponId
+}
+
+const toggleExpandedArmor = (armorId: string) => {
+  expandedArmorId.value = expandedArmorId.value === armorId ? '' : armorId
+}
+
+const toggleExpandedEquipment = (itemId: string) => {
+  expandedEquipmentId.value = expandedEquipmentId.value === itemId ? '' : itemId
 }
 </script>
 
@@ -627,10 +664,15 @@ const setArmoryTab = (tabId: string) => {
       </div>
       <div class="armory-view-buttons relative z-50 flex flex-wrap gap-2">
         <button
-          v-for="tab in armoryTabs"
+          v-for="(tab, index) in armoryTabs"
           :key="tab.id"
           class="relative z-10 rounded-md border px-4 py-3 text-sm font-semibold"
           :class="activeArmoryTab === tab.id ? 'border-zinc-950 bg-zinc-950 text-white' : 'border-zinc-300 text-zinc-700 hover:border-amber-600'"
+          :style="{
+            '--tab-position': armoryTabPosition(index, armoryTabs.length),
+            '--tab-width': '9.5rem',
+            zIndex: activeArmoryTab === tab.id ? 40 : Math.max(1, 30 - Math.abs(index - armoryTabs.findIndex((item) => item.id === activeArmoryTab))),
+          }"
           type="button"
           @click.stop.prevent="setArmoryTab(tab.id)"
         >
@@ -642,29 +684,41 @@ const setArmoryTab = (tabId: string) => {
     <section class="relative z-10 mx-auto grid w-full max-w-[96rem] gap-5 px-5 py-6 sm:px-8 lg:grid-cols-[17rem_minmax(0,1fr)] lg:px-10">
       <div v-if="activeArmoryTab === 'weapons'" class="grid gap-5 lg:col-span-2">
         <section class="hud-panel rounded-lg border p-5 shadow-sm">
-          <div class="flex flex-wrap items-center justify-between gap-3">
-            <div>
+          <div class="list-reference-header flex flex-wrap items-center justify-between gap-3">
+            <div class="list-reference-title">
               <h2 class="text-xl font-semibold">Reference Weapons</h2>
-              <p class="mt-1 text-sm text-zinc-600">{{ filteredReferenceWeapons.length }} shown from seeded source data.</p>
             </div>
-            <input v-model="search" class="h-10 rounded-md border border-zinc-300 px-3 text-sm outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200" placeholder="Search">
+            <div class="list-search-actions">
+              <input v-model="search" class="h-10 rounded-md border border-zinc-300 px-3 text-sm outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200" placeholder="Search">
+              <button
+                class="list-category-toggle hud-link h-10 w-11"
+                :aria-expanded="weaponCategoryMenuOpen"
+                aria-label="Toggle weapon categories"
+                type="button"
+                @click.stop.prevent="weaponCategoryMenuOpen = !weaponCategoryMenuOpen"
+              >
+                <span :class="['list-category-toggle__line', weaponCategoryMenuOpen ? 'is-open' : '']" />
+                <span :class="['list-category-toggle__line', weaponCategoryMenuOpen ? 'is-open' : '']" />
+                <span :class="['list-category-toggle__line', weaponCategoryMenuOpen ? 'is-open' : '']" />
+              </button>
+            </div>
           </div>
 
-          <div class="mt-4 flex flex-wrap gap-2">
+          <div :class="['list-category-panel mt-4', weaponCategoryMenuOpen ? 'is-open' : '']">
             <button
               v-for="category in categories"
               :key="category.id"
               class="rounded-md border px-3 py-2 text-sm font-semibold"
               :class="selectedCategory === category.id ? 'border-zinc-950 bg-zinc-950 text-white' : 'border-zinc-300 text-zinc-700 hover:border-amber-600'"
               type="button"
-              @click.stop.prevent="selectedCategory = category.id"
+              @click.stop.prevent="selectWeaponCategory(category.id)"
             >
               {{ category.label }}
             </button>
           </div>
 
           <div class="hud-table-shell hud-scrollbar mt-4 max-h-[42rem] overflow-auto rounded-md border">
-            <table class="w-full min-w-[60rem] text-left text-sm">
+            <table class="mobile-collapsible-table w-full min-w-[60rem] text-left text-sm">
               <thead class="sticky top-0 z-10 bg-stone-100 text-xs uppercase tracking-wide text-zinc-500">
                 <tr>
                   <th v-for="column in sortableWeaponColumns" :key="column.key" class="px-3 py-2">
@@ -679,9 +733,12 @@ const setArmoryTab = (tabId: string) => {
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="weapon in filteredReferenceWeapons" :key="weapon.id" class="border-t border-zinc-200 align-top">
+                <template v-for="weapon in filteredReferenceWeapons" :key="weapon.id">
+                <tr class="border-t border-zinc-200 align-top">
                   <td class="px-3 py-2 font-semibold text-zinc-950">
-                    <span class="block">{{ weaponDisplayName(weapon) }}</span>
+                    <button class="mobile-row-toggle block w-full text-left font-semibold" type="button" @click="toggleExpandedWeapon(weapon.id)">
+                      {{ weaponDisplayName(weapon) }}
+                    </button>
                     <span class="mt-1 block text-xs font-medium text-zinc-500">{{ weapon.sourceName ?? weapon.sourceId }}<template v-if="weapon.sourcePage"> p. {{ weapon.sourcePage }}</template></span>
                   </td>
                   <td class="px-3 py-2">{{ weapon.techLevel ?? '-' }}</td>
@@ -696,6 +753,27 @@ const setArmoryTab = (tabId: string) => {
                     </button>
                   </td>
                 </tr>
+                <tr v-if="expandedWeaponId === weapon.id" class="mobile-detail-row border-t border-cyan-400/20">
+                  <td :colspan="sortableWeaponColumns.length + 1" class="px-3 py-3">
+                    <div class="mobile-row-detail-grid">
+                      <div><span>TL</span><strong>{{ weapon.techLevel ?? '-' }}</strong></div>
+                      <div><span>Range</span><strong>{{ weapon.range }}</strong></div>
+                      <div><span>Damage</span><strong>{{ weapon.damage }}</strong></div>
+                      <div><span>Mass</span><strong>{{ weapon.massKg ?? '-' }}kg</strong></div>
+                      <div><span>Cost</span><strong>{{ weapon.costCredits === null ? '-' : `Cr${weapon.costCredits}` }}</strong></div>
+                      <div class="sm:col-span-2"><span>Traits</span><strong>{{ weapon.traits.join(', ') || '-' }}</strong></div>
+                      <div class="flex flex-wrap gap-2 sm:col-span-2">
+                        <button class="mt-1 rounded-md border border-cyan-400/40 px-3 py-2 text-sm font-semibold text-cyan-100 hover:border-cyan-300" type="button">
+                          Add
+                        </button>
+                        <button class="mt-1 rounded-md border border-cyan-400/40 px-3 py-2 text-sm font-semibold text-cyan-100 hover:border-cyan-300" type="button">
+                          Buy
+                        </button>
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+                </template>
               </tbody>
             </table>
           </div>
@@ -703,29 +781,41 @@ const setArmoryTab = (tabId: string) => {
       </div>
 
       <section v-else-if="activeArmoryTab === 'armor'" class="hud-panel rounded-lg border p-5 shadow-sm lg:col-span-2">
-        <div class="flex flex-wrap items-center justify-between gap-3">
-          <div>
+        <div class="list-reference-header flex flex-wrap items-center justify-between gap-3">
+          <div class="list-reference-title">
             <h2 class="text-xl font-semibold">Reference Armor</h2>
-            <p class="mt-1 text-sm text-zinc-600">{{ filteredReferenceArmor.length }} shown from seeded Core, Central Supply Catalogue, and Field Catalogue data.</p>
           </div>
-          <input v-model="search" class="h-10 rounded-md border border-zinc-300 px-3 text-sm outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200" placeholder="Search">
+          <div class="list-search-actions">
+            <input v-model="search" class="h-10 rounded-md border border-zinc-300 px-3 text-sm outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200" placeholder="Search">
+            <button
+              class="list-category-toggle hud-link h-10 w-11"
+              :aria-expanded="armorCategoryMenuOpen"
+              aria-label="Toggle armor categories"
+              type="button"
+              @click.stop.prevent="armorCategoryMenuOpen = !armorCategoryMenuOpen"
+            >
+              <span :class="['list-category-toggle__line', armorCategoryMenuOpen ? 'is-open' : '']" />
+              <span :class="['list-category-toggle__line', armorCategoryMenuOpen ? 'is-open' : '']" />
+              <span :class="['list-category-toggle__line', armorCategoryMenuOpen ? 'is-open' : '']" />
+            </button>
+          </div>
         </div>
 
-        <div class="mt-4 flex flex-wrap gap-2">
+        <div :class="['list-category-panel mt-4', armorCategoryMenuOpen ? 'is-open' : '']">
           <button
             v-for="category in armorCategories"
             :key="category.id"
             class="rounded-md border px-3 py-2 text-sm font-semibold"
             :class="selectedArmorCategory === category.id ? 'border-zinc-950 bg-zinc-950 text-white' : 'border-zinc-300 text-zinc-700 hover:border-amber-600'"
             type="button"
-            @click.stop.prevent="selectedArmorCategory = category.id"
+            @click.stop.prevent="selectArmorCategory(category.id)"
           >
             {{ category.label }}
           </button>
         </div>
 
         <div class="hud-table-shell hud-scrollbar mt-4 max-h-[42rem] overflow-auto rounded-md border">
-          <table class="w-full min-w-[64rem] text-left text-sm">
+          <table class="mobile-collapsible-table w-full min-w-[64rem] text-left text-sm">
             <thead class="sticky top-0 z-10 bg-stone-100 text-xs uppercase tracking-wide text-zinc-500">
               <tr>
                 <th v-for="column in sortableArmorColumns" :key="column.key" class="px-3 py-2">
@@ -740,9 +830,12 @@ const setArmoryTab = (tabId: string) => {
               </tr>
             </thead>
             <tbody>
-              <tr v-for="armor in filteredReferenceArmor" :key="armor.id" class="border-t border-zinc-200 align-top">
+              <template v-for="armor in filteredReferenceArmor" :key="armor.id">
+              <tr class="border-t border-zinc-200 align-top">
                 <td class="px-3 py-2 font-semibold text-zinc-950">
-                  <span class="block">{{ armorDisplayName(armor) }}</span>
+                  <button class="mobile-row-toggle block w-full text-left font-semibold" type="button" @click="toggleExpandedArmor(armor.id)">
+                    {{ armorDisplayName(armor) }}
+                  </button>
                   <span class="mt-1 block text-xs font-medium text-zinc-500">{{ armor.sourceName ?? armor.sourceId }}<template v-if="armor.sourcePage"> p. {{ armor.sourcePage }}</template></span>
                 </td>
                 <td class="px-3 py-2">{{ armor.protection }}</td>
@@ -753,35 +846,61 @@ const setArmoryTab = (tabId: string) => {
                 <td class="px-3 py-2">{{ armor.requiredSkill ?? 'None' }}</td>
                 <td class="max-w-xs px-3 py-2 text-zinc-600">{{ armor.traits.join(', ') || '-' }}</td>
               </tr>
+              <tr v-if="expandedArmorId === armor.id" class="mobile-detail-row border-t border-cyan-400/20">
+                <td :colspan="sortableArmorColumns.length + 1" class="px-3 py-3">
+                  <div class="mobile-row-detail-grid">
+                    <div><span>Protection</span><strong>{{ armor.protection }}</strong></div>
+                    <div><span>TL</span><strong>{{ armor.techLevel ?? '-' }}</strong></div>
+                    <div><span>Radiation</span><strong>{{ armor.radiationProtection ?? '-' }}</strong></div>
+                    <div><span>Mass</span><strong>{{ formatKg(armor.massKg) }}</strong></div>
+                    <div><span>Cost</span><strong>{{ formatCredits(armor.costCredits) }}</strong></div>
+                    <div><span>Skill</span><strong>{{ armor.requiredSkill ?? 'None' }}</strong></div>
+                    <div class="sm:col-span-2"><span>Traits</span><strong>{{ armor.traits.join(', ') || '-' }}</strong></div>
+                  </div>
+                </td>
+              </tr>
+              </template>
             </tbody>
           </table>
         </div>
       </section>
 
       <section v-else-if="activeArmoryTab === 'support'" class="hud-panel rounded-lg border p-5 shadow-sm lg:col-span-2">
-        <div class="flex flex-wrap items-center justify-between gap-3">
-          <div>
+        <div class="list-reference-header flex flex-wrap items-center justify-between gap-3">
+          <div class="list-reference-title">
             <h2 class="text-xl font-semibold">Equipment</h2>
-            <p class="mt-1 text-sm text-zinc-600">{{ filteredReferenceEquipment.length }} shown from seeded Core, Central Supply Catalogue, and Field Catalogue data.</p>
           </div>
-          <input v-model="search" class="h-10 rounded-md border border-zinc-300 px-3 text-sm outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200" placeholder="Search">
+          <div class="list-search-actions">
+            <input v-model="search" class="h-10 rounded-md border border-zinc-300 px-3 text-sm outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200" placeholder="Search">
+            <button
+              class="list-category-toggle hud-link h-10 w-11"
+              :aria-expanded="equipmentCategoryMenuOpen"
+              aria-label="Toggle equipment categories"
+              type="button"
+              @click.stop.prevent="equipmentCategoryMenuOpen = !equipmentCategoryMenuOpen"
+            >
+              <span :class="['list-category-toggle__line', equipmentCategoryMenuOpen ? 'is-open' : '']" />
+              <span :class="['list-category-toggle__line', equipmentCategoryMenuOpen ? 'is-open' : '']" />
+              <span :class="['list-category-toggle__line', equipmentCategoryMenuOpen ? 'is-open' : '']" />
+            </button>
+          </div>
         </div>
 
-        <div class="mt-4 flex flex-wrap gap-2">
+        <div :class="['list-category-panel mt-4', equipmentCategoryMenuOpen ? 'is-open' : '']">
           <button
             v-for="category in equipmentCategories"
             :key="category.id"
             class="rounded-md border px-3 py-2 text-sm font-semibold"
             :class="selectedEquipmentCategory === category.id ? 'border-zinc-950 bg-zinc-950 text-white' : 'border-zinc-300 text-zinc-700 hover:border-amber-600'"
             type="button"
-            @click.stop.prevent="selectedEquipmentCategory = category.id"
+            @click.stop.prevent="selectEquipmentCategory(category.id)"
           >
             {{ category.label }}
           </button>
         </div>
 
         <div class="hud-table-shell hud-scrollbar mt-4 max-h-[42rem] overflow-auto rounded-md border">
-          <table class="w-full min-w-[68rem] text-left text-sm">
+          <table class="mobile-collapsible-table w-full min-w-[68rem] text-left text-sm">
             <thead class="sticky top-0 z-10 bg-stone-100 text-xs uppercase tracking-wide text-zinc-500">
               <tr>
                 <th v-for="column in sortableEquipmentColumns" :key="column.key" class="px-3 py-2">
@@ -796,9 +915,12 @@ const setArmoryTab = (tabId: string) => {
               </tr>
             </thead>
             <tbody>
-              <tr v-for="item in filteredReferenceEquipment" :key="item.id" class="border-t border-zinc-200 align-top">
+              <template v-for="item in filteredReferenceEquipment" :key="item.id">
+              <tr class="border-t border-zinc-200 align-top">
                 <td class="px-3 py-2 font-semibold text-zinc-950">
-                  <span class="block">{{ equipmentDisplayName(item) }}</span>
+                  <button class="mobile-row-toggle block w-full text-left font-semibold" type="button" @click="toggleExpandedEquipment(item.id)">
+                    {{ equipmentDisplayName(item) }}
+                  </button>
                   <span class="mt-1 block text-xs font-medium text-zinc-500">{{ item.sourceName ?? item.sourceId }}<template v-if="item.sourcePage"> p. {{ item.sourcePage }}</template></span>
                 </td>
                 <td class="px-3 py-2 capitalize">{{ item.category }}</td>
@@ -808,6 +930,19 @@ const setArmoryTab = (tabId: string) => {
                 <td class="max-w-md px-3 py-2 text-zinc-700">{{ item.effect }}</td>
                 <td class="max-w-xs px-3 py-2 text-zinc-600">{{ item.traits.join(', ') || '-' }}</td>
               </tr>
+              <tr v-if="expandedEquipmentId === item.id" class="mobile-detail-row border-t border-cyan-400/20">
+                <td :colspan="sortableEquipmentColumns.length + 1" class="px-3 py-3">
+                  <div class="mobile-row-detail-grid">
+                    <div><span>Category</span><strong class="capitalize">{{ item.category }}</strong></div>
+                    <div><span>TL</span><strong>{{ item.techLevel ?? '-' }}</strong></div>
+                    <div><span>Mass</span><strong>{{ formatKg(item.massKg) }}</strong></div>
+                    <div><span>Cost</span><strong>{{ formatCredits(item.costCredits) }}</strong></div>
+                    <div class="sm:col-span-2"><span>Effect</span><strong>{{ item.effect }}</strong></div>
+                    <div class="sm:col-span-2"><span>Traits</span><strong>{{ item.traits.join(', ') || '-' }}</strong></div>
+                  </div>
+                </td>
+              </tr>
+              </template>
             </tbody>
           </table>
         </div>

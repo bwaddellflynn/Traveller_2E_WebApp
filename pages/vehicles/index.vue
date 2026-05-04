@@ -15,6 +15,8 @@ const search = ref('')
 const vehicleSortKey = ref<VehicleSortKey>('name')
 const vehicleSortDirection = ref<'asc' | 'desc'>('asc')
 const selectedVehicleId = ref('')
+const expandedVehicleId = ref('')
+const categoryMenuOpen = ref(false)
 
 const categories: { id: TravellerVehicleCategory | 'all', label: string }[] = [
   { id: 'all', label: 'All' },
@@ -29,8 +31,8 @@ const categories: { id: TravellerVehicleCategory | 'all', label: string }[] = [
 ]
 
 const garageTabs = [
-  { id: 'reference', label: 'Reference Vehicles' },
-  { id: 'builds', label: 'Player-Built Vehicles' },
+  { id: 'reference', label: 'Pre-Fab Vehicles' },
+  { id: 'builds', label: 'Custom Vehicles' },
 ]
 
 const sortableVehicleColumns: { key: VehicleSortKey, label: string }[] = [
@@ -125,6 +127,16 @@ const setVehicleSort = (key: VehicleSortKey) => {
   vehicleSortDirection.value = 'asc'
 }
 
+const toggleExpandedVehicle = (vehicleId: string) => {
+  expandedVehicleId.value = expandedVehicleId.value === vehicleId ? '' : vehicleId
+  selectedVehicleId.value = vehicleId
+}
+
+const selectVehicleCategory = (categoryId: TravellerVehicleCategory | 'all') => {
+  selectedCategory.value = categoryId
+  categoryMenuOpen.value = false
+}
+
 const vehicleSortIndicator = (key: VehicleSortKey): VehicleSortIcon | null => {
   if (vehicleSortKey.value !== key) return null
   return vehicleSortDirection.value === 'asc' ? 'sort-asc' : 'sort-desc'
@@ -141,17 +153,6 @@ const categoryLabel = (category: string) => category.split('-').map((part) => `$
 <template>
   <main class="min-h-screen text-cyan-50">
     <section class="mx-auto w-full max-w-[96rem] px-5 pt-6 sm:px-8 lg:px-10">
-      <div class="mb-5 flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p class="hud-kicker text-sm font-semibold uppercase tracking-wide">Garage</p>
-          <h1 class="mt-2 text-3xl font-semibold">Vehicle Catalogue</h1>
-        </div>
-        <div class="hud-stat rounded-md border px-4 py-3 text-sm">
-          <p class="text-2xl font-semibold">{{ referenceVehicles.length }}</p>
-          <p class="text-zinc-400">Seeded vehicles</p>
-        </div>
-      </div>
-
       <div class="hud-tabs flex flex-wrap gap-2 border-b border-cyan-400/30">
         <button
           v-for="tab in garageTabs"
@@ -169,29 +170,41 @@ const categoryLabel = (category: string) => category.split('-').map((part) => `$
     <section v-if="activeGarageTab === 'reference'" class="mx-auto grid w-full max-w-[96rem] gap-5 px-5 py-6 sm:px-8 xl:grid-cols-[minmax(0,1fr)_25rem] lg:px-10">
       <div class="grid gap-5">
         <section class="hud-panel rounded-lg border p-5 shadow-sm">
-          <div class="flex flex-wrap items-center justify-between gap-3">
-            <div>
+          <div class="list-reference-header flex flex-wrap items-center justify-between gap-3">
+            <div class="list-reference-title">
               <h2 class="text-xl font-semibold">Reference Vehicles</h2>
-              <p class="mt-1 text-sm text-zinc-600">{{ filteredReferenceVehicles.length }} shown from seeded vehicle reference data.</p>
             </div>
-            <input v-model="search" class="h-10 rounded-md border border-zinc-300 px-3 text-sm outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200" placeholder="Search vehicles">
+            <div class="list-search-actions">
+              <input v-model="search" class="h-10 rounded-md border border-zinc-300 px-3 text-sm outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200" placeholder="Search vehicles">
+              <button
+                class="list-category-toggle hud-link h-10 w-11"
+                :aria-expanded="categoryMenuOpen"
+                aria-label="Toggle vehicle categories"
+                type="button"
+                @click.stop.prevent="categoryMenuOpen = !categoryMenuOpen"
+              >
+                <span :class="['list-category-toggle__line', categoryMenuOpen ? 'is-open' : '']" />
+                <span :class="['list-category-toggle__line', categoryMenuOpen ? 'is-open' : '']" />
+                <span :class="['list-category-toggle__line', categoryMenuOpen ? 'is-open' : '']" />
+              </button>
+            </div>
           </div>
 
-          <div class="mt-4 flex flex-wrap gap-2">
+          <div :class="['list-category-panel mt-4', categoryMenuOpen ? 'is-open' : '']">
             <button
               v-for="category in categories"
               :key="category.id"
               class="rounded-md border px-3 py-2 text-sm font-semibold"
               :class="selectedCategory === category.id ? 'border-zinc-950 bg-zinc-950 text-white' : 'border-zinc-300 text-zinc-700 hover:border-amber-600'"
               type="button"
-              @click="selectedCategory = category.id"
+              @click="selectVehicleCategory(category.id)"
             >
               {{ category.label }}
             </button>
           </div>
 
           <div class="hud-table-shell hud-scrollbar mt-4 max-h-[46rem] overflow-auto rounded-md border">
-            <table class="w-full min-w-[68rem] text-left text-sm">
+            <table class="mobile-collapsible-table w-full min-w-[68rem] text-left text-sm">
               <thead class="sticky top-0 z-10 bg-stone-100 text-xs uppercase tracking-wide text-zinc-500">
                 <tr>
                   <th v-for="column in sortableVehicleColumns" :key="column.key" class="px-3 py-2">
@@ -205,15 +218,16 @@ const categoryLabel = (category: string) => category.split('-').map((part) => `$
                 </tr>
               </thead>
               <tbody>
+                <template v-for="vehicle in filteredReferenceVehicles" :key="vehicle.id">
                 <tr
-                  v-for="vehicle in filteredReferenceVehicles"
-                  :key="vehicle.id"
                   class="cursor-pointer border-t border-zinc-200 align-top"
                   :class="selectedVehicle?.id === vehicle.id ? 'bg-cyan-50/80' : 'hover:bg-stone-50'"
                   @click="selectedVehicleId = vehicle.id"
                 >
                   <td class="px-3 py-2 font-semibold text-zinc-950">
-                    <span class="block">{{ vehicle.name }}</span>
+                    <button class="mobile-row-toggle block w-full text-left font-semibold" type="button" @click.stop="toggleExpandedVehicle(vehicle.id)">
+                      {{ vehicle.name }}
+                    </button>
                     <span class="mt-1 block text-xs font-medium text-zinc-500">{{ vehicle.sourceName ?? vehicle.sourceId }}<template v-if="vehicle.sourcePage"> p. {{ vehicle.sourcePage }}</template></span>
                   </td>
                   <td class="px-3 py-2">{{ vehicle.techLevel }}</td>
@@ -223,6 +237,22 @@ const categoryLabel = (category: string) => category.split('-').map((part) => `$
                   <td class="px-3 py-2">{{ vehicle.spaces }}</td>
                   <td class="px-3 py-2">{{ formatCredits(vehicle.costCredits) }}</td>
                 </tr>
+                <tr v-if="expandedVehicleId === vehicle.id" class="mobile-detail-row border-t border-cyan-400/20">
+                  <td :colspan="sortableVehicleColumns.length" class="px-3 py-3">
+                    <div class="mobile-row-detail-grid">
+                      <div><span>TL</span><strong>{{ vehicle.techLevel }}</strong></div>
+                      <div><span>Category</span><strong>{{ categoryLabel(vehicle.category) }}</strong></div>
+                      <div><span>Speed</span><strong>{{ vehicle.speed }} ({{ vehicle.cruiseSpeed }})</strong></div>
+                      <div><span>Agility</span><strong>{{ vehicle.agility }}</strong></div>
+                      <div><span>Spaces</span><strong>{{ vehicle.spaces }}</strong></div>
+                      <div><span>Cost</span><strong>{{ formatCredits(vehicle.costCredits) }}</strong></div>
+                      <div><span>Skill</span><strong>{{ vehicle.skill }}</strong></div>
+                      <div><span>Crew / Passengers</span><strong>{{ vehicle.crew }} / {{ vehicle.passengers }}</strong></div>
+                      <div class="sm:col-span-2"><span>Traits</span><strong>{{ vehicle.traits.join(', ') || '-' }}</strong></div>
+                    </div>
+                  </td>
+                </tr>
+                </template>
               </tbody>
             </table>
           </div>

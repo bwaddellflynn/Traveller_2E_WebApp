@@ -294,6 +294,103 @@
     pointer-events: none;
   }
 
+  .list-search-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .list-category-toggle {
+    display: none;
+  }
+
+  .list-category-toggle__line {
+    display: block;
+    width: 1.25rem;
+    height: 2px;
+    margin: 0.18rem auto;
+    background: currentColor;
+    box-shadow: 0 0 8px rgba(103, 232, 249, 0.6);
+    transition: transform 160ms ease, opacity 160ms ease;
+  }
+
+  .list-category-toggle__line:nth-child(1).is-open {
+    transform: translateY(0.35rem) rotate(45deg);
+  }
+
+  .list-category-toggle__line:nth-child(2).is-open {
+    opacity: 0;
+  }
+
+  .list-category-toggle__line:nth-child(3).is-open {
+    transform: translateY(-0.35rem) rotate(-45deg);
+  }
+
+  .list-category-panel {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .mobile-row-toggle {
+    color: inherit;
+    border-color: transparent !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    clip-path: none !important;
+  }
+
+  .mobile-detail-row {
+    display: none;
+  }
+
+  .mobile-row-detail-grid {
+    display: grid;
+    gap: 0.65rem;
+  }
+
+  .mobile-row-detail-grid > div {
+    display: grid;
+    gap: 0.2rem;
+    border: 1px solid rgba(34, 211, 238, 0.2);
+    background: rgba(2, 6, 23, 0.35);
+    padding: 0.65rem;
+  }
+
+  .mobile-row-detail-grid span {
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: rgba(103, 232, 249, 0.72) !important;
+  }
+
+  .mobile-row-detail-grid strong {
+    color: #e0fbff;
+    font-weight: 650;
+  }
+
+  .hud-table-shell th {
+    padding-left: 1.35rem !important;
+    padding-right: 1.35rem !important;
+  }
+
+  .hud-table-shell td {
+    padding-left: 1.35rem !important;
+    padding-right: 1.35rem !important;
+  }
+
+  .hud-table-shell th > button {
+    min-width: max-content;
+    gap: 0.4rem;
+    font-size: 0.78rem;
+    line-height: 1.1rem;
+  }
+
+  .hud-table-shell th .inline-flex.h-4.w-4 {
+    flex-shrink: 0;
+  }
+
   .current-traveller-card .bg-white\/5,
   .current-traveller-card .bg-white\/10 {
     background:
@@ -644,6 +741,154 @@
     border-left-color: rgba(103, 232, 249, 0.96);
     background: rgba(14, 116, 144, 0.16);
     box-shadow: inset 0 0 18px rgba(34, 211, 238, 0.08);
+  }
+
+  @media (max-width: 767px) {
+    .armory-view-buttons {
+      position: relative;
+      display: block;
+      isolation: isolate;
+      min-height: 3.4rem;
+      overflow: visible;
+      padding: 0.35rem 0.75rem 0.65rem;
+    }
+
+    .armory-view-buttons > button {
+      position: absolute;
+      top: 0.35rem;
+      left: calc(var(--tab-position, 0) * (100% - min(var(--tab-width), 48vw)));
+      width: min(var(--tab-width), 48vw);
+      height: 2.35rem;
+      min-height: 0;
+      padding: 0 1rem 0 0.75rem;
+      justify-content: center;
+      white-space: nowrap;
+      border-bottom-color: transparent !important;
+      background:
+        linear-gradient(135deg, rgba(14, 116, 144, 0.58), rgb(5, 31, 53) 58%, rgba(8, 145, 178, 0.32)) !important;
+      clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px));
+      box-shadow:
+        inset 0 0 14px rgba(34, 211, 238, 0.14),
+        inset 0 -1px 0 rgb(3, 12, 24),
+        0 -2px 12px rgba(2, 6, 23, 0.9);
+      transform-origin: bottom center;
+      transition:
+        transform 180ms ease,
+        background 180ms ease,
+        box-shadow 180ms ease,
+        border-color 180ms ease,
+        color 180ms ease;
+    }
+
+    .armory-view-buttons > button:hover {
+      background:
+        linear-gradient(135deg, rgb(11, 68, 91), rgb(5, 31, 53) 58%, rgb(8, 57, 62)) !important;
+    }
+
+    .armory-view-buttons > button[class*="bg-zinc-950"] {
+      background:
+        linear-gradient(135deg, rgb(13, 88, 111), rgb(7, 39, 58) 56%, rgb(10, 72, 74)) !important;
+      box-shadow:
+        inset 0 0 18px rgba(34, 211, 238, 0.24),
+        inset 0 -1px 0 rgb(7, 39, 58),
+        0 -2px 20px rgba(34, 211, 238, 0.22);
+      transform: translateY(-0.16rem) scale(1.12);
+    }
+
+    .list-reference-header {
+      display: grid;
+      grid-template-columns: 1fr;
+    }
+
+    .list-reference-title {
+      display: none;
+    }
+
+    .list-search-actions {
+      width: 100%;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+    }
+
+    .list-search-actions input {
+      width: 100%;
+    }
+
+    .list-category-toggle {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .list-category-panel {
+      display: grid;
+      grid-template-columns: 1fr;
+      max-height: 0;
+      overflow: hidden;
+      opacity: 0;
+      transform: translateY(-0.35rem);
+      transition:
+        max-height 220ms ease,
+        opacity 160ms ease,
+        transform 180ms ease;
+    }
+
+    .list-category-panel.is-open {
+      max-height: 28rem;
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .mobile-collapsible-table {
+      min-width: 100% !important;
+    }
+
+    .mobile-collapsible-table thead th:not(:first-child),
+    .mobile-collapsible-table tbody tr:not(.mobile-detail-row) td:not(:first-child) {
+      display: none;
+    }
+
+    .mobile-collapsible-table thead th:first-child {
+      width: 100%;
+    }
+
+    .mobile-collapsible-table tbody tr:not(.mobile-detail-row) td:first-child {
+      width: 100%;
+    }
+
+    .mobile-row-toggle {
+      color: #e0fbff;
+    }
+
+    .mobile-row-toggle::after {
+      content: none;
+    }
+
+    .mobile-collapsible-table tbody tr:has(+ .mobile-detail-row) .mobile-row-toggle::after {
+      content: "";
+      float: right;
+      margin-left: 0.75rem;
+      width: 0.5rem;
+      height: 0.5rem;
+      border-right: 2px solid rgba(103, 232, 249, 0.82);
+      border-bottom: 2px solid rgba(103, 232, 249, 0.82);
+      transform: translateY(0.45rem) rotate(225deg);
+    }
+
+    .mobile-detail-row {
+      display: table-row;
+      background:
+        linear-gradient(135deg, rgba(8, 47, 73, 0.74), rgba(2, 6, 23, 0.9) 64%, rgba(20, 184, 166, 0.12));
+    }
+
+    .mobile-detail-row > td {
+      display: table-cell !important;
+      width: 100%;
+    }
+
+    .mobile-row-detail-grid {
+      grid-template-columns: 1fr;
+    }
   }
 
   .traveller-hud p,
