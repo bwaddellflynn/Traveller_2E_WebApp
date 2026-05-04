@@ -22,7 +22,7 @@ const travellerShipAssignment = (profile: TravellerProfile) => {
 </script>
 
 <template>
-  <aside class="travellers-side-nav">
+  <aside class="travellers-side-nav hud-scrollbar">
     <div class="flex items-center justify-between gap-3 px-4 py-4">
       <div>
         <p class="hud-kicker text-xs font-semibold uppercase tracking-wide">Profiles</p>

@@ -17,11 +17,24 @@
   select {
     font: inherit;
   }
+
+  select {
+    color-scheme: dark;
+    background-color: #020617;
+    color: #e0fbff;
+  }
+
+  option,
+  optgroup {
+    background-color: #020617;
+    color: #e0fbff;
+  }
 }
 
 @layer components {
   .traveller-hud {
     min-height: 100vh;
+    color-scheme: dark;
     background:
       linear-gradient(rgba(31, 211, 238, 0.035) 1px, transparent 1px),
       linear-gradient(90deg, rgba(31, 211, 238, 0.035) 1px, transparent 1px),
@@ -94,6 +107,98 @@
     box-shadow: inset 0 0 22px rgba(34, 211, 238, 0.16), 0 0 18px rgba(34, 211, 238, 0.22);
   }
 
+  .hud-scrollbar {
+    scrollbar-color: rgba(34, 211, 238, 0.72) rgba(2, 6, 23, 0.75);
+    scrollbar-width: thin;
+  }
+
+  .hud-scrollbar::-webkit-scrollbar {
+    width: 0.55rem;
+    height: 0.55rem;
+  }
+
+  .hud-scrollbar::-webkit-scrollbar-track {
+    border: 1px solid rgba(34, 211, 238, 0.18);
+    background: rgba(2, 6, 23, 0.76);
+  }
+
+  .hud-scrollbar::-webkit-scrollbar-thumb {
+    border: 1px solid rgba(103, 232, 249, 0.7);
+    background:
+      linear-gradient(90deg, rgba(34, 211, 238, 0.86), rgba(20, 184, 166, 0.66));
+    box-shadow: 0 0 12px rgba(34, 211, 238, 0.35);
+  }
+
+  .hud-scrollbar::-webkit-scrollbar-corner {
+    background: rgba(2, 6, 23, 0.9);
+  }
+
+  .hud-folder-tabs {
+    position: relative;
+    display: block;
+    isolation: isolate;
+    min-height: 2.95rem;
+    overflow-x: hidden;
+    overflow-y: hidden;
+    padding: 0.125rem 0 0.45rem;
+  }
+
+  .hud-folder-tab {
+    position: absolute;
+    top: 0.125rem;
+    left: calc(var(--tab-position, 0) * (100% - min(var(--tab-width), 42vw)));
+    z-index: 1;
+    width: min(var(--tab-width), 42vw);
+    min-width: 0;
+    height: 2.25rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-left: 0;
+    margin-right: 0;
+    padding: 0 1.2rem 0 0.75rem;
+    white-space: nowrap;
+    background:
+      linear-gradient(135deg, rgb(8, 42, 60), rgb(3, 16, 31) 58%, rgb(7, 38, 50)) !important;
+    box-shadow:
+      inset 0 0 14px rgba(34, 211, 238, 0.14),
+      inset 0 -1px 0 rgb(3, 12, 24),
+      0 -2px 12px rgba(2, 6, 23, 0.9);
+    border-bottom-color: transparent !important;
+    clip-path: polygon(0 0, calc(100% - 13px) 0, 100% 100%, 0 100%);
+  }
+
+  .hud-folder-tab.is-before {
+    transform-origin: right center;
+  }
+
+  .hud-folder-tab.is-after {
+    transform-origin: left center;
+  }
+
+  .hud-folder-tab.is-active {
+    z-index: 30;
+    background:
+      linear-gradient(135deg, rgb(13, 88, 111), rgb(7, 39, 58) 56%, rgb(10, 72, 74)) !important;
+    box-shadow:
+      inset 0 0 18px rgba(34, 211, 238, 0.24),
+      inset 0 -1px 0 rgb(7, 39, 58),
+      0 -2px 20px rgba(34, 211, 238, 0.22);
+    border-bottom-color: transparent !important;
+  }
+
+  .hud-folder-tab:not(.is-active):hover {
+    z-index: 20;
+    background:
+      linear-gradient(135deg, rgb(11, 68, 91), rgb(5, 31, 53) 58%, rgb(8, 57, 62)) !important;
+  }
+
+  .current-traveller-card .bg-white\/5,
+  .current-traveller-card .bg-white\/10 {
+    background:
+      linear-gradient(135deg, rgb(7, 29, 45), rgb(3, 12, 24) 64%, rgb(5, 26, 34)) !important;
+  }
+
   .traveller-hud button.bg-white,
   .traveller-hud button.bg-zinc-950,
   .traveller-hud button[class*="bg-zinc-950"],
@@ -142,10 +247,10 @@
     position: sticky;
     top: 0;
     z-index: 30;
-    display: flex;
+    display: grid;
     min-height: 4.5rem;
+    grid-template-columns: auto minmax(0, 1fr) minmax(0, auto);
     align-items: center;
-    justify-content: space-between;
     gap: 1rem;
     border-bottom: 1px solid rgba(34, 211, 238, 0.38);
     background:
@@ -153,6 +258,28 @@
       rgba(2, 6, 23, 0.92);
     padding: 0.75rem 1rem;
     box-shadow: 0 0 28px rgba(34, 211, 238, 0.12);
+  }
+
+  .app-top-nav-tools,
+  .app-top-nav-auth {
+    display: flex;
+    min-width: 0;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .app-top-nav-tools {
+    justify-content: flex-start;
+  }
+
+  .app-top-nav-brand {
+    justify-self: start;
+    min-width: max-content;
+  }
+
+  .app-top-nav-auth {
+    justify-content: flex-end;
   }
 
   .app-shell {
@@ -172,6 +299,8 @@
     min-height: calc(100vh - 4.5rem);
     max-height: calc(100vh - 4.5rem);
     overflow: auto;
+    scrollbar-color: rgba(34, 211, 238, 0.72) rgba(2, 6, 23, 0.75);
+    scrollbar-width: thin;
     border-right: 1px solid rgba(34, 211, 238, 0.38);
     border-left: 0;
     background:
@@ -181,6 +310,20 @@
   }
 
   @media (max-width: 1023px) {
+    .app-top-nav {
+      grid-template-columns: 1fr;
+    }
+
+    .app-top-nav-brand {
+      justify-self: start;
+      order: -1;
+    }
+
+    .app-top-nav-auth,
+    .app-top-nav-tools {
+      justify-content: flex-start;
+    }
+
     .app-shell {
       grid-template-columns: 1fr;
     }
@@ -236,9 +379,32 @@
   .traveller-hud select,
   .traveller-hud textarea {
     border-color: rgba(34, 211, 238, 0.45) !important;
-    background: rgba(2, 6, 23, 0.72) !important;
+    background:
+      linear-gradient(135deg, rgba(8, 47, 73, 0.7), rgba(2, 6, 23, 0.96) 58%, rgba(5, 46, 55, 0.48)) !important;
     color: #e0fbff !important;
     box-shadow: inset 0 0 18px rgba(34, 211, 238, 0.08);
+    color-scheme: dark;
+  }
+
+  .traveller-hud select {
+    appearance: auto;
+    background-color: #020617 !important;
+  }
+
+  .traveller-hud option,
+  .traveller-hud optgroup {
+    background-color: #020617;
+    color: #e0fbff;
+  }
+
+  .traveller-hud option:checked,
+  .traveller-hud option:hover {
+    background-color: #0e7490;
+    color: #ffffff;
+  }
+
+  .traveller-hud option:disabled {
+    color: rgba(186, 230, 253, 0.38);
   }
 
   .traveller-hud input::placeholder,
@@ -305,5 +471,24 @@
   .traveller-hud .border-emerald-200,
   .traveller-hud .border-violet-300 {
     border-color: rgba(34, 211, 238, 0.32) !important;
+  }
+
+  .traveller-hud .bg-amber-50 {
+    background:
+      linear-gradient(135deg, rgba(92, 52, 13, 0.96), rgba(31, 20, 9, 0.94)) !important;
+    box-shadow: inset 0 0 18px rgba(251, 146, 60, 0.1), 0 0 16px rgba(251, 146, 60, 0.08);
+  }
+
+  .traveller-hud .border-amber-200,
+  .traveller-hud .border-amber-300,
+  .traveller-hud .border-amber-400 {
+    border-color: rgba(251, 191, 36, 0.58) !important;
+  }
+
+  .traveller-hud .text-amber-950,
+  .traveller-hud .text-amber-900,
+  .traveller-hud .text-amber-800,
+  .traveller-hud .text-amber-700 {
+    color: #fed7aa !important;
   }
 }

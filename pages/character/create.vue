@@ -15,6 +15,7 @@ const characterCreator = useCharacterCreatorStore()
 const travellers = useTravellersStore()
 const router = useRouter()
 const creatorSaveMessage = ref('')
+const activeTermStep = ref('direction')
 const {
   formatDm,
   skillOptionLabel,
@@ -102,6 +103,7 @@ const {
   militaryAcademyServiceSkills,
   selectedCareer,
   selectedAssignment,
+  careerSelectionComplete,
   careerOptions,
   careerConstraintMessages,
   careerPathLocked,
@@ -143,6 +145,43 @@ const {
   advancementResult,
   characterProfile,
 } = storeToRefs(characterCreator)
+
+const termStepTabs = computed(() => {
+  if (selectedTermPath.value === 'education') {
+    return [
+      { id: 'direction', label: 'Direction' },
+      { id: 'education-entry', label: 'Entry' },
+      { id: 'education-event', label: 'Event' },
+      { id: 'education-graduation', label: 'Graduation' },
+      { id: 'aging', label: 'Aging' },
+      { id: 'complete', label: 'Complete' },
+    ]
+  }
+
+  return [
+    { id: 'direction', label: 'Direction' },
+    { id: 'qualification', label: 'Qualification' },
+    { id: 'training', label: 'Training' },
+    { id: 'survival', label: 'Survival' },
+    { id: 'event', label: 'Event/Mishap' },
+    { id: 'advancement', label: 'Advancement' },
+    { id: 'aging', label: 'Aging' },
+    { id: 'complete', label: 'Complete' },
+  ]
+})
+const activeTermStepIndex = computed(() => Math.max(0, termStepTabs.value.findIndex((step) => step.id === activeTermStep.value)))
+const activeTermStepLabel = computed(() => termStepTabs.value[activeTermStepIndex.value]?.label ?? 'Direction')
+const folderTabPosition = (index: number, count: number) => count <= 1 ? 0 : index / (count - 1)
+const previousTermStep = () => {
+  activeTermStep.value = termStepTabs.value[Math.max(0, activeTermStepIndex.value - 1)]?.id ?? 'direction'
+}
+const nextTermStep = () => {
+  activeTermStep.value = termStepTabs.value[Math.min(termStepTabs.value.length - 1, activeTermStepIndex.value + 1)]?.id ?? 'direction'
+}
+
+watch([currentTermNumber, selectedTermPath], () => {
+  activeTermStep.value = 'direction'
+})
 
 const saveCreatedTraveller = () => {
   const saved = travellers.saveCreatorProfile(characterProfile.value)
@@ -250,6 +289,54 @@ const saveAndOpenCreatedTraveller = () => {
             </button>
           </div>
 
+          <div class="mt-5 rounded-md border border-cyan-400/25 bg-slate-950/50 p-3">
+            <div class="flex flex-wrap items-center justify-between gap-3">
+              <p class="text-sm font-semibold text-cyan-100">{{ activeTermStepLabel }}</p>
+              <div class="flex gap-2">
+                <button
+                  class="hud-link h-9 px-3 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-40"
+                  :disabled="activeTermStepIndex === 0"
+                  type="button"
+                  @click="previousTermStep"
+                >
+                  Previous
+                </button>
+                <button
+                  class="hud-link h-9 px-3 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-40"
+                  :disabled="activeTermStepIndex === termStepTabs.length - 1"
+                  type="button"
+                  @click="nextTermStep"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+            <div class="hud-folder-tabs mt-3">
+              <button
+                v-for="(step, index) in termStepTabs"
+                :key="step.id"
+                :class="[
+                  'hud-folder-tab shrink-0 border text-center text-xs font-semibold',
+                  activeTermStep === step.id
+                    ? 'is-active border-cyan-300 text-cyan-50'
+                    : [
+                        index < activeTermStepIndex ? 'is-before' : 'is-after',
+                        'border-cyan-400/25 text-cyan-100/90 hover:border-cyan-300',
+                      ]
+                ]"
+                :style="{
+                  '--tab-position': folderTabPosition(index, termStepTabs.length),
+                  '--tab-width': '8.25rem',
+                  zIndex: activeTermStep === step.id ? 40 : Math.max(1, 30 - Math.abs(index - activeTermStepIndex)),
+                }"
+                type="button"
+                @click="activeTermStep = step.id"
+              >
+                {{ step.label }}
+              </button>
+            </div>
+          </div>
+
           <div v-if="selectedTermPath === 'career'" class="mt-5">
             <div v-if="educationEntryFailed" class="mb-5 rounded-md border border-amber-300 bg-amber-50 p-4">
               <p class="text-sm font-semibold text-amber-950">Education Entry Failed</p>
@@ -258,24 +345,27 @@ const saveAndOpenCreatedTraveller = () => {
               </p>
             </div>
 
-            <div class="grid gap-4 md:grid-cols-2">
-              <label class="grid gap-2">
+            <div v-show="activeTermStep === 'direction'" class="grid min-w-0 gap-4 2xl:grid-cols-2">
+              <label class="grid min-w-0 gap-2">
                 <span class="text-sm font-medium text-zinc-700">Career</span>
                 <select
                   v-model="selectedCareerId"
-                  class="h-11 rounded-md border border-zinc-300 bg-white px-3 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200"
+                  class="h-11 min-w-0 max-w-full truncate rounded-md border border-zinc-300 bg-white px-3 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200"
                 >
+                  <option value="">No Career Selected</option>
                   <option v-for="career in careerOptions" :key="career.id" :disabled="career.disabled" :value="career.id">
                     {{ career.name }}{{ career.disabledReason ? ` - ${career.disabledReason}` : '' }}
                   </option>
                 </select>
               </label>
-              <label class="grid gap-2">
+              <label class="grid min-w-0 gap-2">
                 <span class="text-sm font-medium text-zinc-700">Assignment</span>
                 <select
                   v-model="selectedAssignmentId"
-                  class="h-11 rounded-md border border-zinc-300 bg-white px-3 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200"
+                  class="h-11 min-w-0 max-w-full truncate rounded-md border border-zinc-300 bg-white px-3 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200"
+                  :disabled="!selectedCareerId"
                 >
+                  <option value="">No Assignment Selected</option>
                   <option v-for="assignment in selectedCareer.assignments" :key="assignment.id" :value="assignment.id">
                     {{ assignment.name }}
                   </option>
@@ -283,7 +373,7 @@ const saveAndOpenCreatedTraveller = () => {
               </label>
             </div>
 
-            <div v-if="careerConstraintMessages.length" class="mt-4 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950">
+            <div v-if="careerConstraintMessages.length" v-show="activeTermStep === 'direction'" class="mt-4 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950">
               <p class="font-semibold">Career requirement</p>
               <ul class="mt-2 list-disc space-y-1 pl-5">
                 <li v-for="message in careerConstraintMessages" :key="message">
@@ -292,7 +382,7 @@ const saveAndOpenCreatedTraveller = () => {
               </ul>
             </div>
 
-            <div class="mt-5 grid gap-3 sm:grid-cols-3">
+            <div v-show="activeTermStep === 'direction'" class="mt-5 grid gap-3 sm:grid-cols-3">
               <div class="rounded-md bg-stone-50 p-4">
                 <p class="text-xs font-semibold uppercase tracking-wide text-zinc-500">Qualification</p>
                 <p class="mt-2 text-lg font-semibold">{{ automaticCareerEntryConstraint || sameCareerContinuationAvailable ? 'Automatic' : checkLabel(selectedCareer.qualification) }}</p>
@@ -311,6 +401,9 @@ const saveAndOpenCreatedTraveller = () => {
             </div>
 
             <div class="mt-5 grid gap-3">
+              <div v-if="!careerSelectionComplete && activeTermStep !== 'direction'" class="rounded-md border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950">
+                Select a career and assignment before resolving this step.
+              </div>
               <div v-if="requiredDraftAvailable" class="rounded-md border border-amber-300 bg-amber-50 p-4 text-amber-950">
                 <div class="flex flex-wrap items-center justify-between gap-3">
                   <div>
@@ -344,7 +437,7 @@ const saveAndOpenCreatedTraveller = () => {
                 </div>
               </div>
 
-              <div class="rounded-md border border-zinc-200 p-4">
+              <div v-show="activeTermStep === 'qualification'" class="rounded-md border border-zinc-200 p-4">
                 <div class="flex flex-wrap items-center justify-between gap-3">
                   <div>
                     <p class="text-sm font-semibold">Qualification Roll</p>
@@ -430,7 +523,7 @@ const saveAndOpenCreatedTraveller = () => {
                 </div>
               </div>
 
-              <div v-if="selectedCareerId === 'prisoner' && termRolls.careerQualification?.finalSuccess" class="rounded-md border border-zinc-200 p-4">
+              <div v-if="selectedCareerId === 'prisoner' && termRolls.careerQualification?.finalSuccess" v-show="activeTermStep === 'qualification'" class="rounded-md border border-zinc-200 p-4">
                 <div class="flex flex-wrap items-center justify-between gap-3">
                   <div>
                     <p class="text-sm font-semibold">Parole Threshold</p>
@@ -470,7 +563,7 @@ const saveAndOpenCreatedTraveller = () => {
                 </div>
               </div>
 
-              <div v-if="basicTrainingAvailable" class="rounded-md border border-zinc-200 p-4">
+              <div v-if="basicTrainingAvailable" v-show="activeTermStep === 'training'" class="rounded-md border border-zinc-200 p-4">
                 <div class="flex flex-wrap items-start justify-between gap-3">
                   <div>
                     <p class="text-sm font-semibold">Basic Training</p>
@@ -540,7 +633,7 @@ const saveAndOpenCreatedTraveller = () => {
                 </p>
               </div>
 
-              <div v-if="termRolls.careerQualification?.finalSuccess && (!basicTrainingRequired || basicTrainingApplied)" class="rounded-md border border-zinc-200 p-4">
+              <div v-if="termRolls.careerQualification?.finalSuccess && (!basicTrainingRequired || basicTrainingApplied)" v-show="activeTermStep === 'training'" class="rounded-md border border-zinc-200 p-4">
                 <div class="flex flex-wrap items-start justify-between gap-3">
                   <div>
                     <p class="text-sm font-semibold">Skill Training</p>
@@ -620,7 +713,7 @@ const saveAndOpenCreatedTraveller = () => {
                 </div>
               </div>
 
-              <div v-if="termRolls.careerSkill && !pendingSkillChoice" class="rounded-md border border-zinc-200 p-4">
+              <div v-if="termRolls.careerSkill && !pendingSkillChoice" v-show="activeTermStep === 'survival'" class="rounded-md border border-zinc-200 p-4">
                 <div class="flex flex-wrap items-center justify-between gap-3">
                   <div>
                     <p class="text-sm font-semibold">Survival Roll</p>
@@ -646,7 +739,7 @@ const saveAndOpenCreatedTraveller = () => {
                 </div>
               </div>
 
-              <div v-if="termRolls.careerSurvival && !termRolls.careerSurvival.finalSuccess" class="rounded-md border border-zinc-200 p-4">
+              <div v-if="termRolls.careerSurvival && !termRolls.careerSurvival.finalSuccess" v-show="activeTermStep === 'event'" class="rounded-md border border-zinc-200 p-4">
                 <div class="flex flex-wrap items-center justify-between gap-3">
                   <div>
                     <p class="text-sm font-semibold">Career Mishap</p>
@@ -704,7 +797,7 @@ const saveAndOpenCreatedTraveller = () => {
                 </div>
               </div>
 
-              <div v-if="termRolls.careerSurvival?.finalSuccess" class="rounded-md border border-zinc-200 p-4">
+              <div v-if="termRolls.careerSurvival?.finalSuccess" v-show="activeTermStep === 'event'" class="rounded-md border border-zinc-200 p-4">
                 <div class="flex flex-wrap items-center justify-between gap-3">
                   <div>
                     <p class="text-sm font-semibold">Career Event</p>
@@ -765,6 +858,7 @@ const saveAndOpenCreatedTraveller = () => {
 
               <div
                 v-if="termRolls.careerSurvival?.finalSuccess && termRolls.careerEvent && !pendingEventResolutions.some((resolution) => !resolution.resolved) && selectedCareerCommissionCheck && (careerCommissionAvailable || termRolls.careerCommission || automaticCommissionConstraint)"
+                v-show="activeTermStep === 'advancement'"
                 class="rounded-md border border-zinc-200 p-4"
               >
                 <div class="flex flex-wrap items-center justify-between gap-3">
@@ -807,6 +901,7 @@ const saveAndOpenCreatedTraveller = () => {
                   (termRolls.careerSurvival?.finalSuccess && termRolls.careerEvent)
                   || (selectedCareerId === 'prisoner' && termRolls.careerSurvival && (!termRolls.careerSurvival.finalSuccess ? termRolls.careerMishap : termRolls.careerEvent))
                 ) && !pendingEventResolutions.some((resolution) => !resolution.resolved) && !termRolls.careerCommission?.finalSuccess && !automaticCommissionConstraint"
+                v-show="activeTermStep === 'advancement'"
                 class="rounded-md border border-zinc-200 p-4"
               >
                 <div class="flex flex-wrap items-center justify-between gap-3">
@@ -842,7 +937,7 @@ const saveAndOpenCreatedTraveller = () => {
                 </div>
               </div>
 
-              <div v-if="termRolls.careerAdvancement?.finalSuccess" class="rounded-md border border-zinc-200 p-4">
+              <div v-if="termRolls.careerAdvancement?.finalSuccess" v-show="activeTermStep === 'advancement'" class="rounded-md border border-zinc-200 p-4">
                 <div class="flex flex-wrap items-start justify-between gap-3">
                   <div>
                     <p class="text-sm font-semibold">Advancement Skill Roll</p>
@@ -925,7 +1020,7 @@ const saveAndOpenCreatedTraveller = () => {
           </div>
 
           <div v-else class="mt-5 grid gap-4 lg:grid-cols-[18rem_1fr]">
-            <label class="grid h-fit gap-2">
+            <label v-show="activeTermStep === 'direction'" class="grid h-fit gap-2">
               <span class="text-sm font-medium text-zinc-700">Education</span>
               <select
                 v-model="selectedEducationId"
@@ -937,7 +1032,7 @@ const saveAndOpenCreatedTraveller = () => {
               </select>
             </label>
 
-            <div v-if="selectedEducation && selectedEducationEntry" class="grid gap-3">
+            <div v-if="selectedEducation && selectedEducationEntry" v-show="activeTermStep !== 'direction'" class="grid gap-3">
               <div class="grid gap-3 sm:grid-cols-2">
                 <div class="rounded-md bg-stone-50 p-4">
                   <p class="text-xs font-semibold uppercase tracking-wide text-zinc-500">Entry</p>
@@ -1178,7 +1273,7 @@ const saveAndOpenCreatedTraveller = () => {
             </div>
           </div>
 
-          <div v-if="agingRequired" class="mt-5 rounded-md border border-amber-300 bg-amber-50 p-4">
+          <div v-if="agingRequired" v-show="activeTermStep === 'aging'" class="mt-5 rounded-md border border-amber-300 bg-amber-50 p-4">
             <div class="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <p class="text-sm font-semibold text-amber-950">Aging Roll</p>
@@ -1201,9 +1296,11 @@ const saveAndOpenCreatedTraveller = () => {
             </div>
           </div>
 
-          <PsionicsPanel />
+          <div v-show="activeTermStep === 'complete'">
+            <PsionicsPanel />
 
-          <TermActionFooter />
+            <TermActionFooter />
+          </div>
 
           <div v-if="lifepathComplete" class="mt-5 rounded-lg border border-zinc-300 bg-white p-5">
             <div class="flex flex-wrap items-start justify-between gap-3">

@@ -282,8 +282,8 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
   const backgroundSkillsAutoCollapsed = ref(false)
   const selectedEducationId = ref('university')
   const selectedTermPath = ref<'career' | 'education'>('career')
-  const selectedCareerId = ref('agent')
-  const selectedAssignmentId = ref('law-enforcement')
+  const selectedCareerId = ref('')
+  const selectedAssignmentId = ref('')
   const selectedCareerSkillTableId = ref('personal-development')
   const selectedAdvancementSkillTableId = ref('personal-development')
   const hasRolledCharacteristics = ref(false)
@@ -584,11 +584,24 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     const table = (careerTablesData.careers as Record<string, any>)[militaryAcademyCareerId.value]?.skillTables?.['service-skills']
     return table ? tableEntries(table as string[] | { entries?: string[] }) : []
   })
-  const selectedCareer = computed(() => careersData.careers.find((career) => career.id === selectedCareerId.value) ?? careersData.careers[0])
+  const blankCareer = {
+    id: '',
+    name: 'No Career Selected',
+    qualification: { characteristic: 'soc', target: 99 },
+    assignments: [],
+  }
+  const blankAssignment = {
+    id: '',
+    name: 'No Assignment Selected',
+    survival: { characteristic: 'end', target: 99 },
+    advancement: { characteristic: 'edu', target: 99 },
+  }
+  const selectedCareer = computed(() => careersData.careers.find((career) => career.id === selectedCareerId.value) ?? blankCareer)
   const selectedAssignment = computed(() => {
     const assignment = selectedCareer.value.assignments.find((item) => item.id === selectedAssignmentId.value)
-    return assignment ?? selectedCareer.value.assignments[0]
+    return assignment ?? selectedCareer.value.assignments[0] ?? blankAssignment
   })
+  const careerSelectionComplete = computed(() => Boolean(selectedCareerId.value && selectedAssignmentId.value))
   const knownCareerIds = computed(() => new Set(careersData.careers.map((career) => career.id)))
   const activeCareerConstraints = computed(() => careerConstraints.value.filter((constraint) => {
     if (constraint.used) return false
@@ -807,7 +820,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
   const basicTrainingLabel = computed(() => `${skillTableLabel(basicTrainingTableId.value)} at level 0`)
 
   watch(selectedCareerId, () => {
-    selectedAssignmentId.value = selectedCareer.value.assignments[0].id
+    selectedAssignmentId.value = selectedCareer.value.assignments[0]?.id ?? ''
     basicTrainingApplied.value = false
     pendingBasicTrainingChoices.value = []
   })
@@ -3840,6 +3853,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
       return Boolean(termRolls.educationGraduation)
     }
 
+    if (!careerSelectionComplete.value) return false
     if (!termRolls.careerQualification) return false
     if (!termRolls.careerQualification.finalSuccess) return false
     if (prisonerParoleThresholdRequired.value) return false
@@ -3872,6 +3886,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
       return blockers
     }
 
+    if (!careerSelectionComplete.value) blockers.push('Select a career and assignment.')
     if (!termRolls.careerQualification) blockers.push('Resolve career qualification.')
     else if (!termRolls.careerQualification.finalSuccess) blockers.push('Qualification failed; choose Draft or Drifter fallback.')
     if (prisonerParoleThresholdRequired.value) blockers.push('Roll the Prisoner parole threshold.')
@@ -4705,6 +4720,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     militaryAcademyServiceSkills,
     selectedCareer,
     selectedAssignment,
+    careerSelectionComplete,
     careerOptions,
     careerConstraintMessages,
     careerPathLocked,

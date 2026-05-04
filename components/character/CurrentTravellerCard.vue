@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { storeToRefs } from 'pinia'
+import { computed, ref } from 'vue'
 import { useCharacterCreatorStore } from '~/stores/characterCreator'
 
 const characterCreator = useCharacterCreatorStore()
@@ -8,6 +9,17 @@ const {
   checkLabel,
   associateTypeLabel,
 } = characterCreator
+const currentTravellerTab = ref('profile')
+const currentTravellerTabs = [
+  { id: 'profile', label: 'Stats & Skills' },
+  { id: 'direction', label: 'Term Direction' },
+  { id: 'events', label: 'Events' },
+  { id: 'benefits', label: 'Benefits' },
+  { id: 'history', label: 'Term History' },
+  { id: 'debt', label: 'Debt' },
+]
+const currentTravellerTabIndex = computed(() => Math.max(0, currentTravellerTabs.findIndex((tab) => tab.id === currentTravellerTab.value)))
+const folderTabPosition = (index: number, count: number) => count <= 1 ? 0 : index / (count - 1)
 const {
   characterName,
   characteristicRows,
@@ -43,11 +55,36 @@ const {
 </script>
 
 <template>
-  <aside class="h-fit rounded-lg border border-zinc-300 bg-zinc-950 p-5 text-white shadow-sm lg:sticky lg:top-6">
+  <aside class="current-traveller-card h-fit rounded-lg border border-zinc-300 bg-zinc-950 p-5 text-white shadow-sm lg:sticky lg:top-6">
     <p class="text-sm font-semibold uppercase tracking-wide text-amber-300">Current Traveller</p>
     <h2 class="mt-2 text-2xl font-semibold">{{ characterName || 'Unnamed Traveller' }}</h2>
 
-    <div class="mt-5 grid grid-cols-3 gap-2">
+    <div class="hud-folder-tabs mt-5">
+      <button
+        v-for="(tab, index) in currentTravellerTabs"
+        :key="tab.id"
+        :class="[
+          'hud-folder-tab shrink-0 border text-center text-xs font-semibold',
+          currentTravellerTab === tab.id
+            ? 'is-active border-cyan-300 text-cyan-50'
+            : [
+                index < currentTravellerTabIndex ? 'is-before' : 'is-after',
+                'border-cyan-400/25 text-cyan-100/90 hover:border-cyan-300',
+              ]
+        ]"
+        :style="{
+          '--tab-position': folderTabPosition(index, currentTravellerTabs.length),
+          '--tab-width': '8.25rem',
+          zIndex: currentTravellerTab === tab.id ? 40 : Math.max(1, 30 - Math.abs(index - currentTravellerTabIndex)),
+        }"
+        type="button"
+        @click="currentTravellerTab = tab.id"
+      >
+        {{ tab.label }}
+      </button>
+    </div>
+
+    <div v-show="currentTravellerTab === 'profile'" class="mt-5 grid grid-cols-3 gap-2">
       <div v-for="item in characteristicRows" :key="item.id" class="rounded-md border border-white/15 p-3">
         <p class="text-xs text-zinc-400">{{ item.abbreviation }}</p>
         <p class="mt-1 text-xl font-semibold">{{ item.value }}</p>
@@ -55,7 +92,7 @@ const {
       </div>
     </div>
 
-    <div v-if="prisonerParoleThreshold !== null || prisonerBenefitRollsLost" class="mt-5 border-t border-white/15 pt-5">
+    <div v-if="prisonerParoleThreshold !== null || prisonerBenefitRollsLost" v-show="currentTravellerTab === 'profile'" class="mt-5 border-t border-white/15 pt-5">
       <div class="flex items-center justify-between gap-3">
         <p class="text-sm font-semibold text-zinc-200">Prisoner</p>
         <span v-if="prisonerParoleThreshold !== null" class="rounded-md bg-white/10 px-2 py-1 text-xs text-zinc-300">
@@ -67,7 +104,7 @@ const {
       </p>
     </div>
 
-    <div v-if="careerRanks.length" class="mt-5 border-t border-white/15 pt-5">
+    <div v-if="careerRanks.length" v-show="currentTravellerTab === 'profile'" class="mt-5 border-t border-white/15 pt-5">
       <p class="text-sm font-semibold text-zinc-200">Career Ranks</p>
       <div class="mt-3 grid gap-2">
         <div
@@ -85,7 +122,7 @@ const {
       </div>
     </div>
 
-    <div v-if="psiScore !== null || learnedPsionicTalents.length" class="mt-5 border-t border-white/15 pt-5">
+    <div v-if="psiScore !== null || learnedPsionicTalents.length" v-show="currentTravellerTab === 'profile'" class="mt-5 border-t border-white/15 pt-5">
       <div class="flex items-center justify-between gap-3">
         <p class="text-sm font-semibold text-zinc-200">Psionics</p>
         <span v-if="psiScore !== null" class="rounded-md bg-white/10 px-2 py-1 text-xs text-zinc-300">
@@ -106,7 +143,7 @@ const {
       </p>
     </div>
 
-    <div v-if="associates.length" class="mt-5 border-t border-white/15 pt-5">
+    <div v-if="associates.length" v-show="currentTravellerTab === 'profile'" class="mt-5 border-t border-white/15 pt-5">
       <div class="flex items-center justify-between gap-3">
         <p class="text-sm font-semibold text-zinc-200">Associates</p>
         <span class="rounded-md bg-white/10 px-2 py-1 text-xs text-zinc-300">
@@ -131,7 +168,7 @@ const {
       </div>
     </div>
 
-    <div class="mt-5 border-t border-white/15 pt-5">
+    <div v-show="currentTravellerTab === 'profile'" class="mt-5 border-t border-white/15 pt-5">
       <div class="flex items-center justify-between gap-3">
         <p class="text-sm font-semibold text-zinc-200">Skills</p>
         <span class="rounded-md bg-white/10 px-2 py-1 text-xs text-zinc-300">
@@ -156,7 +193,7 @@ const {
       <span v-else class="mt-3 block text-sm text-zinc-400">No skills assigned</span>
     </div>
 
-    <div class="mt-5 border-t border-white/15 pt-5">
+    <div v-show="currentTravellerTab === 'direction'" class="mt-5 border-t border-white/15 pt-5">
       <p class="text-sm font-semibold text-zinc-200">Term {{ currentTermNumber }} Direction</p>
       <template v-if="selectedTermPath === 'career'">
         <p class="mt-2 text-lg font-semibold">{{ selectedCareer.name }}</p>
@@ -171,6 +208,7 @@ const {
     <div
       v-if="eventOutcomeLog.length || associates.length || narrativeEvents.length || rollModifiers.length || benefitRollAdjustments.length || careerConstraints.length"
       class="mt-5 border-t border-white/15 pt-5"
+      v-show="currentTravellerTab === 'events'"
     >
       <div class="flex items-center justify-between gap-3">
         <p class="text-sm font-semibold text-zinc-200">Event Outcomes</p>
@@ -190,7 +228,7 @@ const {
       </div>
     </div>
 
-    <div v-if="narrativeEvents.length" class="mt-5 border-t border-white/15 pt-5">
+    <div v-if="narrativeEvents.length" v-show="currentTravellerTab === 'events'" class="mt-5 border-t border-white/15 pt-5">
       <div class="flex items-center justify-between gap-3">
         <p class="text-sm font-semibold text-zinc-200">Narrative Events</p>
         <span class="rounded-md bg-white/10 px-2 py-1 text-xs text-zinc-300">
@@ -210,7 +248,7 @@ const {
       </div>
     </div>
 
-    <div v-if="rollModifiers.length" class="mt-5 border-t border-white/15 pt-5">
+    <div v-if="rollModifiers.length" v-show="currentTravellerTab === 'events'" class="mt-5 border-t border-white/15 pt-5">
       <div class="flex items-center justify-between gap-3">
         <p class="text-sm font-semibold text-zinc-200">Roll Modifiers</p>
         <span class="rounded-md bg-white/10 px-2 py-1 text-xs text-zinc-300">
@@ -239,7 +277,7 @@ const {
       </div>
     </div>
 
-    <div v-if="benefitRollLedger.length || benefitRollAdjustments.length" class="mt-5 border-t border-white/15 pt-5">
+    <div v-if="benefitRollLedger.length || benefitRollAdjustments.length" v-show="currentTravellerTab === 'benefits'" class="mt-5 border-t border-white/15 pt-5">
       <div class="flex items-center justify-between gap-3">
         <p class="text-sm font-semibold text-zinc-200">Benefit Rolls</p>
         <span class="rounded-md bg-white/10 px-2 py-1 text-xs text-zinc-300">
@@ -272,7 +310,7 @@ const {
       </div>
     </div>
 
-    <div v-if="totalDebt || medicalCareLog.length" class="mt-5 border-t border-white/15 pt-5">
+    <div v-if="totalDebt || medicalCareLog.length" v-show="currentTravellerTab === 'debt'" class="mt-5 border-t border-white/15 pt-5">
       <div class="flex items-center justify-between gap-3">
         <p class="text-sm font-semibold text-zinc-200">Debt</p>
         <span class="rounded-md bg-white/10 px-2 py-1 text-xs text-zinc-300">
@@ -301,7 +339,7 @@ const {
       </div>
     </div>
 
-    <div class="mt-5 border-t border-white/15 pt-5">
+    <div v-show="currentTravellerTab === 'history'" class="mt-5 border-t border-white/15 pt-5">
       <div class="flex items-center justify-between gap-3">
         <p class="text-sm font-semibold text-zinc-200">Term History</p>
         <span class="rounded-md bg-white/10 px-2 py-1 text-xs text-zinc-300">
