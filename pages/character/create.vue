@@ -10,12 +10,20 @@ import RerollConfirmDialog from '~/components/character/RerollConfirmDialog.vue'
 import TermActionFooter from '~/components/character/TermActionFooter.vue'
 import { useCharacterCreatorStore } from '~/stores/characterCreator'
 import { useTravellersStore } from '~/stores/travellers'
+import { clearBuilderDraft, loadBuilderDraft, saveBuilderDraft } from '~/utils/traveller/draftCache'
+
+const CHARACTER_CREATOR_DRAFT_CACHE_KEY = 'scoutsuite.builder.characterCreator.v1'
+const CHARACTER_CREATOR_DRAFT_CACHE_VERSION = 1
 
 const characterCreator = useCharacterCreatorStore()
 const travellers = useTravellersStore()
 const router = useRouter()
 const creatorSaveMessage = ref('')
 const activeTermStep = ref('direction')
+const characterCreatorDraftRestored = ref(false)
+const restartConfirmOpen = ref(false)
+const skipRestartConfirm = ref(false)
+const restartInProgress = ref(false)
 const {
   formatDm,
   skillOptionLabel,
@@ -82,6 +90,7 @@ const {
   prisonerParoleThreshold,
   prisonerParoleThresholdRoll,
   prisonerParoleThresholdRequired,
+  prisonerReleasedThisTerm,
   pendingEventResolutions,
   pendingSkillChoice,
   termRolls,
@@ -148,30 +157,85 @@ const {
 
 const termStepTabs = computed(() => {
   if (selectedTermPath.value === 'education') {
-    return [
+    const steps = [
       { id: 'direction', label: 'Direction' },
       { id: 'education-entry', label: 'Entry' },
       { id: 'education-event', label: 'Event' },
       { id: 'education-graduation', label: 'Graduation' },
-      { id: 'aging', label: 'Aging' },
       { id: 'complete', label: 'Complete' },
     ]
+    if (agingRequired.value) steps.splice(4, 0, { id: 'aging', label: 'Aging' })
+    return steps
   }
 
-  return [
+  const steps = [
     { id: 'direction', label: 'Direction' },
     { id: 'qualification', label: 'Qualification' },
     { id: 'training', label: 'Training' },
     { id: 'survival', label: 'Survival' },
     { id: 'event', label: 'Event/Mishap' },
     { id: 'advancement', label: 'Advancement' },
-    { id: 'aging', label: 'Aging' },
     { id: 'complete', label: 'Complete' },
   ]
+  if (agingRequired.value) steps.splice(6, 0, { id: 'aging', label: 'Aging' })
+  return steps
 })
 const activeTermStepIndex = computed(() => Math.max(0, termStepTabs.value.findIndex((step) => step.id === activeTermStep.value)))
-const activeTermStepLabel = computed(() => termStepTabs.value[activeTermStepIndex.value]?.label ?? 'Direction')
 const folderTabPosition = (index: number, count: number) => count <= 1 ? 0 : index / (count - 1)
+const unresolvedEventResolutions = computed(() => pendingEventResolutions.value.some((resolution) => !resolution.resolved))
+const unresolvedEducationSkillChoices = computed(() => pendingEducationSkillChoices.value.some((choice) => !choice.selected))
+const activeTermStepComplete = computed(() => {
+  if (activeTermStep.value === 'complete') return false
+
+  if (selectedTermPath.value === 'education') {
+    if (activeTermStep.value === 'direction') return Boolean(selectedEducation.value && selectedEducationEntry.value)
+    if (activeTermStep.value === 'education-entry') {
+      return Boolean(
+        termRolls.value.educationEntry?.finalSuccess
+        && educationSkillsApplied.value
+        && !unresolvedEducationSkillChoices.value,
+      )
+    }
+    if (activeTermStep.value === 'education-event') {
+      return Boolean(termRolls.value.educationEvent && !unresolvedEventResolutions.value)
+    }
+    if (activeTermStep.value === 'education-graduation') return Boolean(termRolls.value.educationGraduation)
+    if (activeTermStep.value === 'aging') return Boolean(termRolls.value.aging && !unresolvedEventResolutions.value)
+    return false
+  }
+
+  if (activeTermStep.value === 'direction') return careerSelectionComplete.value
+  if (activeTermStep.value === 'qualification') {
+    return Boolean(termRolls.value.careerQualification?.finalSuccess && !prisonerParoleThresholdRequired.value)
+  }
+  if (activeTermStep.value === 'training') {
+    return Boolean(
+      (!basicTrainingRequired.value || basicTrainingApplied.value)
+      && !pendingBasicTrainingChoices.value.some((choice) => !choice.selected)
+      && termRolls.value.careerSkill
+      && !pendingSkillChoice.value,
+    )
+  }
+  if (activeTermStep.value === 'survival') return Boolean(termRolls.value.careerSurvival)
+  if (activeTermStep.value === 'event') {
+    if (!termRolls.value.careerSurvival) return false
+    if (!termRolls.value.careerSurvival.finalSuccess) {
+      return Boolean(termRolls.value.careerMishap && !unresolvedEventResolutions.value)
+    }
+    return Boolean(termRolls.value.careerEvent && !unresolvedEventResolutions.value)
+  }
+  if (activeTermStep.value === 'advancement') {
+    if (!termRolls.value.careerSurvival?.finalSuccess) return true
+    if (selectedCareerId.value === 'prisoner') return prisonerReleasedThisTerm.value || Boolean(termRolls.value.careerAdvancement)
+    if (automaticCommissionConstraint.value || termRolls.value.careerCommission?.finalSuccess) return true
+    return Boolean(
+      termRolls.value.careerAdvancement
+      && (!termRolls.value.careerAdvancement.finalSuccess || termRolls.value.careerAdvancementSkill),
+    )
+  }
+  if (activeTermStep.value === 'aging') return Boolean(termRolls.value.aging && !unresolvedEventResolutions.value)
+  return false
+})
 const previousTermStep = () => {
   activeTermStep.value = termStepTabs.value[Math.max(0, activeTermStepIndex.value - 1)]?.id ?? 'direction'
 }
@@ -183,6 +247,46 @@ watch([currentTermNumber, selectedTermPath], () => {
   activeTermStep.value = 'direction'
 })
 
+watch(termStepTabs, (steps) => {
+  if (steps.some((step) => step.id === activeTermStep.value)) return
+  activeTermStep.value = steps[steps.length - 1]?.id ?? 'direction'
+})
+
+watch(() => [activeTermStep.value, activeTermStepComplete.value] as const, async ([, complete]) => {
+  if (!complete) return
+  await nextTick()
+  const currentIndex = termStepTabs.value.findIndex((step) => step.id === activeTermStep.value)
+  const nextStep = termStepTabs.value[currentIndex + 1]
+  if (nextStep) activeTermStep.value = nextStep.id
+})
+
+onMounted(() => {
+  const cachedDraft = loadBuilderDraft<Record<string, unknown>>(
+    CHARACTER_CREATOR_DRAFT_CACHE_KEY,
+    CHARACTER_CREATOR_DRAFT_CACHE_VERSION,
+  )
+
+  if (cachedDraft) {
+    characterCreator.$patch(cachedDraft as Partial<typeof characterCreator.$state>)
+    creatorSaveMessage.value = 'Restored cached character creation draft.'
+  }
+
+  characterCreatorDraftRestored.value = true
+})
+
+watch(
+  () => characterCreator.$state,
+  (state) => {
+    if (!characterCreatorDraftRestored.value || restartInProgress.value) return
+    saveBuilderDraft(
+      CHARACTER_CREATOR_DRAFT_CACHE_KEY,
+      CHARACTER_CREATOR_DRAFT_CACHE_VERSION,
+      JSON.parse(JSON.stringify(state)) as Record<string, unknown>,
+    )
+  },
+  { deep: true },
+)
+
 const saveCreatedTraveller = () => {
   const saved = travellers.saveCreatorProfile(characterProfile.value)
   creatorSaveMessage.value = `Saved ${saved.identity.name || 'Traveller'}`
@@ -191,7 +295,38 @@ const saveCreatedTraveller = () => {
 
 const saveAndOpenCreatedTraveller = () => {
   const saved = saveCreatedTraveller()
+  clearBuilderDraft(CHARACTER_CREATOR_DRAFT_CACHE_KEY)
   router.push(`/character/sheet?id=${saved.id}`)
+}
+
+const restartCharacterCreation = () => {
+  restartInProgress.value = true
+  clearBuilderDraft(CHARACTER_CREATOR_DRAFT_CACHE_KEY)
+  if (import.meta.client) window.location.reload()
+}
+
+const requestRestartCharacterCreation = () => {
+  if (skipRestartConfirm.value) {
+    restartCharacterCreation()
+    return
+  }
+  restartConfirmOpen.value = true
+}
+
+const confirmRestartCharacterCreation = () => {
+  restartConfirmOpen.value = false
+  restartCharacterCreation()
+}
+
+const cancelRestartCharacterCreation = () => {
+  restartConfirmOpen.value = false
+}
+
+if (import.meta.client) {
+  skipRestartConfirm.value = window.localStorage.getItem('scoutsuite.skipCharacterRestartConfirm') === 'true'
+  watch(skipRestartConfirm, (value) => {
+    window.localStorage.setItem('scoutsuite.skipCharacterRestartConfirm', value ? 'true' : 'false')
+  })
 }
 </script>
 
@@ -289,52 +424,29 @@ const saveAndOpenCreatedTraveller = () => {
             </button>
           </div>
 
-          <div class="mt-5 rounded-md border border-cyan-400/25 bg-slate-950/50 p-3">
-            <div class="flex flex-wrap items-center justify-between gap-3">
-              <p class="text-sm font-semibold text-cyan-100">{{ activeTermStepLabel }}</p>
-              <div class="flex gap-2">
-                <button
-                  class="hud-link h-9 px-3 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-40"
-                  :disabled="activeTermStepIndex === 0"
-                  type="button"
-                  @click="previousTermStep"
-                >
-                  Previous
-                </button>
-                <button
-                  class="hud-link h-9 px-3 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-40"
-                  :disabled="activeTermStepIndex === termStepTabs.length - 1"
-                  type="button"
-                  @click="nextTermStep"
-                >
-                  Next
-                </button>
-              </div>
-            </div>
-            <div class="hud-folder-tabs mt-3">
-              <button
-                v-for="(step, index) in termStepTabs"
-                :key="step.id"
-                :class="[
-                  'hud-folder-tab shrink-0 border text-center text-xs font-semibold',
-                  activeTermStep === step.id
-                    ? 'is-active border-cyan-300 text-cyan-50'
-                    : [
-                        index < activeTermStepIndex ? 'is-before' : 'is-after',
-                        'border-cyan-400/25 text-cyan-100/90 hover:border-cyan-300',
-                      ]
-                ]"
-                :style="{
-                  '--tab-position': folderTabPosition(index, termStepTabs.length),
-                  '--tab-width': '8.25rem',
-                  zIndex: activeTermStep === step.id ? 40 : Math.max(1, 30 - Math.abs(index - activeTermStepIndex)),
-                }"
-                type="button"
-                @click="activeTermStep = step.id"
-              >
-                {{ step.label }}
-              </button>
-            </div>
+          <div class="hud-folder-tabs mt-5">
+            <button
+              v-for="(step, index) in termStepTabs"
+              :key="step.id"
+              :class="[
+                'hud-folder-tab shrink-0 border text-center text-sm font-semibold',
+                activeTermStep === step.id
+                  ? 'is-active border-cyan-300 text-cyan-50'
+                  : [
+                      index < activeTermStepIndex ? 'is-before' : 'is-after',
+                      'border-cyan-400/25 text-cyan-100/90 hover:border-cyan-300',
+                    ]
+              ]"
+              :style="{
+                '--tab-position': folderTabPosition(index, termStepTabs.length),
+                '--tab-width': '8.75rem',
+                zIndex: activeTermStep === step.id ? 40 : Math.max(1, 30 - Math.abs(index - activeTermStepIndex)),
+              }"
+              type="button"
+              @click="activeTermStep = step.id"
+            >
+              {{ step.label }}
+            </button>
           </div>
 
           <div v-if="selectedTermPath === 'career'" class="mt-5">
@@ -1019,7 +1131,13 @@ const saveAndOpenCreatedTraveller = () => {
             </div>
           </div>
 
-          <div v-else class="mt-5 grid gap-4 lg:grid-cols-[18rem_1fr]">
+          <div
+            v-else
+            :class="[
+              'mt-5 grid gap-4',
+              activeTermStep === 'direction' ? 'lg:grid-cols-[18rem_1fr]' : '',
+            ]"
+          >
             <label v-show="activeTermStep === 'direction'" class="grid h-fit gap-2">
               <span class="text-sm font-medium text-zinc-700">Education</span>
               <select
@@ -1032,8 +1150,23 @@ const saveAndOpenCreatedTraveller = () => {
               </select>
             </label>
 
-            <div v-if="selectedEducation && selectedEducationEntry" v-show="activeTermStep !== 'direction'" class="grid gap-3">
-              <div class="grid gap-3 sm:grid-cols-2">
+            <div
+              v-if="selectedEducation && selectedEducationEntry"
+              v-show="activeTermStep !== 'direction'"
+              :class="[
+                'grid gap-3',
+                activeTermStep === 'education-entry' ? 'xl:grid-cols-[minmax(0,1.1fr)_minmax(18rem,0.9fr)] xl:items-start' : '',
+              ]"
+            >
+              <div
+                v-show="activeTermStep === 'education-entry' || activeTermStep === 'education-graduation'"
+                :class="[
+                  'grid gap-3',
+                  activeTermStep === 'education-entry'
+                    ? 'xl:col-start-2 xl:row-span-2'
+                    : 'sm:grid-cols-2',
+                ]"
+              >
                 <div class="rounded-md bg-stone-50 p-4">
                   <p class="text-xs font-semibold uppercase tracking-wide text-zinc-500">Entry</p>
                   <p class="mt-2 text-lg font-semibold">{{ checkLabel(selectedEducationEntry) }}</p>
@@ -1063,7 +1196,10 @@ const saveAndOpenCreatedTraveller = () => {
                 </div>
               </div>
 
-              <div class="grid gap-3 xl:grid-cols-2">
+              <div
+                v-show="activeTermStep === 'education-entry'"
+                class="grid gap-3 xl:col-start-1 xl:row-start-2"
+              >
                 <div class="rounded-md border border-zinc-200 p-4">
                   <p class="text-sm font-semibold text-zinc-900">Skills</p>
                   <p v-if="selectedEducation.id === 'university'" class="mt-2 text-sm leading-6 text-zinc-600">
@@ -1143,7 +1279,12 @@ const saveAndOpenCreatedTraveller = () => {
                     Education skills applied to Current Traveller.
                   </p>
                 </div>
+              </div>
 
+              <div
+                v-show="activeTermStep === 'education-graduation'"
+                class="grid gap-3"
+              >
                 <div class="rounded-md border border-zinc-200 p-4">
                   <p class="text-sm font-semibold text-zinc-900">Graduation Benefits</p>
                   <ul class="mt-2 grid gap-2 text-sm leading-6 text-zinc-600">
@@ -1154,8 +1295,13 @@ const saveAndOpenCreatedTraveller = () => {
                 </div>
               </div>
 
-              <div class="grid gap-3">
-                <div class="rounded-md border border-zinc-200 p-4">
+              <div
+                :class="[
+                  'grid gap-3',
+                  activeTermStep === 'education-entry' ? 'xl:col-start-1 xl:row-start-1' : '',
+                ]"
+              >
+                <div v-show="activeTermStep === 'education-entry'" class="rounded-md border border-zinc-200 p-4">
                   <div class="flex flex-wrap items-center justify-between gap-3">
                     <div>
                       <p class="text-sm font-semibold">Entry Roll</p>
@@ -1180,7 +1326,7 @@ const saveAndOpenCreatedTraveller = () => {
                   </div>
                 </div>
 
-                <div v-if="termRolls.educationEntry?.finalSuccess && educationSkillsApplied" class="rounded-md border border-zinc-200 p-4">
+                <div v-if="termRolls.educationEntry?.finalSuccess && educationSkillsApplied" v-show="activeTermStep === 'education-event'" class="rounded-md border border-zinc-200 p-4">
                   <div class="flex flex-wrap items-center justify-between gap-3">
                     <div>
                       <p class="text-sm font-semibold">Pre-Career Event</p>
@@ -1237,7 +1383,7 @@ const saveAndOpenCreatedTraveller = () => {
                   </div>
                 </div>
 
-                <div v-if="termRolls.educationEntry?.finalSuccess && termRolls.educationEvent" class="rounded-md border border-zinc-200 p-4">
+                <div v-if="termRolls.educationEntry?.finalSuccess && termRolls.educationEvent" v-show="activeTermStep === 'education-graduation'" class="rounded-md border border-zinc-200 p-4">
                   <div class="flex flex-wrap items-center justify-between gap-3">
                     <div>
                       <p class="text-sm font-semibold">Graduation Roll</p>
@@ -1300,133 +1446,161 @@ const saveAndOpenCreatedTraveller = () => {
             <PsionicsPanel />
 
             <TermActionFooter />
-          </div>
 
-          <div v-if="lifepathComplete" class="mt-5 rounded-lg border border-zinc-300 bg-white p-5">
-            <div class="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <h2 class="text-xl font-semibold">Mustering Out</h2>
-                <p class="mt-1 text-sm text-zinc-600">
-                  Resolve remaining benefit rolls. Cash rolls used: {{ cashRollsUsed }}/{{ cashRollLimit }}.
-                </p>
-              </div>
-              <div class="flex flex-wrap items-center gap-2">
-                <span class="rounded-md bg-stone-100 px-3 py-2 text-sm font-semibold text-zinc-700">
-                  {{ remainingBenefitRolls }} rolls remaining
-                </span>
-                <button
-                  class="rounded-md bg-amber-500 px-3 py-2 text-sm font-semibold text-zinc-950 hover:bg-amber-400"
-                  type="button"
-                  @click="saveCreatedTraveller"
-                >
-                  Save Sheet
-                </button>
-                <button
-                  class="rounded-md border border-zinc-300 px-3 py-2 text-sm font-semibold text-zinc-700 hover:border-amber-600"
-                  type="button"
-                  @click="saveAndOpenCreatedTraveller"
-                >
-                  Open Sheet
-                </button>
-              </div>
-            </div>
-            <p v-if="creatorSaveMessage" class="mt-3 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-900">
-              {{ creatorSaveMessage }}
-            </p>
-
-            <div class="mt-5 grid gap-4 md:grid-cols-3">
-              <label class="grid gap-2">
-                <span class="text-sm font-medium text-zinc-700">Career</span>
-                <select
-                  v-model="selectedMusteringCareerId"
-                  class="h-11 rounded-md border border-zinc-300 bg-white px-3 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200"
-                >
-                  <option v-for="career in musteringCareerOptions" :key="career.id" :value="career.id">
-                    {{ career.name }} ({{ career.rolls }})
-                  </option>
-                </select>
-              </label>
-              <label class="grid gap-2">
-                <span class="text-sm font-medium text-zinc-700">Roll Type</span>
-                <select
-                  v-model="selectedMusteringRollType"
-                  class="h-11 rounded-md border border-zinc-300 bg-white px-3 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200"
-                >
-                  <option value="benefit">Benefit</option>
-                  <option :disabled="cashRollsUsed >= cashRollLimit" value="cash">Cash</option>
-                </select>
-              </label>
-              <div class="grid gap-2">
-                <span class="text-sm font-medium text-zinc-700">Roll</span>
-                <div class="flex gap-2">
+            <div v-if="lifepathComplete" class="mt-5 rounded-lg border border-zinc-300 bg-white p-5">
+              <div class="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <h2 class="text-xl font-semibold">Mustering Out</h2>
+                  <p class="mt-1 text-sm text-zinc-600">
+                    Resolve remaining benefit rolls. Cash rolls used: {{ cashRollsUsed }}/{{ cashRollLimit }}.
+                  </p>
+                </div>
+                <div class="flex flex-wrap items-center gap-2">
+                  <span class="rounded-md bg-stone-100 px-3 py-2 text-sm font-semibold text-zinc-700">
+                    {{ remainingBenefitRolls }} rolls remaining
+                  </span>
                   <button
-                    class="h-11 rounded-md bg-zinc-950 px-4 text-sm font-semibold text-white hover:bg-zinc-800 disabled:cursor-not-allowed disabled:bg-zinc-300"
-                    :disabled="!canRollMusteringOut"
+                    class="rounded-md bg-amber-500 px-3 py-2 text-sm font-semibold text-zinc-950 hover:bg-amber-400"
                     type="button"
-                    @click="rollMusteringOutBenefit"
+                    @click="saveCreatedTraveller"
                   >
-                    Roll 1D
+                    Save Sheet
                   </button>
-                  <template v-if="gmManualBenefitRollEntryEnabled">
-                    <input v-model.number="manualRollTotals.musteringOut" class="h-11 w-24 rounded-md border border-zinc-300 px-3 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200" max="6" min="1" placeholder="1D" type="number">
+                  <button
+                    class="rounded-md border border-zinc-300 px-3 py-2 text-sm font-semibold text-zinc-700 hover:border-amber-600"
+                    type="button"
+                    @click="saveAndOpenCreatedTraveller"
+                  >
+                    Open Sheet
+                  </button>
+                </div>
+              </div>
+              <p v-if="creatorSaveMessage" class="mt-3 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-900">
+                {{ creatorSaveMessage }}
+              </p>
+
+              <div class="mt-5 grid gap-4 md:grid-cols-3">
+                <label class="grid gap-2">
+                  <span class="text-sm font-medium text-zinc-700">Career</span>
+                  <select
+                    v-model="selectedMusteringCareerId"
+                    class="h-11 rounded-md border border-zinc-300 bg-white px-3 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200"
+                  >
+                    <option v-for="career in musteringCareerOptions" :key="career.id" :value="career.id">
+                      {{ career.name }} ({{ career.rolls }})
+                    </option>
+                  </select>
+                </label>
+                <label class="grid gap-2">
+                  <span class="text-sm font-medium text-zinc-700">Roll Type</span>
+                  <select
+                    v-model="selectedMusteringRollType"
+                    class="h-11 rounded-md border border-zinc-300 bg-white px-3 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200"
+                  >
+                    <option value="benefit">Benefit</option>
+                    <option :disabled="cashRollsUsed >= cashRollLimit" value="cash">Cash</option>
+                  </select>
+                </label>
+                <div class="grid gap-2">
+                  <span class="text-sm font-medium text-zinc-700">Roll</span>
+                  <div class="flex gap-2">
                     <button
-                      class="h-11 rounded-md border border-zinc-300 px-3 text-sm font-semibold text-zinc-700 hover:border-amber-600 disabled:cursor-not-allowed disabled:text-zinc-400"
+                      class="h-11 rounded-md bg-zinc-950 px-4 text-sm font-semibold text-white hover:bg-zinc-800 disabled:cursor-not-allowed disabled:bg-zinc-300"
                       :disabled="!canRollMusteringOut"
                       type="button"
-                      @click="enterManualMusteringOutBenefit(manualRollTotals.musteringOut ?? Number.NaN)"
+                      @click="rollMusteringOutBenefit"
                     >
-                      Manual
+                      Roll 1D
                     </button>
-                  </template>
-                </div>
-              </div>
-            </div>
-
-            <div v-if="selectedMusteringCareerBenefits.length" class="mt-5 overflow-hidden rounded-md border border-zinc-200">
-              <table class="w-full text-left text-sm">
-                <thead class="bg-stone-100 text-xs uppercase tracking-wide text-zinc-500">
-                  <tr>
-                    <th class="px-3 py-2">Roll</th>
-                    <th class="px-3 py-2">Cash</th>
-                    <th class="px-3 py-2">Benefit</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr v-for="row in selectedMusteringCareerBenefits" :key="row.roll" class="border-t border-zinc-200">
-                    <td class="px-3 py-2 font-semibold">{{ row.roll }}</td>
-                    <td class="px-3 py-2">{{ row.cash.toLocaleString() }} Cr</td>
-                    <td class="px-3 py-2">{{ row.benefit }}</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-
-            <div class="mt-5 grid gap-4 lg:grid-cols-3">
-              <div class="rounded-md bg-stone-50 p-4">
-                <p class="text-xs font-semibold uppercase tracking-wide text-zinc-500">Credits</p>
-                <p class="mt-2 text-2xl font-semibold">{{ startingCredits.toLocaleString() }} Cr</p>
-              </div>
-              <div class="rounded-md bg-stone-50 p-4 lg:col-span-2">
-                <p class="text-sm font-semibold text-zinc-900">Results</p>
-                <div v-if="musteringOutResults.length" class="mt-3 grid gap-2">
-                  <div v-for="result in musteringOutResults" :key="result.id" class="rounded-md bg-white px-3 py-2 text-sm">
-                    <p class="font-semibold">{{ result.careerName }} · {{ result.rollType }} · {{ result.dice.join(' + ') }} {{ formatDm(result.dm) }} = {{ result.total }}</p>
-                    <p class="text-zinc-600">
-                      {{ result.cash !== undefined ? `${result.cash.toLocaleString()} Cr` : result.benefit }}
-                    </p>
+                    <template v-if="gmManualBenefitRollEntryEnabled">
+                      <input v-model.number="manualRollTotals.musteringOut" class="h-11 w-24 rounded-md border border-zinc-300 px-3 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200" max="6" min="1" placeholder="1D" type="number">
+                      <button
+                        class="h-11 rounded-md border border-zinc-300 px-3 text-sm font-semibold text-zinc-700 hover:border-amber-600 disabled:cursor-not-allowed disabled:text-zinc-400"
+                        :disabled="!canRollMusteringOut"
+                        type="button"
+                        @click="enterManualMusteringOutBenefit(manualRollTotals.musteringOut ?? Number.NaN)"
+                      >
+                        Manual
+                      </button>
+                    </template>
                   </div>
                 </div>
-                <p v-else class="mt-3 text-sm text-zinc-600">No mustering-out rolls resolved.</p>
+              </div>
+
+              <div v-if="selectedMusteringCareerBenefits.length" class="mt-5 overflow-hidden rounded-md border border-zinc-200">
+                <table class="w-full text-left text-sm">
+                  <thead class="bg-stone-100 text-xs uppercase tracking-wide text-zinc-500">
+                    <tr>
+                      <th class="px-3 py-2">Roll</th>
+                      <th class="px-3 py-2">Cash</th>
+                      <th class="px-3 py-2">Benefit</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="row in selectedMusteringCareerBenefits" :key="row.roll" class="border-t border-zinc-200">
+                      <td class="px-3 py-2 font-semibold">{{ row.roll }}</td>
+                      <td class="px-3 py-2">{{ row.cash.toLocaleString() }} Cr</td>
+                      <td class="px-3 py-2">{{ row.benefit }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <div class="mt-5 grid gap-4 lg:grid-cols-3">
+                <div class="rounded-md bg-stone-50 p-4">
+                  <p class="text-xs font-semibold uppercase tracking-wide text-zinc-500">Credits</p>
+                  <p class="mt-2 text-2xl font-semibold">{{ startingCredits.toLocaleString() }} Cr</p>
+                </div>
+                <div class="rounded-md bg-stone-50 p-4 lg:col-span-2">
+                  <p class="text-sm font-semibold text-zinc-900">Results</p>
+                  <div v-if="musteringOutResults.length" class="mt-3 grid gap-2">
+                    <div v-for="result in musteringOutResults" :key="result.id" class="rounded-md bg-white px-3 py-2 text-sm">
+                      <p class="font-semibold">{{ result.careerName }} · {{ result.rollType }} · {{ result.dice.join(' + ') }} {{ formatDm(result.dm) }} = {{ result.total }}</p>
+                      <p class="text-zinc-600">
+                        {{ result.cash !== undefined ? `${result.cash.toLocaleString()} Cr` : result.benefit }}
+                      </p>
+                    </div>
+                  </div>
+                  <p v-else class="mt-3 text-sm text-zinc-600">No mustering-out rolls resolved.</p>
+                </div>
+              </div>
+
+              <div v-if="personalBenefits.length" class="mt-5 rounded-md border border-zinc-200 p-4">
+                <p class="text-sm font-semibold text-zinc-900">Personal Benefits</p>
+                <div class="mt-3 flex flex-wrap gap-2">
+                  <span v-for="benefit in personalBenefits" :key="benefit" class="rounded-md bg-stone-100 px-3 py-2 text-sm text-zinc-700">
+                    {{ benefit }}
+                  </span>
+                </div>
               </div>
             </div>
+          </div>
 
-            <div v-if="personalBenefits.length" class="mt-5 rounded-md border border-zinc-200 p-4">
-              <p class="text-sm font-semibold text-zinc-900">Personal Benefits</p>
-              <div class="mt-3 flex flex-wrap gap-2">
-                <span v-for="benefit in personalBenefits" :key="benefit" class="rounded-md bg-stone-100 px-3 py-2 text-sm text-zinc-700">
-                  {{ benefit }}
-                </span>
-              </div>
+          <div class="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-cyan-400/20 pt-4">
+            <button
+              class="h-10 rounded-md border border-amber-300 bg-amber-50 px-4 text-sm font-semibold text-amber-950 hover:border-amber-500 hover:bg-amber-100"
+              type="button"
+              @click="requestRestartCharacterCreation"
+            >
+              Restart Character
+            </button>
+            <div class="flex flex-wrap justify-end gap-2">
+              <button
+                class="hud-link h-10 px-4 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-40"
+                :disabled="activeTermStepIndex === 0"
+                type="button"
+                @click="previousTermStep"
+              >
+                Previous
+              </button>
+              <button
+                class="hud-link h-10 px-4 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-40"
+                :disabled="activeTermStepIndex === termStepTabs.length - 1"
+                type="button"
+                @click="nextTermStep"
+              >
+                Next
+              </button>
             </div>
           </div>
         </div>
@@ -1438,6 +1612,49 @@ const saveAndOpenCreatedTraveller = () => {
     </div>
 
     <RerollConfirmDialog />
+
+    <div
+      v-if="restartConfirmOpen"
+      class="fixed inset-0 z-50 grid place-items-center bg-zinc-950/60 px-4 py-8"
+      role="dialog"
+      aria-modal="true"
+    >
+      <div class="w-full max-w-lg rounded-lg border border-amber-300 bg-zinc-950 p-5 text-cyan-50 shadow-2xl">
+        <div>
+          <p class="hud-kicker text-xs font-semibold uppercase tracking-wide">Restart Character</p>
+          <h2 class="mt-2 text-2xl font-semibold">Clear this in-progress character?</h2>
+          <p class="mt-2 text-sm leading-6 text-cyan-100/80">
+            This clears the cached character creator draft and reloads the creator from a blank state.
+          </p>
+        </div>
+
+        <label class="mt-5 flex items-center gap-3 rounded-md border border-amber-300/40 bg-amber-50/10 px-3 py-2 text-sm font-semibold text-amber-100">
+          <input
+            v-model="skipRestartConfirm"
+            class="h-4 w-4 rounded border-amber-300 bg-zinc-950 text-amber-400"
+            type="checkbox"
+          >
+          <span>Don't ask me again for character restarts</span>
+        </label>
+
+        <div class="mt-5 flex flex-wrap justify-end gap-2">
+          <button
+            class="h-10 rounded-md border border-cyan-300/40 px-4 text-sm font-semibold text-cyan-50 hover:border-cyan-300"
+            type="button"
+            @click="cancelRestartCharacterCreation"
+          >
+            Cancel
+          </button>
+          <button
+            class="h-10 rounded-md border border-amber-300 bg-amber-400 px-4 text-sm font-semibold text-zinc-950 hover:bg-amber-300"
+            type="button"
+            @click="confirmRestartCharacterCreation"
+          >
+            Restart Character
+          </button>
+        </div>
+      </div>
+    </div>
 
     <Transition name="advancement-fade">
       <div

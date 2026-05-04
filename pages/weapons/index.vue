@@ -3,6 +3,7 @@ import { storeToRefs } from 'pinia'
 import type { TravellerArmorRecord, TravellerEquipmentRecord } from '~/types/armory'
 import type { CustomWeaponDesign, TravellerWeaponRecord } from '~/types/weapon'
 import { useWeaponsStore } from '~/stores/weapons'
+import { loadBuilderDraft, saveBuilderDraft } from '~/utils/traveller/draftCache'
 import { calculateFieldCatalogueWeapon, cloneWeapon, createBlankCustomWeapon, fieldCatalogueDesign } from '~/utils/traveller/weapons'
 
 type DesignTableItem = {
@@ -32,6 +33,17 @@ type ArmorSortKey = 'name' | 'protection' | 'techLevel' | 'radiationProtection' 
 type EquipmentSortKey = 'name' | 'category' | 'techLevel' | 'massKg' | 'costCredits' | 'effect'
 type WeaponSortIcon = 'sort-asc' | 'sort-desc'
 
+type WeaponBuilderDraftCache = {
+  draft: CustomWeaponDesign
+  activeArmoryTab: string
+  activeDesignStep: number
+  traitInput: string
+  accessoryInput: string
+}
+
+const WEAPON_BUILDER_DRAFT_CACHE_KEY = 'scoutsuite.builder.weapon.v1'
+const WEAPON_BUILDER_DRAFT_CACHE_VERSION = 1
+
 const weaponsStore = useWeaponsStore()
 const { referenceWeapons, referenceArmor, referenceEquipment, userWeapons } = storeToRefs(weaponsStore)
 const selectedCategory = ref('all')
@@ -50,10 +62,46 @@ const draft = ref<CustomWeaponDesign>(createBlankCustomWeapon())
 const saveMessage = ref('')
 const traitInput = ref('')
 const accessoryInput = ref('')
+const weaponBuilderDraftRestored = ref(false)
 
 onMounted(() => {
   weaponsStore.loadWeapons()
+
+  const cachedDraft = loadBuilderDraft<WeaponBuilderDraftCache>(
+    WEAPON_BUILDER_DRAFT_CACHE_KEY,
+    WEAPON_BUILDER_DRAFT_CACHE_VERSION,
+  )
+
+  if (cachedDraft?.draft) {
+    draft.value = cloneWeapon(cachedDraft.draft)
+    activeArmoryTab.value = cachedDraft.activeArmoryTab || 'create'
+    activeDesignStep.value = cachedDraft.activeDesignStep ?? 0
+    traitInput.value = cachedDraft.traitInput ?? ''
+    accessoryInput.value = cachedDraft.accessoryInput ?? ''
+    saveMessage.value = 'Restored cached weapon builder draft.'
+  }
+
+  weaponBuilderDraftRestored.value = true
 })
+
+watch(
+  [draft, activeArmoryTab, activeDesignStep, traitInput, accessoryInput],
+  () => {
+    if (!weaponBuilderDraftRestored.value) return
+    saveBuilderDraft<WeaponBuilderDraftCache>(
+      WEAPON_BUILDER_DRAFT_CACHE_KEY,
+      WEAPON_BUILDER_DRAFT_CACHE_VERSION,
+      {
+        draft: cloneWeapon(draft.value),
+        activeArmoryTab: activeArmoryTab.value,
+        activeDesignStep: activeDesignStep.value,
+        traitInput: traitInput.value,
+        accessoryInput: accessoryInput.value,
+      },
+    )
+  },
+  { deep: true },
+)
 
 const categories = [
   { id: 'all', label: 'All' },

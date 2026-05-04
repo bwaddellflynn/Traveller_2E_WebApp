@@ -249,7 +249,7 @@
     z-index: 30;
     display: grid;
     min-height: 4.5rem;
-    grid-template-columns: auto minmax(0, 1fr) minmax(0, auto);
+    grid-template-columns: 18rem minmax(0, 1fr) minmax(0, auto);
     align-items: center;
     gap: 1rem;
     border-bottom: 1px solid rgba(34, 211, 238, 0.38);
@@ -257,6 +257,7 @@
       linear-gradient(90deg, rgba(34, 211, 238, 0.16), transparent 28%, transparent 72%, rgba(20, 184, 166, 0.14)),
       rgba(2, 6, 23, 0.92);
     padding: 0.75rem 1rem;
+    padding-left: 0;
     box-shadow: 0 0 28px rgba(34, 211, 238, 0.12);
   }
 
@@ -276,6 +277,7 @@
   .app-top-nav-brand {
     justify-self: start;
     min-width: max-content;
+    padding-left: 1rem;
   }
 
   .app-top-nav-auth {
@@ -312,11 +314,13 @@
   @media (max-width: 1023px) {
     .app-top-nav {
       grid-template-columns: 1fr;
+      padding-left: 1rem;
     }
 
     .app-top-nav-brand {
       justify-self: start;
       order: -1;
+      padding-left: 0;
     }
 
     .app-top-nav-auth,

@@ -26,23 +26,23 @@ const {
       </ul>
     </div>
 
-    <div class="flex flex-wrap justify-end gap-3">
-    <button
-      class="h-10 rounded-md border border-zinc-300 px-4 text-sm font-semibold text-zinc-700 hover:border-zinc-500 disabled:cursor-not-allowed disabled:text-zinc-400"
-      :disabled="!canMusterOut"
-      type="button"
-      @click="musterOut"
-    >
-      Muster Out
-    </button>
-    <button
-      class="h-10 rounded-md bg-zinc-950 px-4 text-sm font-semibold text-white hover:bg-zinc-800 disabled:cursor-not-allowed disabled:bg-zinc-300"
-      :disabled="!canCompleteTerm"
-      type="button"
-      @click="addTermTab"
-    >
-      {{ nextTermButtonLabel }}
-    </button>
+    <div class="flex flex-wrap justify-center gap-3">
+      <button
+        class="h-10 rounded-md border border-zinc-300 px-4 text-sm font-semibold text-zinc-700 hover:border-zinc-500 disabled:cursor-not-allowed disabled:text-zinc-400"
+        :disabled="!canMusterOut"
+        type="button"
+        @click="musterOut"
+      >
+        Muster Out
+      </button>
+      <button
+        class="h-10 rounded-md bg-zinc-950 px-4 text-sm font-semibold text-white hover:bg-zinc-800 disabled:cursor-not-allowed disabled:bg-zinc-300"
+        :disabled="!canCompleteTerm"
+        type="button"
+        @click="addTermTab"
+      >
+        {{ nextTermButtonLabel }}
+      </button>
     </div>
   </div>
 </template>

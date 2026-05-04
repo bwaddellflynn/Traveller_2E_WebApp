@@ -1,8 +1,12 @@
 <script setup lang="ts">
 import type { TravellerAssociate, TravellerCharacteristicId, TravellerProfile } from '~/types/traveller'
 import { useTravellersStore } from '~/stores/travellers'
+import { clearBuilderDraft, loadBuilderDraft, saveBuilderDraft } from '~/utils/traveller/draftCache'
 import { travellerProfileToPdfFields, validateTravellerPdfFields } from '~/utils/traveller/pdfFields'
 import { cloneTravellerProfile, createBlankTravellerProfile } from '~/utils/traveller/profile'
+
+const MANUAL_TRAVELLER_DRAFT_CACHE_VERSION = 1
+const manualTravellerDraftCacheKey = (id: string) => `scoutsuite.builder.manualTraveller.${id || 'new'}.v1`
 
 const route = useRoute()
 const router = useRouter()
@@ -11,6 +15,12 @@ const travellers = useTravellersStore()
 const draft = ref<TravellerProfile>(createBlankTravellerProfile('manual'))
 const saveMessage = ref('')
 const importInput = ref<HTMLInputElement | null>(null)
+const manualSheetDraftRestored = ref(false)
+const manualSheetDraftCachePaused = ref(false)
+const activeManualSheetDraftCacheKey = computed(() => {
+  const id = typeof route.query.id === 'string' ? route.query.id : ''
+  return manualTravellerDraftCacheKey(id)
+})
 
 const characteristicIds: TravellerCharacteristicId[] = ['str', 'dex', 'end', 'int', 'edu', 'soc', 'psi']
 const associateGroups = [
@@ -170,23 +180,37 @@ const removeWound = (index: number) => {
 }
 
 const saveSheet = () => {
+  manualSheetDraftCachePaused.value = true
+  clearBuilderDraft(activeManualSheetDraftCacheKey.value)
   const saved = travellers.saveProfile(draft.value)
   draft.value = cloneTravellerProfile(saved)
   saveMessage.value = `Saved ${saved.identity.name || 'Traveller'}`
   router.replace({ path: '/character/sheet', query: { id: saved.id } })
+  nextTick(() => {
+    manualSheetDraftCachePaused.value = false
+  })
 }
 
 const duplicateSheet = () => {
+  manualSheetDraftCachePaused.value = true
+  clearBuilderDraft(activeManualSheetDraftCacheKey.value)
   const saved = travellers.saveProfile(draft.value)
   const copy = travellers.duplicateProfile(saved.id)
-  if (!copy) return
+  if (!copy) {
+    manualSheetDraftCachePaused.value = false
+    return
+  }
   draft.value = cloneTravellerProfile(copy)
   saveMessage.value = `Duplicated ${copy.identity.name || 'Traveller'}`
   router.replace({ path: '/character/sheet', query: { id: copy.id } })
+  nextTick(() => {
+    manualSheetDraftCachePaused.value = false
+  })
 }
 
 const deleteSheet = () => {
   if (!window.confirm(`Delete ${draft.value.identity.name || 'this Traveller'}?`)) return
+  clearBuilderDraft(activeManualSheetDraftCacheKey.value)
   travellers.deleteProfile(draft.value.id)
   router.push('/')
 }
@@ -249,12 +273,34 @@ onMounted(() => {
   travellers.loadProfiles()
   const id = typeof route.query.id === 'string' ? route.query.id : ''
   const existing = id ? travellers.getProfile(id) : null
+  const cachedDraft = loadBuilderDraft<TravellerProfile>(
+    manualTravellerDraftCacheKey(id),
+    MANUAL_TRAVELLER_DRAFT_CACHE_VERSION,
+  )
 
-  if (existing) {
+  if (cachedDraft) {
+    draft.value = cloneTravellerProfile(cachedDraft)
+    saveMessage.value = 'Restored cached manual Traveller draft.'
+  } else if (existing) {
     draft.value = cloneTravellerProfile(existing)
     draft.value.metadata.lastOpenedAt = new Date().toISOString()
   }
+
+  manualSheetDraftRestored.value = true
 })
+
+watch(
+  draft,
+  (profile) => {
+    if (!manualSheetDraftRestored.value || manualSheetDraftCachePaused.value) return
+    saveBuilderDraft(
+      activeManualSheetDraftCacheKey.value,
+      MANUAL_TRAVELLER_DRAFT_CACHE_VERSION,
+      cloneTravellerProfile(profile),
+    )
+  },
+  { deep: true },
+)
 </script>
 
 <template>
