@@ -2,6 +2,7 @@ import { computed, ref, watch } from 'vue'
 import { defineStore } from 'pinia'
 import type { CustomWeaponDesign } from '~/types/weapon'
 import { allReferenceWeapons, cloneWeapon, createBlankCustomWeapon, makeWeaponId } from '~/utils/traveller/weapons'
+import { allReferenceArmor, allReferenceEquipment } from '~/utils/traveller/armory'
 import { LOCAL_USER_ID } from '~/utils/traveller/profile'
 
 const STORAGE_KEY = 'traveller2e.customWeapons.v1'
@@ -31,6 +32,8 @@ export const useWeaponsStore = defineStore('weapons', () => {
   const customWeapons = ref<CustomWeaponDesign[]>([])
   const loaded = ref(false)
   const referenceWeapons = computed(() => allReferenceWeapons())
+  const referenceArmor = computed(() => allReferenceArmor())
+  const referenceEquipment = computed(() => allReferenceEquipment())
   const userWeapons = computed(() => customWeapons.value
     .filter((weapon) => weapon.userId === activeUserId.value)
     .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt)))
@@ -113,6 +116,8 @@ export const useWeaponsStore = defineStore('weapons', () => {
   return {
     activeUserId,
     referenceWeapons,
+    referenceArmor,
+    referenceEquipment,
     customWeapons,
     userWeapons,
     loadWeapons,

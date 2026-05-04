@@ -108,7 +108,9 @@ const {
   draftUsed,
   draftRoll,
   draftFallbackAvailable,
+  requiredDraftAvailable,
   drifterFallbackAvailable,
+  sameCareerContinuationAvailable,
   automaticCareerEntryConstraint,
   selectedCareerCommissionCheck,
   careerCommissionAvailable,
@@ -122,7 +124,9 @@ const {
   selectedAdvancementSkillEntries,
   basicTrainingRequired,
   basicTrainingAvailable,
+  basicTrainingMode,
   basicTrainingEntries,
+  basicTrainingOptions,
   basicTrainingLabel,
   agingEffect,
   musteringOutResults,
@@ -291,7 +295,7 @@ const saveAndOpenCreatedTraveller = () => {
             <div class="mt-5 grid gap-3 sm:grid-cols-3">
               <div class="rounded-md bg-stone-50 p-4">
                 <p class="text-xs font-semibold uppercase tracking-wide text-zinc-500">Qualification</p>
-                <p class="mt-2 text-lg font-semibold">{{ automaticCareerEntryConstraint ? 'Automatic' : checkLabel(selectedCareer.qualification) }}</p>
+                <p class="mt-2 text-lg font-semibold">{{ automaticCareerEntryConstraint || sameCareerContinuationAvailable ? 'Automatic' : checkLabel(selectedCareer.qualification) }}</p>
                 <p v-if="currentCareerQualificationDm" class="mt-1 text-xs text-zinc-500">
                   Career DM {{ formatDm(currentCareerQualificationDm) }}
                 </p>
@@ -307,17 +311,58 @@ const saveAndOpenCreatedTraveller = () => {
             </div>
 
             <div class="mt-5 grid gap-3">
+              <div v-if="requiredDraftAvailable" class="rounded-md border border-amber-300 bg-amber-50 p-4 text-amber-950">
+                <div class="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p class="text-sm font-semibold">Required Draft</p>
+                    <p class="mt-1 text-sm">An event requires a Draft roll before this term's career can begin.</p>
+                  </div>
+                  <button
+                    class="h-10 rounded-md bg-zinc-950 px-4 text-sm font-semibold text-white hover:bg-zinc-800"
+                    type="button"
+                    @click="rollDraftFallback"
+                  >
+                    Roll Draft
+                  </button>
+                </div>
+                <div v-if="gmManualTableRollEntryEnabled" class="mt-3 flex flex-wrap items-center gap-2">
+                  <input
+                    v-model.number="manualRollTotals.draft"
+                    class="h-10 w-24 rounded-md border border-amber-300 bg-white px-3 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200"
+                    max="6"
+                    min="1"
+                    placeholder="1D"
+                    type="number"
+                  >
+                  <button
+                    class="h-10 rounded-md border border-amber-300 bg-white px-3 text-sm font-semibold text-amber-900 hover:border-amber-600"
+                    type="button"
+                    @click="enterManualDraftFallback"
+                  >
+                    Manual
+                  </button>
+                </div>
+              </div>
+
               <div class="rounded-md border border-zinc-200 p-4">
                 <div class="flex flex-wrap items-center justify-between gap-3">
                   <div>
                     <p class="text-sm font-semibold">Qualification Roll</p>
-                    <p class="text-sm text-zinc-600">{{ automaticCareerEntryConstraint ? automaticCareerEntryConstraint.label : checkLabel(selectedCareer.qualification) }}</p>
+                    <p class="text-sm text-zinc-600">
+                      {{
+                        automaticCareerEntryConstraint
+                          ? automaticCareerEntryConstraint.label
+                          : sameCareerContinuationAvailable
+                            ? `Continuing ${selectedCareer.name} - ${selectedAssignment.name}`
+                            : checkLabel(selectedCareer.qualification)
+                      }}
+                    </p>
                     <p v-if="currentCareerQualificationDm" class="text-xs text-zinc-500">
                       Previous careers modifier {{ formatDm(currentCareerQualificationDm) }}
                     </p>
                   </div>
                   <button
-                    v-if="!automaticCareerEntryConstraint"
+                    v-if="!automaticCareerEntryConstraint && !sameCareerContinuationAvailable && !requiredDraftAvailable"
                     class="h-10 rounded-md bg-zinc-950 px-4 text-sm font-semibold text-white hover:bg-zinc-800"
                     type="button"
                     @click="rollCheck('careerQualification', 'Qualification', selectedCareer.qualification)"
@@ -325,7 +370,7 @@ const saveAndOpenCreatedTraveller = () => {
                     Roll 2D
                   </button>
                 </div>
-                <div v-if="gmManualCheckRollEntryEnabled && !automaticCareerEntryConstraint" class="mt-3 flex flex-wrap gap-2">
+                <div v-if="gmManualCheckRollEntryEnabled && !automaticCareerEntryConstraint && !sameCareerContinuationAvailable && !requiredDraftAvailable" class="mt-3 flex flex-wrap gap-2">
                   <input v-model.number="manualRollTotals.careerQualification" class="h-10 w-28 rounded-md border border-zinc-300 px-3 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200" placeholder="2D total" type="number">
                   <button class="h-10 rounded-md border border-zinc-300 px-3 text-sm font-semibold text-zinc-700 hover:border-amber-600" type="button" @click="enterManualCheck('careerQualification', 'Qualification', selectedCareer.qualification)">
                     Manual
@@ -430,7 +475,12 @@ const saveAndOpenCreatedTraveller = () => {
                   <div>
                     <p class="text-sm font-semibold">Basic Training</p>
                     <p class="text-sm text-zinc-600">
-                      First term in {{ selectedCareer.name }}: gain {{ basicTrainingLabel }}.
+                      <template v-if="basicTrainingMode === 'full'">
+                        First career: gain all {{ basicTrainingLabel }}.
+                      </template>
+                      <template v-else>
+                        New career: choose one {{ basicTrainingLabel }}.
+                      </template>
                     </p>
                   </div>
                   <button
@@ -443,7 +493,7 @@ const saveAndOpenCreatedTraveller = () => {
                   </button>
                 </div>
 
-                <div class="mt-4 grid gap-2 sm:grid-cols-2">
+                <div v-if="basicTrainingMode === 'full'" class="mt-4 grid gap-2 sm:grid-cols-2">
                   <div
                     v-for="entry in basicTrainingEntries"
                     :key="entry"
@@ -451,6 +501,15 @@ const saveAndOpenCreatedTraveller = () => {
                   >
                     {{ entry }}
                   </div>
+                </div>
+                <div v-else class="mt-4 flex flex-wrap gap-2">
+                  <span
+                    v-for="entry in basicTrainingOptions"
+                    :key="entry"
+                    class="rounded-md bg-stone-50 px-3 py-2 text-sm text-zinc-800"
+                  >
+                    {{ entry }}
+                  </span>
                 </div>
 
                 <div v-if="pendingBasicTrainingChoices.length" class="mt-3 grid gap-2 rounded-md bg-amber-50 p-3 text-sm">

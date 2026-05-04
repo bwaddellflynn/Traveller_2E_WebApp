@@ -1,0 +1,19 @@
+{
+  "sourceId": "mgt2e-csc",
+  "sourceName": "Central Supply Catalogue",
+  "status": "seed",
+  "equipment": [
+    { "id": "csc-adhesive-bandages", "name": "Adhesive Bandages", "category": "medical", "techLevel": 6, "massKg": null, "costCredits": 50, "effect": "DM-1 per dice for First Aid duration checks.", "traits": [], "sourcePage": 88 },
+    { "id": "csc-autodoc-basic", "name": "Autodoc", "category": "medical", "techLevel": 13, "massKg": 500, "costCredits": 100000, "effect": "Diagnosis, drug delivery, surgery, Medic 3.", "traits": ["Medic 3"], "sourcePage": 88 },
+    { "id": "csc-autodoc-improved", "name": "Autodoc, Improved", "category": "medical", "techLevel": 14, "massKg": 500, "costCredits": 1000000, "effect": "Reanimation, low berth, bioreactor, Medic 3.", "traits": ["Medic 3", "Low berth"], "sourcePage": 88 },
+    { "id": "csc-autodoc-advanced", "name": "Autodoc, Advanced", "category": "medical", "techLevel": 15, "massKg": 500, "costCredits": 3000000, "effect": "Advanced sensors, science toolkit, Medic 4.", "traits": ["Medic 4", "Advanced sensors"], "sourcePage": 88 },
+    { "id": "csc-cryoberth-basic", "name": "Cryoberth", "category": "medical", "techLevel": 10, "massKg": 200, "costCredits": 50000, "effect": "Freezes an injured patient within six seconds.", "traits": ["Stasis"], "sourcePage": 89 },
+    { "id": "csc-cryoberth-improved", "name": "Cryoberth, Improved", "category": "medical", "techLevel": 12, "massKg": 200, "costCredits": 50000, "effect": "DM+1 to cryoberth survival checks.", "traits": ["Stasis"], "sourcePage": 89 },
+    { "id": "csc-field-surgical-kit", "name": "Field Surgical Kit", "category": "medical", "techLevel": 5, "massKg": 3, "costCredits": 1500, "effect": "Kit for First Aid DM+0 and field surgery DM-2.", "traits": ["Surgery"], "sourcePage": 90 },
+    { "id": "csc-first-aid-kit-basic", "name": "First Aid Kit", "category": "medical", "techLevel": 2, "massKg": null, "costCredits": 10, "effect": "First Aid Medic check DM-2.", "traits": [], "sourcePage": 90 },
+    { "id": "csc-first-aid-kit-improved", "name": "First Aid Kit, Improved", "category": "medical", "techLevel": 5, "massKg": null, "costCredits": 125, "effect": "First Aid Medic check DM-1.", "traits": [], "sourcePage": 90 },
+    { "id": "csc-personal-automedic", "name": "Personal Automedic", "category": "medical", "techLevel": 11, "massKg": null, "costCredits": 15000, "effect": "Monitor, diagnostic tool, auto-drug dispenser.", "traits": ["Auto-drug"], "sourcePage": 91 },
+    { "id": "csc-personal-mediscanner", "name": "Personal Mediscanner", "category": "medical", "techLevel": 12, "massKg": null, "costCredits": 1000, "effect": "Personalised medical monitor and diagnostic tool.", "traits": ["Medic DM+1"], "sourcePage": 91 },
+    { "id": "csc-portable-mediscanner", "name": "Portable Mediscanner", "category": "medical", "techLevel": 12, "massKg": 1, "costCredits": 2000, "effect": "Portable monitor and diagnostic tool.", "traits": ["Medic DM+1"], "sourcePage": 91 }
+  ]
+}

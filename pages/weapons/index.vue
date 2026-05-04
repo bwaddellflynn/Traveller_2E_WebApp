@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { storeToRefs } from 'pinia'
+import type { TravellerArmorRecord, TravellerEquipmentRecord } from '~/types/armory'
 import type { CustomWeaponDesign, TravellerWeaponRecord } from '~/types/weapon'
 import { useWeaponsStore } from '~/stores/weapons'
 import { calculateFieldCatalogueWeapon, cloneWeapon, createBlankCustomWeapon, fieldCatalogueDesign } from '~/utils/traveller/weapons'
@@ -27,15 +28,23 @@ type DesignTables = {
 }
 
 type WeaponSortKey = 'name' | 'techLevel' | 'range' | 'damage' | 'massKg' | 'costCredits' | 'traits'
+type ArmorSortKey = 'name' | 'protection' | 'techLevel' | 'radiationProtection' | 'massKg' | 'costCredits' | 'requiredSkill'
+type EquipmentSortKey = 'name' | 'category' | 'techLevel' | 'massKg' | 'costCredits' | 'effect'
 type WeaponSortIcon = 'sort-asc' | 'sort-desc'
 
 const weaponsStore = useWeaponsStore()
-const { referenceWeapons, userWeapons } = storeToRefs(weaponsStore)
+const { referenceWeapons, referenceArmor, referenceEquipment, userWeapons } = storeToRefs(weaponsStore)
 const selectedCategory = ref('all')
+const selectedArmorCategory = ref('all')
+const selectedEquipmentCategory = ref('all')
 const activeArmoryTab = ref('weapons')
 const activeDesignStep = ref(0)
 const weaponSortKey = ref<WeaponSortKey>('name')
+const armorSortKey = ref<ArmorSortKey>('name')
+const equipmentSortKey = ref<EquipmentSortKey>('name')
 const weaponSortDirection = ref<'asc' | 'desc'>('asc')
+const armorSortDirection = ref<'asc' | 'desc'>('asc')
+const equipmentSortDirection = ref<'asc' | 'desc'>('asc')
 const search = ref('')
 const draft = ref<CustomWeaponDesign>(createBlankCustomWeapon())
 const saveMessage = ref('')
@@ -52,16 +61,40 @@ const categories = [
   { id: 'slug', label: 'Slug' },
   { id: 'energy', label: 'Energy' },
   { id: 'grenade', label: 'Grenade' },
-  { id: 'heavy', label: 'Heavy' },
+  { id: 'support', label: 'Support Weapons' },
   { id: 'explosive', label: 'Explosive' },
+  { id: 'other', label: 'Other' },
+]
+
+const armorCategories = [
+  { id: 'all', label: 'All' },
+  { id: 'standard', label: 'Standard' },
+  { id: 'environment', label: 'Environment' },
+  { id: 'combat', label: 'Combat' },
+  { id: 'battle-dress', label: 'Battle Dress' },
+  { id: 'clothing', label: 'Clothing' },
+  { id: 'subdermal', label: 'Subdermal' },
+  { id: 'other', label: 'Other' },
+]
+
+const equipmentCategories = [
+  { id: 'all', label: 'All' },
+  { id: 'communications', label: 'Comms' },
+  { id: 'computers', label: 'Computers' },
+  { id: 'medical', label: 'Medical' },
+  { id: 'drugs', label: 'Drugs' },
+  { id: 'sensors', label: 'Sensors' },
+  { id: 'survival', label: 'Survival' },
+  { id: 'tools', label: 'Tools' },
   { id: 'support', label: 'Support' },
+  { id: 'software', label: 'Software' },
   { id: 'other', label: 'Other' },
 ]
 
 const armoryTabs = [
   { id: 'weapons', label: 'Weapons' },
   { id: 'armor', label: 'Armor' },
-  { id: 'support', label: 'Support Items' },
+  { id: 'support', label: 'Equipment' },
   { id: 'create', label: 'Create Weapon' },
 ]
 
@@ -87,38 +120,170 @@ const sortableWeaponColumns: { key: WeaponSortKey, label: string }[] = [
   { key: 'traits', label: 'Traits' },
 ]
 
+const sortableArmorColumns: { key: ArmorSortKey, label: string }[] = [
+  { key: 'name', label: 'Armor' },
+  { key: 'protection', label: 'Protection' },
+  { key: 'techLevel', label: 'TL' },
+  { key: 'radiationProtection', label: 'Rad' },
+  { key: 'massKg', label: 'Mass' },
+  { key: 'costCredits', label: 'Cost' },
+  { key: 'requiredSkill', label: 'Skill' },
+]
+
+const sortableEquipmentColumns: { key: EquipmentSortKey, label: string }[] = [
+  { key: 'name', label: 'Item' },
+  { key: 'category', label: 'Category' },
+  { key: 'techLevel', label: 'TL' },
+  { key: 'massKg', label: 'Mass' },
+  { key: 'costCredits', label: 'Cost' },
+  { key: 'effect', label: 'Effect' },
+]
+
+const compareValues = (firstValue: unknown, secondValue: unknown, direction: number) => {
+  if (firstValue === null || firstValue === undefined) return 1
+  if (secondValue === null || secondValue === undefined) return -1
+
+  if (typeof firstValue === 'number' || typeof secondValue === 'number') {
+    const left = typeof firstValue === 'number' ? firstValue : Number(firstValue)
+    const right = typeof secondValue === 'number' ? secondValue : Number(secondValue)
+    return (left - right) * direction
+  }
+
+  return String(firstValue ?? '').localeCompare(String(secondValue ?? ''), undefined, { numeric: true, sensitivity: 'base' }) * direction
+}
+
+const duplicateWeaponNameCounts = computed(() => {
+  const counts = new Map<string, number>()
+
+  for (const weapon of referenceWeapons.value) {
+    const name = weapon.name.trim().toLowerCase()
+    counts.set(name, (counts.get(name) ?? 0) + 1)
+  }
+
+  return counts
+})
+
+const weaponDisplayName = (weapon: TravellerWeaponRecord) => {
+  const name = weapon.name.trim()
+  const duplicateCount = duplicateWeaponNameCounts.value.get(name.toLowerCase()) ?? 0
+  if (duplicateCount <= 1 || weapon.techLevel === null || /\bTL\s*\d+\b/i.test(name)) return name
+  return `${name} TL ${weapon.techLevel}`
+}
+
+const duplicateArmorNameCounts = computed(() => {
+  const counts = new Map<string, number>()
+
+  for (const armor of referenceArmor.value) {
+    const name = armor.name.trim().toLowerCase()
+    counts.set(name, (counts.get(name) ?? 0) + 1)
+  }
+
+  return counts
+})
+
+const armorDisplayName = (armor: TravellerArmorRecord) => {
+  const name = armor.name.trim()
+  const duplicateCount = duplicateArmorNameCounts.value.get(name.toLowerCase()) ?? 0
+  if (duplicateCount <= 1 || armor.techLevel === null || /\bTL\s*\d+\b/i.test(name)) return name
+  return `${name} TL ${armor.techLevel}`
+}
+
+const duplicateEquipmentNameCounts = computed(() => {
+  const counts = new Map<string, number>()
+
+  for (const item of referenceEquipment.value) {
+    const name = item.name.trim().toLowerCase()
+    counts.set(name, (counts.get(name) ?? 0) + 1)
+  }
+
+  return counts
+})
+
+const equipmentDisplayName = (item: TravellerEquipmentRecord) => {
+  const name = item.name.trim()
+  const duplicateCount = duplicateEquipmentNameCounts.value.get(name.toLowerCase()) ?? 0
+  if (duplicateCount <= 1 || item.techLevel === null || /\bTL\s*\d+\b/i.test(name)) return name
+  return `${name} TL ${item.techLevel}`
+}
+
 const sortReferenceWeapons = (weapons: TravellerWeaponRecord[]) => {
   const direction = weaponSortDirection.value === 'asc' ? 1 : -1
   const key = weaponSortKey.value
 
   return [...weapons].sort((first, second) => {
-    const firstValue = key === 'traits' ? first.traits.join(', ') : first[key]
-    const secondValue = key === 'traits' ? second.traits.join(', ') : second[key]
+    const firstValue = key === 'name' ? weaponDisplayName(first) : key === 'traits' ? first.traits.join(', ') : first[key]
+    const secondValue = key === 'name' ? weaponDisplayName(second) : key === 'traits' ? second.traits.join(', ') : second[key]
 
-    if (firstValue === null || firstValue === undefined) return 1
-    if (secondValue === null || secondValue === undefined) return -1
-
-    if (typeof firstValue === 'number' || typeof secondValue === 'number') {
-      const left = typeof firstValue === 'number' ? firstValue : Number(firstValue)
-      const right = typeof secondValue === 'number' ? secondValue : Number(secondValue)
-      return (left - right) * direction
-    }
-
-    return String(firstValue ?? '').localeCompare(String(secondValue ?? ''), undefined, { numeric: true, sensitivity: 'base' }) * direction
+    return compareValues(firstValue, secondValue, direction)
   })
 }
 
+const sortReferenceArmor = (armor: TravellerArmorRecord[]) => {
+  const direction = armorSortDirection.value === 'asc' ? 1 : -1
+  const key = armorSortKey.value
+
+  return [...armor].sort((first, second) => compareValues(
+    key === 'name' ? armorDisplayName(first) : first[key],
+    key === 'name' ? armorDisplayName(second) : second[key],
+    direction,
+  ))
+}
+
+const sortReferenceEquipment = (equipment: TravellerEquipmentRecord[]) => {
+  const direction = equipmentSortDirection.value === 'asc' ? 1 : -1
+  const key = equipmentSortKey.value
+
+  return [...equipment].sort((first, second) => compareValues(
+    key === 'name' ? equipmentDisplayName(first) : first[key],
+    key === 'name' ? equipmentDisplayName(second) : second[key],
+    direction,
+  ))
+}
+
 const filteredReferenceWeapons = computed(() => sortReferenceWeapons(referenceWeapons.value.filter((weapon) => {
-  const matchesCategory = selectedCategory.value === 'all' || weapon.category === selectedCategory.value
+  const matchesCategory = selectedCategory.value === 'all'
+    || (selectedCategory.value === 'support' && (weapon.scale === 'support' || weapon.category === 'support'))
+    || (weapon.category === selectedCategory.value && weapon.scale !== 'support')
   const query = search.value.trim().toLowerCase()
   const matchesSearch = !query || [
-    weapon.name,
+    weaponDisplayName(weapon),
     weapon.damage,
     weapon.range,
     weapon.traits.join(' '),
     weapon.skill,
     weapon.speciality,
     weapon.description,
+  ].filter(Boolean).join(' ').toLowerCase().includes(query)
+
+  return matchesCategory && matchesSearch
+})))
+
+const filteredReferenceArmor = computed(() => sortReferenceArmor(referenceArmor.value.filter((armor) => {
+  const matchesCategory = selectedArmorCategory.value === 'all' || armor.category === selectedArmorCategory.value
+  const query = search.value.trim().toLowerCase()
+  const matchesSearch = !query || [
+    armorDisplayName(armor),
+    armor.protection,
+    armor.radiationProtection,
+    armor.requiredSkill,
+    armor.traits.join(' '),
+    armor.notes,
+    armor.sourceName,
+  ].filter(Boolean).join(' ').toLowerCase().includes(query)
+
+  return matchesCategory && matchesSearch
+})))
+
+const filteredReferenceEquipment = computed(() => sortReferenceEquipment(referenceEquipment.value.filter((item) => {
+  const matchesCategory = selectedEquipmentCategory.value === 'all' || item.category === selectedEquipmentCategory.value
+  const query = search.value.trim().toLowerCase()
+  const matchesSearch = !query || [
+    equipmentDisplayName(item),
+    item.category,
+    item.effect,
+    item.traits.join(' '),
+    item.notes,
+    item.sourceName,
   ].filter(Boolean).join(' ').toLowerCase().includes(query)
 
   return matchesCategory && matchesSearch
@@ -137,6 +302,41 @@ const weaponSortIndicator = (key: WeaponSortKey): WeaponSortIcon | null => {
   if (weaponSortKey.value !== key) return null
   return weaponSortDirection.value === 'asc' ? 'sort-asc' : 'sort-desc'
 }
+
+const setArmorSort = (key: ArmorSortKey) => {
+  if (armorSortKey.value === key) {
+    armorSortDirection.value = armorSortDirection.value === 'asc' ? 'desc' : 'asc'
+    return
+  }
+  armorSortKey.value = key
+  armorSortDirection.value = 'asc'
+}
+
+const armorSortIndicator = (key: ArmorSortKey): WeaponSortIcon | null => {
+  if (armorSortKey.value !== key) return null
+  return armorSortDirection.value === 'asc' ? 'sort-asc' : 'sort-desc'
+}
+
+const setEquipmentSort = (key: EquipmentSortKey) => {
+  if (equipmentSortKey.value === key) {
+    equipmentSortDirection.value = equipmentSortDirection.value === 'asc' ? 'desc' : 'asc'
+    return
+  }
+  equipmentSortKey.value = key
+  equipmentSortDirection.value = 'asc'
+}
+
+const equipmentSortIndicator = (key: EquipmentSortKey): WeaponSortIcon | null => {
+  if (equipmentSortKey.value !== key) return null
+  return equipmentSortDirection.value === 'asc' ? 'sort-asc' : 'sort-desc'
+}
+
+const formatCredits = (credits: number | null) => {
+  if (credits === null) return '-'
+  return credits >= 1000000 ? `MCr${credits / 1000000}` : `Cr${credits.toLocaleString()}`
+}
+
+const formatKg = (kg: number | null) => kg === null ? '-' : `${kg}kg`
 
 const selectedItem = (items: DesignTableItem[], id: string) => items.find((item) => item.id === id)
 
@@ -207,8 +407,8 @@ const weaponDescription = (weapon: typeof referenceWeapons.value[number]) => {
 
   if (weapon.category === 'grenade') return `A palm-sized thrown munition with a sealed casing and visible arming or safety mechanism. (${source})`
   if (weapon.category === 'explosive') return `A compact demolition charge or explosive package intended to be placed, triggered or thrown. (${source})`
-  if (weapon.category === 'heavy') return `A ${bulky}${mass}support weapon with a large barrel, reinforced frame and bulky ammunition or power system. (${source})`
-  if (weapon.category === 'support') return `A support weapon or battlefield tool with reinforced fittings and specialist handling hardware. (${source})`
+  if (weapon.scale === 'support' || weapon.category === 'support') return `A support weapon or battlefield tool with reinforced fittings and specialist handling hardware. (${source})`
+  if (weapon.category === 'heavy') return `A ${bulky}${mass}heavy weapon with a large barrel, reinforced frame and bulky ammunition or power system. (${source})`
   return `A personal weapon or combat item from ${source}; exact visual description still needs source-text review.`
 }
 
@@ -341,6 +541,7 @@ const copyReferenceWeapon = (weapon: typeof referenceWeapons.value[number]) => {
   draft.value = {
     ...cloneWeapon(weapon),
     id: `custom-${weapon.id}-${Date.now()}`,
+    name: weaponDisplayName(weapon),
     userId: weaponsStore.activeUserId,
     sourceId: 'custom',
     sourceName: 'Custom',
@@ -360,7 +561,7 @@ const copyReferenceWeapon = (weapon: typeof referenceWeapons.value[number]) => {
       furniture: '',
       feedDevice: '',
       accessories: [],
-      notes: `Added from ${weapon.sourceId}: ${weapon.name}`,
+      notes: `Added from ${weapon.sourceId}: ${weaponDisplayName(weapon)}`,
     },
   }
   activeArmoryTab.value = 'create'
@@ -439,8 +640,8 @@ const copyReferenceWeapon = (weapon: typeof referenceWeapons.value[number]) => {
               <tbody>
                 <tr v-for="weapon in filteredReferenceWeapons" :key="weapon.id" class="border-t border-zinc-200 align-top">
                   <td class="px-3 py-2 font-semibold text-zinc-950">
-                    <span class="block">{{ weapon.name }}</span>
-                    <span class="mt-1 block text-xs font-medium text-zinc-500">{{ weapon.sourceName ?? weapon.sourceId }}</span>
+                    <span class="block">{{ weaponDisplayName(weapon) }}</span>
+                    <span class="mt-1 block text-xs font-medium text-zinc-500">{{ weapon.sourceName ?? weapon.sourceId }}<template v-if="weapon.sourcePage"> p. {{ weapon.sourcePage }}</template></span>
                   </td>
                   <td class="px-3 py-2">{{ weapon.techLevel ?? '-' }}</td>
                   <td class="px-3 py-2">{{ weapon.range }}</td>
@@ -461,13 +662,114 @@ const copyReferenceWeapon = (weapon: typeof referenceWeapons.value[number]) => {
       </div>
 
       <section v-else-if="activeArmoryTab === 'armor'" class="rounded-lg border border-zinc-300 bg-white p-5 shadow-sm lg:col-span-2">
-        <h2 class="text-xl font-semibold">Armor</h2>
-        <p class="mt-2 text-sm text-zinc-600">No armor data loaded.</p>
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 class="text-xl font-semibold">Reference Armor</h2>
+            <p class="mt-1 text-sm text-zinc-600">{{ filteredReferenceArmor.length }} shown from seeded Core and Field Catalogue data.</p>
+          </div>
+          <input v-model="search" class="h-10 rounded-md border border-zinc-300 px-3 text-sm outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200" placeholder="Search">
+        </div>
+
+        <div class="mt-4 flex flex-wrap gap-2">
+          <button
+            v-for="category in armorCategories"
+            :key="category.id"
+            class="rounded-md border px-3 py-2 text-sm font-semibold"
+            :class="selectedArmorCategory === category.id ? 'border-zinc-950 bg-zinc-950 text-white' : 'border-zinc-300 text-zinc-700 hover:border-amber-600'"
+            type="button"
+            @click="selectedArmorCategory = category.id"
+          >
+            {{ category.label }}
+          </button>
+        </div>
+
+        <div class="mt-4 max-h-[42rem] overflow-auto rounded-md border border-zinc-200">
+          <table class="w-full min-w-[64rem] text-left text-sm">
+            <thead class="sticky top-0 z-10 bg-stone-100 text-xs uppercase tracking-wide text-zinc-500">
+              <tr>
+                <th v-for="column in sortableArmorColumns" :key="column.key" class="px-3 py-2">
+                  <button class="flex items-center gap-1 font-semibold uppercase tracking-wide hover:text-zinc-950" type="button" @click="setArmorSort(column.key)">
+                    <span>{{ column.label }}</span>
+                    <span class="inline-flex h-4 w-4 items-center text-amber-700">
+                      <AppIcon v-if="armorSortIndicator(column.key)" class="h-4 w-4" :name="armorSortIndicator(column.key) ?? 'sort-asc'" />
+                    </span>
+                  </button>
+                </th>
+                <th class="px-3 py-2">Traits</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="armor in filteredReferenceArmor" :key="armor.id" class="border-t border-zinc-200 align-top">
+                <td class="px-3 py-2 font-semibold text-zinc-950">
+                  <span class="block">{{ armorDisplayName(armor) }}</span>
+                  <span class="mt-1 block text-xs font-medium text-zinc-500">{{ armor.sourceName ?? armor.sourceId }}<template v-if="armor.sourcePage"> p. {{ armor.sourcePage }}</template></span>
+                </td>
+                <td class="px-3 py-2">{{ armor.protection }}</td>
+                <td class="px-3 py-2">{{ armor.techLevel ?? '-' }}</td>
+                <td class="px-3 py-2">{{ armor.radiationProtection ?? '-' }}</td>
+                <td class="px-3 py-2">{{ formatKg(armor.massKg) }}</td>
+                <td class="px-3 py-2">{{ formatCredits(armor.costCredits) }}</td>
+                <td class="px-3 py-2">{{ armor.requiredSkill ?? 'None' }}</td>
+                <td class="max-w-xs px-3 py-2 text-zinc-600">{{ armor.traits.join(', ') || '-' }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </section>
 
       <section v-else-if="activeArmoryTab === 'support'" class="rounded-lg border border-zinc-300 bg-white p-5 shadow-sm lg:col-span-2">
-        <h2 class="text-xl font-semibold">Support Items</h2>
-        <p class="mt-2 text-sm text-zinc-600">No support item data loaded.</p>
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 class="text-xl font-semibold">Equipment</h2>
+            <p class="mt-1 text-sm text-zinc-600">{{ filteredReferenceEquipment.length }} shown from seeded Core, Central Supply Catalogue, and Field Catalogue data.</p>
+          </div>
+          <input v-model="search" class="h-10 rounded-md border border-zinc-300 px-3 text-sm outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200" placeholder="Search">
+        </div>
+
+        <div class="mt-4 flex flex-wrap gap-2">
+          <button
+            v-for="category in equipmentCategories"
+            :key="category.id"
+            class="rounded-md border px-3 py-2 text-sm font-semibold"
+            :class="selectedEquipmentCategory === category.id ? 'border-zinc-950 bg-zinc-950 text-white' : 'border-zinc-300 text-zinc-700 hover:border-amber-600'"
+            type="button"
+            @click="selectedEquipmentCategory = category.id"
+          >
+            {{ category.label }}
+          </button>
+        </div>
+
+        <div class="mt-4 max-h-[42rem] overflow-auto rounded-md border border-zinc-200">
+          <table class="w-full min-w-[68rem] text-left text-sm">
+            <thead class="sticky top-0 z-10 bg-stone-100 text-xs uppercase tracking-wide text-zinc-500">
+              <tr>
+                <th v-for="column in sortableEquipmentColumns" :key="column.key" class="px-3 py-2">
+                  <button class="flex items-center gap-1 font-semibold uppercase tracking-wide hover:text-zinc-950" type="button" @click="setEquipmentSort(column.key)">
+                    <span>{{ column.label }}</span>
+                    <span class="inline-flex h-4 w-4 items-center text-amber-700">
+                      <AppIcon v-if="equipmentSortIndicator(column.key)" class="h-4 w-4" :name="equipmentSortIndicator(column.key) ?? 'sort-asc'" />
+                    </span>
+                  </button>
+                </th>
+                <th class="px-3 py-2">Traits</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="item in filteredReferenceEquipment" :key="item.id" class="border-t border-zinc-200 align-top">
+                <td class="px-3 py-2 font-semibold text-zinc-950">
+                  <span class="block">{{ equipmentDisplayName(item) }}</span>
+                  <span class="mt-1 block text-xs font-medium text-zinc-500">{{ item.sourceName ?? item.sourceId }}<template v-if="item.sourcePage"> p. {{ item.sourcePage }}</template></span>
+                </td>
+                <td class="px-3 py-2 capitalize">{{ item.category }}</td>
+                <td class="px-3 py-2">{{ item.techLevel ?? '-' }}</td>
+                <td class="px-3 py-2">{{ formatKg(item.massKg) }}</td>
+                <td class="px-3 py-2">{{ formatCredits(item.costCredits) }}</td>
+                <td class="max-w-md px-3 py-2 text-zinc-700">{{ item.effect }}</td>
+                <td class="max-w-xs px-3 py-2 text-zinc-600">{{ item.traits.join(', ') || '-' }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </section>
 
       <div v-else class="grid gap-5">

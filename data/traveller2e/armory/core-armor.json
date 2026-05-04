@@ -1,0 +1,21 @@
+{
+  "sourceId": "mgt2e-core-2022",
+  "sourceName": "Core Rulebook",
+  "status": "seed",
+  "armor": [
+    { "id": "core-jack", "name": "Jack", "category": "standard", "protection": "+1", "techLevel": 1, "radiationProtection": null, "massKg": 2, "costCredits": 50, "requiredSkill": null, "traits": [], "sourcePage": 100 },
+    { "id": "core-mesh", "name": "Mesh", "category": "standard", "protection": "+2", "techLevel": 6, "radiationProtection": null, "massKg": 3, "costCredits": 150, "requiredSkill": null, "traits": [], "sourcePage": 100 },
+    { "id": "core-cloth-tl7", "name": "Cloth", "category": "standard", "protection": "+5", "techLevel": 7, "radiationProtection": null, "massKg": 7, "costCredits": 250, "requiredSkill": null, "traits": [], "sourcePage": 100 },
+    { "id": "core-cloth-tl10", "name": "Cloth", "category": "standard", "protection": "+8", "techLevel": 10, "radiationProtection": null, "massKg": 3, "costCredits": 500, "requiredSkill": null, "traits": [], "sourcePage": 100 },
+    { "id": "core-flak-jacket-tl5", "name": "Flak Jacket", "category": "standard", "protection": "+3", "techLevel": 5, "radiationProtection": null, "massKg": 8, "costCredits": 100, "requiredSkill": null, "traits": [], "sourcePage": 100 },
+    { "id": "core-flak-jacket-tl3", "name": "Flak Jacket", "category": "standard", "protection": "+5", "techLevel": 3, "radiationProtection": null, "massKg": 6, "costCredits": 300, "requiredSkill": null, "traits": [], "sourcePage": 100 },
+    { "id": "core-reflec", "name": "Reflec", "category": "standard", "protection": "+10 vs. lasers only", "techLevel": 10, "radiationProtection": null, "massKg": 1, "costCredits": 1500, "requiredSkill": null, "traits": ["Anti-laser", "Stealth DM-2"], "sourcePage": 100 },
+    { "id": "core-ablat", "name": "Ablat", "category": "standard", "protection": "+1; +6 vs. lasers only", "techLevel": 9, "radiationProtection": null, "massKg": 2, "costCredits": 75, "requiredSkill": null, "traits": ["Anti-laser", "Ablative"], "sourcePage": 100 },
+    { "id": "core-combat-armor-tl10", "name": "Combat Armour", "category": "combat", "protection": "+13", "techLevel": 10, "radiationProtection": "40", "massKg": 20, "costCredits": 96000, "requiredSkill": "Vacc Suit 1", "traits": ["Life support 6 hours", "Scope"], "sourcePage": 100 },
+    { "id": "core-combat-armor-tl12", "name": "Combat Armour", "category": "combat", "protection": "+17", "techLevel": 12, "radiationProtection": "30", "massKg": 16, "costCredits": 88000, "requiredSkill": "Vacc Suit 0", "traits": ["Life support 6 hours", "Scope"], "sourcePage": 100 },
+    { "id": "core-combat-armor-tl14", "name": "Combat Armour", "category": "combat", "protection": "+19", "techLevel": 14, "radiationProtection": "22", "massKg": 12, "costCredits": 160000, "requiredSkill": "Vacc Suit 0", "traits": ["Life support 6 hours", "Scope"], "sourcePage": 100 },
+    { "id": "core-vacc-suit-tl8", "name": "Vacc Suit", "category": "environment", "protection": "+4", "techLevel": 8, "radiationProtection": "15", "massKg": 28, "costCredits": 12000, "requiredSkill": "Vacc Suit 1", "traits": ["Life support 6 hours"], "sourcePage": 100 },
+    { "id": "core-vacc-suit-tl10", "name": "Vacc Suit", "category": "environment", "protection": "+8", "techLevel": 10, "radiationProtection": "60", "massKg": 12, "costCredits": 10000, "requiredSkill": "Vacc Suit 0", "traits": ["Life support 6 hours"], "sourcePage": 100 },
+    { "id": "core-vacc-suit-tl12", "name": "Vacc Suit", "category": "environment", "protection": "+10", "techLevel": 12, "radiationProtection": "90", "massKg": 8, "costCredits": 20000, "requiredSkill": "Vacc Suit 0", "traits": ["Life support 6 hours"], "sourcePage": 100 }
+  ]
+}

@@ -21,6 +21,8 @@ const {
   rollEventResolutionBenefitWager,
   enterManualEventResolutionBenefitWager,
   declineEventResolutionBenefitWager,
+  rollEventResolutionPrisonLawyer,
+  enterManualEventResolutionPrisonLawyer,
   rollEventResolutionTable,
   enterManualEventResolutionTable,
   eventResolutionSelectedLabel,
@@ -47,6 +49,7 @@ const visibleEventResolutions = computed(() => {
 const manualTableRolls = reactive<Record<string, number | null>>({})
 const manualCheckRolls = reactive<Record<string, number | null>>({})
 const benefitWagerForms = reactive<Record<string, { skill: string; wagered: number | null; total: number | null }>>({})
+const prisonLawyerForms = reactive<Record<string, { advocateLevel: number; total: number | null; reductionDie: number | null }>>({})
 const narrativeNotes = reactive<Record<string, string>>({})
 const manualCharacteristicAmounts = reactive<Record<string, number | null>>({})
 const medicalRestorePoints = reactive<Record<string, number | null>>({})
@@ -74,6 +77,18 @@ const benefitWagerForm = (resolution: { id: string; wagerChecks?: Array<{ skill:
   }
 
   return benefitWagerForms[resolution.id]
+}
+
+const prisonLawyerForm = (resolution: { id: string }) => {
+  if (!prisonLawyerForms[resolution.id]) {
+    prisonLawyerForms[resolution.id] = {
+      advocateLevel: 1,
+      total: null,
+      reductionDie: null,
+    }
+  }
+
+  return prisonLawyerForms[resolution.id]
 }
 </script>
 
@@ -392,6 +407,59 @@ const benefitWagerForm = (resolution: { id: string; wagerChecks?: Array<{ skill:
           >
             Decline
           </button>
+        </div>
+      </div>
+
+      <div v-if="resolution.kind === 'prison_lawyer' && !resolution.resolved" class="mt-3 grid gap-3">
+        <div class="flex flex-wrap gap-2">
+          <button
+            v-for="level in resolution.lawyerLevels"
+            :key="level"
+            :class="[
+              'h-9 rounded-md border px-3 text-sm font-semibold',
+              prisonLawyerForm(resolution).advocateLevel === level
+                ? 'border-amber-700 bg-amber-700 text-white'
+                : 'border-amber-300 bg-white text-amber-900 hover:border-amber-600'
+            ]"
+            type="button"
+            @click="prisonLawyerForm(resolution).advocateLevel = level"
+          >
+            Advocate {{ level }} · {{ (1000 * level * level).toLocaleString() }} Cr
+          </button>
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+          <button
+            class="h-9 rounded-md border border-amber-300 bg-white px-3 text-sm font-semibold text-amber-900 hover:border-amber-600"
+            type="button"
+            @click="rollEventResolutionPrisonLawyer(resolution.id, prisonLawyerForm(resolution).advocateLevel)"
+          >
+            Roll Lawyer
+          </button>
+          <template v-if="gmManualCheckRollEntryEnabled">
+            <input
+              v-model.number="prisonLawyerForm(resolution).total"
+              class="h-9 w-20 rounded-md border border-amber-300 bg-white px-2 text-sm text-amber-950"
+              max="12"
+              min="2"
+              placeholder="2D"
+              type="number"
+            >
+            <input
+              v-model.number="prisonLawyerForm(resolution).reductionDie"
+              class="h-9 w-20 rounded-md border border-amber-300 bg-white px-2 text-sm text-amber-950"
+              max="6"
+              min="1"
+              placeholder="-1D"
+              type="number"
+            >
+            <button
+              class="h-9 rounded-md border border-amber-300 bg-white px-3 text-sm font-semibold text-amber-900 hover:border-amber-600"
+              type="button"
+              @click="enterManualEventResolutionPrisonLawyer(resolution.id, prisonLawyerForm(resolution).advocateLevel, prisonLawyerForm(resolution).total ?? Number.NaN, prisonLawyerForm(resolution).reductionDie ?? Number.NaN)"
+            >
+              Apply
+            </button>
+          </template>
         </div>
       </div>
     </div>

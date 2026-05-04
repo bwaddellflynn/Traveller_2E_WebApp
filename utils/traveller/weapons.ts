@@ -31,12 +31,49 @@ export const weaponSources = {
 
 export const fieldCatalogueDesign = fieldCatalogueDesignData
 
-export const allReferenceWeapons = (): TravellerWeaponRecord[] => {
+const weaponSourcePriority: Record<string, number> = {
+  'mgt2e-field-catalogue': 3,
+  'mgt2e-csc': 2,
+  'mgt2e-core-2022': 1,
+  custom: 0,
+}
+
+const normalizeWeaponFamilyName = (name: string) => {
+  return name
+    .toLowerCase()
+    .replace(/\([^)]*\)/g, '')
+    .replace(/\b(tl|tech level)\s*\d+\b/g, '')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+}
+
+const withWeaponSource = (weapons: Record<string, unknown>[], sourceId: string, sourceName: string) => {
+  return weapons.map((weapon) => ({ ...weapon, sourceId, sourceName })) as TravellerWeaponRecord[]
+}
+
+export const allReferenceWeaponVariants = (): TravellerWeaponRecord[] => {
   return [
-    ...coreWeaponsData.weapons.map((weapon) => ({ ...weapon, sourceId: coreWeaponsData.sourceId, sourceName: coreWeaponsData.sourceName })),
-    ...cscWeaponsData.weapons.map((weapon) => ({ ...weapon, sourceId: cscWeaponsData.sourceId, sourceName: cscWeaponsData.sourceName })),
-    ...fieldWeaponsData.weapons.map((weapon) => ({ ...weapon, sourceId: fieldWeaponsData.sourceId, sourceName: fieldWeaponsData.sourceName })),
-  ] as TravellerWeaponRecord[]
+    ...withWeaponSource(coreWeaponsData.weapons, coreWeaponsData.sourceId, coreWeaponsData.sourceName),
+    ...withWeaponSource(cscWeaponsData.weapons, cscWeaponsData.sourceId, cscWeaponsData.sourceName),
+    ...withWeaponSource(fieldWeaponsData.weapons, fieldWeaponsData.sourceId, fieldWeaponsData.sourceName),
+  ]
+}
+
+export const allReferenceWeapons = (): TravellerWeaponRecord[] => {
+  const variants = allReferenceWeaponVariants()
+  const highestPriorityByFamily = new Map<string, number>()
+
+  for (const weapon of variants) {
+    const family = normalizeWeaponFamilyName(weapon.name)
+    const priority = weaponSourcePriority[weapon.sourceId] ?? 0
+    highestPriorityByFamily.set(family, Math.max(highestPriorityByFamily.get(family) ?? 0, priority))
+  }
+
+  return variants.filter((weapon) => {
+    const family = normalizeWeaponFamilyName(weapon.name)
+    const priority = weaponSourcePriority[weapon.sourceId] ?? 0
+    return priority === highestPriorityByFamily.get(family)
+  })
 }
 
 export const makeWeaponId = () => {

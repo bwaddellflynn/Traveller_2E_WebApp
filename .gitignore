@@ -26,3 +26,5 @@ MgT 2E Core/*
 .env
 .env.*
 !.env.example
+
+.vercel

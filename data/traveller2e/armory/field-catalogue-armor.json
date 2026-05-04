@@ -1,0 +1,14 @@
+{
+  "sourceId": "mgt2e-field-catalogue",
+  "sourceName": "Field Catalogue",
+  "status": "seed",
+  "armor": [
+    { "id": "field-discreet-operations-uniform", "name": "Discreet Operations Uniform", "category": "clothing", "protection": "+2", "techLevel": 10, "radiationProtection": null, "massKg": 1, "costCredits": 100, "requiredSkill": null, "traits": ["Concealable"], "sourcePage": 130 },
+    { "id": "field-dou-combat-kit", "name": "DOU with Combat Kit", "category": "clothing", "protection": "+6", "techLevel": 10, "radiationProtection": null, "massKg": 4, "costCredits": 600, "requiredSkill": null, "traits": ["Concealable at distance"], "sourcePage": 130 },
+    { "id": "field-environment-suit", "name": "Environment Suit", "category": "environment", "protection": "+3; +6 vs. heat and cold", "techLevel": 11, "radiationProtection": null, "massKg": 4, "costCredits": 2000, "requiredSkill": null, "traits": ["Corrosion-Resistant +3"], "sourcePage": 131 },
+    { "id": "field-environment-suit-hood-mask", "name": "Environment Suit with Hood and Mask", "category": "environment", "protection": "+3; +12 vs. heat and cold", "techLevel": 11, "radiationProtection": null, "massKg": 5, "costCredits": 2000, "requiredSkill": null, "traits": ["Corrosion-Resistant +3"], "sourcePage": 131 },
+    { "id": "field-environment-suit-chest-helmet", "name": "Environment Suit with Chest Piece and Full Helmet", "category": "environment", "protection": "+9; +12 vs. heat and cold", "techLevel": 11, "radiationProtection": null, "massKg": 8, "costCredits": 2800, "requiredSkill": null, "traits": ["Corrosion-Resistant +3"], "sourcePage": 131 },
+    { "id": "field-enhanced-field-dress", "name": "Enhanced Field Dress", "category": "clothing", "protection": "+1", "techLevel": 8, "radiationProtection": null, "massKg": null, "costCredits": 100, "requiredSkill": null, "traits": ["Thermal detection DM-1", "Chemical resistance DM+1"], "sourcePage": 132 },
+    { "id": "field-advanced-field-dress", "name": "Advanced Field Dress", "category": "clothing", "protection": "+1", "techLevel": 10, "radiationProtection": null, "massKg": 2, "costCredits": 250, "requiredSkill": null, "traits": ["Thermal detection DM-2", "Chemical resistance DM+2"], "sourcePage": 132 }
+  ]
+}
