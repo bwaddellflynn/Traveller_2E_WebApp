@@ -65,6 +65,7 @@ const equipmentSortDirection = ref<'asc' | 'desc'>('asc')
 const search = ref('')
 const draft = ref<CustomWeaponDesign>(createBlankCustomWeapon())
 const saveMessage = ref('')
+const deleteWeaponConfirmOpen = ref(false)
 const traitInput = ref('')
 const accessoryInput = ref('')
 const weaponBuilderDraftRestored = ref(false)
@@ -533,9 +534,17 @@ const duplicateWeapon = () => {
   saveMessage.value = `Duplicated ${copy.name}`
 }
 
-const deleteWeapon = () => {
-  if (!window.confirm(`Delete ${draft.value.name || 'this weapon'}?`)) return
+const requestDeleteWeapon = () => {
+  deleteWeaponConfirmOpen.value = true
+}
+
+const cancelDeleteWeapon = () => {
+  deleteWeaponConfirmOpen.value = false
+}
+
+const confirmDeleteWeapon = () => {
   weaponsStore.deleteCustomWeapon(draft.value.id)
+  deleteWeaponConfirmOpen.value = false
   newWeapon()
 }
 
@@ -978,10 +987,17 @@ const toggleExpandedEquipment = (itemId: string) => {
             <h2 class="text-xl font-semibold">Weapon Design</h2>
             <p class="mt-1 text-sm text-zinc-600">Guided Field Catalogue component process with gated steps.</p>
           </div>
-          <div class="flex flex-wrap gap-2">
+          <div class="relative flex flex-wrap gap-2">
             <button class="rounded-md border border-zinc-300 px-3 py-2 text-sm font-semibold text-zinc-700 hover:border-amber-600" type="button" @click="duplicateWeapon">Duplicate</button>
-            <button class="rounded-md border border-red-200 px-3 py-2 text-sm font-semibold text-red-700 hover:border-red-500" type="button" @click="deleteWeapon">Delete</button>
+            <button class="rounded-md border border-red-200 px-3 py-2 text-sm font-semibold text-red-700 hover:border-red-500" type="button" @click="requestDeleteWeapon">Delete</button>
             <button class="rounded-md bg-amber-500 px-4 py-2 text-sm font-semibold text-zinc-950 hover:bg-amber-400" type="button" @click="saveWeapon">Save</button>
+            <div v-if="deleteWeaponConfirmOpen" class="absolute right-0 top-[calc(100%+0.5rem)] z-20 grid min-w-[10rem] gap-2 rounded-[10px_0_10px_0] border border-cyan-400/25 bg-slate-950/95 p-3 shadow-[0_12px_28px_rgba(2,8,23,0.45)] [clip-path:polygon(0_0,calc(100%-10px)_0,100%_10px,100%_100%,10px_100%,0_calc(100%-10px))]">
+              <p class="text-xs font-semibold text-cyan-50">Delete weapon?</p>
+              <div class="flex justify-end gap-2">
+                <button class="rounded-[8px_0_8px_0] border border-cyan-400/25 bg-slate-900/80 px-2 py-1 text-xs font-semibold text-cyan-100 [clip-path:polygon(0_0,calc(100%-7px)_0,100%_7px,100%_100%,7px_100%,0_calc(100%-7px))]" type="button" @click="cancelDeleteWeapon">Cancel</button>
+                <button class="rounded-[8px_0_8px_0] border border-red-400/30 bg-red-950/90 px-2 py-1 text-xs font-semibold text-red-100 [clip-path:polygon(0_0,calc(100%-7px)_0,100%_7px,100%_100%,7px_100%,0_calc(100%-7px))]" type="button" @click="confirmDeleteWeapon">Delete</button>
+              </div>
+            </div>
           </div>
         </div>
 

@@ -40,6 +40,27 @@ export const useTravellersStore = defineStore('travellers', () => {
 
   const getProfile = (id: string) => profiles.value.find((profile) => profile.id === id) ?? null
 
+  const ensureUniqueProfileName = (name: string, profileId: string, userId: string) => {
+    const baseName = (name || 'Unnamed Traveller').trim() || 'Unnamed Traveller'
+    const normalizedBase = baseName.toLocaleLowerCase()
+    const takenNames = new Set(
+      profiles.value
+        .filter((profile) => profile.userId === userId && profile.id !== profileId)
+        .map((profile) => (profile.identity.name || 'Unnamed Traveller').trim().toLocaleLowerCase()),
+    )
+
+    if (!takenNames.has(normalizedBase)) return baseName
+
+    let suffix = 2
+    let candidate = `${baseName} ${suffix}`
+    while (takenNames.has(candidate.toLocaleLowerCase())) {
+      suffix += 1
+      candidate = `${baseName} ${suffix}`
+    }
+
+    return candidate
+  }
+
   const createManualProfile = async () => {
     await loadProfiles()
     const profile = createBlankTravellerProfile('manual', activeUserId.value)
@@ -57,6 +78,7 @@ export const useTravellersStore = defineStore('travellers', () => {
       updatedAt: now,
       createdAt: profile.createdAt || now,
     }, profile.source, activeUserId.value)
+    normalized.identity.name = ensureUniqueProfileName(normalized.identity.name, normalized.id, normalized.userId)
     const existingIndex = profiles.value.findIndex((item) => item.id === normalized.id)
 
     if (existingIndex === -1) {
@@ -104,7 +126,7 @@ export const useTravellersStore = defineStore('travellers', () => {
     const now = new Date().toISOString()
     const copy = cloneTravellerProfile(current)
     copy.id = makeProfileId()
-    copy.identity.name = `${copy.identity.name || 'Unnamed Traveller'} Copy`
+    copy.identity.name = ensureUniqueProfileName(`${copy.identity.name || 'Unnamed Traveller'} Copy`, copy.id, activeUserId.value)
     copy.createdAt = now
     copy.updatedAt = now
     copy.userId = activeUserId.value

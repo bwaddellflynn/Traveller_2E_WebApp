@@ -2,12 +2,10 @@
 import skillsData from '~/data/traveller2e/core/skills.json'
 import type { TravellerAssociate, TravellerCharacteristicId, TravellerProfile, TravellerSkill } from '~/types/traveller'
 import { useTravellersStore } from '~/stores/travellers'
-import { clearBuilderDraft, loadBuilderDraft, saveBuilderDraft } from '~/utils/traveller/draftCache'
+import { clearBuilderDraft, clearDraftPointer, loadBuilderDraft, saveBuilderDraft, saveDraftPointer } from '~/utils/traveller/draftCache'
+import { MANUAL_TRAVELLER_ACTIVE_DRAFT_POINTER_KEY, MANUAL_TRAVELLER_DRAFT_CACHE_VERSION, manualTravellerDraftCacheKey } from '~/utils/traveller/manualDraft'
 import { travellerProfileToPdfFields, validateTravellerPdfFields } from '~/utils/traveller/pdfFields'
 import { cloneTravellerProfile, createBlankTravellerProfile, normalizeTravellerProfile } from '~/utils/traveller/profile'
-
-const MANUAL_TRAVELLER_DRAFT_CACHE_VERSION = 1
-const manualTravellerDraftCacheKey = (id: string) => `scoutsuite.builder.manualTraveller.${id || 'new'}.v1`
 
 const route = useRoute()
 const router = useRouter()
@@ -19,16 +17,19 @@ const importInput = ref<HTMLInputElement | null>(null)
 const portraitInput = ref<HTMLInputElement | null>(null)
 const isPortraitDragActive = ref(false)
 const portraitClearConfirmOpen = ref(false)
+const sheetDeleteConfirmOpen = ref(false)
 const isMobileSheetViewport = ref(false)
 const isWideSheetViewport = ref(false)
 const mobileSheetMenuOpen = ref(false)
 const mobileSheetActionsOpen = ref(false)
 const manualSheetDraftRestored = ref(false)
 const manualSheetDraftCachePaused = ref(false)
+const activeSheetRouteId = computed(() => typeof route.query.id === 'string' ? route.query.id : '')
+const activeSheetDraftId = computed(() => typeof route.query.draft === 'string' ? route.query.draft : '')
 const activeManualSheetDraftCacheKey = computed(() => {
-  const id = typeof route.query.id === 'string' ? route.query.id : ''
-  return manualTravellerDraftCacheKey(id)
+  return manualTravellerDraftCacheKey(activeSheetRouteId.value || activeSheetDraftId.value)
 })
+const isUnsavedManualDraftRoute = computed(() => !activeSheetRouteId.value && Boolean(activeSheetDraftId.value))
 
 const characteristicIds: TravellerCharacteristicId[] = ['str', 'dex', 'end', 'int', 'edu', 'soc', 'psi']
 const associateGroups = [
@@ -117,6 +118,29 @@ const titleCaseSheetSkill = (value: string) => value
   .filter(Boolean)
   .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
   .join(' ')
+
+const loadSheetFromRoute = () => {
+  const id = activeSheetRouteId.value
+  const draftId = activeSheetDraftId.value
+  const existing = id ? travellers.getProfile(id) : null
+  const cachedDraft = loadBuilderDraft<TravellerProfile>(
+    manualTravellerDraftCacheKey(id || draftId),
+    MANUAL_TRAVELLER_DRAFT_CACHE_VERSION,
+  )
+
+  if (cachedDraft) {
+    draft.value = cloneTravellerProfile(cachedDraft)
+    return
+  }
+
+  if (existing) {
+    draft.value = cloneTravellerProfile(existing)
+    draft.value.metadata.lastOpenedAt = new Date().toISOString()
+    return
+  }
+
+  draft.value = createBlankTravellerProfile('manual')
+}
 
 const formatSheetSpeciality = (definition: SkillDefinition | undefined, value: string) => {
   const normalized = slugifySheetSkill(value)
@@ -596,11 +620,13 @@ const selectMobileSheetSection = (sectionId: MobileSheetSectionId) => {
   mobileSheetMenuOpen.value = false
   mobileSheetActionsOpen.value = false
   portraitClearConfirmOpen.value = false
+  sheetDeleteConfirmOpen.value = false
 }
 
 const saveSheet = async () => {
   manualSheetDraftCachePaused.value = true
   clearBuilderDraft(activeManualSheetDraftCacheKey.value)
+  if (isUnsavedManualDraftRoute.value) clearDraftPointer(MANUAL_TRAVELLER_ACTIVE_DRAFT_POINTER_KEY)
   const saved = await travellers.saveProfile(draft.value)
   draft.value = cloneTravellerProfile(saved)
   saveMessage.value = `Saved ${saved.identity.name || 'Traveller'}`
@@ -613,6 +639,7 @@ const saveSheet = async () => {
 const duplicateSheet = async () => {
   manualSheetDraftCachePaused.value = true
   clearBuilderDraft(activeManualSheetDraftCacheKey.value)
+  if (isUnsavedManualDraftRoute.value) clearDraftPointer(MANUAL_TRAVELLER_ACTIVE_DRAFT_POINTER_KEY)
   const saved = await travellers.saveProfile(draft.value)
   const copy = await travellers.duplicateProfile(saved.id)
   if (!copy) {
@@ -627,10 +654,19 @@ const duplicateSheet = async () => {
   })
 }
 
-const deleteSheet = async () => {
-  if (!window.confirm(`Delete ${draft.value.identity.name || 'this Traveller'}?`)) return
+const requestDeleteSheet = () => {
+  sheetDeleteConfirmOpen.value = true
+}
+
+const cancelDeleteSheet = () => {
+  sheetDeleteConfirmOpen.value = false
+}
+
+const confirmDeleteSheet = async () => {
   clearBuilderDraft(activeManualSheetDraftCacheKey.value)
+  if (isUnsavedManualDraftRoute.value) clearDraftPointer(MANUAL_TRAVELLER_ACTIVE_DRAFT_POINTER_KEY)
   await travellers.deleteProfile(draft.value.id)
+  sheetDeleteConfirmOpen.value = false
   await router.push('/')
 }
 
@@ -692,20 +728,7 @@ onMounted(async () => {
   updateSheetViewport()
   window.addEventListener('resize', updateSheetViewport)
   await travellers.loadProfiles()
-  const id = typeof route.query.id === 'string' ? route.query.id : ''
-  const existing = id ? travellers.getProfile(id) : null
-  const cachedDraft = loadBuilderDraft<TravellerProfile>(
-    manualTravellerDraftCacheKey(id),
-    MANUAL_TRAVELLER_DRAFT_CACHE_VERSION,
-  )
-
-  if (cachedDraft) {
-    draft.value = cloneTravellerProfile(cachedDraft)
-  } else if (existing) {
-    draft.value = cloneTravellerProfile(existing)
-    draft.value.metadata.lastOpenedAt = new Date().toISOString()
-  }
-
+  loadSheetFromRoute()
   manualSheetDraftRestored.value = true
 })
 
@@ -719,6 +742,9 @@ watch(
   draft,
   (profile) => {
     if (!manualSheetDraftRestored.value || manualSheetDraftCachePaused.value) return
+    if (isUnsavedManualDraftRoute.value && activeSheetDraftId.value) {
+      saveDraftPointer(MANUAL_TRAVELLER_ACTIVE_DRAFT_POINTER_KEY, activeSheetDraftId.value)
+    }
     saveBuilderDraft(
       activeManualSheetDraftCacheKey.value,
       MANUAL_TRAVELLER_DRAFT_CACHE_VERSION,
@@ -726,6 +752,18 @@ watch(
     )
   },
   { deep: true },
+)
+
+watch(
+  [activeSheetRouteId, activeSheetDraftId],
+  () => {
+    if (!manualSheetDraftRestored.value) return
+    manualSheetDraftCachePaused.value = true
+    loadSheetFromRoute()
+    nextTick(() => {
+      manualSheetDraftCachePaused.value = false
+    })
+  },
 )
 </script>
 
@@ -764,12 +802,27 @@ watch(
               <button aria-label="Duplicate Sheet" class="sheet-toolbar-button" title="Duplicate Sheet" type="button" @click="duplicateSheet">
                 <AppIcon name="copy" />
               </button>
-              <button aria-label="Delete Sheet" class="sheet-toolbar-button sheet-toolbar-button--danger" title="Delete Sheet" type="button" @click="deleteSheet">
+              <button aria-label="Delete Sheet" class="sheet-toolbar-button sheet-toolbar-button--danger" title="Delete Sheet" type="button" @click="requestDeleteSheet">
                 <AppIcon name="trash" />
               </button>
               <button aria-label="Save Sheet" class="sheet-toolbar-button sheet-toolbar-button--primary" title="Save Sheet" type="button" @click="saveSheet">
                 <AppIcon name="save" />
               </button>
+            </div>
+            <div
+              v-if="sheetDeleteConfirmOpen"
+              class="sheet-toolbar-confirm"
+              @click.stop
+            >
+              <p class="sheet-toolbar-confirm__text">Delete traveller?</p>
+              <div class="sheet-toolbar-confirm__actions">
+                <button class="sheet-toolbar-confirm__button" type="button" @click="cancelDeleteSheet">
+                  Cancel
+                </button>
+                <button class="sheet-toolbar-confirm__button sheet-toolbar-confirm__button--danger" type="button" @click="confirmDeleteSheet">
+                  Delete
+                </button>
+              </div>
             </div>
           </div>
           <input ref="importInput" accept="application/json" class="hidden" type="file" @change="importJson">
@@ -1328,12 +1381,27 @@ watch(
             <button aria-label="Duplicate Sheet" class="sheet-toolbar-button" title="Duplicate Sheet" type="button" @click="duplicateSheet">
               <AppIcon name="copy" />
             </button>
-            <button aria-label="Delete Sheet" class="sheet-toolbar-button sheet-toolbar-button--danger" title="Delete Sheet" type="button" @click="deleteSheet">
+            <button aria-label="Delete Sheet" class="sheet-toolbar-button sheet-toolbar-button--danger" title="Delete Sheet" type="button" @click="requestDeleteSheet">
               <AppIcon name="trash" />
             </button>
             <button aria-label="Save Sheet" class="sheet-toolbar-button sheet-toolbar-button--primary" title="Save Sheet" type="button" @click="saveSheet">
               <AppIcon name="save" />
             </button>
+          </div>
+          <div
+            v-if="sheetDeleteConfirmOpen"
+            class="sheet-toolbar-confirm"
+            @click.stop
+          >
+            <p class="sheet-toolbar-confirm__text">Delete traveller?</p>
+            <div class="sheet-toolbar-confirm__actions">
+              <button class="sheet-toolbar-confirm__button" type="button" @click="cancelDeleteSheet">
+                Cancel
+              </button>
+              <button class="sheet-toolbar-confirm__button sheet-toolbar-confirm__button--danger" type="button" @click="confirmDeleteSheet">
+                Delete
+              </button>
+            </div>
           </div>
           <input ref="importInput" accept="application/json" class="hidden" type="file" @change="importJson">
         </div>
@@ -1934,6 +2002,7 @@ watch(
 }
 
 .sheet-chrome--with-actions {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1960,6 +2029,7 @@ watch(
 }
 
 .sheet-chrome-actions-menu {
+  position: relative;
   padding: 12px 16px 0;
 }
 
@@ -2053,6 +2123,57 @@ watch(
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
+}
+
+.sheet-toolbar-confirm {
+  position: absolute;
+  top: calc(100% - 6px);
+  right: 16px;
+  z-index: 12;
+  display: grid;
+  gap: 8px;
+  min-width: 156px;
+  padding: 10px;
+  border: 1px solid rgba(34, 211, 238, 0.34);
+  border-radius: 10px 0 10px 0;
+  clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px));
+  background:
+    linear-gradient(180deg, rgba(8, 18, 32, 0.98), rgba(3, 7, 18, 0.98)),
+    radial-gradient(circle at 0 0, rgba(34, 211, 238, 0.12), transparent 8rem);
+  box-shadow:
+    0 0 18px rgba(34, 211, 238, 0.12),
+    inset 0 0 18px rgba(34, 211, 238, 0.05);
+}
+
+.sheet-toolbar-confirm__text {
+  color: #e4e4e7;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.sheet-toolbar-confirm__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.sheet-toolbar-confirm__button {
+  min-height: 26px;
+  padding: 0 8px;
+  border: 1px solid rgba(34, 211, 238, 0.28);
+  border-radius: 8px 0 8px 0;
+  clip-path: polygon(0 0, calc(100% - 7px) 0, 100% 7px, 100% 100%, 7px 100%, 0 calc(100% - 7px));
+  background: rgba(8, 18, 32, 0.86);
+  color: #cffafe;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.sheet-toolbar-confirm__button--danger {
+  border-color: rgba(248, 113, 113, 0.42);
+  color: #ffe4e6;
+  background: rgba(58, 14, 20, 0.9);
 }
 
 .sheet-toolbar-button {

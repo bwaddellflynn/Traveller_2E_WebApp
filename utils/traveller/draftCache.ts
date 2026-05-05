@@ -4,6 +4,37 @@ export type BuilderDraftCache<T> = {
   payload: T
 }
 
+export const loadDraftPointer = (key: string): string | null => {
+  if (!import.meta.client) return null
+
+  try {
+    const value = window.localStorage.getItem(key)
+    return value && value.trim() ? value : null
+  } catch {
+    return null
+  }
+}
+
+export const saveDraftPointer = (key: string, value: string) => {
+  if (!import.meta.client) return
+
+  try {
+    window.localStorage.setItem(key, value)
+  } catch {
+    // Draft pointer persistence should never block the builder workflow.
+  }
+}
+
+export const clearDraftPointer = (key: string) => {
+  if (!import.meta.client) return
+
+  try {
+    window.localStorage.removeItem(key)
+  } catch {
+    // Draft pointer persistence should never block the builder workflow.
+  }
+}
+
 export const loadBuilderDraft = <T>(key: string, version: number): T | null => {
   if (!import.meta.client) return null
 
