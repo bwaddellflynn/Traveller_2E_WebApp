@@ -571,9 +571,7 @@ watch(
                     >
                     <div v-else class="sheet-portrait-placeholder">
                       <span class="sheet-portrait-placeholder-icons">
-                        <AppIcon class="sheet-portrait-icon sheet-portrait-icon--primary" name="user" />
-                        <AppIcon class="sheet-portrait-icon" name="plus" />
-                        <AppIcon class="sheet-portrait-icon" name="arrow" />
+                        <AppIcon class="sheet-portrait-icon sheet-portrait-icon--primary sheet-portrait-icon--large" name="portrait" />
                       </span>
                     </div>
                     <input
@@ -1143,6 +1141,16 @@ watch(
 
 .sheet-portrait-icon--primary {
   color: #fbbf24;
+}
+
+.sheet-portrait-icon--large :deep(svg),
+.sheet-portrait-icon--large {
+  width: 5.5rem;
+  height: 5.5rem;
+}
+
+.sheet-portrait-icon--large :deep(svg) {
+  stroke-width: 1.4;
 }
 
 .sheet-textarea--tall {
