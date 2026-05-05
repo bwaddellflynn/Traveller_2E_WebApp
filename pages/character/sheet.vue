@@ -18,6 +18,9 @@ const importInput = ref<HTMLInputElement | null>(null)
 const portraitInput = ref<HTMLInputElement | null>(null)
 const isPortraitDragActive = ref(false)
 const portraitClearConfirmOpen = ref(false)
+const isMobileSheetViewport = ref(false)
+const mobileSheetMenuOpen = ref(false)
+const mobileSheetActionsOpen = ref(false)
 const manualSheetDraftRestored = ref(false)
 const manualSheetDraftCachePaused = ref(false)
 const activeManualSheetDraftCacheKey = computed(() => {
@@ -39,12 +42,24 @@ const associateTypeLabels: Record<keyof TravellerProfile['associates'], string> 
   enemies: 'enemy',
   other: 'associate',
 }
-const associateButtonLabels: Record<typeof associateGroups[number]['id'], string> = {
+const associateActionLabels: Record<typeof associateGroups[number]['id'], string> = {
   contacts: 'Contact',
   allies: 'Ally',
   rivals: 'Rival',
   enemies: 'Enemy',
 }
+const mobileSheetSections = [
+  { id: 'profile', label: 'Profile' },
+  { id: 'stats', label: 'Stats' },
+  { id: 'skills', label: 'Skills' },
+  { id: 'loadout', label: 'Loadout' },
+  { id: 'career', label: 'Career' },
+  { id: 'network', label: 'Network' },
+  { id: 'status', label: 'Status' },
+] as const
+type MobileSheetSectionId = typeof mobileSheetSections[number]['id']
+const activeMobileSheetSection = ref<MobileSheetSectionId>('profile')
+const activeMobileSheetSectionLabel = computed(() => mobileSheetSections.find((section) => section.id === activeMobileSheetSection.value)?.label ?? 'Profile')
 const skillColumnCount = 3
 const skillRowsPerColumn = 16
 const skillPadCount = computed(() => Math.max(0, skillColumnCount * skillRowsPerColumn - draft.value.skills.length))
@@ -271,6 +286,22 @@ const handlePortraitDrop = (event: DragEvent) => {
   applyPortraitFile(event.dataTransfer?.files?.[0])
 }
 
+const updateSheetViewport = () => {
+  if (!import.meta.client) return
+  isMobileSheetViewport.value = window.innerWidth <= 760
+  if (!isMobileSheetViewport.value) {
+    mobileSheetMenuOpen.value = false
+    mobileSheetActionsOpen.value = false
+  }
+}
+
+const selectMobileSheetSection = (sectionId: MobileSheetSectionId) => {
+  activeMobileSheetSection.value = sectionId
+  mobileSheetMenuOpen.value = false
+  mobileSheetActionsOpen.value = false
+  portraitClearConfirmOpen.value = false
+}
+
 const saveSheet = () => {
   manualSheetDraftCachePaused.value = true
   clearBuilderDraft(activeManualSheetDraftCacheKey.value)
@@ -362,6 +393,8 @@ const importJson = async (event: Event) => {
 }
 
 onMounted(() => {
+  updateSheetViewport()
+  window.addEventListener('resize', updateSheetViewport)
   travellers.loadProfiles()
   const id = typeof route.query.id === 'string' ? route.query.id : ''
   const existing = id ? travellers.getProfile(id) : null
@@ -372,13 +405,17 @@ onMounted(() => {
 
   if (cachedDraft) {
     draft.value = cloneTravellerProfile(cachedDraft)
-    saveMessage.value = 'Restored cached manual Traveller draft.'
   } else if (existing) {
     draft.value = cloneTravellerProfile(existing)
     draft.value.metadata.lastOpenedAt = new Date().toISOString()
   }
 
   manualSheetDraftRestored.value = true
+})
+
+onBeforeUnmount(() => {
+  if (!import.meta.client) return
+  window.removeEventListener('resize', updateSheetViewport)
 })
 
 watch(
@@ -397,62 +434,528 @@ watch(
 
 <template>
   <main class="min-h-screen">
-    <section class="mx-auto w-full max-w-7xl px-5 pt-6 sm:px-8 lg:px-10">
-      <div class="hud-panel flex flex-wrap items-center justify-between gap-4 rounded-lg border p-5">
-        <div>
-          <p class="hud-kicker text-sm font-semibold uppercase tracking-wide">Traveller Record</p>
-          <h1 class="mt-2 text-3xl font-semibold">Character Sheet</h1>
-        </div>
-        <div class="flex flex-wrap gap-2">
-          <button class="rounded-md border border-white/20 px-3 py-2 text-sm font-semibold text-zinc-100 hover:border-amber-400 hover:text-amber-200" type="button" @click="openImportPicker">
-            Import JSON
-          </button>
-          <button class="rounded-md border border-white/20 px-3 py-2 text-sm font-semibold text-zinc-100 hover:border-amber-400 hover:text-amber-200" type="button" @click="exportJson">
-            Export JSON
-          </button>
-          <button class="rounded-md border border-white/20 px-3 py-2 text-sm font-semibold text-zinc-100 hover:border-amber-400 hover:text-amber-200" type="button" @click="exportPdfFields">
-            Export PDF Fields
-          </button>
-          <button class="rounded-md border border-white/20 px-3 py-2 text-sm font-semibold text-zinc-100 hover:border-amber-400 hover:text-amber-200" type="button" @click="duplicateSheet">
-            Duplicate
-          </button>
-          <button class="rounded-md border border-red-300/50 px-3 py-2 text-sm font-semibold text-red-100 hover:border-red-300 hover:text-white" type="button" @click="deleteSheet">
-            Delete
-          </button>
-          <button class="rounded-md bg-amber-500 px-4 py-2 text-sm font-semibold text-zinc-950 hover:bg-amber-400" type="button" @click="saveSheet">
-            Save Sheet
-          </button>
-          <input ref="importInput" accept="application/json" class="hidden" type="file" @change="importJson">
-        </div>
-      </div>
-    </section>
-
     <section class="mx-auto grid w-full max-w-[1500px] gap-6 px-4 py-6 sm:px-8 lg:px-10">
       <p v-if="saveMessage" class="rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-900">
         {{ saveMessage }}
       </p>
 
+      <template v-if="isMobileSheetViewport">
+        <div class="sheet-page">
+          <div class="sheet-chrome sheet-chrome--with-actions">
+            <span class="sheet-chrome__title">Traveller Character Sheet</span>
+            <button
+              class="sheet-chrome-actions-toggle"
+              :aria-expanded="mobileSheetActionsOpen"
+              aria-label="Toggle sheet actions"
+              type="button"
+              @click="mobileSheetActionsOpen = !mobileSheetActionsOpen"
+            >
+              <AppIcon name="sliders" />
+            </button>
+          </div>
+          <div v-if="mobileSheetActionsOpen" class="sheet-chrome-actions-menu">
+            <div class="sheet-toolbar">
+              <button aria-label="Import JSON" class="sheet-toolbar-button" title="Import JSON" type="button" @click="openImportPicker">
+                <AppIcon name="import" />
+              </button>
+              <button aria-label="Export JSON" class="sheet-toolbar-button" title="Export JSON" type="button" @click="exportJson">
+                <AppIcon name="export" />
+              </button>
+              <button aria-label="Export PDF Fields" class="sheet-toolbar-button" title="Export PDF Fields" type="button" @click="exportPdfFields">
+                <AppIcon name="briefcase" />
+              </button>
+              <button aria-label="Duplicate Sheet" class="sheet-toolbar-button" title="Duplicate Sheet" type="button" @click="duplicateSheet">
+                <AppIcon name="copy" />
+              </button>
+              <button aria-label="Delete Sheet" class="sheet-toolbar-button sheet-toolbar-button--danger" title="Delete Sheet" type="button" @click="deleteSheet">
+                <AppIcon name="trash" />
+              </button>
+              <button aria-label="Save Sheet" class="sheet-toolbar-button sheet-toolbar-button--primary" title="Save Sheet" type="button" @click="saveSheet">
+                <AppIcon name="save" />
+              </button>
+            </div>
+          </div>
+          <input ref="importInput" accept="application/json" class="hidden" type="file" @change="importJson">
+          <div class="sheet-mobile-nav">
+            <button
+              class="sheet-mobile-nav-toggle hud-link"
+              :aria-expanded="mobileSheetMenuOpen"
+              aria-label="Toggle character sheet sections"
+              type="button"
+              @click="mobileSheetMenuOpen = !mobileSheetMenuOpen"
+            >
+              <span class="sheet-mobile-nav-toggle__label">{{ activeMobileSheetSectionLabel }}</span>
+              <span class="sheet-mobile-nav-toggle__icons">
+                <AppIcon class="sheet-mobile-nav-icon" name="sliders" />
+                <span class="sheet-mobile-nav-toggle__chevron" :class="{ 'is-open': mobileSheetMenuOpen }" aria-hidden="true" />
+              </span>
+            </button>
+
+            <div v-if="mobileSheetMenuOpen" class="sheet-mobile-nav-menu">
+              <button
+                v-for="section in mobileSheetSections"
+                :key="section.id"
+                class="sheet-mobile-nav-option"
+                :class="{ 'is-active': activeMobileSheetSection === section.id }"
+                type="button"
+                @click="selectMobileSheetSection(section.id)"
+              >
+                {{ section.label }}
+              </button>
+            </div>
+          </div>
+
+          <div class="sheet-mobile-content">
+            <template v-if="activeMobileSheetSection === 'profile'">
+              <section class="sheet-panel sheet-panel--personal">
+                <header class="sheet-panel-title sheet-panel-title--compact">Personal Data File</header>
+                <div class="sheet-personal-grid">
+                  <label class="sheet-line-field sheet-line-field--personal sheet-line-field--emphasis">
+                    <span>Name:</span>
+                    <input v-model="draft.identity.name" class="sheet-line-input">
+                  </label>
+                  <label class="sheet-line-field sheet-line-field--personal">
+                    <span>Title:</span>
+                    <input v-model="draft.identity.title" class="sheet-line-input">
+                  </label>
+                  <div class="sheet-personal-split">
+                    <label class="sheet-line-field sheet-line-field--personal">
+                      <span>Age:</span>
+                      <input v-model.number="draft.identity.age" class="sheet-line-input" min="0" type="number">
+                    </label>
+                    <label class="sheet-line-field sheet-line-field--personal">
+                      <span>Species:</span>
+                      <input v-model="draft.identity.species" class="sheet-line-input">
+                    </label>
+                  </div>
+                  <label class="sheet-line-field sheet-line-field--personal">
+                    <span>Homeworld:</span>
+                    <input v-model="draft.identity.homeworld" class="sheet-line-input">
+                  </label>
+                  <label class="sheet-line-field sheet-line-field--personal">
+                    <span>Traits:</span>
+                    <input v-model="draft.identity.traits" class="sheet-line-input">
+                  </label>
+                </div>
+              </section>
+
+              <section class="sheet-panel">
+                <div class="sheet-distinguishing-label">Distinguishing Features:</div>
+                <div class="sheet-portrait-block">
+                  <div
+                    class="sheet-portrait-frame"
+                    :class="{ 'sheet-portrait-frame--dragging': isPortraitDragActive }"
+                    tabindex="0"
+                    role="button"
+                    aria-label="Upload portrait"
+                    @click="openPortraitPicker"
+                    @keydown.enter.prevent="openPortraitPicker"
+                    @keydown.space.prevent="openPortraitPicker"
+                    @dragenter.prevent="isPortraitDragActive = true"
+                    @dragover.prevent="isPortraitDragActive = true"
+                    @dragleave.prevent="isPortraitDragActive = false"
+                    @drop="handlePortraitDrop"
+                  >
+                    <button
+                      v-if="draft.identity.portraitDataUrl"
+                      class="sheet-portrait-clear"
+                      type="button"
+                      aria-label="Remove portrait"
+                      @click.stop="requestClearPortrait"
+                    >
+                      <AppIcon name="close" />
+                    </button>
+                    <div
+                      v-if="portraitClearConfirmOpen"
+                      class="sheet-portrait-confirm"
+                      @click.stop
+                    >
+                      <p class="sheet-portrait-confirm-text">Remove portrait?</p>
+                      <div class="sheet-portrait-confirm-actions">
+                        <button class="sheet-portrait-confirm-button" type="button" @click="cancelClearPortrait">
+                          Cancel
+                        </button>
+                        <button class="sheet-portrait-confirm-button sheet-portrait-confirm-button--danger" type="button" @click="confirmClearPortrait">
+                          Remove
+                        </button>
+                      </div>
+                    </div>
+                    <img
+                      v-if="draft.identity.portraitDataUrl"
+                      :src="draft.identity.portraitDataUrl"
+                      alt="Traveller portrait"
+                      class="sheet-portrait-image"
+                    >
+                    <div v-else class="sheet-portrait-placeholder">
+                      <span class="sheet-portrait-placeholder-icons">
+                        <AppIcon class="sheet-portrait-icon sheet-portrait-icon--primary sheet-portrait-icon--large" name="portrait" />
+                      </span>
+                    </div>
+                  </div>
+                  <input
+                    ref="portraitInput"
+                    accept="image/*"
+                    class="hidden"
+                    type="file"
+                    @change="importPortrait"
+                  >
+                </div>
+              </section>
+            </template>
+
+            <section v-else-if="activeMobileSheetSection === 'stats'" class="sheet-characteristics-panel sheet-characteristics-panel--mobile">
+              <div
+                v-for="id in characteristicIds"
+                :key="id"
+                class="sheet-characteristic"
+              >
+                <span class="sheet-characteristic-label">{{ draft.characteristics[id].abbreviation }}</span>
+                <div class="sheet-stat-entry">
+                  <input
+                    :value="draft.characteristics[id].value"
+                    class="sheet-hex-input"
+                    inputmode="numeric"
+                    pattern="[0-9]*"
+                    type="text"
+                    @input="handleCharacteristicInput(id, $event)"
+                  >
+                  <div class="sheet-stepper">
+                    <button class="sheet-stepper-button" type="button" @click="adjustCharacteristicValue(id, 1)">
+                      <AppIcon class="sheet-stepper-icon sheet-stepper-icon--up" name="arrow" />
+                    </button>
+                    <button class="sheet-stepper-button" type="button" @click="adjustCharacteristicValue(id, -1)">
+                      <AppIcon class="sheet-stepper-icon sheet-stepper-icon--down" name="arrow" />
+                    </button>
+                  </div>
+                </div>
+                <div class="sheet-dm-block">
+                  <input :value="formatDm(draft.characteristics[id].dm)" class="sheet-dm-input" readonly>
+                  <span>DM</span>
+                </div>
+              </div>
+            </section>
+
+            <section v-else-if="activeMobileSheetSection === 'skills'" class="sheet-panel sheet-panel--skills">
+              <header class="sheet-panel-title sheet-panel-title--side">Skills</header>
+              <div class="sheet-skills-grid">
+                <div v-for="(column, columnIndex) in skillColumns" :key="`mobile-skills-${columnIndex}`" class="sheet-skill-column">
+                  <div
+                    v-for="entry in column"
+                    :key="entry.id"
+                    class="sheet-skill-row"
+                    :class="{ 'sheet-skill-row--placeholder': 'placeholder' in entry }"
+                  >
+                    <template v-if="'placeholder' in entry">
+                      <span class="sheet-skill-line"></span>
+                      <span class="sheet-skill-level"></span>
+                    </template>
+                    <template v-else>
+                      <input v-model="entry.name" class="sheet-skill-name" placeholder="Skill">
+                      <input v-model.number="entry.level" class="sheet-skill-level-input" placeholder="0" type="number">
+                    </template>
+                  </div>
+                </div>
+                <div class="sheet-training-box">
+                  <div class="sheet-training-title">Training</div>
+                  <label class="sheet-line-field sheet-line-field--stacked">
+                    <span>Skill:</span>
+                    <input :value="trainingSkill?.name ?? ''" class="sheet-line-input" readonly>
+                  </label>
+                  <label class="sheet-line-field sheet-line-field--stacked">
+                    <span>Completed Weeks:</span>
+                    <input class="sheet-line-input" readonly>
+                  </label>
+                  <label class="sheet-line-field sheet-line-field--stacked">
+                    <span>Completed Study Periods:</span>
+                    <input class="sheet-line-input" readonly>
+                  </label>
+                  <button class="sheet-add sheet-add--inline" type="button" @click="addSkill">Add Skill</button>
+                </div>
+              </div>
+            </section>
+
+            <template v-else-if="activeMobileSheetSection === 'loadout'">
+              <section class="sheet-panel sheet-panel--vertical">
+                <header class="sheet-panel-title sheet-panel-title--side">Augments</header>
+                <div class="sheet-table">
+                  <div class="sheet-table-body">
+                    <div v-for="(augment, index) in draft.augments" :key="augment.id" class="sheet-table-row sheet-table-row--augments">
+                      <div class="sheet-cell-stack">
+                        <input v-model="augment.name" class="sheet-cell-input" placeholder="Name">
+                        <input v-model="augment.traits" class="sheet-cell-input" placeholder="Traits">
+                      </div>
+                      <div class="sheet-meta-grid sheet-meta-grid--augment">
+                        <input v-model="augment.type" class="sheet-cell-input" placeholder="Type">
+                        <input v-model="augment.techLevel" class="sheet-cell-input" placeholder="TL">
+                      </div>
+                      <button aria-label="Remove augment" class="sheet-remove" title="Remove augment" type="button" @click="removeAugment(index)">
+                        <AppIcon name="close" />
+                      </button>
+                    </div>
+                    <button class="sheet-add" type="button" @click="addAugment">Add Augment</button>
+                  </div>
+                </div>
+              </section>
+
+              <section class="sheet-panel sheet-panel--vertical">
+                <header class="sheet-panel-title sheet-panel-title--side">Armour</header>
+                <div class="sheet-table">
+                  <div class="sheet-table-body">
+                    <div v-for="(armour, index) in draft.armour" :key="armour.id" class="sheet-table-row sheet-table-row--armour">
+                      <div class="sheet-cell-stack">
+                        <input v-model="armour.name" class="sheet-cell-input" placeholder="Name">
+                        <input v-model="armour.type" class="sheet-cell-input" placeholder="Type">
+                      </div>
+                      <div class="sheet-meta-grid sheet-meta-grid--armour">
+                        <input v-model="armour.radiationProtection" class="sheet-cell-input" placeholder="Rad">
+                        <input v-model="armour.protection" class="sheet-cell-input" placeholder="Protection">
+                        <input v-model="armour.kg" class="sheet-cell-input" placeholder="Kg">
+                      </div>
+                      <div class="sheet-cell-stack">
+                        <input v-model="armour.options" class="sheet-cell-input" placeholder="Options">
+                        <input v-model="armour.traits" class="sheet-cell-input" placeholder="Traits">
+                      </div>
+                      <button aria-label="Remove armour" class="sheet-remove" title="Remove armour" type="button" @click="removeArmour(index)">
+                        <AppIcon name="close" />
+                      </button>
+                    </div>
+                    <button class="sheet-add" type="button" @click="addArmour">Add Armour</button>
+                  </div>
+                </div>
+              </section>
+
+              <section class="sheet-panel sheet-panel--vertical">
+                <header class="sheet-panel-title sheet-panel-title--side">Weapons</header>
+                <div class="sheet-table">
+                  <div class="sheet-table-body">
+                    <div v-for="(weapon, index) in draft.weapons" :key="weapon.id" class="sheet-table-row sheet-table-row--weapons">
+                      <input v-model="weapon.name" class="sheet-cell-input" placeholder="Name">
+                      <div class="sheet-meta-grid sheet-meta-grid--weapon">
+                        <input v-model="weapon.techLevel" class="sheet-cell-input" placeholder="TL">
+                        <input v-model="weapon.range" class="sheet-cell-input" placeholder="Range">
+                        <input v-model="weapon.damage" class="sheet-cell-input" placeholder="Damage">
+                        <input v-model="weapon.kg" class="sheet-cell-input" placeholder="Kg">
+                        <input v-model="weapon.magazine" class="sheet-cell-input" placeholder="Mag">
+                      </div>
+                      <div class="sheet-cell-stack">
+                        <input v-model="weapon.traits" class="sheet-cell-input" placeholder="Traits">
+                        <input v-model="weapon.notes" class="sheet-cell-input" placeholder="Notes">
+                      </div>
+                      <button aria-label="Remove weapon" class="sheet-remove" title="Remove weapon" type="button" @click="removeWeapon(index)">
+                        <AppIcon name="close" />
+                      </button>
+                    </div>
+                    <button class="sheet-add" type="button" @click="addWeapon">Add Weapon</button>
+                  </div>
+                </div>
+              </section>
+
+              <section class="sheet-panel sheet-panel--vertical">
+                <header class="sheet-panel-title sheet-panel-title--side">Equipment</header>
+                <div class="sheet-table">
+                  <div class="sheet-table-body">
+                    <div v-for="(item, index) in draft.equipment" :key="item.id" class="sheet-table-row sheet-table-row--equipment">
+                      <div class="sheet-cell-stack">
+                        <input v-model="item.name" class="sheet-cell-input" placeholder="Name">
+                        <input v-model="item.traits" class="sheet-cell-input" placeholder="Type / traits">
+                      </div>
+                      <div class="sheet-meta-grid sheet-meta-grid--equipment">
+                        <input v-model="item.techLevel" class="sheet-cell-input" placeholder="TL">
+                        <input v-model="item.kg" class="sheet-cell-input" placeholder="Kg">
+                      </div>
+                      <input v-model="item.notes" class="sheet-cell-input" placeholder="Notes">
+                      <button aria-label="Remove equipment" class="sheet-remove" title="Remove equipment" type="button" @click="removeEquipment(index)">
+                        <AppIcon name="close" />
+                      </button>
+                    </div>
+                    <button class="sheet-add" type="button" @click="addEquipment">Add Equipment</button>
+                  </div>
+                </div>
+              </section>
+            </template>
+
+            <template v-else-if="activeMobileSheetSection === 'career'">
+              <section class="sheet-panel">
+                <header class="sheet-panel-title sheet-panel-title--compact">Careers</header>
+                <div class="sheet-table">
+                  <div class="sheet-table-header sheet-table-header--careers">
+                    <span>Term</span>
+                    <span>Career</span>
+                    <span>Surv.</span>
+                    <span>Adv.</span>
+                    <span>Rank</span>
+                    <span>Notes</span>
+                  </div>
+                  <div class="sheet-table-body">
+                    <div v-for="(term, index) in draft.careers" :key="`mobile-${term.termNumber}-${index}`" class="sheet-table-row sheet-table-row--careers">
+                      <input v-model.number="term.termNumber" class="sheet-cell-input" type="number">
+                      <input v-model="term.summary" class="sheet-cell-input" placeholder="Career / assignment">
+                      <input :value="term.rolls.find((roll) => roll.label === 'Survival')?.total ?? ''" class="sheet-cell-input" readonly>
+                      <input :value="term.rolls.find((roll) => roll.label === 'Advancement')?.total ?? ''" class="sheet-cell-input" readonly>
+                      <input :value="`${term.startAge}-${term.endAge}`" class="sheet-cell-input" readonly>
+                      <input :value="term.details.join(' | ')" class="sheet-cell-input" placeholder="Notes" readonly>
+                      <button aria-label="Remove career" class="sheet-remove" title="Remove career" type="button" @click="removeCareer(index)">
+                        <AppIcon name="close" />
+                      </button>
+                    </div>
+                    <button class="sheet-add" type="button" @click="addCareer">Add Career</button>
+                  </div>
+                </div>
+              </section>
+
+              <section class="sheet-panel">
+                <header class="sheet-panel-title sheet-panel-title--compact">History &amp; Background</header>
+                <textarea v-model="historyBackgroundLines" class="sheet-textarea sheet-textarea--history" />
+              </section>
+            </template>
+
+            <template v-else-if="activeMobileSheetSection === 'network'">
+              <section
+                v-for="group in associateGroups"
+                :key="`mobile-${group.id}`"
+                class="sheet-panel"
+              >
+                <header class="sheet-panel-title sheet-panel-title--compact sheet-panel-title--actionable">
+                  <span>{{ group.label }}</span>
+                  <button
+                    :aria-label="`Add ${associateActionLabels[group.id]}`"
+                    class="sheet-panel-action"
+                    :title="`Add ${associateActionLabels[group.id]}`"
+                    type="button"
+                    @click="addAssociate(group.id)"
+                  >
+                    <AppIcon name="plus" />
+                  </button>
+                </header>
+                <div class="sheet-table">
+                  <div class="sheet-table-header sheet-table-header--associates">
+                    <span>Name</span>
+                    <span>Notes</span>
+                  </div>
+                  <div class="sheet-table-body">
+                    <div v-for="(associate, index) in draft.associates[group.id]" :key="associate.id" class="sheet-table-row sheet-table-row--associates">
+                      <input v-model="associate.name" class="sheet-cell-input" placeholder="Name">
+                      <input v-model="associate.notes" class="sheet-cell-input" placeholder="Notes">
+                      <button :aria-label="`Remove ${associateActionLabels[group.id].toLowerCase()}`" class="sheet-remove" :title="`Remove ${associateActionLabels[group.id].toLowerCase()}`" type="button" @click="removeAssociate(group.id, index)">
+                        <AppIcon name="close" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </section>
+            </template>
+
+            <template v-else-if="activeMobileSheetSection === 'status'">
+              <section class="sheet-panel">
+                <header class="sheet-panel-title sheet-panel-title--compact">Finances</header>
+                <div class="sheet-finance-grid">
+                  <label class="sheet-line-field sheet-line-field--stacked sheet-line-field--emphasis">
+                    <span>Cash:</span>
+                    <input v-model.number="draft.finances.cashOnHand" class="sheet-line-input" type="number">
+                  </label>
+                  <label class="sheet-line-field sheet-line-field--stacked sheet-line-field--emphasis">
+                    <span>Monthly Cash Flow:</span>
+                    <input v-model="draft.finances.monthlyCashFlow" class="sheet-line-input">
+                  </label>
+                  <label class="sheet-line-field sheet-line-field--stacked">
+                    <span>Ship Shares:</span>
+                    <input v-model.number="draft.finances.shipShares" class="sheet-line-input" type="number">
+                  </label>
+                  <label class="sheet-line-field sheet-line-field--stacked">
+                    <span>Income:</span>
+                    <input v-model="draft.finances.income" class="sheet-line-input">
+                  </label>
+                  <label class="sheet-line-field sheet-line-field--stacked">
+                    <span>Living Costs:</span>
+                    <input v-model="draft.finances.livingCosts" class="sheet-line-input">
+                  </label>
+                  <label class="sheet-line-field sheet-line-field--stacked">
+                    <span>Debt:</span>
+                    <input v-model.number="draft.finances.debt" class="sheet-line-input" type="number">
+                  </label>
+                  <label class="sheet-line-field sheet-line-field--stacked">
+                    <span>Annual Pension:</span>
+                    <input v-model="draft.finances.annualPension" class="sheet-line-input">
+                  </label>
+                  <label class="sheet-line-field sheet-line-field--stacked">
+                    <span>Ship Payments:</span>
+                    <input v-model="draft.finances.shipPayments" class="sheet-line-input">
+                  </label>
+                </div>
+              </section>
+
+              <section class="sheet-panel">
+                <header class="sheet-panel-title sheet-panel-title--compact">Wounds</header>
+                <div class="sheet-table">
+                  <div class="sheet-table-header sheet-table-header--wounds">
+                    <span>Type</span>
+                    <span>Location</span>
+                    <span>Recovery Period</span>
+                    <span>Notes</span>
+                  </div>
+                  <div class="sheet-table-body">
+                    <div v-for="(wound, index) in draft.wounds" :key="wound.id" class="sheet-table-row sheet-table-row--wounds">
+                      <input v-model="wound.type" class="sheet-cell-input" placeholder="Type">
+                      <input v-model="wound.location" class="sheet-cell-input" placeholder="Location">
+                      <input v-model="wound.recoveryPeriod" class="sheet-cell-input" placeholder="Recovery">
+                      <input v-model="wound.notes" class="sheet-cell-input" placeholder="Notes">
+                      <button aria-label="Remove wound" class="sheet-remove" title="Remove wound" type="button" @click="removeWound(index)">
+                        <AppIcon name="close" />
+                      </button>
+                    </div>
+                    <button class="sheet-add" type="button" @click="addWound">Add Wound</button>
+                  </div>
+                </div>
+              </section>
+            </template>
+          </div>
+        </div>
+      </template>
+
+      <template v-else>
       <div class="sheet-page">
-        <div class="sheet-chrome">Traveller Character Sheet</div>
+        <div class="sheet-chrome sheet-chrome--with-actions">
+          <span class="sheet-chrome__title">Traveller Character Sheet</span>
+          <div class="sheet-toolbar">
+            <button aria-label="Import JSON" class="sheet-toolbar-button" title="Import JSON" type="button" @click="openImportPicker">
+              <AppIcon name="import" />
+            </button>
+            <button aria-label="Export JSON" class="sheet-toolbar-button" title="Export JSON" type="button" @click="exportJson">
+              <AppIcon name="export" />
+            </button>
+            <button aria-label="Export PDF Fields" class="sheet-toolbar-button" title="Export PDF Fields" type="button" @click="exportPdfFields">
+              <AppIcon name="briefcase" />
+            </button>
+            <button aria-label="Duplicate Sheet" class="sheet-toolbar-button" title="Duplicate Sheet" type="button" @click="duplicateSheet">
+              <AppIcon name="copy" />
+            </button>
+            <button aria-label="Delete Sheet" class="sheet-toolbar-button sheet-toolbar-button--danger" title="Delete Sheet" type="button" @click="deleteSheet">
+              <AppIcon name="trash" />
+            </button>
+            <button aria-label="Save Sheet" class="sheet-toolbar-button sheet-toolbar-button--primary" title="Save Sheet" type="button" @click="saveSheet">
+              <AppIcon name="save" />
+            </button>
+          </div>
+          <input ref="importInput" accept="application/json" class="hidden" type="file" @change="importJson">
+        </div>
         <div class="sheet-page-grid sheet-page-grid--front">
           <div class="sheet-page-left">
             <section class="sheet-panel sheet-panel--vertical">
               <header class="sheet-panel-title sheet-panel-title--side">Augments</header>
               <div class="sheet-table">
-                <div class="sheet-table-header sheet-table-header--augments">
-                  <span>Type</span>
-                  <span>TL</span>
-                  <span>Traits</span>
-                </div>
                 <div class="sheet-table-body">
                   <div v-for="(augment, index) in draft.augments" :key="augment.id" class="sheet-table-row sheet-table-row--augments">
-                    <input v-model="augment.type" class="sheet-cell-input" placeholder="Type">
-                    <input v-model="augment.techLevel" class="sheet-cell-input" placeholder="TL">
                     <div class="sheet-cell-stack">
                       <input v-model="augment.name" class="sheet-cell-input" placeholder="Name">
                       <input v-model="augment.traits" class="sheet-cell-input" placeholder="Traits">
                     </div>
-                    <button class="sheet-remove" type="button" @click="removeAugment(index)">Remove</button>
+                    <div class="sheet-meta-grid sheet-meta-grid--augment">
+                      <input v-model="augment.type" class="sheet-cell-input" placeholder="Type">
+                      <input v-model="augment.techLevel" class="sheet-cell-input" placeholder="TL">
+                    </div>
+                    <button aria-label="Remove augment" class="sheet-remove" title="Remove augment" type="button" @click="removeAugment(index)">
+                      <AppIcon name="close" />
+                    </button>
                   </div>
                   <button class="sheet-add" type="button" @click="addAugment">Add Augment</button>
                 </div>
@@ -462,27 +965,24 @@ watch(
             <section class="sheet-panel sheet-panel--vertical">
               <header class="sheet-panel-title sheet-panel-title--side">Armour</header>
               <div class="sheet-table">
-                <div class="sheet-table-header sheet-table-header--armour">
-                  <span>Type</span>
-                  <span>Rad.</span>
-                  <span>Protection</span>
-                  <span>Kg</span>
-                  <span>Options</span>
-                </div>
                 <div class="sheet-table-body">
                   <div v-for="(armour, index) in draft.armour" :key="armour.id" class="sheet-table-row sheet-table-row--armour">
                     <div class="sheet-cell-stack">
                       <input v-model="armour.name" class="sheet-cell-input" placeholder="Name">
                       <input v-model="armour.type" class="sheet-cell-input" placeholder="Type">
                     </div>
-                    <input v-model="armour.radiationProtection" class="sheet-cell-input" placeholder="Rad">
-                    <input v-model="armour.protection" class="sheet-cell-input" placeholder="Protection">
-                    <input v-model="armour.kg" class="sheet-cell-input" placeholder="Kg">
+                    <div class="sheet-meta-grid sheet-meta-grid--armour">
+                      <input v-model="armour.radiationProtection" class="sheet-cell-input" placeholder="Rad">
+                      <input v-model="armour.protection" class="sheet-cell-input" placeholder="Protection">
+                      <input v-model="armour.kg" class="sheet-cell-input" placeholder="Kg">
+                    </div>
                     <div class="sheet-cell-stack">
                       <input v-model="armour.options" class="sheet-cell-input" placeholder="Options">
                       <input v-model="armour.traits" class="sheet-cell-input" placeholder="Traits">
                     </div>
-                    <button class="sheet-remove" type="button" @click="removeArmour(index)">Remove</button>
+                    <button aria-label="Remove armour" class="sheet-remove" title="Remove armour" type="button" @click="removeArmour(index)">
+                      <AppIcon name="close" />
+                    </button>
                   </div>
                   <button class="sheet-add" type="button" @click="addArmour">Add Armour</button>
                 </div>
@@ -492,30 +992,23 @@ watch(
             <section class="sheet-panel sheet-panel--vertical">
               <header class="sheet-panel-title sheet-panel-title--side">Weapons</header>
               <div class="sheet-table">
-                <div class="sheet-table-header sheet-table-header--weapons">
-                  <span>Type</span>
-                  <span>TL</span>
-                  <span>Range</span>
-                  <span>Damage</span>
-                  <span>Kg</span>
-                  <span>Mag.</span>
-                  <span>Traits</span>
-                </div>
                 <div class="sheet-table-body">
                   <div v-for="(weapon, index) in draft.weapons" :key="weapon.id" class="sheet-table-row sheet-table-row--weapons">
-                    <div class="sheet-cell-stack">
-                      <input v-model="weapon.name" class="sheet-cell-input" placeholder="Name">
+                    <input v-model="weapon.name" class="sheet-cell-input" placeholder="Name">
+                    <div class="sheet-meta-grid sheet-meta-grid--weapon">
+                      <input v-model="weapon.techLevel" class="sheet-cell-input" placeholder="TL">
+                      <input v-model="weapon.range" class="sheet-cell-input" placeholder="Range">
+                      <input v-model="weapon.damage" class="sheet-cell-input" placeholder="Damage">
+                      <input v-model="weapon.kg" class="sheet-cell-input" placeholder="Kg">
+                      <input v-model="weapon.magazine" class="sheet-cell-input" placeholder="Mag">
                     </div>
-                    <input v-model="weapon.techLevel" class="sheet-cell-input" placeholder="TL">
-                    <input v-model="weapon.range" class="sheet-cell-input" placeholder="Range">
-                    <input v-model="weapon.damage" class="sheet-cell-input" placeholder="Damage">
-                    <input v-model="weapon.kg" class="sheet-cell-input" placeholder="Kg">
-                    <input v-model="weapon.magazine" class="sheet-cell-input" placeholder="Mag">
                     <div class="sheet-cell-stack">
                       <input v-model="weapon.traits" class="sheet-cell-input" placeholder="Traits">
                       <input v-model="weapon.notes" class="sheet-cell-input" placeholder="Notes">
                     </div>
-                    <button class="sheet-remove" type="button" @click="removeWeapon(index)">Remove</button>
+                    <button aria-label="Remove weapon" class="sheet-remove" title="Remove weapon" type="button" @click="removeWeapon(index)">
+                      <AppIcon name="close" />
+                    </button>
                   </div>
                   <button class="sheet-add" type="button" @click="addWeapon">Add Weapon</button>
                 </div>
@@ -525,22 +1018,20 @@ watch(
             <section class="sheet-panel sheet-panel--vertical">
               <header class="sheet-panel-title sheet-panel-title--side">Equipment</header>
               <div class="sheet-table">
-                <div class="sheet-table-header sheet-table-header--equipment">
-                  <span>Type</span>
-                  <span>TL</span>
-                  <span>Kg</span>
-                  <span>Notes</span>
-                </div>
                 <div class="sheet-table-body">
                   <div v-for="(item, index) in draft.equipment" :key="item.id" class="sheet-table-row sheet-table-row--equipment">
                     <div class="sheet-cell-stack">
                       <input v-model="item.name" class="sheet-cell-input" placeholder="Name">
                       <input v-model="item.traits" class="sheet-cell-input" placeholder="Type / traits">
                     </div>
-                    <input v-model="item.techLevel" class="sheet-cell-input" placeholder="TL">
-                    <input v-model="item.kg" class="sheet-cell-input" placeholder="Kg">
+                    <div class="sheet-meta-grid sheet-meta-grid--equipment">
+                      <input v-model="item.techLevel" class="sheet-cell-input" placeholder="TL">
+                      <input v-model="item.kg" class="sheet-cell-input" placeholder="Kg">
+                    </div>
                     <input v-model="item.notes" class="sheet-cell-input" placeholder="Notes">
-                    <button class="sheet-remove" type="button" @click="removeEquipment(index)">Remove</button>
+                    <button aria-label="Remove equipment" class="sheet-remove" title="Remove equipment" type="button" @click="removeEquipment(index)">
+                      <AppIcon name="close" />
+                    </button>
                   </div>
                   <button class="sheet-add" type="button" @click="addEquipment">Add Equipment</button>
                 </div>
@@ -777,7 +1268,9 @@ watch(
                     <input v-model="wound.location" class="sheet-cell-input" placeholder="Location">
                     <input v-model="wound.recoveryPeriod" class="sheet-cell-input" placeholder="Recovery">
                     <input v-model="wound.notes" class="sheet-cell-input" placeholder="Notes">
-                    <button class="sheet-remove" type="button" @click="removeWound(index)">Remove</button>
+                    <button aria-label="Remove wound" class="sheet-remove" title="Remove wound" type="button" @click="removeWound(index)">
+                      <AppIcon name="close" />
+                    </button>
                   </div>
                   <button class="sheet-add" type="button" @click="addWound">Add Wound</button>
                 </div>
@@ -803,7 +1296,9 @@ watch(
                     <input :value="term.rolls.find((roll) => roll.label === 'Advancement')?.total ?? ''" class="sheet-cell-input" readonly>
                     <input :value="`${term.startAge}-${term.endAge}`" class="sheet-cell-input" readonly>
                     <input :value="term.details.join(' | ')" class="sheet-cell-input" placeholder="Notes" readonly>
-                    <button class="sheet-remove" type="button" @click="removeCareer(index)">Remove</button>
+                    <button aria-label="Remove career" class="sheet-remove" title="Remove career" type="button" @click="removeCareer(index)">
+                      <AppIcon name="close" />
+                    </button>
                   </div>
                   <button class="sheet-add" type="button" @click="addCareer">Add Career</button>
                 </div>
@@ -827,7 +1322,18 @@ watch(
               :key="group.id"
               class="sheet-panel"
             >
-              <header class="sheet-panel-title sheet-panel-title--compact">{{ group.label }}</header>
+              <header class="sheet-panel-title sheet-panel-title--compact sheet-panel-title--actionable">
+                <span>{{ group.label }}</span>
+                <button
+                  :aria-label="`Add ${associateActionLabels[group.id]}`"
+                  class="sheet-panel-action"
+                  :title="`Add ${associateActionLabels[group.id]}`"
+                  type="button"
+                  @click="addAssociate(group.id)"
+                >
+                  <AppIcon name="plus" />
+                </button>
+              </header>
               <div class="sheet-table">
                 <div class="sheet-table-header sheet-table-header--associates">
                   <span>Name</span>
@@ -837,15 +1343,17 @@ watch(
                   <div v-for="(associate, index) in draft.associates[group.id]" :key="associate.id" class="sheet-table-row sheet-table-row--associates">
                     <input v-model="associate.name" class="sheet-cell-input" placeholder="Name">
                     <input v-model="associate.notes" class="sheet-cell-input" placeholder="Notes">
-                    <button class="sheet-remove" type="button" @click="removeAssociate(group.id, index)">Remove</button>
+                    <button :aria-label="`Remove ${associateActionLabels[group.id].toLowerCase()}`" class="sheet-remove" :title="`Remove ${associateActionLabels[group.id].toLowerCase()}`" type="button" @click="removeAssociate(group.id, index)">
+                      <AppIcon name="close" />
+                    </button>
                   </div>
-                  <button class="sheet-add" type="button" @click="addAssociate(group.id)">Add {{ associateButtonLabels[group.id] }}</button>
                 </div>
               </div>
             </section>
           </div>
         </div>
       </div>
+      </template>
     </section>
   </main>
 </template>
@@ -890,6 +1398,178 @@ watch(
   text-transform: uppercase;
   letter-spacing: 0.03em;
   text-shadow: 0 0 16px rgba(34, 211, 238, 0.28);
+}
+
+.sheet-chrome--with-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.sheet-chrome__title {
+  min-width: 0;
+}
+
+.sheet-chrome-actions-toggle {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border: 1px solid rgba(34, 211, 238, 0.34);
+  border-radius: 10px 0 10px 0;
+  clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px));
+  background:
+    linear-gradient(180deg, rgba(8, 18, 32, 0.86), rgba(3, 7, 18, 0.9)),
+    radial-gradient(circle at 0 0, rgba(34, 211, 238, 0.14), transparent 8rem);
+  color: #67e8f9;
+}
+
+.sheet-chrome-actions-menu {
+  padding: 12px 16px 0;
+}
+
+.sheet-mobile-nav {
+  display: grid;
+  gap: 10px;
+  padding: 14px 16px 0;
+}
+
+.sheet-mobile-nav-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  min-height: 44px;
+  padding: 0.75rem 0.9rem;
+  border: 1px solid rgba(34, 211, 238, 0.32);
+  border-radius: 10px 0 10px 0;
+  clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px));
+}
+
+.sheet-mobile-nav-toggle__label {
+  color: #e0f2fe;
+  font-size: 0.9rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.sheet-mobile-nav-toggle__icons {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #67e8f9;
+}
+
+.sheet-mobile-nav-icon {
+  width: 0.95rem;
+  height: 0.95rem;
+}
+
+.sheet-mobile-nav-toggle__chevron {
+  width: 0.55rem;
+  height: 0.55rem;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(45deg) translateY(-0.1rem);
+  transition: transform 160ms ease;
+}
+
+.sheet-mobile-nav-toggle__chevron.is-open {
+  transform: rotate(225deg) translateY(-0.1rem);
+}
+
+.sheet-mobile-nav-menu {
+  display: grid;
+  gap: 8px;
+}
+
+.sheet-mobile-nav-option {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  min-height: 40px;
+  width: 100%;
+  padding: 0 0.9rem;
+  border: 1px solid rgba(34, 211, 238, 0.22);
+  border-radius: 8px 0 8px 0;
+  clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px));
+  background: rgba(8, 18, 32, 0.72);
+  color: #cbd5e1;
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.sheet-mobile-nav-option.is-active {
+  border-color: rgba(34, 211, 238, 0.48);
+  color: #e0f2fe;
+  box-shadow: 0 0 14px rgba(34, 211, 238, 0.1);
+}
+
+.sheet-mobile-content {
+  display: grid;
+  gap: 12px;
+  padding: 14px 16px 16px;
+}
+
+.sheet-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.sheet-toolbar-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 10px 0 10px 0;
+  clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px));
+  background:
+    linear-gradient(180deg, rgba(8, 18, 32, 0.9), rgba(3, 7, 18, 0.92)),
+    radial-gradient(circle at 0 0, rgba(34, 211, 238, 0.14), transparent 8rem);
+  color: #f4f4f5;
+  transition: border-color 140ms ease, color 140ms ease, box-shadow 140ms ease, background 140ms ease;
+}
+
+.sheet-toolbar-button:hover,
+.sheet-toolbar-button:focus-visible {
+  border-color: rgba(251, 191, 36, 0.62);
+  color: #fde68a;
+  box-shadow: 0 0 16px rgba(34, 211, 238, 0.14);
+  outline: none;
+}
+
+.sheet-toolbar-button--danger {
+  border-color: rgba(252, 165, 165, 0.45);
+  color: #fee2e2;
+}
+
+.sheet-toolbar-button--danger:hover,
+.sheet-toolbar-button--danger:focus-visible {
+  border-color: rgba(248, 113, 113, 0.72);
+  color: #fff;
+  box-shadow: 0 0 16px rgba(248, 113, 113, 0.18);
+}
+
+.sheet-toolbar-button--primary {
+  border-color: rgba(251, 191, 36, 0.55);
+  background:
+    linear-gradient(180deg, rgba(251, 191, 36, 0.92), rgba(245, 158, 11, 0.88));
+  color: #111827;
+}
+
+.sheet-toolbar-button--primary:hover,
+.sheet-toolbar-button--primary:focus-visible {
+  border-color: rgba(253, 224, 71, 0.82);
+  color: #111827;
+  box-shadow: 0 0 18px rgba(251, 191, 36, 0.2);
 }
 
 .sheet-page-grid {
@@ -981,6 +1661,41 @@ watch(
   padding-inline: 12px;
 }
 
+.sheet-panel-title--actionable {
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.sheet-panel-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 2rem;
+  height: 2rem;
+  border: 1px solid rgba(34, 211, 238, 0.32);
+  border-radius: 10px 0 10px 0;
+  clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px));
+  background:
+    linear-gradient(180deg, rgba(10, 18, 32, 0.92), rgba(4, 10, 22, 0.92)),
+    radial-gradient(circle at 0 0, rgba(34, 211, 238, 0.1), transparent 5rem);
+  color: #67e8f9;
+  box-shadow:
+    inset 0 0 0 1px rgba(34, 211, 238, 0.05),
+    0 0 0 rgba(34, 211, 238, 0);
+  transition: border-color 140ms ease, color 140ms ease, box-shadow 140ms ease, background 140ms ease;
+}
+
+.sheet-panel-action:hover,
+.sheet-panel-action:focus-visible {
+  border-color: rgba(34, 211, 238, 0.72);
+  color: #cffafe;
+  box-shadow:
+    inset 0 0 0 1px rgba(34, 211, 238, 0.08),
+    0 0 18px rgba(34, 211, 238, 0.14);
+  outline: none;
+}
+
 .sheet-table-header {
   display: grid;
   gap: 10px;
@@ -993,10 +1708,6 @@ watch(
   text-shadow: 0 0 10px rgba(251, 191, 36, 0.12);
 }
 
-.sheet-table-header--augments { grid-template-columns: 1.2fr 0.25fr 1.6fr; }
-.sheet-table-header--armour { grid-template-columns: 1.2fr 0.4fr 0.6fr 0.35fr 1.15fr; }
-.sheet-table-header--weapons { grid-template-columns: 1.2fr 0.35fr 0.55fr 0.55fr 0.35fr 0.4fr 1.3fr; }
-.sheet-table-header--equipment { grid-template-columns: 1.1fr 0.25fr 0.35fr 1.25fr; }
 .sheet-table-header--wounds { grid-template-columns: 0.7fr 0.7fr 0.9fr 1fr; }
 .sheet-table-header--careers { grid-template-columns: 0.35fr 1.4fr 0.35fr 0.35fr 0.45fr 1.1fr; }
 .sheet-table-header--associates { grid-template-columns: 1fr 1.1fr; }
@@ -1013,10 +1724,10 @@ watch(
   align-items: start;
 }
 
-.sheet-table-row--augments { grid-template-columns: 1.2fr 0.25fr 1.6fr auto; }
-.sheet-table-row--armour { grid-template-columns: 1.2fr 0.4fr 0.6fr 0.35fr 1.15fr auto; }
-.sheet-table-row--weapons { grid-template-columns: 1.2fr 0.35fr 0.55fr 0.55fr 0.35fr 0.4fr 1.3fr auto; }
-.sheet-table-row--equipment { grid-template-columns: 1.1fr 0.25fr 0.35fr 1.25fr auto; }
+.sheet-table-row--augments { grid-template-columns: minmax(0, 1.7fr) minmax(180px, 0.9fr) auto; }
+.sheet-table-row--armour { grid-template-columns: minmax(0, 1.25fr) minmax(210px, 0.9fr) minmax(0, 1.15fr) auto; }
+.sheet-table-row--weapons { grid-template-columns: minmax(0, 1.2fr) minmax(260px, 1fr) minmax(0, 1.15fr) auto; }
+.sheet-table-row--equipment { grid-template-columns: minmax(0, 1.3fr) minmax(140px, 0.55fr) minmax(0, 1fr) auto; }
 .sheet-table-row--wounds { grid-template-columns: 0.7fr 0.7fr 0.9fr 1fr auto; }
 .sheet-table-row--careers { grid-template-columns: 0.35fr 1.4fr 0.35fr 0.35fr 0.45fr 1.1fr auto; }
 .sheet-table-row--associates { grid-template-columns: 1fr 1.1fr auto; }
@@ -1026,29 +1737,74 @@ watch(
   gap: 6px;
 }
 
+.sheet-meta-grid {
+  display: grid;
+  gap: 6px;
+  align-content: start;
+}
+
+.sheet-meta-grid--augment,
+.sheet-meta-grid--equipment {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.sheet-meta-grid--armour {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.sheet-meta-grid--weapon {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
 .sheet-cell-input,
 .sheet-line-input,
 .sheet-skill-name,
 .sheet-skill-level-input,
-.sheet-hex-input,
-.sheet-dm-input,
 .sheet-textarea {
+  box-sizing: border-box;
   width: 100%;
-  border: none;
-  border-bottom: 1px dotted rgba(103, 232, 249, 0.28);
-  background: transparent;
-  padding: 2px 0 4px;
+  min-height: 2.2rem;
+  border: 1px solid rgba(34, 211, 238, 0.24);
+  border-radius: 10px 0 10px 0;
+  clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px));
+  background:
+    linear-gradient(180deg, rgba(10, 18, 32, 0.9), rgba(4, 10, 22, 0.9)),
+    radial-gradient(circle at 0 0, rgba(34, 211, 238, 0.08), transparent 7rem);
+  padding: 0.42rem 0.65rem 0.48rem;
   color: #e4e4e7;
   outline: none;
+  box-shadow:
+    inset 0 0 0 1px rgba(34, 211, 238, 0.04),
+    0 0 0 rgba(34, 211, 238, 0);
+  transition: border-color 140ms ease, box-shadow 140ms ease, background 140ms ease;
 }
 
 .sheet-cell-input:focus,
 .sheet-line-input:focus,
 .sheet-skill-name:focus,
 .sheet-skill-level-input:focus,
-.sheet-hex-input:focus,
 .sheet-textarea:focus {
-  border-bottom-color: rgba(34, 211, 238, 0.75);
+  border-color: rgba(34, 211, 238, 0.72);
+  box-shadow:
+    inset 0 0 0 1px rgba(34, 211, 238, 0.08),
+    0 0 18px rgba(34, 211, 238, 0.14);
+}
+
+.sheet-cell-input::placeholder,
+.sheet-line-input::placeholder,
+.sheet-skill-name::placeholder,
+.sheet-skill-level-input::placeholder,
+.sheet-textarea::placeholder {
+  color: rgba(148, 163, 184, 0.82);
+}
+
+.sheet-cell-input[readonly],
+.sheet-line-input[readonly],
+.sheet-textarea[readonly] {
+  border-color: rgba(34, 211, 238, 0.16);
+  background:
+    linear-gradient(180deg, rgba(9, 15, 27, 0.82), rgba(5, 10, 19, 0.82));
+  color: rgba(226, 232, 240, 0.92);
 }
 
 .sheet-remove,
@@ -1070,6 +1826,46 @@ watch(
   background:
     linear-gradient(180deg, rgba(34, 211, 238, 0.22), rgba(34, 211, 238, 0.1));
   box-shadow: 0 0 18px rgba(34, 211, 238, 0.14);
+}
+
+.sheet-remove {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  align-self: stretch;
+  min-height: 2.5rem;
+  height: 2.5rem;
+  width: 2.5rem;
+  padding: 0;
+  border-color: rgba(248, 113, 113, 0.38);
+  border-radius: 10px 0 10px 0;
+  clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px));
+  background:
+    linear-gradient(180deg, rgba(56, 12, 18, 0.92), rgba(22, 8, 10, 0.94)),
+    radial-gradient(circle at 0 0, rgba(248, 113, 113, 0.12), transparent 4rem);
+  color: #fecaca;
+  box-shadow:
+    inset 0 0 0 1px rgba(248, 113, 113, 0.05),
+    0 0 0 rgba(248, 113, 113, 0);
+}
+
+.sheet-remove:hover,
+.sheet-remove:focus-visible {
+  border-color: rgba(248, 113, 113, 0.72);
+  background:
+    linear-gradient(180deg, rgba(72, 16, 22, 0.94), rgba(30, 10, 14, 0.96)),
+    radial-gradient(circle at 0 0, rgba(248, 113, 113, 0.18), transparent 4rem);
+  color: #fff1f2;
+  box-shadow:
+    inset 0 0 0 1px rgba(248, 113, 113, 0.08),
+    0 0 18px rgba(248, 113, 113, 0.18);
+  outline: none;
+}
+
+.sheet-remove :deep(svg) {
+  width: 1.1rem;
+  height: 1.1rem;
 }
 
 .sheet-add {
@@ -1313,6 +2109,20 @@ watch(
   align-items: start;
 }
 
+.sheet-characteristics-panel--mobile {
+  padding: 12px 14px 14px;
+  border: 1px solid rgba(34, 211, 238, 0.34);
+  border-radius: 12px 0 12px 0;
+  clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 14px 100%, 0 calc(100% - 14px));
+  background:
+    linear-gradient(180deg, rgba(8, 18, 32, 0.9), rgba(3, 7, 18, 0.9)),
+    radial-gradient(circle at 0 0, rgba(34, 211, 238, 0.08), transparent 16rem);
+  box-shadow:
+    0 0 18px rgba(34, 211, 238, 0.08),
+    0 0 0 1px rgba(34, 211, 238, 0.08) inset,
+    0 12px 24px rgba(0, 0, 0, 0.2);
+}
+
 .sheet-characteristic {
   display: grid;
   gap: 6px;
@@ -1511,10 +2321,41 @@ watch(
 }
 
 @media (max-width: 760px) {
+  .sheet-chrome {
+    font-size: 1rem;
+    white-space: nowrap;
+  }
+
+  .sheet-chrome--with-actions {
+    gap: 0.75rem;
+  }
+
+  .sheet-chrome-actions-toggle {
+    display: inline-flex;
+    flex: 0 0 auto;
+  }
+
+  .sheet-chrome--with-actions .sheet-toolbar {
+    display: none;
+  }
+
   .sheet-page-grid,
   .sheet-page-left,
   .sheet-page-right {
     gap: 12px;
+  }
+
+  .sheet-page-grid--front {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .sheet-page-grid--front .sheet-page-right {
+    order: 1;
+  }
+
+  .sheet-page-grid--front .sheet-page-left {
+    order: 2;
   }
 
   .sheet-panel--vertical,
@@ -1527,9 +2368,23 @@ watch(
     transform: none;
   }
 
+  .sheet-table-header {
+    display: none;
+  }
+
   .sheet-table-header,
   .sheet-table-row {
     grid-template-columns: 1fr !important;
+  }
+
+  .sheet-meta-grid--augment,
+  .sheet-meta-grid--equipment,
+  .sheet-meta-grid--armour {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .sheet-meta-grid--weapon {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .sheet-characteristics-panel {

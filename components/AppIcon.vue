@@ -1,6 +1,6 @@
 <script setup lang="ts">
 const props = defineProps<{
-  name: 'user' | 'portrait' | 'briefcase' | 'wrench' | 'car' | 'bot' | 'rocket' | 'ship' | 'scout-badge' | 'dice' | 'arrow' | 'check' | 'lock' | 'plus' | 'sliders' | 'sort-asc' | 'sort-desc' | 'warning' | 'close' | 'restart'
+  name: 'user' | 'portrait' | 'briefcase' | 'wrench' | 'car' | 'bot' | 'rocket' | 'ship' | 'scout-badge' | 'dice' | 'arrow' | 'check' | 'lock' | 'plus' | 'sliders' | 'sort-asc' | 'sort-desc' | 'warning' | 'close' | 'restart' | 'import' | 'export' | 'copy' | 'trash' | 'save'
 }>()
 
 const paths = {
@@ -138,6 +138,36 @@ const paths = {
   restart: [
     'M20 11a8 8 0 1 0 2 5',
     'M20 4v7h-7',
+  ],
+  import: [
+    'M12 3v12',
+    'M7 10l5 5 5-5',
+    'M5 19h14',
+    'M4 16v4h16v-4',
+  ],
+  export: [
+    'M12 21V9',
+    'M7 14l5-5 5 5',
+    'M5 5h14',
+    'M4 4v4h16V4',
+  ],
+  copy: [
+    'M9 9h10v11H9z',
+    'M5 5h10v2',
+    'M5 5v11h2',
+  ],
+  trash: [
+    'M5 7h14',
+    'M9 7V5h6v2',
+    'M7 7l1 12h8l1-12',
+    'M10 11v5',
+    'M14 11v5',
+  ],
+  save: [
+    'M5 4h12l2 2v14H5z',
+    'M8 4v5h7',
+    'M8 20v-6h8v6',
+    'M15 4v5',
   ],
 }
 </script>
