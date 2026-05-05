@@ -83,6 +83,21 @@ const syncCharacteristicDm = (id: TravellerCharacteristicId) => {
   draft.value.characteristics[id].dm = diceModifier(Number(draft.value.characteristics[id].value) || 0)
 }
 
+const setCharacteristicValue = (id: TravellerCharacteristicId, nextValue: number | string) => {
+  const parsed = Number(nextValue)
+  draft.value.characteristics[id].value = Number.isFinite(parsed) ? Math.max(0, Math.trunc(parsed)) : 0
+  syncCharacteristicDm(id)
+}
+
+const adjustCharacteristicValue = (id: TravellerCharacteristicId, delta: number) => {
+  setCharacteristicValue(id, (Number(draft.value.characteristics[id].value) || 0) + delta)
+}
+
+const handleCharacteristicInput = (id: TravellerCharacteristicId, event: Event) => {
+  const target = event.target as HTMLInputElement | null
+  setCharacteristicValue(id, target?.value ?? 0)
+}
+
 const addSkill = () => {
   draft.value.skills.push({
     id: `manual-skill-${Date.now()}`,
@@ -601,13 +616,24 @@ watch(
                 class="sheet-characteristic"
               >
                 <span class="sheet-characteristic-label">{{ draft.characteristics[id].abbreviation }}</span>
-                <input
-                  v-model.number="draft.characteristics[id].value"
-                  class="sheet-hex-input"
-                  min="0"
-                  type="number"
-                  @change="syncCharacteristicDm(id)"
-                >
+                <div class="sheet-stat-entry">
+                  <input
+                    :value="draft.characteristics[id].value"
+                    class="sheet-hex-input"
+                    inputmode="numeric"
+                    pattern="[0-9]*"
+                    type="text"
+                    @input="handleCharacteristicInput(id, $event)"
+                  >
+                  <div class="sheet-stepper">
+                    <button class="sheet-stepper-button" type="button" @click="adjustCharacteristicValue(id, 1)">
+                      <AppIcon class="sheet-stepper-icon sheet-stepper-icon--up" name="arrow" />
+                    </button>
+                    <button class="sheet-stepper-button" type="button" @click="adjustCharacteristicValue(id, -1)">
+                      <AppIcon class="sheet-stepper-icon sheet-stepper-icon--down" name="arrow" />
+                    </button>
+                  </div>
+                </div>
                 <div class="sheet-dm-block">
                   <input :value="formatDm(draft.characteristics[id].dm)" class="sheet-dm-input" readonly>
                   <span>DM</span>
@@ -1171,6 +1197,13 @@ watch(
   justify-items: center;
 }
 
+.sheet-stat-entry {
+  display: grid;
+  grid-template-columns: auto 24px;
+  align-items: center;
+  gap: 6px;
+}
+
 .sheet-characteristic-label {
   color: #fbbf24;
   font-size: 1.05rem;
@@ -1180,16 +1213,76 @@ watch(
 
 .sheet-hex-input,
 .sheet-dm-input {
-  clip-path: polygon(18% 0, 82% 0, 100% 50%, 82% 100%, 18% 100%, 0 50%);
+  width: 3.7rem;
+  min-width: 3.7rem;
+  height: 2.9rem;
+  clip-path: polygon(24% 0, 76% 0, 100% 50%, 76% 100%, 24% 100%, 0 50%);
   border: 1px solid rgba(34, 211, 238, 0.65);
   border-bottom: 1px solid rgba(34, 211, 238, 0.65);
   background:
     linear-gradient(180deg, rgba(15, 23, 42, 0.96), rgba(8, 13, 24, 0.98));
-  padding: 10px 0;
+  padding: 0;
   text-align: center;
+  line-height: 1;
   font-weight: 700;
   color: #e0f2fe;
   box-shadow: 0 0 0 1px rgba(34, 211, 238, 0.12) inset;
+  justify-self: center;
+  appearance: textfield;
+  font-variant-numeric: tabular-nums;
+}
+
+.sheet-dm-input {
+  width: 3.25rem;
+  min-width: 3.25rem;
+  height: 2.5rem;
+}
+
+.sheet-stepper {
+  display: grid;
+  gap: 4px;
+}
+
+.sheet-stepper-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 18px;
+  border: 1px solid rgba(34, 211, 238, 0.34);
+  border-radius: 8px 0 8px 0;
+  clip-path: polygon(0 0, calc(100% - 7px) 0, 100% 7px, 100% 100%, 7px 100%, 0 calc(100% - 7px));
+  background:
+    linear-gradient(180deg, rgba(8, 18, 32, 0.92), rgba(3, 7, 18, 0.92)),
+    radial-gradient(circle at 0 0, rgba(34, 211, 238, 0.14), transparent 8rem);
+  color: #67e8f9;
+  box-shadow:
+    0 0 0 1px rgba(34, 211, 238, 0.08) inset,
+    0 0 12px rgba(34, 211, 238, 0.08);
+  transition: border-color 140ms ease, color 140ms ease, box-shadow 140ms ease;
+}
+
+.sheet-stepper-button:hover,
+.sheet-stepper-button:focus-visible {
+  border-color: rgba(34, 211, 238, 0.6);
+  color: #e0f2fe;
+  box-shadow:
+    0 0 0 1px rgba(34, 211, 238, 0.12) inset,
+    0 0 16px rgba(34, 211, 238, 0.14);
+  outline: none;
+}
+
+.sheet-stepper-icon {
+  width: 0.8rem;
+  height: 0.8rem;
+}
+
+.sheet-stepper-icon--up {
+  transform: rotate(-90deg);
+}
+
+.sheet-stepper-icon--down {
+  transform: rotate(90deg);
 }
 
 .sheet-dm-block {

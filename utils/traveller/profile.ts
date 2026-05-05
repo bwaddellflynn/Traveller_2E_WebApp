@@ -111,6 +111,5 @@ export const createBlankTravellerProfile = (source: TravellerProfileSource = 'ma
 }
 
 export const cloneTravellerProfile = (profile: TravellerProfile): TravellerProfile => {
-  if (typeof structuredClone === 'function') return structuredClone(profile)
   return JSON.parse(JSON.stringify(profile)) as TravellerProfile
 }
