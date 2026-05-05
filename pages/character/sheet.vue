@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import type { TravellerAssociate, TravellerCharacteristicId, TravellerProfile } from '~/types/traveller'
+import skillsData from '~/data/traveller2e/core/skills.json'
+import type { TravellerAssociate, TravellerCharacteristicId, TravellerProfile, TravellerSkill } from '~/types/traveller'
 import { useTravellersStore } from '~/stores/travellers'
 import { clearBuilderDraft, loadBuilderDraft, saveBuilderDraft } from '~/utils/traveller/draftCache'
 import { travellerProfileToPdfFields, validateTravellerPdfFields } from '~/utils/traveller/pdfFields'
@@ -19,6 +20,7 @@ const portraitInput = ref<HTMLInputElement | null>(null)
 const isPortraitDragActive = ref(false)
 const portraitClearConfirmOpen = ref(false)
 const isMobileSheetViewport = ref(false)
+const isWideSheetViewport = ref(false)
 const mobileSheetMenuOpen = ref(false)
 const mobileSheetActionsOpen = ref(false)
 const manualSheetDraftRestored = ref(false)
@@ -60,23 +62,260 @@ const mobileSheetSections = [
 type MobileSheetSectionId = typeof mobileSheetSections[number]['id']
 const activeMobileSheetSection = ref<MobileSheetSectionId>('profile')
 const activeMobileSheetSectionLabel = computed(() => mobileSheetSections.find((section) => section.id === activeMobileSheetSection.value)?.label ?? 'Profile')
-const skillColumnCount = 3
-const skillRowsPerColumn = 16
-const skillPadCount = computed(() => Math.max(0, skillColumnCount * skillRowsPerColumn - draft.value.skills.length))
-const paddedSkills = computed(() => [
-  ...draft.value.skills,
-  ...Array.from({ length: skillPadCount.value }, (_, index) => ({
-    id: `skill-placeholder-${index}`,
-    name: '',
-    speciality: '',
-    level: null,
-    notes: '',
-    placeholder: true,
-  })),
-])
-const skillColumns = computed(() => Array.from({ length: skillColumnCount }, (_, columnIndex) =>
-  paddedSkills.value.slice(columnIndex * skillRowsPerColumn, (columnIndex + 1) * skillRowsPerColumn)))
 const trainingSkill = computed(() => draft.value.skills.find((skill) => skill.sources?.some((source) => /training/i.test(source))) ?? null)
+type SkillDefinition = {
+  id: string
+  name: string
+  specialities?: string[]
+  specialityMode?: 'shared-zero' | 'independent'
+  requiresSpeciality?: boolean
+  psionic?: boolean
+}
+type NormalizedSheetSkill = {
+  record: TravellerSkill
+  baseId: string
+  baseName: string
+  specialityId?: string
+  specialityName?: string
+}
+type SheetSkillGroup = {
+  definition: SkillDefinition
+  estimatedRows: number
+}
+const sheetSkillDefinitions = computed(() => {
+  const definitions = skillsData.skills as SkillDefinition[]
+  const nonPsionic = definitions
+    .filter((skill) => !skill.psionic)
+    .slice()
+    .sort((left, right) => skillNameCollator.compare(left.name, right.name))
+  const psionic = definitions
+    .filter((skill) => skill.psionic)
+    .slice()
+    .sort((left, right) => skillNameCollator.compare(left.name, right.name))
+  return [...nonPsionic, ...psionic]
+})
+const sheetSkillDefinitionsById = computed<Record<string, SkillDefinition>>(() => Object.fromEntries(
+  sheetSkillDefinitions.value.map((skill) => [skill.id, skill]),
+))
+const skillColumnCount = computed(() => {
+  if (isMobileSheetViewport.value) return 1
+  return isWideSheetViewport.value ? 2 : 1
+})
+const customSpecialitySkillIds = new Set(['language', 'profession', 'science'])
+const customSpecialityDrafts = reactive<Record<string, string>>({})
+const activeSkillPickerId = ref<string | null>(null)
+const skillNameCollator = new Intl.Collator('en', { sensitivity: 'base' })
+
+const slugifySheetSkill = (value: string) => value
+  .trim()
+  .toLowerCase()
+  .replace(/[^a-z0-9]+/g, '-')
+  .replace(/^-+|-+$/g, '')
+
+const titleCaseSheetSkill = (value: string) => value
+  .split(/[-\s]+/)
+  .filter(Boolean)
+  .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+  .join(' ')
+
+const formatSheetSpeciality = (definition: SkillDefinition | undefined, value: string) => {
+  const normalized = slugifySheetSkill(value)
+  const known = definition?.specialities?.find((speciality) => slugifySheetSkill(speciality) === normalized)
+  return known ? titleCaseSheetSkill(known) : titleCaseSheetSkill(value)
+}
+
+const normalizeSheetSkill = (skill: TravellerSkill): NormalizedSheetSkill => {
+  const baseIdFromId = skill.id.includes(':') ? skill.id.split(':')[0] : skill.id
+  const specialityFromId = skill.id.includes(':') ? skill.id.split(':').slice(1).join(':') : ''
+  const definition = sheetSkillDefinitionsById.value[baseIdFromId]
+    ?? sheetSkillDefinitions.value.find((item) => item.name.toLowerCase() === skill.name.toLowerCase())
+  const baseName = definition?.name ?? skill.name.replace(/\s*\(.+\)\s*$/, '').trim()
+  const bracketSpeciality = skill.name.match(/\((.+)\)/)?.[1]?.trim()
+  const specialityName = skill.speciality?.trim() || bracketSpeciality || specialityFromId || ''
+
+  return {
+    record: skill,
+    baseId: definition?.id ?? baseIdFromId,
+    baseName,
+    specialityId: specialityName ? slugifySheetSkill(specialityName) : undefined,
+    specialityName: specialityName ? formatSheetSpeciality(definition, specialityName) : undefined,
+  }
+}
+
+const normalizedSheetSkills = computed(() => draft.value.skills.map(normalizeSheetSkill))
+const findSheetSkillRecord = (baseId: string, specialityId?: string) => normalizedSheetSkills.value.find((skill) =>
+  skill.baseId === baseId && (specialityId ? skill.specialityId === specialityId : !skill.specialityId))
+const findSheetSkillIndex = (baseId: string, specialityId?: string) => normalizedSheetSkills.value.findIndex((skill) =>
+  skill.baseId === baseId && (specialityId ? skill.specialityId === specialityId : !skill.specialityId))
+const sheetSkillMode = (definition: SkillDefinition) => definition.specialityMode ?? (definition.specialities?.length || definition.requiresSpeciality ? 'shared-zero' : 'none')
+const sheetSkillHasSpecialities = (definition: SkillDefinition) => Boolean(definition.specialities?.length || definition.requiresSpeciality)
+const sheetSkillCustomSpecialities = (baseId: string) => normalizedSheetSkills.value
+  .filter((skill) => skill.baseId === baseId && skill.specialityId && !sheetSkillDefinitionsById.value[baseId]?.specialities?.some((speciality) => slugifySheetSkill(speciality) === skill.specialityId))
+  .map((skill) => ({
+    specialityId: skill.specialityId as string,
+    specialityName: skill.specialityName ?? titleCaseSheetSkill(skill.specialityId as string),
+  }))
+  .filter((skill, index, array) => array.findIndex((candidate) => candidate.specialityId === skill.specialityId) === index)
+const selectedSheetSpecialities = (definition: SkillDefinition) => {
+  const selectedDefined = (definition.specialities ?? [])
+    .filter((speciality) => specialitySkillChecked(definition, speciality))
+    .map((speciality) => ({
+      specialityId: specialitySlug(speciality),
+      specialityName: specialityDisplayName(definition, speciality),
+      isCustom: false,
+    }))
+  const selectedCustom = sheetSkillCustomSpecialities(definition.id).map((speciality) => ({
+    ...speciality,
+    isCustom: true,
+  }))
+  return [...selectedDefined, ...selectedCustom]
+}
+const availableSheetSpecialities = (definition: SkillDefinition) => (definition.specialities ?? [])
+  .filter((speciality) => !specialitySkillChecked(definition, speciality))
+
+const buildSheetSkillLabel = (definition: SkillDefinition, specialityName?: string) => specialityName
+  ? `${definition.name} (${specialityName})`
+  : definition.name
+
+const ensureSheetSkill = (definition: SkillDefinition, level: number, specialityName?: string) => {
+  const specialityId = specialityName ? slugifySheetSkill(specialityName) : undefined
+  const existingIndex = findSheetSkillIndex(definition.id, specialityId)
+  if (existingIndex >= 0) {
+    draft.value.skills[existingIndex].level = level
+    if (specialityName) draft.value.skills[existingIndex].speciality = specialityName
+    return
+  }
+
+  draft.value.skills.push({
+    id: specialityId ? `${definition.id}:${specialityId}` : definition.id,
+    name: buildSheetSkillLabel(definition, specialityName),
+    speciality: specialityName,
+    level,
+    sources: ['Manual Sheet'],
+    notes: '',
+  })
+}
+
+const removeSheetSkill = (baseId: string, specialityId?: string) => {
+  const index = findSheetSkillIndex(baseId, specialityId)
+  if (index >= 0) draft.value.skills.splice(index, 1)
+}
+
+const specialityDisplayName = (definition: SkillDefinition, speciality: string) => formatSheetSpeciality(definition, speciality)
+const specialitySlug = (value: string) => slugifySheetSkill(value)
+const baseSkillEntry = (definition: SkillDefinition) => findSheetSkillRecord(definition.id)
+const specialitySkillEntry = (definition: SkillDefinition, speciality: string) => findSheetSkillRecord(definition.id, specialitySlug(speciality))
+const baseSkillHasAnySpeciality = (definition: SkillDefinition) => normalizedSheetSkills.value.some((skill) => skill.baseId === definition.id && skill.specialityId)
+const baseSkillChecked = (definition: SkillDefinition) => {
+  if (!sheetSkillHasSpecialities(definition)) return Boolean(baseSkillEntry(definition))
+  if (sheetSkillMode(definition) === 'shared-zero') return Boolean(baseSkillEntry(definition) || baseSkillHasAnySpeciality(definition))
+  return false
+}
+const baseSkillDisplayLevel = (definition: SkillDefinition) => {
+  const existing = baseSkillEntry(definition)
+  if (existing) return existing.record.level
+  if (sheetSkillHasSpecialities(definition) && sheetSkillMode(definition) === 'shared-zero' && baseSkillHasAnySpeciality(definition)) return 0
+  return null
+}
+const specialitySkillChecked = (definition: SkillDefinition, speciality: string) => Boolean(specialitySkillEntry(definition, speciality))
+const specialitySkillDisplayLevel = (definition: SkillDefinition, speciality: string) => specialitySkillEntry(definition, speciality)?.record.level ?? null
+
+const toggleBaseSkill = (definition: SkillDefinition) => {
+  if (!sheetSkillHasSpecialities(definition)) {
+    if (baseSkillChecked(definition)) removeSheetSkill(definition.id)
+    else ensureSheetSkill(definition, 0)
+    return
+  }
+
+  if (sheetSkillMode(definition) === 'shared-zero') {
+    if (baseSkillChecked(definition)) {
+      draft.value.skills = draft.value.skills.filter((skill) => normalizeSheetSkill(skill).baseId !== definition.id)
+    } else {
+      ensureSheetSkill(definition, 0)
+    }
+  }
+}
+
+const changeBaseSkillLevel = (definition: SkillDefinition, delta: number) => {
+  if (sheetSkillHasSpecialities(definition)) return
+  const existing = baseSkillEntry(definition)
+  const currentLevel = existing?.record.level ?? 0
+  const nextLevel = Math.max(0, currentLevel + delta)
+  ensureSheetSkill(definition, nextLevel)
+}
+
+const toggleSpecialitySkill = (definition: SkillDefinition, speciality: string) => {
+  const existing = specialitySkillEntry(definition, speciality)
+  if (existing) {
+    removeSheetSkill(definition.id, specialitySlug(speciality))
+    return
+  }
+
+  const nextLevel = sheetSkillMode(definition) === 'shared-zero' ? 1 : 0
+  ensureSheetSkill(definition, nextLevel, specialityDisplayName(definition, speciality))
+}
+
+const changeSpecialitySkillLevel = (definition: SkillDefinition, speciality: string, delta: number) => {
+  const existing = specialitySkillEntry(definition, speciality)
+  const currentLevel = existing?.record.level ?? 0
+  const minimumLevel = sheetSkillMode(definition) === 'shared-zero' ? 1 : 0
+  if (!existing && delta > 0) {
+    ensureSheetSkill(definition, 1, specialityDisplayName(definition, speciality))
+    return
+  }
+
+  if (!existing) return
+  const nextLevel = currentLevel + delta
+  if (nextLevel < minimumLevel) {
+    removeSheetSkill(definition.id, specialitySlug(speciality))
+    return
+  }
+  ensureSheetSkill(definition, nextLevel, specialityDisplayName(definition, speciality))
+}
+
+const addCustomSpecialitySkill = (definition: SkillDefinition) => {
+  const raw = customSpecialityDrafts[definition.id]?.trim()
+  if (!raw) return
+  const specialityId = specialitySlug(raw)
+  if (!specialityId) return
+  if (findSheetSkillRecord(definition.id, specialityId)) {
+    customSpecialityDrafts[definition.id] = ''
+    return
+  }
+  const initialLevel = sheetSkillMode(definition) === 'shared-zero' ? 1 : 0
+  ensureSheetSkill(definition, initialLevel, raw)
+  customSpecialityDrafts[definition.id] = ''
+  activeSkillPickerId.value = null
+}
+
+const addSheetSpeciality = (definition: SkillDefinition, speciality: string) => {
+  const initialLevel = sheetSkillMode(definition) === 'shared-zero' ? 1 : 0
+  ensureSheetSkill(definition, initialLevel, specialityDisplayName(definition, speciality))
+  activeSkillPickerId.value = null
+}
+
+const toggleSkillPicker = (definition: SkillDefinition) => {
+  activeSkillPickerId.value = activeSkillPickerId.value === definition.id ? null : definition.id
+}
+
+const openSheetSkillDefinitionRoll = (definition: SkillDefinition, specialityName?: string, explicitLevel?: number | null) => {
+  const label = buildSheetSkillLabel(definition, specialityName)
+  startRollModal(label, 'Skill Check', explicitLevel ?? 0)
+}
+
+const skillGroups = computed<SheetSkillGroup[]>(() => sheetSkillDefinitions.value.map((definition) => ({
+  definition,
+  estimatedRows: 1 + selectedSheetSpecialities(definition).length,
+})))
+const skillGroupColumns = computed(() => {
+  if (skillColumnCount.value === 1) return [skillGroups.value]
+
+  const midpoint = Math.ceil(skillGroups.value.length / 2)
+  return [
+    skillGroups.value.slice(0, midpoint),
+    skillGroups.value.slice(midpoint),
+  ]
+})
 const rollModalOpen = ref(false)
 const rollModalRolling = ref(false)
 const rollModalTitle = ref('')
@@ -162,11 +401,6 @@ const openCharacteristicRoll = (id: TravellerCharacteristicId) => {
   startRollModal(characteristic.name || characteristic.abbreviation, 'Characteristic Check', Number(characteristic.dm) || 0)
 }
 
-const openSkillRoll = (skill: TravellerProfile['skills'][number] | { placeholder: true }) => {
-  if ('placeholder' in skill) return
-  startRollModal(skill.name || 'Unnamed Skill', 'Skill Check', Number(skill.level) || 0)
-}
-
 const syncCharacteristicDm = (id: TravellerCharacteristicId) => {
   draft.value.characteristics[id].dm = diceModifier(Number(draft.value.characteristics[id].value) || 0)
 }
@@ -184,21 +418,6 @@ const adjustCharacteristicValue = (id: TravellerCharacteristicId, delta: number)
 const handleCharacteristicInput = (id: TravellerCharacteristicId, event: Event) => {
   const target = event.target as HTMLInputElement | null
   setCharacteristicValue(id, target?.value ?? 0)
-}
-
-const addSkill = () => {
-  draft.value.skills.push({
-    id: `manual-skill-${Date.now()}`,
-    name: '',
-    speciality: '',
-    level: 0,
-    sources: ['Manual Entry'],
-    notes: '',
-  })
-}
-
-const removeSkill = (index: number) => {
-  draft.value.skills.splice(index, 1)
 }
 
 const addAssociate = (type: keyof TravellerProfile['associates']) => {
@@ -355,6 +574,7 @@ const handlePortraitDrop = (event: DragEvent) => {
 const updateSheetViewport = () => {
   if (!import.meta.client) return
   isMobileSheetViewport.value = window.innerWidth <= 760
+  isWideSheetViewport.value = window.innerWidth >= 1450
   if (!isMobileSheetViewport.value) {
     mobileSheetMenuOpen.value = false
     mobileSheetActionsOpen.value = false
@@ -712,45 +932,119 @@ watch(
 
             <section v-else-if="activeMobileSheetSection === 'skills'" class="sheet-panel sheet-panel--skills">
               <header class="sheet-panel-title sheet-panel-title--side">Skills</header>
-              <div class="sheet-skills-grid">
-                <div v-for="(column, columnIndex) in skillColumns" :key="`mobile-skills-${columnIndex}`" class="sheet-skill-column">
-                  <div
-                    v-for="entry in column"
-                    :key="entry.id"
-                    class="sheet-skill-row"
-                    :class="{ 'sheet-skill-row--placeholder': 'placeholder' in entry, 'sheet-skill-row--interactive': !('placeholder' in entry) }"
-                    :role="'placeholder' in entry ? undefined : 'button'"
-                    :tabindex="'placeholder' in entry ? undefined : 0"
-                    :title="'placeholder' in entry ? undefined : `Roll ${entry.name || 'Skill'}`"
-                    @click="'placeholder' in entry ? undefined : openSkillRoll(entry)"
-                    @keydown.enter.prevent="'placeholder' in entry ? undefined : openSkillRoll(entry)"
-                    @keydown.space.prevent="'placeholder' in entry ? undefined : openSkillRoll(entry)"
-                  >
-                    <template v-if="'placeholder' in entry">
-                      <span class="sheet-skill-line"></span>
-                      <span class="sheet-skill-level"></span>
-                    </template>
-                    <template v-else>
-                      <input v-model="entry.name" class="sheet-skill-name" placeholder="Skill" @click.stop @keydown.stop>
-                      <input v-model.number="entry.level" class="sheet-skill-level-input" placeholder="0" type="number" @click.stop @keydown.stop>
-                    </template>
-                  </div>
+              <div class="sheet-skills-grid" :class="{ 'sheet-skills-grid--two-column': skillColumnCount === 2 }">
+                <div v-for="(column, columnIndex) in skillGroupColumns" :key="`mobile-skills-${columnIndex}`" class="sheet-skill-column">
+                  <section v-for="group in column" :key="group.definition.id" class="sheet-skill-group">
+                    <div class="sheet-skill-entry sheet-skill-entry--base">
+                      <span v-if="sheetSkillMode(group.definition) === 'independent'" class="sheet-skill-toggle sheet-skill-toggle--empty" aria-hidden="true"></span>
+                      <label v-else class="sheet-skill-toggle">
+                        <input
+                          :checked="baseSkillChecked(group.definition)"
+                          type="checkbox"
+                          @change="toggleBaseSkill(group.definition)"
+                        >
+                      </label>
+                      <button
+                        class="sheet-skill-roll-button"
+                        type="button"
+                        @click="openSheetSkillDefinitionRoll(group.definition, undefined, baseSkillDisplayLevel(group.definition) ?? 0)"
+                      >
+                        {{ group.definition.name }}
+                      </button>
+                      <div class="sheet-skill-rank" :class="{ 'sheet-skill-rank--disabled': sheetSkillHasSpecialities(group.definition) || sheetSkillMode(group.definition) === 'independent' }">
+                        <template v-if="sheetSkillHasSpecialities(group.definition)">
+                          <span class="sheet-skill-rank__value">{{ sheetSkillMode(group.definition) === 'independent' ? '--' : (baseSkillDisplayLevel(group.definition) ?? '0') }}</span>
+                          <button
+                            :aria-label="`Add ${group.definition.name} specialty`"
+                            class="sheet-skill-group__add sheet-skill-rank__addon"
+                            :title="`Add ${group.definition.name} specialty`"
+                            type="button"
+                            @click="toggleSkillPicker(group.definition)"
+                          >
+                            <AppIcon name="plus" />
+                          </button>
+                        </template>
+                        <template v-else>
+                          <button class="sheet-skill-rank__button" type="button" @click="changeBaseSkillLevel(group.definition, -1)">
+                            <AppIcon class="sheet-skill-rank__icon sheet-skill-rank__icon--down" name="arrow" />
+                          </button>
+                          <span class="sheet-skill-rank__value">{{ baseSkillDisplayLevel(group.definition) ?? '0' }}</span>
+                          <button class="sheet-skill-rank__button" type="button" @click="changeBaseSkillLevel(group.definition, 1)">
+                            <AppIcon class="sheet-skill-rank__icon sheet-skill-rank__icon--up" name="arrow" />
+                          </button>
+                        </template>
+                      </div>
+                    </div>
+
+                    <div
+                      v-if="activeSkillPickerId === group.definition.id"
+                      class="sheet-skill-picker"
+                    >
+                      <button
+                        v-for="speciality in availableSheetSpecialities(group.definition)"
+                        :key="`${group.definition.id}:picker:${speciality}`"
+                        class="sheet-skill-picker__option"
+                        type="button"
+                        @click="addSheetSpeciality(group.definition, speciality)"
+                      >
+                        {{ specialityDisplayName(group.definition, speciality) }}
+                      </button>
+                      <div v-if="customSpecialitySkillIds.has(group.definition.id)" class="sheet-skill-picker__custom">
+                        <input
+                          v-model="customSpecialityDrafts[group.definition.id]"
+                          class="sheet-line-input"
+                          placeholder="Custom specialty"
+                          @keydown.enter.prevent="addCustomSpecialitySkill(group.definition)"
+                        >
+                        <button class="sheet-skill-picker__add-custom" type="button" @click="addCustomSpecialitySkill(group.definition)">Add</button>
+                      </div>
+                    </div>
+
+                    <div
+                      v-for="speciality in selectedSheetSpecialities(group.definition)"
+                      :key="`${group.definition.id}:${speciality.specialityId}`"
+                      class="sheet-skill-entry sheet-skill-entry--speciality"
+                    >
+                      <label class="sheet-skill-toggle">
+                        <input
+                          :checked="specialitySkillChecked(group.definition, speciality.specialityId)"
+                          type="checkbox"
+                          @change="toggleSpecialitySkill(group.definition, speciality.specialityName)"
+                        >
+                      </label>
+                      <button
+                        class="sheet-skill-roll-button"
+                        type="button"
+                        @click="openSheetSkillDefinitionRoll(group.definition, speciality.specialityName, specialitySkillDisplayLevel(group.definition, speciality.specialityId) ?? 0)"
+                      >
+                        {{ speciality.specialityName }}
+                      </button>
+                      <div class="sheet-skill-rank">
+                        <button class="sheet-skill-rank__button" type="button" @click="changeSpecialitySkillLevel(group.definition, speciality.specialityName, -1)">
+                          <AppIcon class="sheet-skill-rank__icon sheet-skill-rank__icon--down" name="arrow" />
+                        </button>
+                        <span class="sheet-skill-rank__value">{{ specialitySkillDisplayLevel(group.definition, speciality.specialityId) ?? '0' }}</span>
+                        <button class="sheet-skill-rank__button" type="button" @click="changeSpecialitySkillLevel(group.definition, speciality.specialityName, 1)">
+                          <AppIcon class="sheet-skill-rank__icon sheet-skill-rank__icon--up" name="arrow" />
+                        </button>
+                      </div>
+                    </div>
+                  </section>
                 </div>
                 <div class="sheet-training-box">
                   <div class="sheet-training-title">Training</div>
-                  <label class="sheet-line-field sheet-line-field--stacked">
+                  <label class="sheet-line-field sheet-line-field--training">
                     <span>Skill:</span>
                     <input :value="trainingSkill?.name ?? ''" class="sheet-line-input" readonly>
                   </label>
-                  <label class="sheet-line-field sheet-line-field--stacked">
+                  <label class="sheet-line-field sheet-line-field--training">
                     <span>Completed Weeks:</span>
                     <input class="sheet-line-input" readonly>
                   </label>
-                  <label class="sheet-line-field sheet-line-field--stacked">
+                  <label class="sheet-line-field sheet-line-field--training">
                     <span>Completed Study Periods:</span>
                     <input class="sheet-line-input" readonly>
                   </label>
-                  <button class="sheet-add sheet-add--inline" type="button" @click="addSkill">Add Skill</button>
                 </div>
               </div>
             </section>
@@ -1280,45 +1574,119 @@ watch(
 
             <section class="sheet-panel sheet-panel--skills">
               <header class="sheet-panel-title sheet-panel-title--side">Skills</header>
-              <div class="sheet-skills-grid">
-                <div v-for="(column, columnIndex) in skillColumns" :key="`skills-${columnIndex}`" class="sheet-skill-column">
-                  <div
-                    v-for="entry in column"
-                    :key="entry.id"
-                    class="sheet-skill-row"
-                    :class="{ 'sheet-skill-row--placeholder': 'placeholder' in entry, 'sheet-skill-row--interactive': !('placeholder' in entry) }"
-                    :role="'placeholder' in entry ? undefined : 'button'"
-                    :tabindex="'placeholder' in entry ? undefined : 0"
-                    :title="'placeholder' in entry ? undefined : `Roll ${entry.name || 'Skill'}`"
-                    @click="'placeholder' in entry ? undefined : openSkillRoll(entry)"
-                    @keydown.enter.prevent="'placeholder' in entry ? undefined : openSkillRoll(entry)"
-                    @keydown.space.prevent="'placeholder' in entry ? undefined : openSkillRoll(entry)"
-                  >
-                    <template v-if="'placeholder' in entry">
-                      <span class="sheet-skill-line"></span>
-                      <span class="sheet-skill-level"></span>
-                    </template>
-                    <template v-else>
-                      <input v-model="entry.name" class="sheet-skill-name" placeholder="Skill" @click.stop @keydown.stop>
-                      <input v-model.number="entry.level" class="sheet-skill-level-input" placeholder="0" type="number" @click.stop @keydown.stop>
-                    </template>
-                  </div>
+              <div class="sheet-skills-grid" :class="{ 'sheet-skills-grid--two-column': skillColumnCount === 2 }">
+                <div v-for="(column, columnIndex) in skillGroupColumns" :key="`skills-${columnIndex}`" class="sheet-skill-column">
+                  <section v-for="group in column" :key="group.definition.id" class="sheet-skill-group">
+                    <div class="sheet-skill-entry sheet-skill-entry--base">
+                      <span v-if="sheetSkillMode(group.definition) === 'independent'" class="sheet-skill-toggle sheet-skill-toggle--empty" aria-hidden="true"></span>
+                      <label v-else class="sheet-skill-toggle">
+                        <input
+                          :checked="baseSkillChecked(group.definition)"
+                          type="checkbox"
+                          @change="toggleBaseSkill(group.definition)"
+                        >
+                      </label>
+                      <button
+                        class="sheet-skill-roll-button"
+                        type="button"
+                        @click="openSheetSkillDefinitionRoll(group.definition, undefined, baseSkillDisplayLevel(group.definition) ?? 0)"
+                      >
+                        {{ group.definition.name }}
+                      </button>
+                      <div class="sheet-skill-rank" :class="{ 'sheet-skill-rank--disabled': sheetSkillHasSpecialities(group.definition) || sheetSkillMode(group.definition) === 'independent' }">
+                        <template v-if="sheetSkillHasSpecialities(group.definition)">
+                          <span class="sheet-skill-rank__value">{{ sheetSkillMode(group.definition) === 'independent' ? '--' : (baseSkillDisplayLevel(group.definition) ?? '0') }}</span>
+                          <button
+                            :aria-label="`Add ${group.definition.name} specialty`"
+                            class="sheet-skill-group__add sheet-skill-rank__addon"
+                            :title="`Add ${group.definition.name} specialty`"
+                            type="button"
+                            @click="toggleSkillPicker(group.definition)"
+                          >
+                            <AppIcon name="plus" />
+                          </button>
+                        </template>
+                        <template v-else>
+                          <button class="sheet-skill-rank__button" type="button" @click="changeBaseSkillLevel(group.definition, -1)">
+                            <AppIcon class="sheet-skill-rank__icon sheet-skill-rank__icon--down" name="arrow" />
+                          </button>
+                          <span class="sheet-skill-rank__value">{{ baseSkillDisplayLevel(group.definition) ?? '0' }}</span>
+                          <button class="sheet-skill-rank__button" type="button" @click="changeBaseSkillLevel(group.definition, 1)">
+                            <AppIcon class="sheet-skill-rank__icon sheet-skill-rank__icon--up" name="arrow" />
+                          </button>
+                        </template>
+                      </div>
+                    </div>
+
+                    <div
+                      v-if="activeSkillPickerId === group.definition.id"
+                      class="sheet-skill-picker"
+                    >
+                      <button
+                        v-for="speciality in availableSheetSpecialities(group.definition)"
+                        :key="`${group.definition.id}:picker:${speciality}`"
+                        class="sheet-skill-picker__option"
+                        type="button"
+                        @click="addSheetSpeciality(group.definition, speciality)"
+                      >
+                        {{ specialityDisplayName(group.definition, speciality) }}
+                      </button>
+                      <div v-if="customSpecialitySkillIds.has(group.definition.id)" class="sheet-skill-picker__custom">
+                        <input
+                          v-model="customSpecialityDrafts[group.definition.id]"
+                          class="sheet-line-input"
+                          placeholder="Custom specialty"
+                          @keydown.enter.prevent="addCustomSpecialitySkill(group.definition)"
+                        >
+                        <button class="sheet-skill-picker__add-custom" type="button" @click="addCustomSpecialitySkill(group.definition)">Add</button>
+                      </div>
+                    </div>
+
+                    <div
+                      v-for="speciality in selectedSheetSpecialities(group.definition)"
+                      :key="`${group.definition.id}:${speciality.specialityId}`"
+                      class="sheet-skill-entry sheet-skill-entry--speciality"
+                    >
+                      <label class="sheet-skill-toggle">
+                        <input
+                          :checked="specialitySkillChecked(group.definition, speciality.specialityId)"
+                          type="checkbox"
+                          @change="toggleSpecialitySkill(group.definition, speciality.specialityName)"
+                        >
+                      </label>
+                      <button
+                        class="sheet-skill-roll-button"
+                        type="button"
+                        @click="openSheetSkillDefinitionRoll(group.definition, speciality.specialityName, specialitySkillDisplayLevel(group.definition, speciality.specialityId) ?? 0)"
+                      >
+                        {{ speciality.specialityName }}
+                      </button>
+                      <div class="sheet-skill-rank">
+                        <button class="sheet-skill-rank__button" type="button" @click="changeSpecialitySkillLevel(group.definition, speciality.specialityName, -1)">
+                          <AppIcon class="sheet-skill-rank__icon sheet-skill-rank__icon--down" name="arrow" />
+                        </button>
+                        <span class="sheet-skill-rank__value">{{ specialitySkillDisplayLevel(group.definition, speciality.specialityId) ?? '0' }}</span>
+                        <button class="sheet-skill-rank__button" type="button" @click="changeSpecialitySkillLevel(group.definition, speciality.specialityName, 1)">
+                          <AppIcon class="sheet-skill-rank__icon sheet-skill-rank__icon--up" name="arrow" />
+                        </button>
+                      </div>
+                    </div>
+                  </section>
                 </div>
                 <div class="sheet-training-box">
                   <div class="sheet-training-title">Training</div>
-                  <label class="sheet-line-field sheet-line-field--stacked">
+                  <label class="sheet-line-field sheet-line-field--training">
                     <span>Skill:</span>
                     <input :value="trainingSkill?.name ?? ''" class="sheet-line-input" readonly>
                   </label>
-                  <label class="sheet-line-field sheet-line-field--stacked">
+                  <label class="sheet-line-field sheet-line-field--training">
                     <span>Completed Weeks:</span>
                     <input class="sheet-line-input" readonly>
                   </label>
-                  <label class="sheet-line-field sheet-line-field--stacked">
+                  <label class="sheet-line-field sheet-line-field--training">
                     <span>Completed Study Periods:</span>
                     <input class="sheet-line-input" readonly>
                   </label>
-                  <button class="sheet-add sheet-add--inline" type="button" @click="addSkill">Add Skill</button>
                 </div>
               </div>
             </section>
@@ -1972,8 +2340,6 @@ watch(
 
 .sheet-cell-input,
 .sheet-line-input,
-.sheet-skill-name,
-.sheet-skill-level-input,
 .sheet-textarea {
   box-sizing: border-box;
   width: 100%;
@@ -1995,8 +2361,6 @@ watch(
 
 .sheet-cell-input:focus,
 .sheet-line-input:focus,
-.sheet-skill-name:focus,
-.sheet-skill-level-input:focus,
 .sheet-textarea:focus {
   border-color: rgba(34, 211, 238, 0.72);
   box-shadow:
@@ -2006,8 +2370,6 @@ watch(
 
 .sheet-cell-input::placeholder,
 .sheet-line-input::placeholder,
-.sheet-skill-name::placeholder,
-.sheet-skill-level-input::placeholder,
 .sheet-textarea::placeholder {
   color: rgba(148, 163, 184, 0.82);
 }
@@ -2128,6 +2490,18 @@ watch(
 
 .sheet-line-field--stacked span {
   font-size: 0.76rem;
+  line-height: 1.1;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.sheet-line-field--training {
+  grid-template-columns: 132px minmax(0, 1fr);
+  align-items: center;
+}
+
+.sheet-line-field--training span {
+  font-size: 0.72rem;
   line-height: 1.1;
   text-transform: uppercase;
   letter-spacing: 0.02em;
@@ -2462,54 +2836,212 @@ watch(
 
 .sheet-skills-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr);
   gap: 10px;
+}
+
+.sheet-skills-grid--two-column {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .sheet-skill-column {
   display: grid;
-  gap: 4px;
+  gap: 0.8rem;
   align-content: start;
 }
 
-.sheet-skill-row {
+.sheet-skill-group {
+  position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 34px;
-  gap: 8px;
-  align-items: center;
-  min-height: 26px;
-}
-
-.sheet-skill-row--interactive {
-  padding: 0.2rem 0.3rem;
-  margin-inline: -0.3rem;
-  border-radius: 10px 0 10px 0;
-  clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px));
-  cursor: pointer;
-  transition: border-color 140ms ease, box-shadow 140ms ease, background 140ms ease, transform 140ms ease;
-}
-
-.sheet-skill-row--interactive:hover,
-.sheet-skill-row--interactive:focus-visible {
+  gap: 0.45rem;
+  padding: 0.55rem;
+  border: 1px solid rgba(34, 211, 238, 0.18);
+  border-radius: 12px 0 12px 0;
+  clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px));
   background:
-    linear-gradient(180deg, rgba(10, 18, 32, 0.76), rgba(4, 10, 22, 0.76)),
-    radial-gradient(circle at 0 0, rgba(34, 211, 238, 0.08), transparent 5rem);
-  box-shadow:
-    inset 0 0 0 1px rgba(34, 211, 238, 0.18),
-    0 0 16px rgba(34, 211, 238, 0.12);
-  transform: translateY(-1px);
+    linear-gradient(180deg, rgba(8, 13, 24, 0.5), rgba(8, 13, 24, 0.18));
+}
+
+.sheet-skill-group__add {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  justify-self: end;
+  width: 1.35rem;
+  height: 1.35rem;
+  border: 1px solid rgba(251, 191, 36, 0.3);
+  border-radius: 7px 0 7px 0;
+  clip-path: polygon(0 0, calc(100% - 7px) 0, 100% 7px, 100% 100%, 7px 100%, 0 calc(100% - 7px));
+  background:
+    linear-gradient(180deg, rgba(56, 34, 8, 0.84), rgba(24, 16, 6, 0.88)),
+    radial-gradient(circle at 0 0, rgba(251, 191, 36, 0.14), transparent 4rem);
+  color: #fbbf24;
+  padding: 0;
+}
+
+.sheet-skill-entry {
+  display: grid;
+  grid-template-columns: 1.1rem minmax(0, 1fr) 4.9rem;
+  gap: 0.45rem;
+  align-items: center;
+}
+
+.sheet-skill-entry--base {
+  padding-bottom: 0.1rem;
+}
+
+.sheet-skill-entry--speciality {
+  padding-left: 0.65rem;
+}
+
+.sheet-skill-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sheet-skill-toggle input {
+  width: 0.95rem;
+  height: 0.95rem;
+  accent-color: #22d3ee;
+}
+
+.sheet-skill-toggle--empty {
+  width: 0.95rem;
+  height: 0.95rem;
+}
+
+.sheet-skill-roll-button {
+  min-width: 0;
+  border: none;
+  background: none;
+  padding: 0 0 0 0.3rem;
+  text-align: left;
+  color: #e4e4e7;
+  font-size: 0.84rem;
+  line-height: 1.2;
+  cursor: pointer;
+  transition: color 140ms ease, text-shadow 140ms ease;
+}
+
+.sheet-skill-roll-button:hover,
+.sheet-skill-roll-button:focus-visible {
+  color: #cffafe;
+  text-shadow: 0 0 12px rgba(34, 211, 238, 0.18);
   outline: none;
 }
 
-.sheet-skill-row--placeholder .sheet-skill-line,
-.sheet-skill-row--placeholder .sheet-skill-level {
-  display: block;
-  border-bottom: 1px dotted rgba(103, 232, 249, 0.22);
-  min-height: 18px;
+.sheet-skill-rank {
+  display: inline-grid;
+  grid-template-columns: 1.45rem 1.5rem 1.45rem;
+  gap: 0.2rem;
+  align-items: center;
+  min-width: 4.9rem;
+  justify-content: end;
 }
 
-.sheet-skill-level-input {
+.sheet-skill-rank--disabled {
+  justify-items: stretch;
+}
+
+.sheet-skill-rank__button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.45rem;
+  height: 1.45rem;
+  border: 1px solid rgba(34, 211, 238, 0.28);
+  border-radius: 8px 0 8px 0;
+  clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px));
+  background: rgba(8, 18, 32, 0.82);
+  color: #67e8f9;
+  font-weight: 700;
+}
+
+.sheet-skill-rank__icon {
+  width: 0.72rem;
+  height: 0.72rem;
+}
+
+.sheet-skill-rank__icon--up {
+  transform: rotate(0deg);
+}
+
+.sheet-skill-rank__icon--down {
+  transform: rotate(180deg);
+}
+
+.sheet-skill-rank__value {
+  grid-column: 2;
+  min-width: 1.5rem;
   text-align: center;
+  color: #e0f2fe;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.sheet-skill-group__add :deep(svg) {
+  width: 0.72rem;
+  height: 0.72rem;
+}
+
+.sheet-skill-rank__addon {
+  grid-column: 3;
+  justify-self: end;
+}
+
+.sheet-skill-picker {
+  display: grid;
+  gap: 0.35rem;
+  margin-left: 1.55rem;
+  padding: 0.55rem;
+  border: 1px solid rgba(34, 211, 238, 0.2);
+  border-radius: 10px 0 10px 0;
+  clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px));
+  background:
+    linear-gradient(180deg, rgba(8, 18, 32, 0.95), rgba(3, 7, 18, 0.95)),
+    radial-gradient(circle at 0 0, rgba(34, 211, 238, 0.08), transparent 6rem);
+  box-shadow:
+    inset 0 0 0 1px rgba(34, 211, 238, 0.04),
+    0 0 16px rgba(34, 211, 238, 0.08);
+}
+
+.sheet-skill-picker__option {
+  border: 1px solid rgba(34, 211, 238, 0.18);
+  border-radius: 8px 0 8px 0;
+  clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px));
+  background: rgba(8, 18, 32, 0.82);
+  padding: 0.45rem 0.55rem;
+  text-align: left;
+  color: #cbd5e1;
+  font-size: 0.8rem;
+}
+
+.sheet-skill-picker__option:hover,
+.sheet-skill-picker__option:focus-visible {
+  border-color: rgba(34, 211, 238, 0.52);
+  color: #e0f2fe;
+  outline: none;
+}
+
+.sheet-skill-picker__custom {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.4rem;
+  margin-top: 0.15rem;
+}
+
+.sheet-skill-picker__add-custom {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 3rem;
+  border: 1px solid rgba(34, 211, 238, 0.26);
+  border-radius: 8px 0 8px 0;
+  clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px));
+  background: rgba(8, 18, 32, 0.82);
+  color: #67e8f9;
+  font-weight: 700;
 }
 
 .sheet-dm-input {
@@ -2657,7 +3189,7 @@ watch(
 .sheet-training-box {
   display: grid;
   gap: 8px;
-  grid-column: 3;
+  grid-column: 1 / -1;
   align-self: end;
   padding: 10px 10px 0;
   border: 1px solid rgba(34, 211, 238, 0.18);
@@ -2785,6 +3317,10 @@ watch(
 
   .sheet-characteristics-panel {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .sheet-line-field--training {
+    grid-template-columns: 108px minmax(0, 1fr);
   }
 }
 </style>
