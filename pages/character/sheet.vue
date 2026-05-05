@@ -17,6 +17,7 @@ const saveMessage = ref('')
 const importInput = ref<HTMLInputElement | null>(null)
 const portraitInput = ref<HTMLInputElement | null>(null)
 const isPortraitDragActive = ref(false)
+const portraitClearConfirmOpen = ref(false)
 const manualSheetDraftRestored = ref(false)
 const manualSheetDraftCachePaused = ref(false)
 const activeManualSheetDraftCacheKey = computed(() => {
@@ -228,9 +229,18 @@ const openPortraitPicker = () => {
   portraitInput.value?.click()
 }
 
-const clearPortrait = () => {
+const requestClearPortrait = () => {
+  portraitClearConfirmOpen.value = true
+}
+
+const confirmClearPortrait = () => {
+  portraitClearConfirmOpen.value = false
   draft.value.identity.portraitDataUrl = ''
   if (portraitInput.value) portraitInput.value.value = ''
+}
+
+const cancelClearPortrait = () => {
+  portraitClearConfirmOpen.value = false
 }
 
 const applyPortraitFile = (file: File | null | undefined) => {
@@ -239,6 +249,7 @@ const applyPortraitFile = (file: File | null | undefined) => {
   const reader = new FileReader()
   reader.onload = () => {
     draft.value.identity.portraitDataUrl = typeof reader.result === 'string' ? reader.result : ''
+    if (portraitInput.value) portraitInput.value.value = ''
   }
   reader.readAsDataURL(file)
 }
@@ -568,16 +579,44 @@ watch(
               <section class="sheet-panel">
                 <div class="sheet-distinguishing-label">Distinguishing Features:</div>
                 <div class="sheet-portrait-block">
-                  <button
+                  <div
                     class="sheet-portrait-frame"
                     :class="{ 'sheet-portrait-frame--dragging': isPortraitDragActive }"
-                    type="button"
+                    tabindex="0"
+                    role="button"
+                    aria-label="Upload portrait"
                     @click="openPortraitPicker"
+                    @keydown.enter.prevent="openPortraitPicker"
+                    @keydown.space.prevent="openPortraitPicker"
                     @dragenter.prevent="isPortraitDragActive = true"
                     @dragover.prevent="isPortraitDragActive = true"
                     @dragleave.prevent="isPortraitDragActive = false"
                     @drop="handlePortraitDrop"
                   >
+                    <button
+                      v-if="draft.identity.portraitDataUrl"
+                      class="sheet-portrait-clear"
+                      type="button"
+                      aria-label="Remove portrait"
+                      @click.stop="requestClearPortrait"
+                    >
+                      <AppIcon name="close" />
+                    </button>
+                    <div
+                      v-if="portraitClearConfirmOpen"
+                      class="sheet-portrait-confirm"
+                      @click.stop
+                    >
+                      <p class="sheet-portrait-confirm-text">Remove portrait?</p>
+                      <div class="sheet-portrait-confirm-actions">
+                        <button class="sheet-portrait-confirm-button" type="button" @click="cancelClearPortrait">
+                          Cancel
+                        </button>
+                        <button class="sheet-portrait-confirm-button sheet-portrait-confirm-button--danger" type="button" @click="confirmClearPortrait">
+                          Remove
+                        </button>
+                      </div>
+                    </div>
                     <img
                       v-if="draft.identity.portraitDataUrl"
                       :src="draft.identity.portraitDataUrl"
@@ -589,22 +628,14 @@ watch(
                         <AppIcon class="sheet-portrait-icon sheet-portrait-icon--primary sheet-portrait-icon--large" name="portrait" />
                       </span>
                     </div>
-                    <input
-                      ref="portraitInput"
-                      accept="image/*"
-                      class="hidden"
-                      type="file"
-                      @change="importPortrait"
-                    >
-                  </button>
-                  <button
-                    v-if="draft.identity.portraitDataUrl"
-                    class="sheet-remove sheet-remove--portrait"
-                    type="button"
-                    @click="clearPortrait"
+                  </div>
+                  <input
+                    ref="portraitInput"
+                    accept="image/*"
+                    class="hidden"
+                    type="file"
+                    @change="importPortrait"
                   >
-                    Clear Portrait
-                  </button>
                 </div>
               </section>
             </div>
@@ -1043,11 +1074,6 @@ watch(
   margin-top: 6px;
 }
 
-.sheet-add--portrait,
-.sheet-remove--portrait {
-  padding-inline: 12px;
-}
-
 .sheet-identity-grid {
   display: grid;
   grid-template-columns: minmax(0, 1.35fr) minmax(220px, 0.65fr);
@@ -1108,11 +1134,12 @@ watch(
 }
 
 .sheet-portrait-frame {
+  position: relative;
   display: flex;
   width: 100%;
   align-items: center;
   justify-content: center;
-  min-height: 132px;
+  min-height: 196px;
   overflow: hidden;
   border: 1px solid rgba(34, 211, 238, 0.26);
   border-radius: 12px 0 12px 0;
@@ -1137,9 +1164,98 @@ watch(
   outline: none;
 }
 
+.sheet-portrait-clear {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid rgba(248, 113, 113, 0.42);
+  border-radius: 8px 0 8px 0;
+  clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px));
+  background:
+    linear-gradient(180deg, rgba(50, 12, 16, 0.9), rgba(22, 8, 10, 0.92));
+  color: rgba(255, 232, 232, 0.98);
+  opacity: 0;
+  pointer-events: none;
+  box-shadow: 0 0 10px rgba(248, 113, 113, 0.12);
+  transition: opacity 140ms ease, border-color 140ms ease, color 140ms ease, box-shadow 140ms ease, background 140ms ease;
+}
+
+.sheet-portrait-frame:hover .sheet-portrait-clear,
+.sheet-portrait-frame:focus-within .sheet-portrait-clear {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.sheet-portrait-clear:hover,
+.sheet-portrait-clear:focus-visible {
+  border-color: rgba(248, 113, 113, 0.72);
+  color: #fff;
+  background:
+    linear-gradient(180deg, rgba(72, 16, 22, 0.94), rgba(30, 10, 14, 0.96));
+  box-shadow: 0 0 16px rgba(248, 113, 113, 0.24);
+  outline: none;
+}
+
+.sheet-portrait-confirm {
+  position: absolute;
+  top: 10px;
+  right: 44px;
+  z-index: 2;
+  display: grid;
+  gap: 8px;
+  min-width: 148px;
+  padding: 10px;
+  border: 1px solid rgba(34, 211, 238, 0.34);
+  border-radius: 10px 0 10px 0;
+  clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px));
+  background:
+    linear-gradient(180deg, rgba(8, 18, 32, 0.96), rgba(3, 7, 18, 0.96)),
+    radial-gradient(circle at 0 0, rgba(34, 211, 238, 0.12), transparent 8rem);
+  box-shadow:
+    0 0 18px rgba(34, 211, 238, 0.12),
+    inset 0 0 18px rgba(34, 211, 238, 0.05);
+}
+
+.sheet-portrait-confirm-text {
+  color: #e4e4e7;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.sheet-portrait-confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.sheet-portrait-confirm-button {
+  min-height: 26px;
+  padding: 0 8px;
+  border: 1px solid rgba(34, 211, 238, 0.28);
+  border-radius: 8px 0 8px 0;
+  clip-path: polygon(0 0, calc(100% - 7px) 0, 100% 7px, 100% 100%, 7px 100%, 0 calc(100% - 7px));
+  background: rgba(8, 18, 32, 0.86);
+  color: #cffafe;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.sheet-portrait-confirm-button--danger {
+  border-color: rgba(248, 113, 113, 0.42);
+  color: #ffe4e6;
+  background: rgba(58, 14, 20, 0.9);
+}
+
 .sheet-portrait-image {
   width: 100%;
-  height: 132px;
+  height: 196px;
   object-fit: cover;
 }
 
