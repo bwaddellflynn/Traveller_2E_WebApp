@@ -189,6 +189,110 @@
           "text": "Good Behaviour. Reduce your Parole Threshold by -2."
         }
       ]
+    },
+    "risky-adventure": {
+      "tableId": "risky-adventure",
+      "dice": "1D",
+      "rows": [
+        {
+          "roll": 1,
+          "name": "Adventure Goes Wrong",
+          "effects": [
+            {
+              "type": "choice",
+              "options": [
+                {
+                  "label": "Roll on the Injury table",
+                  "buttonLabel": "Injury",
+                  "effects": [
+                    {
+                      "type": "roll_table",
+                      "tableId": "injury"
+                    }
+                  ]
+                },
+                {
+                  "label": "Take the Prisoner career next term",
+                  "buttonLabel": "Prisoner",
+                  "effects": [
+                    {
+                      "type": "next_career",
+                      "careerId": "prisoner"
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "text": "The adventure goes badly wrong. Either roll on the Injury table or take the Prisoner career in your next term."
+        },
+        {
+          "roll": 2,
+          "name": "Adventure Goes Wrong",
+          "effects": [
+            {
+              "type": "choice",
+              "options": [
+                {
+                  "label": "Roll on the Injury table",
+                  "buttonLabel": "Injury",
+                  "effects": [
+                    {
+                      "type": "roll_table",
+                      "tableId": "injury"
+                    }
+                  ]
+                },
+                {
+                  "label": "Take the Prisoner career next term",
+                  "buttonLabel": "Prisoner",
+                  "effects": [
+                    {
+                      "type": "next_career",
+                      "careerId": "prisoner"
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "text": "The adventure goes badly wrong. Either roll on the Injury table or take the Prisoner career in your next term."
+        },
+        {
+          "roll": 3,
+          "name": "Survives Empty-Handed",
+          "effects": [],
+          "text": "You survive, but gain nothing."
+        },
+        {
+          "roll": 4,
+          "name": "Survives Empty-Handed",
+          "effects": [],
+          "text": "You survive, but gain nothing."
+        },
+        {
+          "roll": 5,
+          "name": "Profitable Adventure",
+          "effects": [
+            {
+              "type": "one_benefit_roll_dm",
+              "dm": 4
+            }
+          ],
+          "text": "You succeed. Gain DM+4 to one Benefit roll."
+        },
+        {
+          "roll": 6,
+          "name": "Profitable Adventure",
+          "effects": [
+            {
+              "type": "one_benefit_roll_dm",
+              "dm": 4
+            }
+          ],
+          "text": "You succeed. Gain DM+4 to one Benefit roll."
+        }
+      ]
     }
   },
   "careers": {
@@ -397,10 +501,75 @@
               "check": {
                 "skill": "deception",
                 "target": 8
-              }
-            },
-            {
-              "type": "roll_related_career_event_or_mishap"
+              },
+              "success": [
+                {
+                  "type": "choice",
+                  "options": [
+                    {
+                      "label": "Roll on the Citizen Events table and one Citizen specialist skill table",
+                      "buttonLabel": "Citizen",
+                      "effects": [
+                        {
+                          "type": "roll_table",
+                          "tableId": "events",
+                          "careerId": "citizen"
+                        },
+                        {
+                          "type": "free_skill_table_roll",
+                          "careerId": "citizen",
+                          "tableScope": "specialist"
+                        }
+                      ]
+                    },
+                    {
+                      "label": "Roll on the Rogue Events table and one Rogue specialist skill table",
+                      "buttonLabel": "Rogue",
+                      "effects": [
+                        {
+                          "type": "roll_table",
+                          "tableId": "events",
+                          "careerId": "rogue"
+                        },
+                        {
+                          "type": "free_skill_table_roll",
+                          "careerId": "rogue",
+                          "tableScope": "specialist"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ],
+              "failure": [
+                {
+                  "type": "choice",
+                  "options": [
+                    {
+                      "label": "Roll on the Citizen Mishap table",
+                      "buttonLabel": "Citizen",
+                      "effects": [
+                        {
+                          "type": "roll_table",
+                          "tableId": "mishaps",
+                          "careerId": "citizen"
+                        }
+                      ]
+                    },
+                    {
+                      "label": "Roll on the Rogue Mishap table",
+                      "buttonLabel": "Rogue",
+                      "effects": [
+                        {
+                          "type": "roll_table",
+                          "tableId": "mishaps",
+                          "careerId": "rogue"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
             }
           ],
           "text": "You go undercover to investigate an enemy. Roll Deception 8+. If you succeed, roll immediately on the Rogue or Citizen Events table and make one roll on any Specialist skill table for that career. If you fail, roll immediately on the Rogue or Citizen Mishap table."
@@ -1307,8 +1476,24 @@
           "name": "Risky Adventure",
           "effects": [
             {
-              "type": "roll_subtable",
-              "tableId": "risky-adventure"
+              "type": "choice",
+              "options": [
+                {
+                  "label": "Decline the risky adventure",
+                  "buttonLabel": "Decline",
+                  "effects": []
+                },
+                {
+                  "label": "Accept the risky adventure",
+                  "buttonLabel": "Accept",
+                  "effects": [
+                    {
+                      "type": "roll_subtable",
+                      "tableId": "risky-adventure"
+                    }
+                  ]
+                }
+              ]
             }
           ],
           "text": "You are offered a chance to take part in a risky but rewarding adventure. If you accept, roll 1D: On a 1-2, you are injured or arrested; either roll on the Injury table or take the Prisoner career in your next term. On 3-4, you survive, but gain nothing. On a 5-6, you succeed. Gain DM+4 to one Benefit roll."

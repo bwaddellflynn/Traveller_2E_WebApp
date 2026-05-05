@@ -144,13 +144,18 @@ const {
   selectedMusteringCareerId,
   selectedMusteringRollType,
   startingCredits,
+  shipShares,
   personalBenefits,
   remainingBenefitRolls,
+  flexibleBenefitRollsAvailable,
   cashRollsUsed,
   cashRollLimit,
   canRollMusteringOut,
   musteringCareerOptions,
   selectedMusteringCareerBenefits,
+  selectedMusteringCareerSpecificRollsRemaining,
+  annualPensionByCareer,
+  annualPensionLabel,
   advancementResult,
   characterProfile,
   values,
@@ -1569,7 +1574,7 @@ if (import.meta.client) {
                     class="h-11 rounded-md border border-zinc-300 bg-white px-3 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200"
                   >
                     <option v-for="career in musteringCareerOptions" :key="career.id" :value="career.id">
-                      {{ career.name }} ({{ career.rolls }})
+                      {{ career.name }} ({{ career.rolls }} career{{ flexibleBenefitRollsAvailable ? ` + ${flexibleBenefitRollsAvailable} flexible` : '' }})
                     </option>
                   </select>
                 </label>
@@ -1609,6 +1614,21 @@ if (import.meta.client) {
                 </div>
               </div>
 
+              <div class="mt-3 flex flex-wrap gap-2 text-xs text-zinc-600">
+                <span class="rounded-md border border-zinc-200 bg-stone-50 px-3 py-2">
+                  {{ selectedMusteringCareerSpecificRollsRemaining }} career-specific rolls
+                </span>
+                <span class="rounded-md border border-zinc-200 bg-stone-50 px-3 py-2">
+                  {{ flexibleBenefitRollsAvailable }} flexible rolls
+                </span>
+                <span
+                  v-if="selectedMusteringCareer?.rankBenefitDm"
+                  class="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-amber-900"
+                >
+                  Rank DM {{ formatDm(selectedMusteringCareer.rankBenefitDm) }} for {{ selectedMusteringCareer.name }}
+                </span>
+              </div>
+
               <div v-if="selectedMusteringCareerBenefits.length" class="mt-5 overflow-hidden rounded-md border border-zinc-200">
                 <table class="w-full text-left text-sm">
                   <thead class="bg-stone-100 text-xs uppercase tracking-wide text-zinc-500">
@@ -1633,17 +1653,35 @@ if (import.meta.client) {
                   <p class="text-xs font-semibold uppercase tracking-wide text-zinc-500">Credits</p>
                   <p class="mt-2 text-2xl font-semibold">{{ startingCredits.toLocaleString() }} Cr</p>
                 </div>
-                <div class="rounded-md bg-stone-50 p-4 lg:col-span-2">
+                <div class="rounded-md bg-stone-50 p-4">
+                  <p class="text-xs font-semibold uppercase tracking-wide text-zinc-500">Annual Pension</p>
+                  <p class="mt-2 text-2xl font-semibold">{{ annualPensionLabel || 'None' }}</p>
+                </div>
+                <div class="rounded-md bg-stone-50 p-4">
+                  <p class="text-xs font-semibold uppercase tracking-wide text-zinc-500">Ship Shares</p>
+                  <p class="mt-2 text-2xl font-semibold">{{ shipShares }}</p>
+                </div>
+                <div class="rounded-md bg-stone-50 p-4 lg:col-span-3">
                   <p class="text-sm font-semibold text-zinc-900">Results</p>
                   <div v-if="musteringOutResults.length" class="mt-3 grid gap-2">
                     <div v-for="result in musteringOutResults" :key="result.id" class="rounded-md bg-white px-3 py-2 text-sm">
                       <p class="font-semibold">{{ result.careerName }} · {{ result.rollType }} · {{ result.dice.join(' + ') }} {{ formatDm(result.dm) }} = {{ result.total }}</p>
                       <p class="text-zinc-600">
                         {{ result.cash !== undefined ? `${result.cash.toLocaleString()} Cr` : result.benefit }}
+                        · {{ result.spentPool === 'career' ? 'career roll' : 'flexible roll' }}
                       </p>
                     </div>
                   </div>
                   <p v-else class="mt-3 text-sm text-zinc-600">No mustering-out rolls resolved.</p>
+                </div>
+              </div>
+
+              <div v-if="annualPensionByCareer.length" class="mt-5 rounded-md border border-zinc-200 p-4">
+                <p class="text-sm font-semibold text-zinc-900">Pensions</p>
+                <div class="mt-3 grid gap-2">
+                  <div v-for="pension in annualPensionByCareer" :key="pension.careerId" class="rounded-md bg-stone-50 px-3 py-2 text-sm text-zinc-700">
+                    {{ pension.careerName }} · {{ pension.terms }} terms · {{ pension.credits.toLocaleString() }} Cr/year
+                  </div>
                 </div>
               </div>
 

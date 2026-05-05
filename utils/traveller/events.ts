@@ -198,9 +198,57 @@ export const getLifeSubtableEvent = (tableId: string, roll: number): TravellerEv
 }
 
 export const getPreCareerSubtableEvent = (tableId: string, roll: number): TravellerEvent | null => {
-  const table = (preCareerEventsData.subtables as Record<string, { events: RawEventRow[] }>)[tableId]
-  const row = table?.events.find((event) => event.roll === roll)
-  return row ? normalizeEvent(row, 'subtable', tableId) : null
+  const table = (preCareerEventsData.subtables as Record<string, {
+    events?: RawEventRow[]
+    entries?: Array<{
+      roll?: number
+      rolls?: number[]
+      id?: string
+      name?: string
+      text?: string
+      careerId?: string
+      assignment?: string
+      effects?: TravellerEventEffect[]
+    }>
+  }>)[tableId]
+  const row = table?.events?.find((event) => event.roll === roll)
+  if (row) return normalizeEvent(row, 'subtable', tableId)
+
+  const entry = table?.entries?.find((item) => item.roll === roll || item.rolls?.includes(roll))
+  if (!entry) return null
+
+  if (entry.effects?.length) {
+    return normalizeEvent({
+      roll,
+      id: entry.id,
+      name: entry.name,
+      text: entry.text,
+      effects: entry.effects,
+    }, 'subtable', tableId)
+  }
+
+  if (entry.careerId) {
+    const effect = entry.assignment && entry.assignment !== 'any'
+      ? {
+          type: 'draft_assignment',
+          careerId: entry.careerId,
+          assignmentId: entry.assignment,
+        }
+      : {
+          type: 'next_career',
+          careerId: entry.careerId,
+        }
+
+    return normalizeEvent({
+      roll,
+      id: entry.id ?? `${tableId}-${entry.careerId}`,
+      name: entry.name ?? `Drafted into ${toTitle(entry.careerId)}`,
+      text: entry.text ?? `You are drafted into the ${toTitle(entry.careerId)} career.`,
+      effects: [effect as TravellerEventEffect],
+    }, 'subtable', tableId)
+  }
+
+  return null
 }
 
 export const getCareerCommonSubtableEvent = (tableId: string, roll: number): TravellerEvent | null => {

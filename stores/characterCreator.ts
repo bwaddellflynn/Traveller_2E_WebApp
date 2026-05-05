@@ -90,6 +90,7 @@ type PendingEventResolution = {
   lawyerLevels?: number[]
   tableId?: string
   skillTableId?: string
+  targetCareerId?: string
   diceCount?: 1 | 2
   wagerChecks?: Array<{
     label: string
@@ -150,6 +151,7 @@ type TravellerRollModifier = {
   target: 'advancement' | 'qualification' | 'benefit' | 'survival' | 'commission' | 'career' | 'any'
   dm: number
   scope: 'next' | 'one' | 'career' | 'term' | 'any'
+  careerId?: string
   used?: boolean
 }
 type BenefitRollAdjustment = {
@@ -159,6 +161,7 @@ type BenefitRollAdjustment = {
   adjustment: number
   dm?: number
   scope: 'current-term' | 'career' | 'one-roll' | 'any'
+  careerId?: string
 }
 type BenefitRollLedgerEntry = {
   id: string
@@ -173,6 +176,7 @@ type MusteringOutResult = {
   id: string
   careerId: string
   careerName: string
+  spentPool: 'career' | 'flexible'
   rollType: MusteringOutRollType
   dice: number[]
   dm: number
@@ -346,6 +350,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
   const selectedMusteringCareerId = ref('')
   const selectedMusteringRollType = ref<MusteringOutRollType>('benefit')
   const startingCredits = ref(0)
+  const shipShares = ref(0)
   const personalBenefits = ref<string[]>([])
   const medicalDebt = ref(0)
   const legalDebt = ref(0)
@@ -699,6 +704,8 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
   const currentCareerTableData = computed(() => {
     return (careerTablesData.careers as Record<string, any>)[selectedCareerId.value] ?? null
   })
+  const careerSummaryById = (careerId: string) => careersData.careers.find((career) => career.id === careerId) ?? null
+  const careerTableDataById = (careerId: string) => (careerTablesData.careers as Record<string, any>)[careerId] ?? null
   const previousCareerCount = computed(() => new Set(termHistory.value
     .map((term) => term.careerId)
     .filter((careerId): careerId is string => Boolean(careerId) && careerId !== selectedCareerId.value)).size)
@@ -745,7 +752,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     if (!eduTarget) return true
     return values.edu >= Number(eduTarget[1])
   }
-  const skillTableLabel = (tableId: string) => {
+  const skillTableLabelForCareer = (careerId: string, tableId: string) => {
     const labels: Record<string, string> = {
       'personal-development': 'Personal Development',
       'service-skills': 'Service Skills',
@@ -753,7 +760,34 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
       officer: 'Officer',
     }
 
-    return labels[tableId] ?? selectedCareer.value.assignments.find((assignment) => assignment.id === tableId)?.name ?? tableId
+    return labels[tableId] ?? careerSummaryById(careerId)?.assignments.find((assignment) => assignment.id === tableId)?.name ?? tableId
+  }
+  const skillTableLabel = (tableId: string) => skillTableLabelForCareer(selectedCareerId.value, tableId)
+  const careerSkillTablesFor = (
+    careerId: string,
+    scope: 'available' | 'specialist' = 'available',
+  ) => {
+    const careerTableData = careerTableDataById(careerId)
+    const skillTables = (careerTableData?.skillTables ?? {}) as Record<string, any>
+    const assignmentIds = new Set((careerSummaryById(careerId)?.assignments ?? []).map((assignment) => assignment.id))
+
+    return Object.entries(skillTables)
+      .filter(([tableId, table]) => {
+        if (scope === 'specialist') {
+          if (assignmentIds.size) return assignmentIds.has(tableId)
+          return !['personal-development', 'service-skills', 'advanced-education', 'officer'].includes(tableId)
+        }
+
+        if (tableId === 'officer') return false
+        if (tableId === 'advanced-education') return advancedEducationAllowed((table as { requirement?: string }).requirement)
+        return ['personal-development', 'service-skills'].includes(tableId) || assignmentIds.has(tableId)
+      })
+      .map(([id, table]) => ({
+        id,
+        label: skillTableLabelForCareer(careerId, id),
+        entries: tableEntries(table as string[] | { entries?: string[] }),
+        requirement: Array.isArray(table) ? null : (table as { requirement?: string }).requirement ?? null,
+      }))
   }
   const availableCareerSkillTables = computed(() => {
     return Object.entries(currentCareerSkillTables.value)
@@ -1797,6 +1831,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
       source,
       effect,
       tableId,
+      targetCareerId: typeof effect.careerId === 'string' ? effect.careerId : selectedCareerId.value,
       diceCount: tableRollDiceCount(tableId),
     })
     recordEventOutcome(source, effect, label, 'pending')
@@ -2195,7 +2230,11 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
 
   const addSkillTableRollResolution = (effect: TravellerEventEffect, source: string, label = tableEffectLabel(effect)) => {
     const tableId = typeof effect.tableId === 'string' ? effect.tableId : ''
-    const table = availableCareerSkillTables.value.find((item) => item.id === tableId)
+    const targetCareerId = typeof effect.careerId === 'string' ? effect.careerId : selectedCareerId.value
+    const table = careerSkillTablesFor(
+      targetCareerId,
+      typeof effect.tableScope === 'string' && effect.tableScope === 'specialist' ? 'specialist' : 'available',
+    ).find((item) => item.id === tableId)
     if (!table) {
       addManualEventResolution(effect, source, `${label} manually.`)
       return
@@ -2207,18 +2246,24 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
       source,
       effect,
       skillTableId: table.id,
+      targetCareerId,
       diceCount: 1,
     })
     recordEventOutcome(source, effect, `${label}: ${table.label}`, 'pending')
   }
 
   const addFreeSkillTableRollResolution = (effect: TravellerEventEffect, source: string, label = tableEffectLabel(effect)) => {
-    const tableOptions = availableCareerSkillTables.value.map((table) => ({
+    const targetCareerId = typeof effect.careerId === 'string' ? effect.careerId : selectedCareerId.value
+    const tableOptions = careerSkillTablesFor(
+      targetCareerId,
+      typeof effect.tableScope === 'string' && effect.tableScope === 'specialist' ? 'specialist' : 'available',
+    ).map((table) => ({
       label: table.label,
       effects: [
         {
           type: 'skill_table_roll',
           tableId: table.id,
+          careerId: targetCareerId,
         },
       ],
     }))
@@ -2569,12 +2614,44 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     }
 
     if (effect.type === 'education_graduation') {
-      recordEventOutcome(source, effect)
+      if (effect.result === 'fail' || effect.result === 'fail_unless_soc_check') {
+        termRolls.educationGraduation = {
+          label: 'Graduation',
+          dice: [],
+          dm: 0,
+          total: 0,
+          target: 1,
+          effect: -1,
+          success: false,
+          finalSuccess: false,
+          source: 'automatic',
+          notes: effect.result === 'fail'
+            ? `${event.name} prevents graduation`
+            : `${event.name} prevents graduation unless its check succeeds`,
+        }
+      }
+      recordEventOutcome(source, effect, tableEffectLabel(effect))
+      return
+    }
+
+    if (effect.type === 'ignore_draft') {
+      pendingEventResolutions.value = pendingEventResolutions.value.filter((resolution) => !(resolution.source === source && resolution.tableId === 'wartime-draft'))
+      careerConstraints.value = careerConstraints.value.filter((constraint) => !(constraint.source === source && (constraint.effectType === 'next_career' || constraint.effectType === 'draft_assignment')))
+      recordEventOutcome(source, effect, 'Ignore draft')
+      return
+    }
+
+    if (effect.type === 'may_attempt_graduation') {
+      if (termRolls.educationGraduation?.notes?.includes(event.name)) {
+        termRolls.educationGraduation = null
+      }
+      recordEventOutcome(source, effect, 'May attempt graduation')
       return
     }
 
     if (normalizedType === 'roll_modifier' && typeof effect.dm === 'number') {
       const label = tableEffectLabel(effect)
+      const scope = rollModifierScope(effect)
       rollModifiers.value = [
         ...rollModifiers.value,
         {
@@ -2583,7 +2660,8 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
           label,
           target: rollModifierTarget(effect),
           dm: effect.dm,
-          scope: rollModifierScope(effect),
+          scope,
+          careerId: rollModifierTarget(effect) === 'benefit' && scope === 'career' ? selectedCareerId.value : undefined,
         },
       ]
       recordEventOutcome(source, effect, label)
@@ -2613,6 +2691,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
           adjustment,
           dm: typeof effect.dm === 'number' ? effect.dm : undefined,
           scope: effect.type.includes('current_term') || effect.type.includes('current-term') ? 'current-term' : 'any',
+          careerId: selectedTermPath.value === 'career' ? selectedCareerId.value : undefined,
         },
       ]
 
@@ -3085,7 +3164,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
   const resolveEventTableRoll = (resolution: PendingEventResolution, total: number, source: 'rolled' | 'manual') => {
     if (!resolution.tableId || resolution.resolved) return
 
-    const nestedEvent = getEventFromTable(resolution.tableId, total, selectedCareerId.value)
+    const nestedEvent = getEventFromTable(resolution.tableId, total, resolution.targetCareerId ?? selectedCareerId.value)
     if (!nestedEvent) return
 
     pendingEventResolutions.value = pendingEventResolutions.value.map((item) => {
@@ -3100,7 +3179,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     recordEventOutcome(resolution.source, resolution.effect, `${resolution.label}: ${nestedEvent.name}`, 'manual')
 
     for (const effect of nestedEvent.effects) {
-      applyEventEffect(effect, nestedEvent, nestedEvent.name)
+      applyEventEffect(effect, nestedEvent, resolution.source)
     }
   }
 
@@ -3246,7 +3325,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     if (resolution.kind !== 'skill_table_roll' || !resolution.skillTableId || resolution.resolved) return
     if (die < 1 || die > 6) return
 
-    const table = availableCareerSkillTables.value.find((item) => item.id === resolution.skillTableId)
+    const table = careerSkillTablesFor(resolution.targetCareerId ?? selectedCareerId.value).find((item) => item.id === resolution.skillTableId)
     const result = table?.entries[die - 1]
     if (!table || !result) return
 
@@ -3305,6 +3384,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
         label: `${resolution.label}: ${selected}`,
         adjustment,
         scope: 'career',
+        careerId: selectedCareerId.value,
       },
     ]
 
@@ -4256,41 +4336,141 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     selectedMusteringCareerId.value = musteringCareerOptions.value[0]?.id ?? ''
   }
 
-  const totalBenefitRollsEarned = computed(() => benefitRollLedger.value.reduce((sum, entry) => sum + entry.count, 0))
+  const highestCareerRanks = computed<Record<string, number>>(() => {
+    return careerRanks.value.reduce<Record<string, number>>((highest, rank) => {
+      highest[rank.careerId] = Math.max(highest[rank.careerId] ?? 0, rank.rank)
+      return highest
+    }, {})
+  })
+  const rankBenefitBonusByCareer = computed<Record<string, { bonusRolls: number; benefitDm: number }>>(() => {
+    const rules = creationRulesData.benefits.rankBonusBenefitRolls as Array<{
+      highestRankMin: number
+      highestRankMax: number
+      bonusRolls: number
+      benefitRollDm?: number
+    }>
+
+    return Object.entries(highestCareerRanks.value).reduce<Record<string, { bonusRolls: number; benefitDm: number }>>((bonuses, [careerId, rank]) => {
+      const matched = rules.find((rule) => rank >= rule.highestRankMin && rank <= rule.highestRankMax)
+      if (matched) bonuses[careerId] = { bonusRolls: matched.bonusRolls, benefitDm: matched.benefitRollDm ?? 0 }
+      return bonuses
+    }, {})
+  })
+  const earnedBenefitRollsByCareer = computed<Record<string, number>>(() => benefitRollLedger.value.reduce<Record<string, number>>((totals, entry) => {
+    if (!entry.careerId) return totals
+    totals[entry.careerId] = (totals[entry.careerId] ?? 0) + entry.count
+    return totals
+  }, {}))
+  const careerBenefitAdjustmentsByCareer = computed<Record<string, number>>(() => benefitRollAdjustments.value.reduce<Record<string, number>>((totals, adjustment) => {
+    if (!adjustment.careerId || (adjustment.scope !== 'career' && adjustment.scope !== 'current-term')) return totals
+    totals[adjustment.careerId] = (totals[adjustment.careerId] ?? 0) + adjustment.adjustment
+    return totals
+  }, {}))
+  const flexibleBenefitRollAdjustments = computed(() => benefitRollAdjustments.value.reduce((sum, adjustment) => {
+    if (adjustment.careerId && (adjustment.scope === 'career' || adjustment.scope === 'current-term')) return sum
+    return sum + adjustment.adjustment
+  }, 0))
+  const careerSpecificBenefitRollsByCareer = computed<Record<string, number>>(() => {
+    const careerIds = new Set([
+      ...Object.keys(earnedBenefitRollsByCareer.value),
+      ...Object.keys(rankBenefitBonusByCareer.value),
+      ...Object.keys(careerBenefitAdjustmentsByCareer.value),
+    ])
+
+    return Array.from(careerIds).reduce<Record<string, number>>((totals, careerId) => {
+      totals[careerId] = Math.max(
+        0,
+        (earnedBenefitRollsByCareer.value[careerId] ?? 0)
+          + (rankBenefitBonusByCareer.value[careerId]?.bonusRolls ?? 0)
+          + (careerBenefitAdjustmentsByCareer.value[careerId] ?? 0),
+      )
+      return totals
+    }, {})
+  })
+  const spentCareerSpecificBenefitRollsByCareer = computed<Record<string, number>>(() => musteringOutResults.value.reduce<Record<string, number>>((totals, result) => {
+    if (result.spentPool !== 'career') return totals
+    totals[result.careerId] = (totals[result.careerId] ?? 0) + 1
+    return totals
+  }, {}))
+  const availableCareerSpecificBenefitRollsByCareer = computed<Record<string, number>>(() => Object.entries(careerSpecificBenefitRollsByCareer.value)
+    .reduce<Record<string, number>>((totals, [careerId, count]) => {
+      totals[careerId] = Math.max(0, count - (spentCareerSpecificBenefitRollsByCareer.value[careerId] ?? 0))
+      return totals
+    }, {}))
+  const flexibleBenefitRollBalance = computed(() => flexibleBenefitRollAdjustments.value - musteringOutResults.value.filter((result) => result.spentPool === 'flexible').length)
+  const flexibleBenefitRollsAvailable = computed(() => Math.max(0, flexibleBenefitRollBalance.value))
+  const totalBenefitRollsEarned = computed(() => Object.values(earnedBenefitRollsByCareer.value).reduce((sum, count) => sum + count, 0))
   const totalBenefitRollAdjustments = computed(() => benefitRollAdjustments.value.reduce((sum, adjustment) => sum + adjustment.adjustment, 0))
-  const totalAvailableBenefitRolls = computed(() => Math.max(0, totalBenefitRollsEarned.value + totalBenefitRollAdjustments.value))
+  const totalAvailableBenefitRolls = computed(() => Math.max(0, Object.values(careerSpecificBenefitRollsByCareer.value).reduce((sum, count) => sum + count, 0) + flexibleBenefitRollAdjustments.value))
   const spentBenefitRolls = computed(() => musteringOutResults.value.length)
-  const remainingBenefitRolls = computed(() => Math.max(0, totalAvailableBenefitRolls.value - spentBenefitRolls.value))
+  const remainingBenefitRolls = computed(() => Math.max(0, Object.values(availableCareerSpecificBenefitRollsByCareer.value).reduce((sum, count) => sum + count, 0) + flexibleBenefitRollBalance.value))
   const cashRollsUsed = computed(() => musteringOutResults.value.filter((result) => result.rollType === 'cash').length)
   const cashRollLimit = creationRulesData.benefits.cashRollMaximumAcrossAllCareers
+  const selectedMusteringCareerSpecificRollsRemaining = computed(() => selectedMusteringCareerId.value
+    ? availableCareerSpecificBenefitRollsByCareer.value[selectedMusteringCareerId.value] ?? 0
+    : 0)
   const canRollMusteringOut = computed(() => {
     if (!lifepathComplete.value) return false
     if (!selectedMusteringCareerId.value) return false
     if (remainingBenefitRolls.value <= 0) return false
+    if (selectedMusteringCareerSpecificRollsRemaining.value <= 0 && flexibleBenefitRollsAvailable.value <= 0) return false
     if (selectedMusteringRollType.value === 'cash' && cashRollsUsed.value >= cashRollLimit) return false
     return Boolean(selectedMusteringCareerBenefits.value.length)
   })
   const musteringCareerOptions = computed(() => {
-    const careerIds = Array.from(new Set(benefitRollLedger.value
-      .filter((entry) => entry.careerId && entry.count > 0)
-      .map((entry) => entry.careerId as string)))
+    const careerIds = Array.from(new Set([
+      ...Object.keys(careerSpecificBenefitRollsByCareer.value),
+      ...benefitRollLedger.value
+        .filter((entry) => entry.careerId)
+        .map((entry) => entry.careerId as string),
+    ]))
 
     return careerIds.map((careerId) => {
       const career = careersData.careers.find((item) => item.id === careerId)
       return {
         id: careerId,
         name: career?.name ?? careerId,
-        rolls: benefitRollLedger.value
-          .filter((entry) => entry.careerId === careerId)
-          .reduce((sum, entry) => sum + entry.count, 0),
+        rolls: availableCareerSpecificBenefitRollsByCareer.value[careerId] ?? 0,
+        rankBonusRolls: rankBenefitBonusByCareer.value[careerId]?.bonusRolls ?? 0,
+        rankBenefitDm: rankBenefitBonusByCareer.value[careerId]?.benefitDm ?? 0,
       }
-    })
+    }).filter((career) => career.rolls > 0 || flexibleBenefitRollsAvailable.value > 0)
   })
   const selectedMusteringCareer = computed(() => musteringCareerOptions.value.find((career) => career.id === selectedMusteringCareerId.value) ?? musteringCareerOptions.value[0] ?? null)
   const selectedMusteringCareerBenefits = computed(() => {
     if (!selectedMusteringCareer.value) return []
     return ((careerTablesData.careers as Record<string, any>)[selectedMusteringCareer.value.id]?.benefits ?? []) as Array<{ roll: number; cash: number; benefit: string }>
   })
+  const annualPensionByCareer = computed(() => {
+    const excludedCareerIds = new Set((creationRulesData.pensions.excludedCareerIds ?? []).map(String))
+    const annualPayByTerms = creationRulesData.pensions.annualPayByTerms as Array<{ terms?: number; termsMin?: number; formula?: string; credits?: number }>
+    const termCountsByCareer = termHistory.value
+      .filter((term) => term.path === 'career' && term.careerId)
+      .reduce<Record<string, number>>((counts, term) => {
+        counts[term.careerId as string] = (counts[term.careerId as string] ?? 0) + 1
+        return counts
+      }, {})
+
+    const pensionForTerms = (terms: number) => {
+      const exact = annualPayByTerms.find((entry) => entry.terms === terms)
+      if (exact?.credits) return exact.credits
+      const minimum = annualPayByTerms.find((entry) => typeof entry.termsMin === 'number' && terms >= entry.termsMin)
+      if (minimum?.formula === '2000 * terms') return 2000 * terms
+      return minimum?.credits ?? 0
+    }
+
+    return Object.entries(termCountsByCareer)
+      .filter(([careerId, terms]) => !excludedCareerIds.has(careerId) && terms >= Number(creationRulesData.pensions.minimumTerms ?? 5))
+      .map(([careerId, terms]) => ({
+        careerId,
+        careerName: careerSummaryById(careerId)?.name ?? careerId,
+        terms,
+        credits: pensionForTerms(terms),
+      }))
+      .filter((entry) => entry.credits > 0)
+  })
+  const annualPensionCredits = computed(() => annualPensionByCareer.value.reduce((sum, entry) => sum + entry.credits, 0))
+  const annualPensionLabel = computed(() => annualPensionCredits.value > 0 ? `${annualPensionCredits.value.toLocaleString()} Cr/year` : '')
 
   watch(musteringCareerOptions, (options) => {
     if (!options.length) {
@@ -4303,9 +4483,11 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     }
   }, { immediate: true })
 
-  const activeBenefitRollModifiers = () => rollModifiers.value.filter((modifier) => {
+  const activeBenefitRollModifiers = (careerId: string) => rollModifiers.value.filter((modifier) => {
     if (modifier.used) return false
-    return modifier.target === 'benefit' || modifier.target === 'any'
+    if (modifier.target !== 'benefit' && modifier.target !== 'any') return false
+    if (modifier.careerId && modifier.careerId !== careerId) return false
+    return true
   })
 
   const consumeBenefitRollModifiers = (modifiers: TravellerRollModifier[]) => {
@@ -4335,6 +4517,16 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
 
     if (applyCharacteristicIncrease(benefit)) return
 
+    if (/^two ship shares$/i.test(benefit)) {
+      shipShares.value += 2
+      return
+    }
+
+    if (/^ship share$/i.test(benefit)) {
+      shipShares.value += 1
+      return
+    }
+
     if (/^contact$/i.test(benefit) || /^ally$/i.test(benefit)) {
       associates.value = [
         ...associates.value,
@@ -4355,8 +4547,13 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     if (!canRollMusteringOut.value || !selectedMusteringCareer.value) return
     if (die < 1 || die > 6) return
 
-    const modifiers = activeBenefitRollModifiers()
-    const dm = modifiers.reduce((sum, modifier) => sum + modifier.dm, 0)
+    const spentPool: MusteringOutResult['spentPool'] = selectedMusteringCareerSpecificRollsRemaining.value > 0 ? 'career' : 'flexible'
+    const modifiers = activeBenefitRollModifiers(selectedMusteringCareer.value.id)
+    const gamblerCashDm = selectedMusteringRollType.value === 'cash' && skillLevel('gambler') >= 0
+      ? Number(creationRulesData.benefits.gamblerCashBenefitDm ?? 1)
+      : 0
+    const rankBenefitDm = rankBenefitBonusByCareer.value[selectedMusteringCareer.value.id]?.benefitDm ?? 0
+    const dm = modifiers.reduce((sum, modifier) => sum + modifier.dm, 0) + gamblerCashDm + rankBenefitDm
     const total = die + dm
     const row = musteringBenefitRow(total)
     if (!row) return
@@ -4365,6 +4562,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
       id: makeEventOutcomeId('mustering-out'),
       careerId: selectedMusteringCareer.value.id,
       careerName: selectedMusteringCareer.value.name,
+      spentPool,
       rollType: selectedMusteringRollType.value,
       dice: [die],
       dm,
@@ -4385,7 +4583,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
         id: makeEventOutcomeId('mustering-out-log'),
         source: `Mustering Out: ${selectedMusteringCareer.value.name}`,
         label: selectedMusteringRollType.value === 'cash'
-          ? `Cash ${result.cash?.toLocaleString() ?? 0} credits`
+          ? `Cash ${result.cash?.toLocaleString() ?? 0} credits${gamblerCashDm ? ` (includes Gambler ${formatDm(gamblerCashDm)})` : ''}`
           : result.benefit ?? 'Benefit',
         effectType: 'mustering_out',
         normalizedType: 'mustering_out',
@@ -4461,8 +4659,20 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     if (effect.type === 'roll_subtable') return `Roll on ${effect.tableId}`
     if (effect.type === 'ignore_draft') return 'Ignore draft'
     if (effect.type === 'may_attempt_graduation') return 'May attempt graduation'
-    if (effect.type === 'roll_mishap') return 'Roll on mishap table'
-    if (effect.type === 'roll_table') return `Roll on ${effect.tableId}`
+    if (effect.type === 'roll_mishap') {
+      return typeof effect.careerId === 'string'
+        ? `Roll on ${careerSummaryById(effect.careerId)?.name ?? effect.careerId} mishap table`
+        : 'Roll on mishap table'
+    }
+    if (effect.type === 'roll_table') {
+      if (effect.tableId === 'events' && typeof effect.careerId === 'string') {
+        return `Roll on ${careerSummaryById(effect.careerId)?.name ?? effect.careerId} events table`
+      }
+      if (effect.tableId === 'mishaps' && typeof effect.careerId === 'string') {
+        return `Roll on ${careerSummaryById(effect.careerId)?.name ?? effect.careerId} mishap table`
+      }
+      return `Roll on ${effect.tableId}`
+    }
     if (effect.type === 'check_known_term_skill') return `Check known term skill ${effect.target ?? 8}+`
     if (effect.type === 'assignment_skill_check') return `${selectedAssignment.value.name} skill check ${effect.target ?? 8}+`
     if (effect.type === 'check') {
@@ -4488,8 +4698,14 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     if (effect.type === 'increase_existing_skill') return `Increase an existing skill by ${effect.amount ?? 1}`
     if (effect.type === 'increase_any_existing_skill') return `Increase any existing skill by ${effect.amount ?? 1}`
     if (effect.type === 'science_speciality_levels') return `Choose ${effect.count ?? 1} Science specialty increase${effect.count === 1 ? '' : 's'}`
-    if (effect.type === 'free_skill_table_roll') return 'Free skill table roll'
-    if (effect.type === 'skill_table_roll') return `Roll on ${skillTableLabel(effect.tableId ?? selectedCareerSkillTableId.value)}`
+    if (effect.type === 'free_skill_table_roll') {
+      return typeof effect.careerId === 'string'
+        ? `Free ${careerSummaryById(effect.careerId)?.name ?? effect.careerId} skill table roll`
+        : 'Free skill table roll'
+    }
+    if (effect.type === 'skill_table_roll') {
+      return `Roll on ${skillTableLabelForCareer(typeof effect.careerId === 'string' ? effect.careerId : selectedCareerId.value, effect.tableId ?? selectedCareerSkillTableId.value)}`
+    }
     if (effect.type === 'wager_benefit_rolls') return 'Wager benefit rolls'
     if (effect.type === 'gain_associate') return `Gain ${effect.count ? `${effect.count} ` : ''}${effect.associateTypes?.join(' or ') ?? 'associate'}`
     if (effect.type === 'convert_or_gain_associate') return `Convert ${effect.from?.join(' or ') ?? 'contact or ally'} to ${effect.to?.join(' or ') ?? 'rival or enemy'}`
@@ -4600,6 +4816,8 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     }
     profile.finances.cashOnHand = startingCredits.value
     profile.finances.debt = totalDebt.value
+    profile.finances.annualPension = annualPensionLabel.value
+    profile.finances.shipShares = shipShares.value
     profile.history.events = narrativeEvents.value.map((event) => ({ ...event }))
     profile.history.background = selectedBackgroundSkills.value.map((skill) => skillOptionLabel(skill)).join(', ')
     profile.metadata.creatorComplete = lifepathComplete.value
@@ -4670,6 +4888,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     selectedMusteringCareerId,
     selectedMusteringRollType,
     startingCredits,
+    shipShares,
     personalBenefits,
     medicalDebt,
     legalDebt,
@@ -4878,12 +5097,17 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     totalAvailableBenefitRolls,
     spentBenefitRolls,
     remainingBenefitRolls,
+    flexibleBenefitRollsAvailable,
     cashRollsUsed,
     cashRollLimit,
     canRollMusteringOut,
     musteringCareerOptions,
     selectedMusteringCareer,
+    selectedMusteringCareerSpecificRollsRemaining,
     selectedMusteringCareerBenefits,
+    annualPensionByCareer,
+    annualPensionCredits,
+    annualPensionLabel,
     rollMusteringOutBenefit,
     enterManualMusteringOutBenefit,
     modifierLabel,
