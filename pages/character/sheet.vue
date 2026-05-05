@@ -36,6 +36,34 @@ const associateTypeLabels: Record<keyof TravellerProfile['associates'], string> 
   enemies: 'enemy',
   other: 'associate',
 }
+const skillColumnCount = 3
+const skillRowsPerColumn = 16
+const skillPadCount = computed(() => Math.max(0, skillColumnCount * skillRowsPerColumn - draft.value.skills.length))
+const paddedSkills = computed(() => [
+  ...draft.value.skills,
+  ...Array.from({ length: skillPadCount.value }, (_, index) => ({
+    id: `skill-placeholder-${index}`,
+    name: '',
+    speciality: '',
+    level: null,
+    notes: '',
+    placeholder: true,
+  })),
+])
+const skillColumns = computed(() => Array.from({ length: skillColumnCount }, (_, columnIndex) =>
+  paddedSkills.value.slice(columnIndex * skillRowsPerColumn, (columnIndex + 1) * skillRowsPerColumn)))
+const trainingSkill = computed(() => draft.value.skills.find((skill) => skill.sources?.some((source) => /training/i.test(source))) ?? null)
+const historyBackgroundLines = computed({
+  get: () => {
+    const blocks = [draft.value.history.background, draft.value.history.notes].filter(Boolean)
+    return blocks.join('\n')
+  },
+  set: (value: string) => {
+    const [background, ...rest] = value.split('\n')
+    draft.value.history.background = background ?? ''
+    draft.value.history.notes = rest.join('\n').trim()
+  },
+})
 
 const diceModifier = (score: number) => {
   if (score <= 0) return -3
@@ -335,289 +363,741 @@ watch(
       </div>
     </section>
 
-    <section class="mx-auto grid w-full max-w-7xl gap-5 px-5 py-6 sm:px-8 lg:px-10">
+    <section class="mx-auto grid w-full max-w-[1500px] gap-6 px-4 py-6 sm:px-8 lg:px-10">
       <p v-if="saveMessage" class="rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-900">
         {{ saveMessage }}
       </p>
 
-      <div class="rounded-lg border border-zinc-300 bg-white p-5 shadow-sm">
-        <div class="grid gap-4 md:grid-cols-3">
-          <label class="grid gap-2 md:col-span-2">
-            <span class="text-sm font-semibold text-zinc-700">Name</span>
-            <input v-model="draft.identity.name" class="h-11 rounded-md border border-zinc-300 px-3 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200">
-          </label>
-          <label class="grid gap-2">
-            <span class="text-sm font-semibold text-zinc-700">Title</span>
-            <input v-model="draft.identity.title" class="h-11 rounded-md border border-zinc-300 px-3 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200">
-          </label>
-          <label class="grid gap-2">
-            <span class="text-sm font-semibold text-zinc-700">Age</span>
-            <input v-model.number="draft.identity.age" class="h-11 rounded-md border border-zinc-300 px-3 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200" min="0" type="number">
-          </label>
-          <label class="grid gap-2">
-            <span class="text-sm font-semibold text-zinc-700">Species</span>
-            <input v-model="draft.identity.species" class="h-11 rounded-md border border-zinc-300 px-3 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200">
-          </label>
-          <label class="grid gap-2">
-            <span class="text-sm font-semibold text-zinc-700">Homeworld</span>
-            <input v-model="draft.identity.homeworld" class="h-11 rounded-md border border-zinc-300 px-3 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200">
-          </label>
-          <label class="grid gap-2 md:col-span-3">
-            <span class="text-sm font-semibold text-zinc-700">Distinguishing Features</span>
-            <textarea v-model="draft.identity.distinguishingFeatures" class="min-h-20 rounded-md border border-zinc-300 px-3 py-2 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200" />
-          </label>
+      <div class="sheet-page">
+        <div class="sheet-chrome">Traveller Character Sheet</div>
+        <div class="sheet-page-grid sheet-page-grid--front">
+          <div class="sheet-page-left">
+            <section class="sheet-panel sheet-panel--vertical">
+              <header class="sheet-panel-title sheet-panel-title--side">Augments</header>
+              <div class="sheet-table">
+                <div class="sheet-table-header sheet-table-header--augments">
+                  <span>Type</span>
+                  <span>TL</span>
+                  <span>Traits</span>
+                </div>
+                <div class="sheet-table-body">
+                  <div v-for="(augment, index) in draft.augments" :key="augment.id" class="sheet-table-row sheet-table-row--augments">
+                    <input v-model="augment.type" class="sheet-cell-input" placeholder="Type">
+                    <input v-model="augment.techLevel" class="sheet-cell-input" placeholder="TL">
+                    <div class="sheet-cell-stack">
+                      <input v-model="augment.name" class="sheet-cell-input" placeholder="Name">
+                      <input v-model="augment.traits" class="sheet-cell-input" placeholder="Traits">
+                    </div>
+                    <button class="sheet-remove" type="button" @click="removeAugment(index)">Remove</button>
+                  </div>
+                  <button class="sheet-add" type="button" @click="addAugment">Add Augment</button>
+                </div>
+              </div>
+            </section>
+
+            <section class="sheet-panel sheet-panel--vertical">
+              <header class="sheet-panel-title sheet-panel-title--side">Armour</header>
+              <div class="sheet-table">
+                <div class="sheet-table-header sheet-table-header--armour">
+                  <span>Type</span>
+                  <span>Rad.</span>
+                  <span>Protection</span>
+                  <span>Kg</span>
+                  <span>Options</span>
+                </div>
+                <div class="sheet-table-body">
+                  <div v-for="(armour, index) in draft.armour" :key="armour.id" class="sheet-table-row sheet-table-row--armour">
+                    <div class="sheet-cell-stack">
+                      <input v-model="armour.name" class="sheet-cell-input" placeholder="Name">
+                      <input v-model="armour.type" class="sheet-cell-input" placeholder="Type">
+                    </div>
+                    <input v-model="armour.radiationProtection" class="sheet-cell-input" placeholder="Rad">
+                    <input v-model="armour.protection" class="sheet-cell-input" placeholder="Protection">
+                    <input v-model="armour.kg" class="sheet-cell-input" placeholder="Kg">
+                    <div class="sheet-cell-stack">
+                      <input v-model="armour.options" class="sheet-cell-input" placeholder="Options">
+                      <input v-model="armour.traits" class="sheet-cell-input" placeholder="Traits">
+                    </div>
+                    <button class="sheet-remove" type="button" @click="removeArmour(index)">Remove</button>
+                  </div>
+                  <button class="sheet-add" type="button" @click="addArmour">Add Armour</button>
+                </div>
+              </div>
+            </section>
+
+            <section class="sheet-panel sheet-panel--vertical">
+              <header class="sheet-panel-title sheet-panel-title--side">Weapons</header>
+              <div class="sheet-table">
+                <div class="sheet-table-header sheet-table-header--weapons">
+                  <span>Type</span>
+                  <span>TL</span>
+                  <span>Range</span>
+                  <span>Damage</span>
+                  <span>Kg</span>
+                  <span>Mag.</span>
+                  <span>Traits</span>
+                </div>
+                <div class="sheet-table-body">
+                  <div v-for="(weapon, index) in draft.weapons" :key="weapon.id" class="sheet-table-row sheet-table-row--weapons">
+                    <div class="sheet-cell-stack">
+                      <input v-model="weapon.name" class="sheet-cell-input" placeholder="Name">
+                    </div>
+                    <input v-model="weapon.techLevel" class="sheet-cell-input" placeholder="TL">
+                    <input v-model="weapon.range" class="sheet-cell-input" placeholder="Range">
+                    <input v-model="weapon.damage" class="sheet-cell-input" placeholder="Damage">
+                    <input v-model="weapon.kg" class="sheet-cell-input" placeholder="Kg">
+                    <input v-model="weapon.magazine" class="sheet-cell-input" placeholder="Mag">
+                    <div class="sheet-cell-stack">
+                      <input v-model="weapon.traits" class="sheet-cell-input" placeholder="Traits">
+                      <input v-model="weapon.notes" class="sheet-cell-input" placeholder="Notes">
+                    </div>
+                    <button class="sheet-remove" type="button" @click="removeWeapon(index)">Remove</button>
+                  </div>
+                  <button class="sheet-add" type="button" @click="addWeapon">Add Weapon</button>
+                </div>
+              </div>
+            </section>
+
+            <section class="sheet-panel sheet-panel--vertical">
+              <header class="sheet-panel-title sheet-panel-title--side">Equipment</header>
+              <div class="sheet-table">
+                <div class="sheet-table-header sheet-table-header--equipment">
+                  <span>Type</span>
+                  <span>TL</span>
+                  <span>Kg</span>
+                  <span>Notes</span>
+                </div>
+                <div class="sheet-table-body">
+                  <div v-for="(item, index) in draft.equipment" :key="item.id" class="sheet-table-row sheet-table-row--equipment">
+                    <div class="sheet-cell-stack">
+                      <input v-model="item.name" class="sheet-cell-input" placeholder="Name">
+                      <input v-model="item.traits" class="sheet-cell-input" placeholder="Type / traits">
+                    </div>
+                    <input v-model="item.techLevel" class="sheet-cell-input" placeholder="TL">
+                    <input v-model="item.kg" class="sheet-cell-input" placeholder="Kg">
+                    <input v-model="item.notes" class="sheet-cell-input" placeholder="Notes">
+                    <button class="sheet-remove" type="button" @click="removeEquipment(index)">Remove</button>
+                  </div>
+                  <button class="sheet-add" type="button" @click="addEquipment">Add Equipment</button>
+                </div>
+              </div>
+            </section>
+          </div>
+
+          <div class="sheet-page-right">
+            <div class="sheet-identity-grid">
+              <section class="sheet-panel sheet-panel--personal">
+                <header class="sheet-panel-title">Personal Data File</header>
+                <div class="sheet-personal-grid">
+                  <label class="sheet-line-field sheet-line-field--emphasis">
+                    <span>Name:</span>
+                    <input v-model="draft.identity.name" class="sheet-line-input">
+                  </label>
+                  <label class="sheet-line-field">
+                    <span>Title:</span>
+                    <input v-model="draft.identity.title" class="sheet-line-input">
+                  </label>
+                  <div class="sheet-personal-split">
+                    <label class="sheet-line-field">
+                      <span>Age:</span>
+                      <input v-model.number="draft.identity.age" class="sheet-line-input" min="0" type="number">
+                    </label>
+                    <label class="sheet-line-field">
+                      <span>Species:</span>
+                      <input v-model="draft.identity.species" class="sheet-line-input">
+                    </label>
+                  </div>
+                  <label class="sheet-line-field">
+                    <span>Homeworld:</span>
+                    <input v-model="draft.identity.homeworld" class="sheet-line-input">
+                  </label>
+                  <label class="sheet-line-field">
+                    <span>Traits:</span>
+                    <input v-model="draft.identity.traits" class="sheet-line-input">
+                  </label>
+                </div>
+              </section>
+
+              <section class="sheet-panel">
+                <div class="sheet-distinguishing-label">Distinguishing Features:</div>
+                <textarea v-model="draft.identity.distinguishingFeatures" class="sheet-textarea sheet-textarea--tall" />
+              </section>
+            </div>
+
+            <section class="sheet-characteristics-panel">
+              <div
+                v-for="id in characteristicIds"
+                :key="id"
+                class="sheet-characteristic"
+              >
+                <span class="sheet-characteristic-label">{{ draft.characteristics[id].abbreviation }}</span>
+                <input
+                  v-model.number="draft.characteristics[id].value"
+                  class="sheet-hex-input"
+                  min="0"
+                  type="number"
+                  @change="syncCharacteristicDm(id)"
+                >
+                <div class="sheet-dm-block">
+                  <input :value="formatDm(draft.characteristics[id].dm)" class="sheet-dm-input" readonly>
+                  <span>DM</span>
+                </div>
+              </div>
+            </section>
+
+            <section class="sheet-panel sheet-panel--skills">
+              <header class="sheet-panel-title sheet-panel-title--side">Skills</header>
+              <div class="sheet-skills-grid">
+                <div v-for="(column, columnIndex) in skillColumns" :key="`skills-${columnIndex}`" class="sheet-skill-column">
+                  <div
+                    v-for="entry in column"
+                    :key="entry.id"
+                    class="sheet-skill-row"
+                    :class="{ 'sheet-skill-row--placeholder': 'placeholder' in entry }"
+                  >
+                    <template v-if="'placeholder' in entry">
+                      <span class="sheet-skill-line"></span>
+                      <span class="sheet-skill-level"></span>
+                    </template>
+                    <template v-else>
+                      <input v-model="entry.name" class="sheet-skill-name" placeholder="Skill">
+                      <input v-model.number="entry.level" class="sheet-skill-level-input" placeholder="0" type="number">
+                    </template>
+                  </div>
+                </div>
+                <div class="sheet-training-box">
+                  <div class="sheet-training-title">Training</div>
+                  <label class="sheet-line-field">
+                    <span>Skill:</span>
+                    <input :value="trainingSkill?.name ?? ''" class="sheet-line-input" readonly>
+                  </label>
+                  <label class="sheet-line-field">
+                    <span>Completed Weeks:</span>
+                    <input class="sheet-line-input" readonly>
+                  </label>
+                  <label class="sheet-line-field">
+                    <span>Completed Study Periods:</span>
+                    <input class="sheet-line-input" readonly>
+                  </label>
+                  <button class="sheet-add sheet-add--inline" type="button" @click="addSkill">Add Skill</button>
+                </div>
+              </div>
+            </section>
+          </div>
         </div>
       </div>
 
-      <div class="grid gap-5 lg:grid-cols-[0.8fr_1.2fr]">
-        <section class="rounded-lg border border-zinc-300 bg-white p-5 shadow-sm">
-          <h2 class="text-xl font-semibold">Characteristics</h2>
-          <div class="mt-4 grid gap-3">
-            <div v-for="id in characteristicIds" :key="id" class="grid grid-cols-[minmax(0,1fr)_4.5rem] items-end gap-2">
-              <label class="grid min-w-0 gap-1">
-                <span class="text-sm font-semibold text-zinc-700">{{ draft.characteristics[id].abbreviation }}</span>
-                <input v-model.number="draft.characteristics[id].value" class="h-10 min-w-0 rounded-md border border-zinc-300 px-2 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200" min="0" type="number" @change="syncCharacteristicDm(id)">
-              </label>
-              <label class="grid min-w-0 gap-1">
-                <span class="text-sm font-semibold text-zinc-700">DM</span>
-                <input :value="formatDm(draft.characteristics[id].dm)" class="h-10 min-w-0 rounded-md border border-zinc-200 bg-stone-50 px-2 text-zinc-700" readonly>
-              </label>
-            </div>
-          </div>
-        </section>
+      <div class="sheet-page">
+        <div class="sheet-chrome">Traveller Character Sheet</div>
+        <div class="sheet-page-grid sheet-page-grid--back">
+          <div class="sheet-page-left">
+            <section class="sheet-panel">
+              <header class="sheet-panel-title">Finances</header>
+              <div class="sheet-finance-grid">
+                <label class="sheet-line-field sheet-line-field--emphasis">
+                  <span>Cash on Hand:</span>
+                  <input v-model.number="draft.finances.cashOnHand" class="sheet-line-input" type="number">
+                </label>
+                <label class="sheet-line-field sheet-line-field--emphasis">
+                  <span>Monthly Cash Flow:</span>
+                  <input v-model="draft.finances.monthlyCashFlow" class="sheet-line-input">
+                </label>
+                <label class="sheet-line-field">
+                  <span>Ship Shares:</span>
+                  <input v-model.number="draft.finances.shipShares" class="sheet-line-input" type="number">
+                </label>
+                <label class="sheet-line-field">
+                  <span>Income:</span>
+                  <input v-model="draft.finances.income" class="sheet-line-input">
+                </label>
+                <label class="sheet-line-field">
+                  <span>Living Costs:</span>
+                  <input v-model="draft.finances.livingCosts" class="sheet-line-input">
+                </label>
+                <label class="sheet-line-field">
+                  <span>Debt:</span>
+                  <input v-model.number="draft.finances.debt" class="sheet-line-input" type="number">
+                </label>
+                <label class="sheet-line-field">
+                  <span>Annual Pension:</span>
+                  <input v-model="draft.finances.annualPension" class="sheet-line-input">
+                </label>
+                <label class="sheet-line-field">
+                  <span>Ship Payments:</span>
+                  <input v-model="draft.finances.shipPayments" class="sheet-line-input">
+                </label>
+              </div>
+            </section>
 
-        <section class="rounded-lg border border-zinc-300 bg-white p-5 shadow-sm">
-          <div class="flex flex-wrap items-center justify-between gap-3">
-            <h2 class="text-xl font-semibold">Skills</h2>
-            <button class="rounded-md border border-zinc-300 px-3 py-2 text-sm font-semibold hover:border-amber-600" type="button" @click="addSkill">
-              Add Skill
-            </button>
+            <section class="sheet-panel">
+              <header class="sheet-panel-title">Wounds</header>
+              <div class="sheet-table">
+                <div class="sheet-table-header sheet-table-header--wounds">
+                  <span>Type</span>
+                  <span>Location</span>
+                  <span>Recovery Period</span>
+                  <span>Notes</span>
+                </div>
+                <div class="sheet-table-body">
+                  <div v-for="(wound, index) in draft.wounds" :key="wound.id" class="sheet-table-row sheet-table-row--wounds">
+                    <input v-model="wound.type" class="sheet-cell-input" placeholder="Type">
+                    <input v-model="wound.location" class="sheet-cell-input" placeholder="Location">
+                    <input v-model="wound.recoveryPeriod" class="sheet-cell-input" placeholder="Recovery">
+                    <input v-model="wound.notes" class="sheet-cell-input" placeholder="Notes">
+                    <button class="sheet-remove" type="button" @click="removeWound(index)">Remove</button>
+                  </div>
+                  <button class="sheet-add" type="button" @click="addWound">Add Wound</button>
+                </div>
+              </div>
+            </section>
+
+            <section class="sheet-panel">
+              <header class="sheet-panel-title">Careers</header>
+              <div class="sheet-table">
+                <div class="sheet-table-header sheet-table-header--careers">
+                  <span>Term</span>
+                  <span>Career</span>
+                  <span>Surv.</span>
+                  <span>Adv.</span>
+                  <span>Rank</span>
+                  <span>Notes</span>
+                </div>
+                <div class="sheet-table-body">
+                  <div v-for="(term, index) in draft.careers" :key="`${term.termNumber}-${index}`" class="sheet-table-row sheet-table-row--careers">
+                    <input v-model.number="term.termNumber" class="sheet-cell-input" type="number">
+                    <input v-model="term.summary" class="sheet-cell-input" placeholder="Career / assignment">
+                    <input :value="term.rolls.find((roll) => roll.label === 'Survival')?.total ?? ''" class="sheet-cell-input" readonly>
+                    <input :value="term.rolls.find((roll) => roll.label === 'Advancement')?.total ?? ''" class="sheet-cell-input" readonly>
+                    <input :value="`${term.startAge}-${term.endAge}`" class="sheet-cell-input" readonly>
+                    <input :value="term.details.join(' | ')" class="sheet-cell-input" placeholder="Notes" readonly>
+                    <button class="sheet-remove" type="button" @click="removeCareer(index)">Remove</button>
+                  </div>
+                  <button class="sheet-add" type="button" @click="addCareer">Add Career</button>
+                </div>
+              </div>
+            </section>
+
+            <section class="sheet-panel">
+              <header class="sheet-panel-title">History &amp; Background</header>
+              <textarea v-model="historyBackgroundLines" class="sheet-textarea sheet-textarea--history" />
+            </section>
           </div>
-          <div class="mt-4 grid gap-2">
-            <div v-for="(skill, index) in draft.skills" :key="skill.id" class="grid gap-2 rounded-md bg-stone-50 p-3 lg:grid-cols-[1fr_1fr_5rem_auto]">
-              <input v-model="skill.name" class="h-10 rounded-md border border-zinc-300 px-3 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200" placeholder="Skill">
-              <input v-model="skill.speciality" class="h-10 rounded-md border border-zinc-300 px-3 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200" placeholder="Specialty">
-              <input v-model.number="skill.level" class="h-10 rounded-md border border-zinc-300 px-3 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200" placeholder="Level" type="number">
-              <button class="h-10 rounded-md border border-zinc-300 px-3 text-sm font-semibold text-zinc-600 hover:border-red-500 hover:text-red-700" type="button" @click="removeSkill(index)">
-                Remove
-              </button>
-              <textarea v-model="skill.notes" class="min-h-16 rounded-md border border-zinc-300 px-3 py-2 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200 lg:col-span-4" placeholder="Notes" />
-            </div>
-            <p v-if="!draft.skills.length" class="text-sm text-zinc-600">No skills entered.</p>
+
+          <div class="sheet-page-right">
+            <section
+              v-for="group in [
+                { id: 'allies', label: 'Allies' },
+                { id: 'contacts', label: 'Contacts' },
+                { id: 'rivals', label: 'Rivals' },
+                { id: 'enemies', label: 'Enemies' },
+              ]"
+              :key="group.id"
+              class="sheet-panel"
+            >
+              <header class="sheet-panel-title">{{ group.label }}</header>
+              <div class="sheet-table">
+                <div class="sheet-table-header sheet-table-header--associates">
+                  <span>Name</span>
+                  <span>Notes</span>
+                </div>
+                <div class="sheet-table-body">
+                  <div v-for="(associate, index) in draft.associates[group.id]" :key="associate.id" class="sheet-table-row sheet-table-row--associates">
+                    <input v-model="associate.name" class="sheet-cell-input" placeholder="Name">
+                    <input v-model="associate.notes" class="sheet-cell-input" placeholder="Notes">
+                    <button class="sheet-remove" type="button" @click="removeAssociate(group.id, index)">Remove</button>
+                  </div>
+                  <button class="sheet-add" type="button" @click="addAssociate(group.id)">Add {{ group.label.slice(0, -1) }}</button>
+                </div>
+              </div>
+            </section>
           </div>
-        </section>
+        </div>
       </div>
-
-      <section class="rounded-lg border border-zinc-300 bg-white p-5 shadow-sm">
-        <div class="flex flex-wrap items-center justify-between gap-3">
-          <h2 class="text-xl font-semibold">Career History</h2>
-          <button class="rounded-md border border-zinc-300 px-3 py-2 text-sm font-semibold hover:border-amber-600" type="button" @click="addCareer">
-            Add Term
-          </button>
-        </div>
-        <div class="mt-4 grid gap-2">
-          <div v-for="(term, index) in draft.careers" :key="`${term.termNumber}-${index}`" class="grid gap-2 rounded-md bg-stone-50 p-3 md:grid-cols-[5rem_1fr_7rem_7rem_auto]">
-            <input v-model.number="term.termNumber" class="h-10 rounded-md border border-zinc-300 px-3" type="number">
-            <input v-model="term.summary" class="h-10 rounded-md border border-zinc-300 px-3" placeholder="Career, assignment, rank, notes">
-            <input v-model.number="term.startAge" class="h-10 rounded-md border border-zinc-300 px-3" type="number">
-            <input v-model.number="term.endAge" class="h-10 rounded-md border border-zinc-300 px-3" type="number">
-            <button class="h-10 rounded-md border border-zinc-300 px-3 text-sm font-semibold text-zinc-600 hover:border-red-500 hover:text-red-700" type="button" @click="removeCareer(index)">
-              Remove
-            </button>
-          </div>
-        </div>
-      </section>
-
-      <section class="grid gap-5 lg:grid-cols-2">
-        <div v-for="group in associateGroups" :key="group.id" class="rounded-lg border border-zinc-300 bg-white p-5 shadow-sm">
-          <div class="flex flex-wrap items-center justify-between gap-3">
-            <h2 class="text-xl font-semibold">{{ group.label }}</h2>
-            <button class="rounded-md border border-zinc-300 px-3 py-2 text-sm font-semibold hover:border-amber-600" type="button" @click="addAssociate(group.id)">
-              Add
-            </button>
-          </div>
-          <div class="mt-4 grid gap-2">
-            <div v-for="(associate, index) in draft.associates[group.id]" :key="associate.id" class="grid gap-2 rounded-md bg-stone-50 p-3">
-              <input v-model="associate.name" class="h-10 rounded-md border border-zinc-300 px-3" placeholder="Name">
-              <textarea v-model="associate.notes" class="min-h-16 rounded-md border border-zinc-300 px-3 py-2" placeholder="Notes" />
-              <button class="justify-self-start rounded-md border border-zinc-300 px-3 py-2 text-sm font-semibold text-zinc-600 hover:border-red-500 hover:text-red-700" type="button" @click="removeAssociate(group.id, index)">
-                Remove
-              </button>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section class="grid gap-5 lg:grid-cols-2">
-        <div class="rounded-lg border border-zinc-300 bg-white p-5 shadow-sm">
-          <h2 class="text-xl font-semibold">Finances</h2>
-          <div class="mt-4 grid gap-3 sm:grid-cols-2">
-            <label class="grid gap-1">
-              <span class="text-sm font-semibold text-zinc-700">Cash on Hand</span>
-              <input v-model.number="draft.finances.cashOnHand" class="h-10 rounded-md border border-zinc-300 px-3" type="number">
-            </label>
-            <label class="grid gap-1">
-              <span class="text-sm font-semibold text-zinc-700">Monthly Cash Flow</span>
-              <input v-model="draft.finances.monthlyCashFlow" class="h-10 rounded-md border border-zinc-300 px-3">
-            </label>
-            <label class="grid gap-1">
-              <span class="text-sm font-semibold text-zinc-700">Income</span>
-              <input v-model="draft.finances.income" class="h-10 rounded-md border border-zinc-300 px-3">
-            </label>
-            <label class="grid gap-1">
-              <span class="text-sm font-semibold text-zinc-700">Living Costs</span>
-              <input v-model="draft.finances.livingCosts" class="h-10 rounded-md border border-zinc-300 px-3">
-            </label>
-            <label class="grid gap-1">
-              <span class="text-sm font-semibold text-zinc-700">Debt</span>
-              <input v-model.number="draft.finances.debt" class="h-10 rounded-md border border-zinc-300 px-3" type="number">
-            </label>
-            <label class="grid gap-1">
-              <span class="text-sm font-semibold text-zinc-700">Ship Shares</span>
-              <input v-model.number="draft.finances.shipShares" class="h-10 rounded-md border border-zinc-300 px-3" type="number">
-            </label>
-            <label class="grid gap-1">
-              <span class="text-sm font-semibold text-zinc-700">Annual Pension</span>
-              <input v-model="draft.finances.annualPension" class="h-10 rounded-md border border-zinc-300 px-3">
-            </label>
-            <label class="grid gap-1">
-              <span class="text-sm font-semibold text-zinc-700">Ship Payments</span>
-              <input v-model="draft.finances.shipPayments" class="h-10 rounded-md border border-zinc-300 px-3">
-            </label>
-          </div>
-        </div>
-
-        <div class="rounded-lg border border-zinc-300 bg-white p-5 shadow-sm">
-          <div class="flex flex-wrap items-center justify-between gap-3">
-            <h2 class="text-xl font-semibold">Wounds</h2>
-            <button class="rounded-md border border-zinc-300 px-3 py-2 text-sm font-semibold hover:border-amber-600" type="button" @click="addWound">
-              Add Wound
-            </button>
-          </div>
-          <div class="mt-4 grid gap-2">
-            <div v-for="(wound, index) in draft.wounds" :key="wound.id" class="grid gap-2 rounded-md bg-stone-50 p-3">
-              <input v-model="wound.type" class="h-10 rounded-md border border-zinc-300 px-3" placeholder="Type">
-              <input v-model="wound.location" class="h-10 rounded-md border border-zinc-300 px-3" placeholder="Location">
-              <input v-model="wound.recoveryPeriod" class="h-10 rounded-md border border-zinc-300 px-3" placeholder="Recovery period">
-              <textarea v-model="wound.notes" class="min-h-16 rounded-md border border-zinc-300 px-3 py-2" placeholder="Notes" />
-              <button class="justify-self-start rounded-md border border-zinc-300 px-3 py-2 text-sm font-semibold text-zinc-600 hover:border-red-500 hover:text-red-700" type="button" @click="removeWound(index)">
-                Remove
-              </button>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section class="grid gap-5 lg:grid-cols-2">
-        <div class="rounded-lg border border-zinc-300 bg-white p-5 shadow-sm">
-          <div class="flex flex-wrap items-center justify-between gap-3">
-            <h2 class="text-xl font-semibold">Weapons</h2>
-            <button class="rounded-md border border-zinc-300 px-3 py-2 text-sm font-semibold hover:border-amber-600" type="button" @click="addWeapon">
-              Add Weapon
-            </button>
-          </div>
-          <div class="mt-4 grid gap-2">
-            <div v-for="(weapon, index) in draft.weapons" :key="weapon.id" class="grid gap-2 rounded-md bg-stone-50 p-3">
-              <input v-model="weapon.name" class="h-10 rounded-md border border-zinc-300 px-3" placeholder="Name">
-              <div class="grid gap-2 sm:grid-cols-3">
-                <input v-model="weapon.techLevel" class="h-10 rounded-md border border-zinc-300 px-3" placeholder="TL">
-                <input v-model="weapon.range" class="h-10 rounded-md border border-zinc-300 px-3" placeholder="Range">
-                <input v-model="weapon.damage" class="h-10 rounded-md border border-zinc-300 px-3" placeholder="Damage">
-                <input v-model="weapon.kg" class="h-10 rounded-md border border-zinc-300 px-3" placeholder="KG">
-                <input v-model="weapon.magazine" class="h-10 rounded-md border border-zinc-300 px-3" placeholder="Mag">
-                <input v-model="weapon.traits" class="h-10 rounded-md border border-zinc-300 px-3" placeholder="Traits">
-              </div>
-              <textarea v-model="weapon.notes" class="min-h-16 rounded-md border border-zinc-300 px-3 py-2" placeholder="Notes" />
-              <button class="justify-self-start rounded-md border border-zinc-300 px-3 py-2 text-sm font-semibold text-zinc-600 hover:border-red-500 hover:text-red-700" type="button" @click="removeWeapon(index)">
-                Remove
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <div class="rounded-lg border border-zinc-300 bg-white p-5 shadow-sm">
-          <div class="flex flex-wrap items-center justify-between gap-3">
-            <h2 class="text-xl font-semibold">Armour</h2>
-            <button class="rounded-md border border-zinc-300 px-3 py-2 text-sm font-semibold hover:border-amber-600" type="button" @click="addArmour">
-              Add Armour
-            </button>
-          </div>
-          <div class="mt-4 grid gap-2">
-            <div v-for="(armour, index) in draft.armour" :key="armour.id" class="grid gap-2 rounded-md bg-stone-50 p-3">
-              <div class="grid gap-2 sm:grid-cols-2">
-                <input v-model="armour.name" class="h-10 rounded-md border border-zinc-300 px-3" placeholder="Name">
-                <input v-model="armour.type" class="h-10 rounded-md border border-zinc-300 px-3" placeholder="Type">
-              </div>
-              <div class="grid gap-2 sm:grid-cols-5">
-                <input v-model="armour.techLevel" class="h-10 rounded-md border border-zinc-300 px-3" placeholder="TL">
-                <input v-model="armour.protection" class="h-10 rounded-md border border-zinc-300 px-3" placeholder="Protection">
-                <input v-model="armour.radiationProtection" class="h-10 rounded-md border border-zinc-300 px-3" placeholder="Rad">
-                <input v-model="armour.kg" class="h-10 rounded-md border border-zinc-300 px-3" placeholder="KG">
-                <input v-model="armour.options" class="h-10 rounded-md border border-zinc-300 px-3" placeholder="Options">
-              </div>
-              <input v-model="armour.traits" class="h-10 rounded-md border border-zinc-300 px-3" placeholder="Traits">
-              <textarea v-model="armour.notes" class="min-h-16 rounded-md border border-zinc-300 px-3 py-2" placeholder="Notes" />
-              <button class="justify-self-start rounded-md border border-zinc-300 px-3 py-2 text-sm font-semibold text-zinc-600 hover:border-red-500 hover:text-red-700" type="button" @click="removeArmour(index)">
-                Remove
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <div class="rounded-lg border border-zinc-300 bg-white p-5 shadow-sm">
-          <div class="flex flex-wrap items-center justify-between gap-3">
-            <h2 class="text-xl font-semibold">Augments</h2>
-            <button class="rounded-md border border-zinc-300 px-3 py-2 text-sm font-semibold hover:border-amber-600" type="button" @click="addAugment">
-              Add Augment
-            </button>
-          </div>
-          <div class="mt-4 grid gap-2">
-            <div v-for="(augment, index) in draft.augments" :key="augment.id" class="grid gap-2 rounded-md bg-stone-50 p-3">
-              <div class="grid gap-2 sm:grid-cols-3">
-                <input v-model="augment.name" class="h-10 rounded-md border border-zinc-300 px-3" placeholder="Name">
-                <input v-model="augment.type" class="h-10 rounded-md border border-zinc-300 px-3" placeholder="Type">
-                <input v-model="augment.techLevel" class="h-10 rounded-md border border-zinc-300 px-3" placeholder="TL">
-              </div>
-              <input v-model="augment.traits" class="h-10 rounded-md border border-zinc-300 px-3" placeholder="Traits">
-              <textarea v-model="augment.notes" class="min-h-16 rounded-md border border-zinc-300 px-3 py-2" placeholder="Notes" />
-              <button class="justify-self-start rounded-md border border-zinc-300 px-3 py-2 text-sm font-semibold text-zinc-600 hover:border-red-500 hover:text-red-700" type="button" @click="removeAugment(index)">
-                Remove
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <div class="rounded-lg border border-zinc-300 bg-white p-5 shadow-sm">
-          <div class="flex flex-wrap items-center justify-between gap-3">
-            <h2 class="text-xl font-semibold">Equipment</h2>
-            <button class="rounded-md border border-zinc-300 px-3 py-2 text-sm font-semibold hover:border-amber-600" type="button" @click="addEquipment">
-              Add Equipment
-            </button>
-          </div>
-          <div class="mt-4 grid gap-2">
-            <div v-for="(item, index) in draft.equipment" :key="item.id" class="grid gap-2 rounded-md bg-stone-50 p-3">
-              <input v-model="item.name" class="h-10 rounded-md border border-zinc-300 px-3" placeholder="Name">
-              <div class="grid gap-2 sm:grid-cols-3">
-                <input v-model="item.techLevel" class="h-10 rounded-md border border-zinc-300 px-3" placeholder="TL">
-                <input v-model="item.kg" class="h-10 rounded-md border border-zinc-300 px-3" placeholder="KG">
-                <input v-model="item.traits" class="h-10 rounded-md border border-zinc-300 px-3" placeholder="Traits">
-              </div>
-              <textarea v-model="item.notes" class="min-h-16 rounded-md border border-zinc-300 px-3 py-2" placeholder="Notes" />
-              <button class="justify-self-start rounded-md border border-zinc-300 px-3 py-2 text-sm font-semibold text-zinc-600 hover:border-red-500 hover:text-red-700" type="button" @click="removeEquipment(index)">
-                Remove
-              </button>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section class="rounded-lg border border-zinc-300 bg-white p-5 shadow-sm">
-        <h2 class="text-xl font-semibold">History & Background</h2>
-        <div class="mt-4 grid gap-3">
-          <textarea v-model="draft.history.background" class="min-h-24 rounded-md border border-zinc-300 px-3 py-2" placeholder="Background" />
-          <textarea v-model="draft.history.notes" class="min-h-24 rounded-md border border-zinc-300 px-3 py-2" placeholder="Notes" />
-        </div>
-      </section>
     </section>
   </main>
 </template>
+
+<style scoped>
+.sheet-page {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(34, 211, 238, 0.4);
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at top left, rgba(34, 211, 238, 0.08), transparent 28%),
+    radial-gradient(circle at bottom right, rgba(245, 158, 11, 0.08), transparent 26%),
+    linear-gradient(180deg, rgba(11, 18, 32, 0.98), rgba(8, 13, 24, 0.98));
+  box-shadow:
+    0 0 0 1px rgba(34, 211, 238, 0.12) inset,
+    0 20px 50px rgba(0, 0, 0, 0.35);
+}
+
+.sheet-chrome {
+  padding: 14px 20px;
+  background:
+    linear-gradient(90deg, rgba(34, 211, 238, 0.22), rgba(34, 211, 238, 0.08) 45%, rgba(245, 158, 11, 0.16)),
+    rgba(15, 23, 42, 0.92);
+  border-bottom: 1px solid rgba(34, 211, 238, 0.35);
+  color: #e0f2fe;
+  font-size: 1.35rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  text-shadow: 0 0 16px rgba(34, 211, 238, 0.28);
+}
+
+.sheet-page-grid {
+  display: grid;
+  gap: 16px;
+  padding: 16px;
+}
+
+.sheet-page-grid--front {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+
+.sheet-page-grid--back {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+
+.sheet-page-left,
+.sheet-page-right {
+  display: grid;
+  gap: 16px;
+  align-content: start;
+}
+
+.sheet-panel {
+  position: relative;
+  border: 1px solid rgba(34, 211, 238, 0.3);
+  border-radius: 14px;
+  background:
+    linear-gradient(180deg, rgba(12, 20, 35, 0.92), rgba(9, 15, 27, 0.9));
+  padding: 12px 14px 14px;
+  box-shadow:
+    0 0 0 1px rgba(34, 211, 238, 0.08) inset,
+    0 12px 24px rgba(0, 0, 0, 0.2);
+}
+
+.sheet-panel--vertical {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  align-items: stretch;
+  gap: 12px;
+}
+
+.sheet-panel-title {
+  margin: -12px -14px 10px;
+  padding: 8px 18px;
+  background:
+    linear-gradient(90deg, rgba(34, 211, 238, 0.28), rgba(34, 211, 238, 0.08) 55%, rgba(15, 23, 42, 0.7)),
+    rgba(15, 23, 42, 0.95);
+  border-bottom: 1px solid rgba(34, 211, 238, 0.3);
+  color: #cffafe;
+  font-size: 0.95rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.sheet-panel-title--side {
+  margin: 0;
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  border-radius: 10px;
+  padding: 12px 8px;
+  text-align: center;
+}
+
+.sheet-table-header {
+  display: grid;
+  gap: 10px;
+  padding: 0 8px 6px;
+  border-bottom: 1px solid rgba(34, 211, 238, 0.35);
+  color: #fbbf24;
+  font-size: 0.9rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  text-shadow: 0 0 10px rgba(251, 191, 36, 0.12);
+}
+
+.sheet-table-header--augments { grid-template-columns: 1.2fr 0.25fr 1.6fr; }
+.sheet-table-header--armour { grid-template-columns: 1.2fr 0.4fr 0.6fr 0.35fr 1.15fr; }
+.sheet-table-header--weapons { grid-template-columns: 1.2fr 0.35fr 0.55fr 0.55fr 0.35fr 0.4fr 1.3fr; }
+.sheet-table-header--equipment { grid-template-columns: 1.1fr 0.25fr 0.35fr 1.25fr; }
+.sheet-table-header--wounds { grid-template-columns: 0.7fr 0.7fr 0.9fr 1fr; }
+.sheet-table-header--careers { grid-template-columns: 0.35fr 1.4fr 0.35fr 0.35fr 0.45fr 1.1fr; }
+.sheet-table-header--associates { grid-template-columns: 1fr 1.1fr; }
+
+.sheet-table-body {
+  display: grid;
+  gap: 8px;
+  padding-top: 10px;
+}
+
+.sheet-table-row {
+  display: grid;
+  gap: 10px;
+  align-items: start;
+}
+
+.sheet-table-row--augments { grid-template-columns: 1.2fr 0.25fr 1.6fr auto; }
+.sheet-table-row--armour { grid-template-columns: 1.2fr 0.4fr 0.6fr 0.35fr 1.15fr auto; }
+.sheet-table-row--weapons { grid-template-columns: 1.2fr 0.35fr 0.55fr 0.55fr 0.35fr 0.4fr 1.3fr auto; }
+.sheet-table-row--equipment { grid-template-columns: 1.1fr 0.25fr 0.35fr 1.25fr auto; }
+.sheet-table-row--wounds { grid-template-columns: 0.7fr 0.7fr 0.9fr 1fr auto; }
+.sheet-table-row--careers { grid-template-columns: 0.35fr 1.4fr 0.35fr 0.35fr 0.45fr 1.1fr auto; }
+.sheet-table-row--associates { grid-template-columns: 1fr 1.1fr auto; }
+
+.sheet-cell-stack {
+  display: grid;
+  gap: 6px;
+}
+
+.sheet-cell-input,
+.sheet-line-input,
+.sheet-skill-name,
+.sheet-skill-level-input,
+.sheet-hex-input,
+.sheet-dm-input,
+.sheet-textarea {
+  width: 100%;
+  border: none;
+  border-bottom: 1px dotted rgba(103, 232, 249, 0.28);
+  background: transparent;
+  padding: 2px 0 4px;
+  color: #e4e4e7;
+  outline: none;
+}
+
+.sheet-cell-input:focus,
+.sheet-line-input:focus,
+.sheet-skill-name:focus,
+.sheet-skill-level-input:focus,
+.sheet-hex-input:focus,
+.sheet-textarea:focus {
+  border-bottom-color: rgba(34, 211, 238, 0.75);
+}
+
+.sheet-remove,
+.sheet-add {
+  border: 1px solid rgba(34, 211, 238, 0.35);
+  border-radius: 8px;
+  background:
+    linear-gradient(180deg, rgba(34, 211, 238, 0.16), rgba(34, 211, 238, 0.06));
+  padding: 7px 10px;
+  color: #cffafe;
+  font-size: 0.82rem;
+  font-weight: 700;
+  transition: border-color 140ms ease, background 140ms ease, color 140ms ease, box-shadow 140ms ease;
+}
+
+.sheet-remove:hover,
+.sheet-add:hover {
+  border-color: rgba(34, 211, 238, 0.7);
+  background:
+    linear-gradient(180deg, rgba(34, 211, 238, 0.22), rgba(34, 211, 238, 0.1));
+  box-shadow: 0 0 18px rgba(34, 211, 238, 0.14);
+}
+
+.sheet-add {
+  justify-self: start;
+}
+
+.sheet-add--inline {
+  margin-top: 6px;
+}
+
+.sheet-identity-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(220px, 0.65fr);
+  gap: 14px;
+}
+
+.sheet-personal-grid {
+  display: grid;
+  gap: 8px;
+}
+
+.sheet-personal-split {
+  display: grid;
+  grid-template-columns: minmax(0, 0.55fr) minmax(0, 0.95fr);
+  gap: 10px;
+}
+
+.sheet-line-field {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  color: #a1a1aa;
+}
+
+.sheet-line-field--emphasis span {
+  color: #fbbf24;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.sheet-distinguishing-label {
+  margin-bottom: 10px;
+  color: #cbd5e1;
+}
+
+.sheet-textarea--tall {
+  min-height: 186px;
+  resize: vertical;
+}
+
+.sheet-characteristics-panel {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 10px;
+  align-items: start;
+}
+
+.sheet-characteristic {
+  display: grid;
+  gap: 6px;
+  justify-items: center;
+}
+
+.sheet-characteristic-label {
+  color: #fbbf24;
+  font-size: 1.05rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.sheet-hex-input,
+.sheet-dm-input {
+  clip-path: polygon(18% 0, 82% 0, 100% 50%, 82% 100%, 18% 100%, 0 50%);
+  border: 1px solid rgba(34, 211, 238, 0.65);
+  border-bottom: 1px solid rgba(34, 211, 238, 0.65);
+  background:
+    linear-gradient(180deg, rgba(15, 23, 42, 0.96), rgba(8, 13, 24, 0.98));
+  padding: 10px 0;
+  text-align: center;
+  font-weight: 700;
+  color: #e0f2fe;
+  box-shadow: 0 0 0 1px rgba(34, 211, 238, 0.12) inset;
+}
+
+.sheet-dm-block {
+  display: grid;
+  gap: 4px;
+  justify-items: center;
+}
+
+.sheet-dm-block span {
+  color: #94a3b8;
+  font-weight: 700;
+}
+
+.sheet-panel--skills {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  gap: 12px;
+}
+
+.sheet-skills-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.sheet-skill-column {
+  display: grid;
+  gap: 4px;
+  align-content: start;
+}
+
+.sheet-skill-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 34px;
+  gap: 8px;
+  align-items: center;
+  min-height: 26px;
+}
+
+.sheet-skill-row--placeholder .sheet-skill-line,
+.sheet-skill-row--placeholder .sheet-skill-level {
+  display: block;
+  border-bottom: 1px dotted rgba(103, 232, 249, 0.22);
+  min-height: 18px;
+}
+
+.sheet-skill-level-input {
+  text-align: center;
+}
+
+.sheet-training-box {
+  display: grid;
+  gap: 6px;
+  grid-column: 3;
+  align-self: end;
+  padding-top: 8px;
+}
+
+.sheet-training-title {
+  color: #fbbf24;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.sheet-finance-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px 14px;
+}
+
+.sheet-textarea--history {
+  min-height: 220px;
+  resize: vertical;
+}
+
+@media (max-width: 1200px) {
+  .sheet-page-grid--front,
+  .sheet-page-grid--back,
+  .sheet-identity-grid,
+  .sheet-skills-grid,
+  .sheet-finance-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .sheet-characteristics-panel {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .sheet-training-box {
+    grid-column: auto;
+  }
+}
+
+@media (max-width: 760px) {
+  .sheet-page-grid,
+  .sheet-page-left,
+  .sheet-page-right {
+    gap: 12px;
+  }
+
+  .sheet-panel--vertical,
+  .sheet-panel--skills {
+    grid-template-columns: 1fr;
+  }
+
+  .sheet-panel-title--side {
+    writing-mode: horizontal-tb;
+    transform: none;
+  }
+
+  .sheet-table-header,
+  .sheet-table-row {
+    grid-template-columns: 1fr !important;
+  }
+
+  .sheet-characteristics-panel {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+</style>
