@@ -77,6 +77,15 @@ const paddedSkills = computed(() => [
 const skillColumns = computed(() => Array.from({ length: skillColumnCount }, (_, columnIndex) =>
   paddedSkills.value.slice(columnIndex * skillRowsPerColumn, (columnIndex + 1) * skillRowsPerColumn)))
 const trainingSkill = computed(() => draft.value.skills.find((skill) => skill.sources?.some((source) => /training/i.test(source))) ?? null)
+const rollModalOpen = ref(false)
+const rollModalRolling = ref(false)
+const rollModalTitle = ref('')
+const rollModalSubtitle = ref('')
+const rollModalModifier = ref(0)
+const rollModalDice = ref<[number, number]>([1, 1])
+const rollModalTotal = ref(0)
+const rollModalTimer = ref<number | null>(null)
+const rollModalFinishTimer = ref<number | null>(null)
 const historyBackgroundLines = computed({
   get: () => {
     const blocks = [draft.value.history.background, draft.value.history.notes].filter(Boolean)
@@ -100,6 +109,63 @@ const diceModifier = (score: number) => {
 }
 
 const formatDm = (value: number) => value >= 0 ? `+${value}` : `${value}`
+const randomDie = () => Math.floor(Math.random() * 6) + 1
+const rollModalFormula = computed(() => {
+  if (rollModalModifier.value === 0) return '2D'
+  return `2D ${rollModalModifier.value > 0 ? '+' : '-'} ${Math.abs(rollModalModifier.value)}`
+})
+
+const clearRollModalTimers = () => {
+  if (!import.meta.client) return
+  if (rollModalTimer.value !== null) window.clearInterval(rollModalTimer.value)
+  if (rollModalFinishTimer.value !== null) window.clearTimeout(rollModalFinishTimer.value)
+  rollModalTimer.value = null
+  rollModalFinishTimer.value = null
+}
+
+const closeRollModal = () => {
+  clearRollModalTimers()
+  rollModalOpen.value = false
+  rollModalRolling.value = false
+}
+
+const startRollModal = (title: string, subtitle: string, modifier: number) => {
+  clearRollModalTimers()
+  rollModalTitle.value = title
+  rollModalSubtitle.value = subtitle
+  rollModalModifier.value = modifier
+  rollModalOpen.value = true
+  rollModalRolling.value = true
+
+  const updateRoll = () => {
+    const nextDice: [number, number] = [randomDie(), randomDie()]
+    rollModalDice.value = nextDice
+    rollModalTotal.value = nextDice[0] + nextDice[1] + rollModalModifier.value
+  }
+
+  updateRoll()
+  if (!import.meta.client) {
+    rollModalRolling.value = false
+    return
+  }
+
+  rollModalTimer.value = window.setInterval(updateRoll, 90)
+  rollModalFinishTimer.value = window.setTimeout(() => {
+    clearRollModalTimers()
+    updateRoll()
+    rollModalRolling.value = false
+  }, 1100)
+}
+
+const openCharacteristicRoll = (id: TravellerCharacteristicId) => {
+  const characteristic = draft.value.characteristics[id]
+  startRollModal(characteristic.name || characteristic.abbreviation, 'Characteristic Check', Number(characteristic.dm) || 0)
+}
+
+const openSkillRoll = (skill: TravellerProfile['skills'][number] | { placeholder: true }) => {
+  if ('placeholder' in skill) return
+  startRollModal(skill.name || 'Unnamed Skill', 'Skill Check', Number(skill.level) || 0)
+}
 
 const syncCharacteristicDm = (id: TravellerCharacteristicId) => {
   draft.value.characteristics[id].dm = diceModifier(Number(draft.value.characteristics[id].value) || 0)
@@ -415,6 +481,7 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   if (!import.meta.client) return
+  clearRollModalTimers()
   window.removeEventListener('resize', updateSheetViewport)
 })
 
@@ -628,8 +695,16 @@ watch(
                     </button>
                   </div>
                 </div>
-                <div class="sheet-dm-block">
-                  <input :value="formatDm(draft.characteristics[id].dm)" class="sheet-dm-input" readonly>
+                <div
+                  class="sheet-dm-block sheet-dm-block--interactive"
+                  role="button"
+                  tabindex="0"
+                  :title="`Roll ${draft.characteristics[id].name || draft.characteristics[id].abbreviation}`"
+                  @click="openCharacteristicRoll(id)"
+                  @keydown.enter.prevent="openCharacteristicRoll(id)"
+                  @keydown.space.prevent="openCharacteristicRoll(id)"
+                >
+                  <input :value="formatDm(draft.characteristics[id].dm)" class="sheet-dm-input" readonly tabindex="-1">
                   <span>DM</span>
                 </div>
               </div>
@@ -643,15 +718,21 @@ watch(
                     v-for="entry in column"
                     :key="entry.id"
                     class="sheet-skill-row"
-                    :class="{ 'sheet-skill-row--placeholder': 'placeholder' in entry }"
+                    :class="{ 'sheet-skill-row--placeholder': 'placeholder' in entry, 'sheet-skill-row--interactive': !('placeholder' in entry) }"
+                    :role="'placeholder' in entry ? undefined : 'button'"
+                    :tabindex="'placeholder' in entry ? undefined : 0"
+                    :title="'placeholder' in entry ? undefined : `Roll ${entry.name || 'Skill'}`"
+                    @click="'placeholder' in entry ? undefined : openSkillRoll(entry)"
+                    @keydown.enter.prevent="'placeholder' in entry ? undefined : openSkillRoll(entry)"
+                    @keydown.space.prevent="'placeholder' in entry ? undefined : openSkillRoll(entry)"
                   >
                     <template v-if="'placeholder' in entry">
                       <span class="sheet-skill-line"></span>
                       <span class="sheet-skill-level"></span>
                     </template>
                     <template v-else>
-                      <input v-model="entry.name" class="sheet-skill-name" placeholder="Skill">
-                      <input v-model.number="entry.level" class="sheet-skill-level-input" placeholder="0" type="number">
+                      <input v-model="entry.name" class="sheet-skill-name" placeholder="Skill" @click.stop @keydown.stop>
+                      <input v-model.number="entry.level" class="sheet-skill-level-input" placeholder="0" type="number" @click.stop @keydown.stop>
                     </template>
                   </div>
                 </div>
@@ -680,13 +761,15 @@ watch(
                 <div class="sheet-table">
                   <div class="sheet-table-body">
                     <div v-for="(augment, index) in draft.augments" :key="augment.id" class="sheet-table-row sheet-table-row--augments">
-                      <div class="sheet-cell-stack">
-                        <input v-model="augment.name" class="sheet-cell-input" placeholder="Name">
-                        <input v-model="augment.traits" class="sheet-cell-input" placeholder="Traits">
-                      </div>
-                      <div class="sheet-meta-grid sheet-meta-grid--augment">
-                        <input v-model="augment.type" class="sheet-cell-input" placeholder="Type">
-                        <input v-model="augment.techLevel" class="sheet-cell-input" placeholder="TL">
+                      <div class="sheet-augment-grid">
+                        <div class="sheet-augment-row sheet-augment-row--top">
+                          <input v-model="augment.name" class="sheet-cell-input" placeholder="Name">
+                          <input v-model="augment.techLevel" class="sheet-cell-input" placeholder="TL">
+                        </div>
+                        <div class="sheet-augment-row sheet-augment-row--bottom">
+                          <input v-model="augment.type" class="sheet-cell-input" placeholder="Type">
+                          <input v-model="augment.traits" class="sheet-cell-input" placeholder="Traits">
+                        </div>
                       </div>
                       <button aria-label="Remove augment" class="sheet-remove" title="Remove augment" type="button" @click="removeAugment(index)">
                         <AppIcon name="close" />
@@ -702,18 +785,18 @@ watch(
                 <div class="sheet-table">
                   <div class="sheet-table-body">
                     <div v-for="(armour, index) in draft.armour" :key="armour.id" class="sheet-table-row sheet-table-row--armour">
-                      <div class="sheet-cell-stack">
-                        <input v-model="armour.name" class="sheet-cell-input" placeholder="Name">
-                        <input v-model="armour.type" class="sheet-cell-input" placeholder="Type">
-                      </div>
-                      <div class="sheet-meta-grid sheet-meta-grid--armour">
-                        <input v-model="armour.radiationProtection" class="sheet-cell-input" placeholder="Rad">
-                        <input v-model="armour.protection" class="sheet-cell-input" placeholder="Protection">
-                        <input v-model="armour.kg" class="sheet-cell-input" placeholder="Kg">
-                      </div>
-                      <div class="sheet-cell-stack">
-                        <input v-model="armour.options" class="sheet-cell-input" placeholder="Options">
-                        <input v-model="armour.traits" class="sheet-cell-input" placeholder="Traits">
+                      <div class="sheet-armour-grid">
+                        <div class="sheet-armour-row sheet-armour-row--top">
+                          <input v-model="armour.name" class="sheet-cell-input" placeholder="Name">
+                          <input v-model="armour.type" class="sheet-cell-input" placeholder="Type">
+                          <input v-model="armour.radiationProtection" class="sheet-cell-input" placeholder="Rad">
+                          <input v-model="armour.protection" class="sheet-cell-input" placeholder="Prot">
+                          <input v-model="armour.kg" class="sheet-cell-input" placeholder="Kg">
+                        </div>
+                        <div class="sheet-armour-row sheet-armour-row--bottom">
+                          <input v-model="armour.options" class="sheet-cell-input" placeholder="Options">
+                          <input v-model="armour.traits" class="sheet-cell-input" placeholder="Traits">
+                        </div>
                       </div>
                       <button aria-label="Remove armour" class="sheet-remove" title="Remove armour" type="button" @click="removeArmour(index)">
                         <AppIcon name="close" />
@@ -729,17 +812,19 @@ watch(
                 <div class="sheet-table">
                   <div class="sheet-table-body">
                     <div v-for="(weapon, index) in draft.weapons" :key="weapon.id" class="sheet-table-row sheet-table-row--weapons">
-                      <input v-model="weapon.name" class="sheet-cell-input" placeholder="Name">
-                      <div class="sheet-meta-grid sheet-meta-grid--weapon">
-                        <input v-model="weapon.techLevel" class="sheet-cell-input" placeholder="TL">
-                        <input v-model="weapon.range" class="sheet-cell-input" placeholder="Range">
-                        <input v-model="weapon.damage" class="sheet-cell-input" placeholder="Damage">
-                        <input v-model="weapon.kg" class="sheet-cell-input" placeholder="Kg">
-                        <input v-model="weapon.magazine" class="sheet-cell-input" placeholder="Mag">
-                      </div>
-                      <div class="sheet-cell-stack">
-                        <input v-model="weapon.traits" class="sheet-cell-input" placeholder="Traits">
-                        <input v-model="weapon.notes" class="sheet-cell-input" placeholder="Notes">
+                      <div class="sheet-weapon-grid">
+                        <div class="sheet-weapon-row sheet-weapon-row--top">
+                          <input v-model="weapon.name" class="sheet-cell-input" placeholder="Name">
+                          <input v-model="weapon.techLevel" class="sheet-cell-input" placeholder="TL">
+                          <input v-model="weapon.range" class="sheet-cell-input" placeholder="Range">
+                          <input v-model="weapon.damage" class="sheet-cell-input" placeholder="Damage">
+                          <input v-model="weapon.kg" class="sheet-cell-input" placeholder="Kg">
+                          <input v-model="weapon.magazine" class="sheet-cell-input" placeholder="Mag">
+                        </div>
+                        <div class="sheet-weapon-row sheet-weapon-row--bottom">
+                          <input v-model="weapon.traits" class="sheet-cell-input" placeholder="Traits">
+                          <input v-model="weapon.notes" class="sheet-cell-input" placeholder="Notes">
+                        </div>
                       </div>
                       <button aria-label="Remove weapon" class="sheet-remove" title="Remove weapon" type="button" @click="removeWeapon(index)">
                         <AppIcon name="close" />
@@ -755,15 +840,17 @@ watch(
                 <div class="sheet-table">
                   <div class="sheet-table-body">
                     <div v-for="(item, index) in draft.equipment" :key="item.id" class="sheet-table-row sheet-table-row--equipment">
-                      <div class="sheet-cell-stack">
-                        <input v-model="item.name" class="sheet-cell-input" placeholder="Name">
-                        <input v-model="item.traits" class="sheet-cell-input" placeholder="Type / traits">
+                      <div class="sheet-equipment-grid">
+                        <div class="sheet-equipment-row sheet-equipment-row--top">
+                          <input v-model="item.name" class="sheet-cell-input" placeholder="Name">
+                          <input v-model="item.traits" class="sheet-cell-input" placeholder="Type / traits">
+                          <input v-model="item.techLevel" class="sheet-cell-input" placeholder="TL">
+                          <input v-model="item.kg" class="sheet-cell-input" placeholder="Kg">
+                        </div>
+                        <div class="sheet-equipment-row sheet-equipment-row--bottom">
+                          <input v-model="item.notes" class="sheet-cell-input" placeholder="Notes">
+                        </div>
                       </div>
-                      <div class="sheet-meta-grid sheet-meta-grid--equipment">
-                        <input v-model="item.techLevel" class="sheet-cell-input" placeholder="TL">
-                        <input v-model="item.kg" class="sheet-cell-input" placeholder="Kg">
-                      </div>
-                      <input v-model="item.notes" class="sheet-cell-input" placeholder="Notes">
                       <button aria-label="Remove equipment" class="sheet-remove" title="Remove equipment" type="button" @click="removeEquipment(index)">
                         <AppIcon name="close" />
                       </button>
@@ -776,7 +863,12 @@ watch(
 
             <template v-else-if="activeMobileSheetSection === 'career'">
               <section class="sheet-panel">
-                <header class="sheet-panel-title sheet-panel-title--compact">Careers</header>
+                <header class="sheet-panel-title sheet-panel-title--compact sheet-panel-title--actionable">
+                  <span>Careers</span>
+                  <button aria-label="Add career" class="sheet-panel-action" title="Add career" type="button" @click="addCareer">
+                    <AppIcon name="plus" />
+                  </button>
+                </header>
                 <div class="sheet-table">
                   <div class="sheet-table-header sheet-table-header--careers">
                     <span>Term</span>
@@ -798,7 +890,6 @@ watch(
                         <AppIcon name="close" />
                       </button>
                     </div>
-                    <button class="sheet-add" type="button" @click="addCareer">Add Career</button>
                   </div>
                 </div>
               </section>
@@ -885,7 +976,12 @@ watch(
               </section>
 
               <section class="sheet-panel">
-                <header class="sheet-panel-title sheet-panel-title--compact">Wounds</header>
+                <header class="sheet-panel-title sheet-panel-title--compact sheet-panel-title--actionable">
+                  <span>Wounds</span>
+                  <button aria-label="Add wound" class="sheet-panel-action" title="Add wound" type="button" @click="addWound">
+                    <AppIcon name="plus" />
+                  </button>
+                </header>
                 <div class="sheet-table">
                   <div class="sheet-table-header sheet-table-header--wounds">
                     <span>Type</span>
@@ -903,7 +999,6 @@ watch(
                         <AppIcon name="close" />
                       </button>
                     </div>
-                    <button class="sheet-add" type="button" @click="addWound">Add Wound</button>
                   </div>
                 </div>
               </section>
@@ -945,13 +1040,15 @@ watch(
               <div class="sheet-table">
                 <div class="sheet-table-body">
                   <div v-for="(augment, index) in draft.augments" :key="augment.id" class="sheet-table-row sheet-table-row--augments">
-                    <div class="sheet-cell-stack">
-                      <input v-model="augment.name" class="sheet-cell-input" placeholder="Name">
-                      <input v-model="augment.traits" class="sheet-cell-input" placeholder="Traits">
-                    </div>
-                    <div class="sheet-meta-grid sheet-meta-grid--augment">
-                      <input v-model="augment.type" class="sheet-cell-input" placeholder="Type">
-                      <input v-model="augment.techLevel" class="sheet-cell-input" placeholder="TL">
+                    <div class="sheet-augment-grid">
+                      <div class="sheet-augment-row sheet-augment-row--top">
+                        <input v-model="augment.name" class="sheet-cell-input" placeholder="Name">
+                        <input v-model="augment.techLevel" class="sheet-cell-input" placeholder="TL">
+                      </div>
+                      <div class="sheet-augment-row sheet-augment-row--bottom">
+                        <input v-model="augment.type" class="sheet-cell-input" placeholder="Type">
+                        <input v-model="augment.traits" class="sheet-cell-input" placeholder="Traits">
+                      </div>
                     </div>
                     <button aria-label="Remove augment" class="sheet-remove" title="Remove augment" type="button" @click="removeAugment(index)">
                       <AppIcon name="close" />
@@ -967,18 +1064,18 @@ watch(
               <div class="sheet-table">
                 <div class="sheet-table-body">
                   <div v-for="(armour, index) in draft.armour" :key="armour.id" class="sheet-table-row sheet-table-row--armour">
-                    <div class="sheet-cell-stack">
-                      <input v-model="armour.name" class="sheet-cell-input" placeholder="Name">
-                      <input v-model="armour.type" class="sheet-cell-input" placeholder="Type">
-                    </div>
-                    <div class="sheet-meta-grid sheet-meta-grid--armour">
-                      <input v-model="armour.radiationProtection" class="sheet-cell-input" placeholder="Rad">
-                      <input v-model="armour.protection" class="sheet-cell-input" placeholder="Protection">
-                      <input v-model="armour.kg" class="sheet-cell-input" placeholder="Kg">
-                    </div>
-                    <div class="sheet-cell-stack">
-                      <input v-model="armour.options" class="sheet-cell-input" placeholder="Options">
-                      <input v-model="armour.traits" class="sheet-cell-input" placeholder="Traits">
+                    <div class="sheet-armour-grid">
+                      <div class="sheet-armour-row sheet-armour-row--top">
+                        <input v-model="armour.name" class="sheet-cell-input" placeholder="Name">
+                        <input v-model="armour.type" class="sheet-cell-input" placeholder="Type">
+                        <input v-model="armour.radiationProtection" class="sheet-cell-input" placeholder="Rad">
+                        <input v-model="armour.protection" class="sheet-cell-input" placeholder="Prot">
+                        <input v-model="armour.kg" class="sheet-cell-input" placeholder="Kg">
+                      </div>
+                      <div class="sheet-armour-row sheet-armour-row--bottom">
+                        <input v-model="armour.options" class="sheet-cell-input" placeholder="Options">
+                        <input v-model="armour.traits" class="sheet-cell-input" placeholder="Traits">
+                      </div>
                     </div>
                     <button aria-label="Remove armour" class="sheet-remove" title="Remove armour" type="button" @click="removeArmour(index)">
                       <AppIcon name="close" />
@@ -994,17 +1091,19 @@ watch(
               <div class="sheet-table">
                 <div class="sheet-table-body">
                   <div v-for="(weapon, index) in draft.weapons" :key="weapon.id" class="sheet-table-row sheet-table-row--weapons">
-                    <input v-model="weapon.name" class="sheet-cell-input" placeholder="Name">
-                    <div class="sheet-meta-grid sheet-meta-grid--weapon">
-                      <input v-model="weapon.techLevel" class="sheet-cell-input" placeholder="TL">
-                      <input v-model="weapon.range" class="sheet-cell-input" placeholder="Range">
-                      <input v-model="weapon.damage" class="sheet-cell-input" placeholder="Damage">
-                      <input v-model="weapon.kg" class="sheet-cell-input" placeholder="Kg">
-                      <input v-model="weapon.magazine" class="sheet-cell-input" placeholder="Mag">
-                    </div>
-                    <div class="sheet-cell-stack">
-                      <input v-model="weapon.traits" class="sheet-cell-input" placeholder="Traits">
-                      <input v-model="weapon.notes" class="sheet-cell-input" placeholder="Notes">
+                    <div class="sheet-weapon-grid">
+                      <div class="sheet-weapon-row sheet-weapon-row--top">
+                        <input v-model="weapon.name" class="sheet-cell-input" placeholder="Name">
+                        <input v-model="weapon.techLevel" class="sheet-cell-input" placeholder="TL">
+                        <input v-model="weapon.range" class="sheet-cell-input" placeholder="Range">
+                        <input v-model="weapon.damage" class="sheet-cell-input" placeholder="Damage">
+                        <input v-model="weapon.kg" class="sheet-cell-input" placeholder="Kg">
+                        <input v-model="weapon.magazine" class="sheet-cell-input" placeholder="Mag">
+                      </div>
+                      <div class="sheet-weapon-row sheet-weapon-row--bottom">
+                        <input v-model="weapon.traits" class="sheet-cell-input" placeholder="Traits">
+                        <input v-model="weapon.notes" class="sheet-cell-input" placeholder="Notes">
+                      </div>
                     </div>
                     <button aria-label="Remove weapon" class="sheet-remove" title="Remove weapon" type="button" @click="removeWeapon(index)">
                       <AppIcon name="close" />
@@ -1020,15 +1119,17 @@ watch(
               <div class="sheet-table">
                 <div class="sheet-table-body">
                   <div v-for="(item, index) in draft.equipment" :key="item.id" class="sheet-table-row sheet-table-row--equipment">
-                    <div class="sheet-cell-stack">
-                      <input v-model="item.name" class="sheet-cell-input" placeholder="Name">
-                      <input v-model="item.traits" class="sheet-cell-input" placeholder="Type / traits">
+                    <div class="sheet-equipment-grid">
+                      <div class="sheet-equipment-row sheet-equipment-row--top">
+                        <input v-model="item.name" class="sheet-cell-input" placeholder="Name">
+                        <input v-model="item.traits" class="sheet-cell-input" placeholder="Type / traits">
+                        <input v-model="item.techLevel" class="sheet-cell-input" placeholder="TL">
+                        <input v-model="item.kg" class="sheet-cell-input" placeholder="Kg">
+                      </div>
+                      <div class="sheet-equipment-row sheet-equipment-row--bottom">
+                        <input v-model="item.notes" class="sheet-cell-input" placeholder="Notes">
+                      </div>
                     </div>
-                    <div class="sheet-meta-grid sheet-meta-grid--equipment">
-                      <input v-model="item.techLevel" class="sheet-cell-input" placeholder="TL">
-                      <input v-model="item.kg" class="sheet-cell-input" placeholder="Kg">
-                    </div>
-                    <input v-model="item.notes" class="sheet-cell-input" placeholder="Notes">
                     <button aria-label="Remove equipment" class="sheet-remove" title="Remove equipment" type="button" @click="removeEquipment(index)">
                       <AppIcon name="close" />
                     </button>
@@ -1162,8 +1263,16 @@ watch(
                     </button>
                   </div>
                 </div>
-                <div class="sheet-dm-block">
-                  <input :value="formatDm(draft.characteristics[id].dm)" class="sheet-dm-input" readonly>
+                <div
+                  class="sheet-dm-block sheet-dm-block--interactive"
+                  role="button"
+                  tabindex="0"
+                  :title="`Roll ${draft.characteristics[id].name || draft.characteristics[id].abbreviation}`"
+                  @click="openCharacteristicRoll(id)"
+                  @keydown.enter.prevent="openCharacteristicRoll(id)"
+                  @keydown.space.prevent="openCharacteristicRoll(id)"
+                >
+                  <input :value="formatDm(draft.characteristics[id].dm)" class="sheet-dm-input" readonly tabindex="-1">
                   <span>DM</span>
                 </div>
               </div>
@@ -1177,15 +1286,21 @@ watch(
                     v-for="entry in column"
                     :key="entry.id"
                     class="sheet-skill-row"
-                    :class="{ 'sheet-skill-row--placeholder': 'placeholder' in entry }"
+                    :class="{ 'sheet-skill-row--placeholder': 'placeholder' in entry, 'sheet-skill-row--interactive': !('placeholder' in entry) }"
+                    :role="'placeholder' in entry ? undefined : 'button'"
+                    :tabindex="'placeholder' in entry ? undefined : 0"
+                    :title="'placeholder' in entry ? undefined : `Roll ${entry.name || 'Skill'}`"
+                    @click="'placeholder' in entry ? undefined : openSkillRoll(entry)"
+                    @keydown.enter.prevent="'placeholder' in entry ? undefined : openSkillRoll(entry)"
+                    @keydown.space.prevent="'placeholder' in entry ? undefined : openSkillRoll(entry)"
                   >
                     <template v-if="'placeholder' in entry">
                       <span class="sheet-skill-line"></span>
                       <span class="sheet-skill-level"></span>
                     </template>
                     <template v-else>
-                      <input v-model="entry.name" class="sheet-skill-name" placeholder="Skill">
-                      <input v-model.number="entry.level" class="sheet-skill-level-input" placeholder="0" type="number">
+                      <input v-model="entry.name" class="sheet-skill-name" placeholder="Skill" @click.stop @keydown.stop>
+                      <input v-model.number="entry.level" class="sheet-skill-level-input" placeholder="0" type="number" @click.stop @keydown.stop>
                     </template>
                   </div>
                 </div>
@@ -1254,7 +1369,12 @@ watch(
             </section>
 
             <section class="sheet-panel">
-              <header class="sheet-panel-title sheet-panel-title--compact">Wounds</header>
+              <header class="sheet-panel-title sheet-panel-title--compact sheet-panel-title--actionable">
+                <span>Wounds</span>
+                <button aria-label="Add wound" class="sheet-panel-action" title="Add wound" type="button" @click="addWound">
+                  <AppIcon name="plus" />
+                </button>
+              </header>
               <div class="sheet-table">
                 <div class="sheet-table-header sheet-table-header--wounds">
                   <span>Type</span>
@@ -1272,13 +1392,17 @@ watch(
                       <AppIcon name="close" />
                     </button>
                   </div>
-                  <button class="sheet-add" type="button" @click="addWound">Add Wound</button>
                 </div>
               </div>
             </section>
 
             <section class="sheet-panel">
-              <header class="sheet-panel-title sheet-panel-title--compact">Careers</header>
+              <header class="sheet-panel-title sheet-panel-title--compact sheet-panel-title--actionable">
+                <span>Careers</span>
+                <button aria-label="Add career" class="sheet-panel-action" title="Add career" type="button" @click="addCareer">
+                  <AppIcon name="plus" />
+                </button>
+              </header>
               <div class="sheet-table">
                 <div class="sheet-table-header sheet-table-header--careers">
                   <span>Term</span>
@@ -1300,7 +1424,6 @@ watch(
                       <AppIcon name="close" />
                     </button>
                   </div>
-                  <button class="sheet-add" type="button" @click="addCareer">Add Career</button>
                 </div>
               </div>
             </section>
@@ -1354,6 +1477,38 @@ watch(
         </div>
       </div>
       </template>
+
+      <div v-if="rollModalOpen" class="sheet-roll-overlay" @click.self="closeRollModal">
+        <div class="sheet-roll-modal" role="dialog" aria-modal="true" :aria-labelledby="'sheet-roll-title'">
+          <div class="sheet-roll-modal__header">
+            <div>
+              <div id="sheet-roll-title" class="sheet-roll-modal__title">{{ rollModalTitle }}</div>
+              <div class="sheet-roll-modal__subtitle">{{ rollModalSubtitle }}</div>
+            </div>
+            <button aria-label="Close roll dialog" class="sheet-roll-modal__close" type="button" @click="closeRollModal">
+              <AppIcon name="close" />
+            </button>
+          </div>
+
+          <div class="sheet-roll-dice">
+            <div class="sheet-roll-die" :class="{ 'sheet-roll-die--rolling': rollModalRolling }">{{ rollModalDice[0] }}</div>
+            <div class="sheet-roll-die" :class="{ 'sheet-roll-die--rolling': rollModalRolling }">{{ rollModalDice[1] }}</div>
+          </div>
+
+          <div class="sheet-roll-formula">{{ rollModalFormula }}</div>
+          <div class="sheet-roll-total">{{ rollModalTotal }}</div>
+          <div class="sheet-roll-status">{{ rollModalRolling ? 'Rolling...' : 'Roll complete' }}</div>
+
+          <div class="sheet-roll-actions">
+            <button class="sheet-portrait-confirm-button" type="button" @click="startRollModal(rollModalTitle, rollModalSubtitle, rollModalModifier)">
+              Roll Again
+            </button>
+            <button class="sheet-portrait-confirm-button sheet-portrait-confirm-button--danger" type="button" @click="closeRollModal">
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
     </section>
   </main>
 </template>
@@ -1724,10 +1879,10 @@ watch(
   align-items: start;
 }
 
-.sheet-table-row--augments { grid-template-columns: minmax(0, 1.7fr) minmax(180px, 0.9fr) auto; }
-.sheet-table-row--armour { grid-template-columns: minmax(0, 1.25fr) minmax(210px, 0.9fr) minmax(0, 1.15fr) auto; }
-.sheet-table-row--weapons { grid-template-columns: minmax(0, 1.2fr) minmax(260px, 1fr) minmax(0, 1.15fr) auto; }
-.sheet-table-row--equipment { grid-template-columns: minmax(0, 1.3fr) minmax(140px, 0.55fr) minmax(0, 1fr) auto; }
+.sheet-table-row--augments { grid-template-columns: minmax(0, 1fr) auto; }
+.sheet-table-row--armour { grid-template-columns: minmax(0, 1fr) auto; }
+.sheet-table-row--weapons { grid-template-columns: minmax(0, 1fr) auto; }
+.sheet-table-row--equipment { grid-template-columns: minmax(0, 1fr) auto; }
 .sheet-table-row--wounds { grid-template-columns: 0.7fr 0.7fr 0.9fr 1fr auto; }
 .sheet-table-row--careers { grid-template-columns: 0.35fr 1.4fr 0.35fr 0.35fr 0.45fr 1.1fr auto; }
 .sheet-table-row--associates { grid-template-columns: 1fr 1.1fr auto; }
@@ -1743,17 +1898,76 @@ watch(
   align-content: start;
 }
 
-.sheet-meta-grid--augment,
-.sheet-meta-grid--equipment {
+.sheet-augment-grid {
+  display: grid;
+  gap: 6px;
+}
+
+.sheet-augment-row {
+  display: grid;
+  gap: 6px;
+}
+
+.sheet-augment-row--top {
+  grid-template-columns: minmax(0, 1fr) 82px;
+}
+
+.sheet-augment-row--bottom {
+  grid-template-columns: 82px minmax(0, 1fr);
+}
+
+.sheet-armour-grid {
+  display: grid;
+  gap: 6px;
+}
+
+.sheet-armour-row {
+  display: grid;
+  gap: 6px;
+}
+
+.sheet-armour-row--top {
+  grid-template-columns: minmax(0, 1fr) repeat(4, 82px);
+}
+
+.sheet-armour-row--bottom {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
-.sheet-meta-grid--armour {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+.sheet-weapon-grid {
+  display: grid;
+  gap: 6px;
 }
 
-.sheet-meta-grid--weapon {
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+.sheet-weapon-row {
+  display: grid;
+  gap: 6px;
+}
+
+.sheet-weapon-row--top {
+  grid-template-columns: minmax(0, 1fr) repeat(5, 82px);
+}
+
+.sheet-weapon-row--bottom {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.sheet-equipment-grid {
+  display: grid;
+  gap: 6px;
+}
+
+.sheet-equipment-row {
+  display: grid;
+  gap: 6px;
+}
+
+.sheet-equipment-row--top {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 82px 82px;
+}
+
+.sheet-equipment-row--bottom {
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .sheet-cell-input,
@@ -2223,6 +2437,18 @@ watch(
   justify-items: center;
 }
 
+.sheet-dm-block--interactive {
+  cursor: pointer;
+  transition: transform 140ms ease, filter 140ms ease;
+}
+
+.sheet-dm-block--interactive:hover,
+.sheet-dm-block--interactive:focus-visible {
+  filter: drop-shadow(0 0 12px rgba(34, 211, 238, 0.22));
+  transform: translateY(-1px);
+  outline: none;
+}
+
 .sheet-dm-block span {
   color: #94a3b8;
   font-weight: 700;
@@ -2254,6 +2480,27 @@ watch(
   min-height: 26px;
 }
 
+.sheet-skill-row--interactive {
+  padding: 0.2rem 0.3rem;
+  margin-inline: -0.3rem;
+  border-radius: 10px 0 10px 0;
+  clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px));
+  cursor: pointer;
+  transition: border-color 140ms ease, box-shadow 140ms ease, background 140ms ease, transform 140ms ease;
+}
+
+.sheet-skill-row--interactive:hover,
+.sheet-skill-row--interactive:focus-visible {
+  background:
+    linear-gradient(180deg, rgba(10, 18, 32, 0.76), rgba(4, 10, 22, 0.76)),
+    radial-gradient(circle at 0 0, rgba(34, 211, 238, 0.08), transparent 5rem);
+  box-shadow:
+    inset 0 0 0 1px rgba(34, 211, 238, 0.18),
+    0 0 16px rgba(34, 211, 238, 0.12);
+  transform: translateY(-1px);
+  outline: none;
+}
+
 .sheet-skill-row--placeholder .sheet-skill-line,
 .sheet-skill-row--placeholder .sheet-skill-level {
   display: block;
@@ -2263,6 +2510,148 @@ watch(
 
 .sheet-skill-level-input {
   text-align: center;
+}
+
+.sheet-dm-input {
+  pointer-events: none;
+}
+
+.sheet-roll-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: grid;
+  place-items: center;
+  padding: 1.5rem;
+  background: rgba(2, 6, 23, 0.56);
+  backdrop-filter: blur(16px);
+  animation: sheet-roll-fade-in 180ms ease;
+}
+
+.sheet-roll-modal {
+  width: min(100%, 28rem);
+  display: grid;
+  gap: 1rem;
+  padding: 1.15rem;
+  border: 1px solid rgba(34, 211, 238, 0.38);
+  border-radius: 16px 0 16px 0;
+  clip-path: polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 16px 100%, 0 calc(100% - 16px));
+  background:
+    linear-gradient(180deg, rgba(8, 18, 32, 0.96), rgba(3, 7, 18, 0.96)),
+    radial-gradient(circle at 0 0, rgba(34, 211, 238, 0.15), transparent 14rem);
+  box-shadow:
+    0 0 28px rgba(34, 211, 238, 0.18),
+    inset 0 0 22px rgba(34, 211, 238, 0.05);
+}
+
+.sheet-roll-modal__header {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.sheet-roll-modal__title {
+  color: #e0f2fe;
+  font-size: 1.1rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.sheet-roll-modal__subtitle {
+  margin-top: 0.2rem;
+  color: #94a3b8;
+  font-size: 0.82rem;
+  text-transform: uppercase;
+}
+
+.sheet-roll-modal__close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border: 1px solid rgba(34, 211, 238, 0.32);
+  border-radius: 10px 0 10px 0;
+  clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px));
+  background: rgba(8, 18, 32, 0.86);
+  color: #67e8f9;
+}
+
+.sheet-roll-dice {
+  display: flex;
+  justify-content: center;
+  gap: 0.85rem;
+}
+
+.sheet-roll-die {
+  display: grid;
+  place-items: center;
+  width: 4.2rem;
+  height: 4.2rem;
+  border: 1px solid rgba(34, 211, 238, 0.42);
+  border-radius: 14px 0 14px 0;
+  clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 14px 100%, 0 calc(100% - 14px));
+  background:
+    linear-gradient(180deg, rgba(15, 23, 42, 0.98), rgba(8, 13, 24, 1));
+  color: #e0f2fe;
+  font-size: 1.5rem;
+  font-weight: 800;
+  box-shadow: inset 0 0 0 1px rgba(34, 211, 238, 0.09);
+}
+
+.sheet-roll-die--rolling {
+  animation: sheet-roll-die-pulse 220ms linear infinite;
+}
+
+.sheet-roll-formula,
+.sheet-roll-status {
+  text-align: center;
+  color: #94a3b8;
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.sheet-roll-total {
+  text-align: center;
+  color: #fbbf24;
+  font-size: 2.4rem;
+  font-weight: 800;
+  line-height: 1;
+  text-shadow: 0 0 18px rgba(251, 191, 36, 0.16);
+}
+
+.sheet-roll-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+@keyframes sheet-roll-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes sheet-roll-die-pulse {
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+    box-shadow:
+      inset 0 0 0 1px rgba(34, 211, 238, 0.09),
+      0 0 12px rgba(34, 211, 238, 0.06);
+  }
+  50% {
+    transform: translateY(-1px) scale(1.04);
+    box-shadow:
+      inset 0 0 0 1px rgba(34, 211, 238, 0.14),
+      0 0 18px rgba(34, 211, 238, 0.14);
+  }
 }
 
 .sheet-training-box {
@@ -2377,13 +2766,20 @@ watch(
     grid-template-columns: 1fr !important;
   }
 
-  .sheet-meta-grid--augment,
   .sheet-meta-grid--equipment,
   .sheet-meta-grid--armour {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .sheet-meta-grid--weapon {
+  .sheet-armour-row--top {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .sheet-weapon-row--top {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .sheet-equipment-row--top {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
