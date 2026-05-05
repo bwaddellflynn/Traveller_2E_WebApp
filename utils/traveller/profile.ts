@@ -43,6 +43,7 @@ export const createBlankTravellerProfile = (source: TravellerProfileSource = 'ma
       homeworld: '',
       traits: '',
       distinguishingFeatures: '',
+      portraitDataUrl: '',
     },
     characteristics: {
       str: blankCharacteristic('str'),

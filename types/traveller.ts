@@ -81,6 +81,7 @@ export type TravellerProfile = {
     homeworld: string
     traits: string
     distinguishingFeatures: string
+    portraitDataUrl?: string
   }
   characteristics: Record<TravellerCharacteristicId, TravellerCharacteristic>
   skills: TravellerSkill[]

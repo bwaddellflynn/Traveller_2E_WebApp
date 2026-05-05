@@ -15,6 +15,8 @@ const travellers = useTravellersStore()
 const draft = ref<TravellerProfile>(createBlankTravellerProfile('manual'))
 const saveMessage = ref('')
 const importInput = ref<HTMLInputElement | null>(null)
+const portraitInput = ref<HTMLInputElement | null>(null)
+const isPortraitDragActive = ref(false)
 const manualSheetDraftRestored = ref(false)
 const manualSheetDraftCachePaused = ref(false)
 const activeManualSheetDraftCacheKey = computed(() => {
@@ -205,6 +207,36 @@ const addWound = () => {
 
 const removeWound = (index: number) => {
   draft.value.wounds.splice(index, 1)
+}
+
+const openPortraitPicker = () => {
+  portraitInput.value?.click()
+}
+
+const clearPortrait = () => {
+  draft.value.identity.portraitDataUrl = ''
+  if (portraitInput.value) portraitInput.value.value = ''
+}
+
+const applyPortraitFile = (file: File | null | undefined) => {
+  if (!file) return
+
+  const reader = new FileReader()
+  reader.onload = () => {
+    draft.value.identity.portraitDataUrl = typeof reader.result === 'string' ? reader.result : ''
+  }
+  reader.readAsDataURL(file)
+}
+
+const importPortrait = async (event: Event) => {
+  const input = event.target as HTMLInputElement | null
+  applyPortraitFile(input?.files?.[0])
+}
+
+const handlePortraitDrop = (event: DragEvent) => {
+  event.preventDefault()
+  isPortraitDragActive.value = false
+  applyPortraitFile(event.dataTransfer?.files?.[0])
 }
 
 const saveSheet = () => {
@@ -487,31 +519,31 @@ watch(
           <div class="sheet-page-right">
             <div class="sheet-identity-grid">
               <section class="sheet-panel sheet-panel--personal">
-                <header class="sheet-panel-title">Personal Data File</header>
+                <header class="sheet-panel-title sheet-panel-title--compact">Personal Data File</header>
                 <div class="sheet-personal-grid">
-                  <label class="sheet-line-field sheet-line-field--emphasis">
+                  <label class="sheet-line-field sheet-line-field--personal sheet-line-field--emphasis">
                     <span>Name:</span>
                     <input v-model="draft.identity.name" class="sheet-line-input">
                   </label>
-                  <label class="sheet-line-field">
+                  <label class="sheet-line-field sheet-line-field--personal">
                     <span>Title:</span>
                     <input v-model="draft.identity.title" class="sheet-line-input">
                   </label>
                   <div class="sheet-personal-split">
-                    <label class="sheet-line-field">
+                    <label class="sheet-line-field sheet-line-field--personal">
                       <span>Age:</span>
                       <input v-model.number="draft.identity.age" class="sheet-line-input" min="0" type="number">
                     </label>
-                    <label class="sheet-line-field">
+                    <label class="sheet-line-field sheet-line-field--personal">
                       <span>Species:</span>
                       <input v-model="draft.identity.species" class="sheet-line-input">
                     </label>
                   </div>
-                  <label class="sheet-line-field">
+                  <label class="sheet-line-field sheet-line-field--personal">
                     <span>Homeworld:</span>
                     <input v-model="draft.identity.homeworld" class="sheet-line-input">
                   </label>
-                  <label class="sheet-line-field">
+                  <label class="sheet-line-field sheet-line-field--personal">
                     <span>Traits:</span>
                     <input v-model="draft.identity.traits" class="sheet-line-input">
                   </label>
@@ -520,7 +552,47 @@ watch(
 
               <section class="sheet-panel">
                 <div class="sheet-distinguishing-label">Distinguishing Features:</div>
-                <textarea v-model="draft.identity.distinguishingFeatures" class="sheet-textarea sheet-textarea--tall" />
+                <div class="sheet-portrait-block">
+                  <button
+                    class="sheet-portrait-frame"
+                    :class="{ 'sheet-portrait-frame--dragging': isPortraitDragActive }"
+                    type="button"
+                    @click="openPortraitPicker"
+                    @dragenter.prevent="isPortraitDragActive = true"
+                    @dragover.prevent="isPortraitDragActive = true"
+                    @dragleave.prevent="isPortraitDragActive = false"
+                    @drop="handlePortraitDrop"
+                  >
+                    <img
+                      v-if="draft.identity.portraitDataUrl"
+                      :src="draft.identity.portraitDataUrl"
+                      alt="Traveller portrait"
+                      class="sheet-portrait-image"
+                    >
+                    <div v-else class="sheet-portrait-placeholder">
+                      <span class="sheet-portrait-placeholder-icons">
+                        <AppIcon class="sheet-portrait-icon sheet-portrait-icon--primary" name="user" />
+                        <AppIcon class="sheet-portrait-icon" name="plus" />
+                        <AppIcon class="sheet-portrait-icon" name="arrow" />
+                      </span>
+                    </div>
+                    <input
+                      ref="portraitInput"
+                      accept="image/*"
+                      class="hidden"
+                      type="file"
+                      @change="importPortrait"
+                    >
+                  </button>
+                  <button
+                    v-if="draft.identity.portraitDataUrl"
+                    class="sheet-remove sheet-remove--portrait"
+                    type="button"
+                    @click="clearPortrait"
+                  >
+                    Clear Portrait
+                  </button>
+                </div>
               </section>
             </div>
 
@@ -567,15 +639,15 @@ watch(
                 </div>
                 <div class="sheet-training-box">
                   <div class="sheet-training-title">Training</div>
-                  <label class="sheet-line-field">
+                  <label class="sheet-line-field sheet-line-field--stacked">
                     <span>Skill:</span>
                     <input :value="trainingSkill?.name ?? ''" class="sheet-line-input" readonly>
                   </label>
-                  <label class="sheet-line-field">
+                  <label class="sheet-line-field sheet-line-field--stacked">
                     <span>Completed Weeks:</span>
                     <input class="sheet-line-input" readonly>
                   </label>
-                  <label class="sheet-line-field">
+                  <label class="sheet-line-field sheet-line-field--stacked">
                     <span>Completed Study Periods:</span>
                     <input class="sheet-line-input" readonly>
                   </label>
@@ -592,37 +664,37 @@ watch(
         <div class="sheet-page-grid sheet-page-grid--back">
           <div class="sheet-page-left">
             <section class="sheet-panel">
-              <header class="sheet-panel-title">Finances</header>
+              <header class="sheet-panel-title sheet-panel-title--compact">Finances</header>
               <div class="sheet-finance-grid">
-                <label class="sheet-line-field sheet-line-field--emphasis">
-                  <span>Cash on Hand:</span>
+                <label class="sheet-line-field sheet-line-field--stacked sheet-line-field--emphasis">
+                  <span>Cash:</span>
                   <input v-model.number="draft.finances.cashOnHand" class="sheet-line-input" type="number">
                 </label>
-                <label class="sheet-line-field sheet-line-field--emphasis">
+                <label class="sheet-line-field sheet-line-field--stacked sheet-line-field--emphasis">
                   <span>Monthly Cash Flow:</span>
                   <input v-model="draft.finances.monthlyCashFlow" class="sheet-line-input">
                 </label>
-                <label class="sheet-line-field">
+                <label class="sheet-line-field sheet-line-field--stacked">
                   <span>Ship Shares:</span>
                   <input v-model.number="draft.finances.shipShares" class="sheet-line-input" type="number">
                 </label>
-                <label class="sheet-line-field">
+                <label class="sheet-line-field sheet-line-field--stacked">
                   <span>Income:</span>
                   <input v-model="draft.finances.income" class="sheet-line-input">
                 </label>
-                <label class="sheet-line-field">
+                <label class="sheet-line-field sheet-line-field--stacked">
                   <span>Living Costs:</span>
                   <input v-model="draft.finances.livingCosts" class="sheet-line-input">
                 </label>
-                <label class="sheet-line-field">
+                <label class="sheet-line-field sheet-line-field--stacked">
                   <span>Debt:</span>
                   <input v-model.number="draft.finances.debt" class="sheet-line-input" type="number">
                 </label>
-                <label class="sheet-line-field">
+                <label class="sheet-line-field sheet-line-field--stacked">
                   <span>Annual Pension:</span>
                   <input v-model="draft.finances.annualPension" class="sheet-line-input">
                 </label>
-                <label class="sheet-line-field">
+                <label class="sheet-line-field sheet-line-field--stacked">
                   <span>Ship Payments:</span>
                   <input v-model="draft.finances.shipPayments" class="sheet-line-input">
                 </label>
@@ -630,7 +702,7 @@ watch(
             </section>
 
             <section class="sheet-panel">
-              <header class="sheet-panel-title">Wounds</header>
+              <header class="sheet-panel-title sheet-panel-title--compact">Wounds</header>
               <div class="sheet-table">
                 <div class="sheet-table-header sheet-table-header--wounds">
                   <span>Type</span>
@@ -652,7 +724,7 @@ watch(
             </section>
 
             <section class="sheet-panel">
-              <header class="sheet-panel-title">Careers</header>
+              <header class="sheet-panel-title sheet-panel-title--compact">Careers</header>
               <div class="sheet-table">
                 <div class="sheet-table-header sheet-table-header--careers">
                   <span>Term</span>
@@ -678,7 +750,7 @@ watch(
             </section>
 
             <section class="sheet-panel">
-              <header class="sheet-panel-title">History &amp; Background</header>
+              <header class="sheet-panel-title sheet-panel-title--compact">History &amp; Background</header>
               <textarea v-model="historyBackgroundLines" class="sheet-textarea sheet-textarea--history" />
             </section>
           </div>
@@ -694,7 +766,7 @@ watch(
               :key="group.id"
               class="sheet-panel"
             >
-              <header class="sheet-panel-title">{{ group.label }}</header>
+              <header class="sheet-panel-title sheet-panel-title--compact">{{ group.label }}</header>
               <div class="sheet-table">
                 <div class="sheet-table-header sheet-table-header--associates">
                   <span>Name</span>
@@ -721,15 +793,28 @@ watch(
 .sheet-page {
   position: relative;
   overflow: hidden;
-  border: 1px solid rgba(34, 211, 238, 0.4);
-  border-radius: 18px;
+  border: 1px solid rgba(34, 211, 238, 0.42);
+  border-radius: 16px 0 16px 0;
+  clip-path: polygon(0 0, calc(100% - 18px) 0, 100% 18px, 100% 100%, 18px 100%, 0 calc(100% - 18px));
   background:
-    radial-gradient(circle at top left, rgba(34, 211, 238, 0.08), transparent 28%),
-    radial-gradient(circle at bottom right, rgba(245, 158, 11, 0.08), transparent 26%),
-    linear-gradient(180deg, rgba(11, 18, 32, 0.98), rgba(8, 13, 24, 0.98));
+    linear-gradient(180deg, rgba(8, 18, 32, 0.96), rgba(3, 7, 18, 0.96)),
+    radial-gradient(circle at 0 0, rgba(34, 211, 238, 0.16), transparent 24rem);
   box-shadow:
-    0 0 0 1px rgba(34, 211, 238, 0.12) inset,
+    0 0 26px rgba(34, 211, 238, 0.13),
+    inset 0 0 36px rgba(34, 211, 238, 0.07),
+    0 0 0 1px rgba(34, 211, 238, 0.08) inset,
+    0 0 0 10px rgba(7, 12, 21, 0.55) inset,
     0 20px 50px rgba(0, 0, 0, 0.35);
+}
+
+.sheet-page::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-top: 1px solid rgba(103, 232, 249, 0.65);
+  background:
+    linear-gradient(90deg, rgba(34, 211, 238, 0.44), transparent 22%, transparent 78%, rgba(34, 211, 238, 0.38)) top / 100% 2px no-repeat;
 }
 
 .sheet-chrome {
@@ -769,12 +854,16 @@ watch(
 
 .sheet-panel {
   position: relative;
-  border: 1px solid rgba(34, 211, 238, 0.3);
-  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid rgba(34, 211, 238, 0.34);
+  border-radius: 12px 0 12px 0;
+  clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 14px 100%, 0 calc(100% - 14px));
   background:
-    linear-gradient(180deg, rgba(12, 20, 35, 0.92), rgba(9, 15, 27, 0.9));
+    linear-gradient(180deg, rgba(8, 18, 32, 0.9), rgba(3, 7, 18, 0.9)),
+    radial-gradient(circle at 0 0, rgba(34, 211, 238, 0.08), transparent 16rem);
   padding: 12px 14px 14px;
   box-shadow:
+    0 0 18px rgba(34, 211, 238, 0.08),
     0 0 0 1px rgba(34, 211, 238, 0.08) inset,
     0 12px 24px rgba(0, 0, 0, 0.2);
 }
@@ -787,26 +876,48 @@ watch(
 }
 
 .sheet-panel-title {
-  margin: -12px -14px 10px;
-  padding: 8px 18px;
+  display: flex;
+  align-items: center;
+  width: calc(100% + 28px);
+  margin: -12px -14px 12px;
+  padding: 7px 14px 8px;
   background:
     linear-gradient(90deg, rgba(34, 211, 238, 0.28), rgba(34, 211, 238, 0.08) 55%, rgba(15, 23, 42, 0.7)),
     rgba(15, 23, 42, 0.95);
-  border-bottom: 1px solid rgba(34, 211, 238, 0.3);
+  border: 1px solid rgba(34, 211, 238, 0.28);
+  border-left: 0;
+  border-right: 0;
+  border-top: 0;
+  border-radius: 0;
+  clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 100%);
+  box-shadow:
+    0 0 0 1px rgba(34, 211, 238, 0.08) inset;
   color: #cffafe;
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.02em;
+  line-height: 1.15;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .sheet-panel-title--side {
+  display: flex;
   margin: 0;
+  width: auto;
   writing-mode: vertical-rl;
   transform: rotate(180deg);
-  border-radius: 10px;
+  border-radius: 10px 0 10px 0;
+  border: 1px solid rgba(34, 211, 238, 0.28);
   padding: 12px 8px;
   text-align: center;
+  clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px));
+}
+
+.sheet-panel-title--compact {
+  font-size: 0.82rem;
+  padding-inline: 12px;
 }
 
 .sheet-table-header {
@@ -908,6 +1019,11 @@ watch(
   margin-top: 6px;
 }
 
+.sheet-add--portrait,
+.sheet-remove--portrait {
+  padding-inline: 12px;
+}
+
 .sheet-identity-grid {
   display: grid;
   grid-template-columns: minmax(0, 1.35fr) minmax(220px, 0.65fr);
@@ -931,6 +1047,24 @@ watch(
   align-items: center;
   gap: 8px;
   color: #a1a1aa;
+  min-width: 0;
+}
+
+.sheet-line-field--personal {
+  grid-template-columns: 88px minmax(0, 1fr);
+}
+
+.sheet-line-field--stacked {
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  gap: 5px;
+}
+
+.sheet-line-field--stacked span {
+  font-size: 0.76rem;
+  line-height: 1.1;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
 }
 
 .sheet-line-field--emphasis span {
@@ -942,6 +1076,58 @@ watch(
 .sheet-distinguishing-label {
   margin-bottom: 10px;
   color: #cbd5e1;
+}
+
+.sheet-portrait-block {
+  display: grid;
+  gap: 10px;
+}
+
+.sheet-portrait-frame {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+  min-height: 132px;
+  overflow: hidden;
+  border: 1px solid rgba(34, 211, 238, 0.26);
+  border-radius: 12px 0 12px 0;
+  clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px));
+  background:
+    linear-gradient(180deg, rgba(10, 17, 29, 0.95), rgba(7, 12, 21, 0.92));
+  box-shadow: 0 0 0 1px rgba(34, 211, 238, 0.08) inset;
+  cursor: pointer;
+  transition: border-color 140ms ease, box-shadow 140ms ease, background 140ms ease;
+}
+
+.sheet-portrait-frame:hover,
+.sheet-portrait-frame:focus-visible,
+.sheet-portrait-frame--dragging {
+  border-color: rgba(34, 211, 238, 0.56);
+  box-shadow:
+    0 0 0 1px rgba(34, 211, 238, 0.12) inset,
+    0 0 20px rgba(34, 211, 238, 0.14);
+}
+
+.sheet-portrait-frame:focus-visible {
+  outline: none;
+}
+
+.sheet-portrait-image {
+  width: 100%;
+  height: 132px;
+  object-fit: cover;
+}
+
+.sheet-portrait-placeholder {
+  display: grid;
+  gap: 6px;
+  color: #94a3b8;
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  text-align: center;
 }
 
 .sheet-textarea--tall {
@@ -1033,22 +1219,34 @@ watch(
 
 .sheet-training-box {
   display: grid;
-  gap: 6px;
+  gap: 8px;
   grid-column: 3;
   align-self: end;
-  padding-top: 8px;
+  padding: 10px 10px 0;
+  border: 1px solid rgba(34, 211, 238, 0.18);
+  border-radius: 12px 0 12px 0;
+  clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px));
+  background: linear-gradient(180deg, rgba(8, 13, 24, 0.52), rgba(8, 13, 24, 0.18));
 }
 
 .sheet-training-title {
   color: #fbbf24;
   font-weight: 700;
   text-transform: uppercase;
+  font-size: 0.8rem;
+  letter-spacing: 0.02em;
 }
 
 .sheet-finance-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px 14px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 14px;
+}
+
+.sheet-finance-grid .sheet-line-input,
+.sheet-training-box .sheet-line-input {
+  min-height: 28px;
+  padding-bottom: 6px;
 }
 
 .sheet-textarea--history {
