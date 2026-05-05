@@ -298,9 +298,19 @@ const toggleSkillPicker = (definition: SkillDefinition) => {
   activeSkillPickerId.value = activeSkillPickerId.value === definition.id ? null : definition.id
 }
 
+const sheetRollModifier = (definition: SkillDefinition, specialityName?: string) => {
+  if (specialityName) {
+    const specialityLevel = specialitySkillDisplayLevel(definition, specialitySlug(specialityName))
+    return specialityLevel ?? -3
+  }
+
+  const baseLevel = baseSkillDisplayLevel(definition)
+  return baseLevel ?? -3
+}
+
 const openSheetSkillDefinitionRoll = (definition: SkillDefinition, specialityName?: string, explicitLevel?: number | null) => {
   const label = buildSheetSkillLabel(definition, specialityName)
-  startRollModal(label, 'Skill Check', explicitLevel ?? 0)
+  startRollModal(label, 'Skill Check', explicitLevel ?? sheetRollModifier(definition, specialityName))
 }
 
 const skillGroups = computed<SheetSkillGroup[]>(() => sheetSkillDefinitions.value.map((definition) => ({
@@ -947,7 +957,7 @@ watch(
                       <button
                         class="sheet-skill-roll-button"
                         type="button"
-                        @click="openSheetSkillDefinitionRoll(group.definition, undefined, baseSkillDisplayLevel(group.definition) ?? 0)"
+                        @click="openSheetSkillDefinitionRoll(group.definition, undefined, baseSkillDisplayLevel(group.definition))"
                       >
                         {{ group.definition.name }}
                       </button>
@@ -1015,7 +1025,7 @@ watch(
                       <button
                         class="sheet-skill-roll-button"
                         type="button"
-                        @click="openSheetSkillDefinitionRoll(group.definition, speciality.specialityName, specialitySkillDisplayLevel(group.definition, speciality.specialityId) ?? 0)"
+                        @click="openSheetSkillDefinitionRoll(group.definition, speciality.specialityName, specialitySkillDisplayLevel(group.definition, speciality.specialityId))"
                       >
                         {{ speciality.specialityName }}
                       </button>
@@ -1589,7 +1599,7 @@ watch(
                       <button
                         class="sheet-skill-roll-button"
                         type="button"
-                        @click="openSheetSkillDefinitionRoll(group.definition, undefined, baseSkillDisplayLevel(group.definition) ?? 0)"
+                        @click="openSheetSkillDefinitionRoll(group.definition, undefined, baseSkillDisplayLevel(group.definition))"
                       >
                         {{ group.definition.name }}
                       </button>
@@ -1657,7 +1667,7 @@ watch(
                       <button
                         class="sheet-skill-roll-button"
                         type="button"
-                        @click="openSheetSkillDefinitionRoll(group.definition, speciality.specialityName, specialitySkillDisplayLevel(group.definition, speciality.specialityId) ?? 0)"
+                        @click="openSheetSkillDefinitionRoll(group.definition, speciality.specialityName, specialitySkillDisplayLevel(group.definition, speciality.specialityId))"
                       >
                         {{ speciality.specialityName }}
                       </button>
@@ -2846,15 +2856,15 @@ watch(
 
 .sheet-skill-column {
   display: grid;
-  gap: 0.8rem;
+  gap: 0.55rem;
   align-content: start;
 }
 
 .sheet-skill-group {
   position: relative;
   display: grid;
-  gap: 0.45rem;
-  padding: 0.55rem;
+  gap: 0.3rem;
+  padding: 0.4rem 0.45rem;
   border: 1px solid rgba(34, 211, 238, 0.18);
   border-radius: 12px 0 12px 0;
   clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px));
@@ -2882,16 +2892,16 @@ watch(
 .sheet-skill-entry {
   display: grid;
   grid-template-columns: 1.1rem minmax(0, 1fr) 4.9rem;
-  gap: 0.45rem;
+  gap: 0.32rem;
   align-items: center;
 }
 
 .sheet-skill-entry--base {
-  padding-bottom: 0.1rem;
+  padding-bottom: 0.04rem;
 }
 
 .sheet-skill-entry--speciality {
-  padding-left: 0.65rem;
+  padding-left: 0.45rem;
 }
 
 .sheet-skill-toggle {
@@ -2915,11 +2925,11 @@ watch(
   min-width: 0;
   border: none;
   background: none;
-  padding: 0 0 0 0.3rem;
+  padding: 0 0 0 0.38rem;
   text-align: left;
   color: #e4e4e7;
-  font-size: 0.84rem;
-  line-height: 1.2;
+  font-size: 0.8rem;
+  line-height: 1.1;
   cursor: pointer;
   transition: color 140ms ease, text-shadow 140ms ease;
 }
@@ -2934,7 +2944,7 @@ watch(
 .sheet-skill-rank {
   display: inline-grid;
   grid-template-columns: 1.45rem 1.5rem 1.45rem;
-  gap: 0.2rem;
+  gap: 0.14rem;
   align-items: center;
   min-width: 4.9rem;
   justify-content: end;
@@ -2977,6 +2987,8 @@ watch(
   text-align: center;
   color: #e0f2fe;
   font-weight: 700;
+  font-size: 0.86rem;
+  line-height: 1;
   font-variant-numeric: tabular-nums;
 }
 
@@ -2992,9 +3004,9 @@ watch(
 
 .sheet-skill-picker {
   display: grid;
-  gap: 0.35rem;
-  margin-left: 1.55rem;
-  padding: 0.55rem;
+  gap: 0.25rem;
+  margin-left: 1.35rem;
+  padding: 0.42rem;
   border: 1px solid rgba(34, 211, 238, 0.2);
   border-radius: 10px 0 10px 0;
   clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px));
@@ -3011,10 +3023,10 @@ watch(
   border-radius: 8px 0 8px 0;
   clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px));
   background: rgba(8, 18, 32, 0.82);
-  padding: 0.45rem 0.55rem;
+  padding: 0.36rem 0.48rem;
   text-align: left;
   color: #cbd5e1;
-  font-size: 0.8rem;
+  font-size: 0.76rem;
 }
 
 .sheet-skill-picker__option:hover,
@@ -3027,8 +3039,8 @@ watch(
 .sheet-skill-picker__custom {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 0.4rem;
-  margin-top: 0.15rem;
+  gap: 0.3rem;
+  margin-top: 0.08rem;
 }
 
 .sheet-skill-picker__add-custom {
@@ -3188,10 +3200,10 @@ watch(
 
 .sheet-training-box {
   display: grid;
-  gap: 8px;
+  gap: 6px;
   grid-column: 1 / -1;
   align-self: end;
-  padding: 10px 10px 0;
+  padding: 8px 8px 0;
   border: 1px solid rgba(34, 211, 238, 0.18);
   border-radius: 12px 0 12px 0;
   clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px));
@@ -3202,7 +3214,7 @@ watch(
   color: #fbbf24;
   font-weight: 700;
   text-transform: uppercase;
-  font-size: 0.8rem;
+  font-size: 0.76rem;
   letter-spacing: 0.02em;
 }
 
