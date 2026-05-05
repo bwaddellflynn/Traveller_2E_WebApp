@@ -1130,6 +1130,21 @@ watch(
   text-align: center;
 }
 
+.sheet-portrait-placeholder-icons {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #67e8f9;
+}
+
+.sheet-portrait-icon {
+  opacity: 0.82;
+}
+
+.sheet-portrait-icon--primary {
+  color: #fbbf24;
+}
+
 .sheet-textarea--tall {
   min-height: 186px;
   resize: vertical;
