@@ -50,6 +50,7 @@
     {
       "id": "animals",
       "name": "Animals",
+      "specialityMode": "shared-zero",
       "specialities": [
         "handling",
         "training",
@@ -59,6 +60,7 @@
     {
       "id": "art",
       "name": "Art",
+      "specialityMode": "shared-zero",
       "specialities": [
         "performer",
         "holography",
@@ -74,6 +76,13 @@
     {
       "id": "athletics",
       "name": "Athletics",
+      "specialityMode": "shared-zero",
+      "specialityCharacteristics": {
+        "dexterity": ["dex"],
+        "endurance": ["end"],
+        "strength": ["str"]
+      },
+      "defaultCharacteristics": ["str", "dex", "end"],
       "specialities": [
         "dexterity",
         "endurance",
@@ -99,6 +108,7 @@
     {
       "id": "drive",
       "name": "Drive",
+      "specialityMode": "shared-zero",
       "specialities": [
         "hovercraft",
         "mole",
@@ -110,6 +120,7 @@
     {
       "id": "electronics",
       "name": "Electronics",
+      "specialityMode": "shared-zero",
       "specialities": [
         "comms",
         "computers",
@@ -120,6 +131,7 @@
     {
       "id": "engineer",
       "name": "Engineer",
+      "specialityMode": "shared-zero",
       "specialities": [
         "j-drive",
         "life-support",
@@ -134,6 +146,7 @@
     {
       "id": "flyer",
       "name": "Flyer",
+      "specialityMode": "shared-zero",
       "specialities": [
         "airship",
         "grav",
@@ -148,6 +161,8 @@
     {
       "id": "gun-combat",
       "name": "Gun Combat",
+      "specialityMode": "shared-zero",
+      "defaultCharacteristics": ["dex"],
       "specialities": [
         "archaic",
         "energy",
@@ -157,6 +172,7 @@
     {
       "id": "gunner",
       "name": "Gunner",
+      "specialityMode": "shared-zero",
       "specialities": [
         "capital",
         "ortillery",
@@ -167,6 +183,7 @@
     {
       "id": "heavy-weapons",
       "name": "Heavy Weapons",
+      "specialityMode": "shared-zero",
       "specialities": [
         "artillery",
         "man-portable",
@@ -185,7 +202,16 @@
     {
       "id": "language",
       "name": "Language",
-      "requiresSpeciality": true
+      "requiresSpeciality": true,
+      "specialityMode": "independent",
+      "specialities": [
+        "galanglic",
+        "vilani",
+        "zdetl",
+        "oynprith",
+        "trokh",
+        "gvegh"
+      ]
     },
     {
       "id": "leadership",
@@ -202,6 +228,8 @@
     {
       "id": "melee",
       "name": "Melee",
+      "specialityMode": "shared-zero",
+      "defaultCharacteristics": ["str", "dex"],
       "specialities": [
         "blade",
         "bludgeon",
@@ -220,6 +248,7 @@
     {
       "id": "pilot",
       "name": "Pilot",
+      "specialityMode": "shared-zero",
       "specialities": [
         "small-craft",
         "spacecraft",
@@ -229,7 +258,18 @@
     {
       "id": "profession",
       "name": "Profession",
-      "requiresSpeciality": true
+      "requiresSpeciality": true,
+      "specialityMode": "independent",
+      "specialities": [
+        "belter",
+        "construction",
+        "farmer",
+        "miner",
+        "robotics",
+        "service",
+        "shiphand",
+        "trade"
+      ]
     },
     {
       "id": "recon",
@@ -238,6 +278,7 @@
     {
       "id": "science",
       "name": "Science",
+      "specialityMode": "shared-zero",
       "specialities": [
         "archaeology",
         "astronomy",
@@ -262,6 +303,7 @@
     {
       "id": "seafarer",
       "name": "Seafarer",
+      "specialityMode": "shared-zero",
       "specialities": [
         "ocean-ships",
         "personal",
@@ -288,6 +330,7 @@
     {
       "id": "tactics",
       "name": "Tactics",
+      "specialityMode": "shared-zero",
       "specialities": [
         "military",
         "naval"

@@ -39,6 +39,12 @@ const associateTypeLabels: Record<keyof TravellerProfile['associates'], string> 
   enemies: 'enemy',
   other: 'associate',
 }
+const associateButtonLabels: Record<typeof associateGroups[number]['id'], string> = {
+  contacts: 'Contact',
+  allies: 'Ally',
+  rivals: 'Rival',
+  enemies: 'Enemy',
+}
 const skillColumnCount = 3
 const skillRowsPerColumn = 16
 const skillPadCount = computed(() => Math.max(0, skillColumnCount * skillRowsPerColumn - draft.value.skills.length))
@@ -833,7 +839,7 @@ watch(
                     <input v-model="associate.notes" class="sheet-cell-input" placeholder="Notes">
                     <button class="sheet-remove" type="button" @click="removeAssociate(group.id, index)">Remove</button>
                   </div>
-                  <button class="sheet-add" type="button" @click="addAssociate(group.id)">Add {{ group.label.slice(0, -1) }}</button>
+                  <button class="sheet-add" type="button" @click="addAssociate(group.id)">Add {{ associateButtonLabels[group.id] }}</button>
                 </div>
               </div>
             </section>

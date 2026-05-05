@@ -28,6 +28,17 @@ type CharacterSkill = {
   level: number
   sources: string[]
 }
+type SkillDefinition = {
+  id: string
+  name: string
+  specialities?: string[]
+  requiresSpeciality?: boolean
+  specialityMode?: 'shared-zero' | 'independent'
+  defaultCharacteristics?: CharacteristicId[]
+  specialityCharacteristics?: Record<string, CharacteristicId[]>
+  special?: boolean
+  psionic?: boolean
+}
 type CheckRule = {
   characteristic?: string
   target?: number
@@ -1011,16 +1022,36 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     recordEventOutcome('GM Override', { type: 'may_test_psi' }, 'Psionics testing enabled', 'manual')
   }
 
-  const skillName = (skillId: string) => {
-    if (skillId.includes(':') || skillId.includes('/')) return skillOptionLabel(skillId)
-    const skill = skillsData.skills.find((item) => item.id === skillId)
-    return skill?.name ?? skillId
-  }
-
   const slugifySkill = (value: string) => value
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-|-$/g, '')
+
+  const skillDefinitions = computed(() => skillsData.skills as SkillDefinition[])
+  const skillDefinitionsById = computed<Record<string, SkillDefinition>>(() => Object.fromEntries(
+    skillDefinitions.value.map((skill) => [skill.id, skill]),
+  ))
+  const getSkillDefinition = (skillId: string) => skillDefinitionsById.value[skillId]
+  const skillSpecialityMode = (skillId: string) => {
+    const skill = getSkillDefinition(skillId)
+    if (!skill?.specialities?.length && !skill?.requiresSpeciality) return 'none' as const
+    return skill?.specialityMode ?? 'shared-zero'
+  }
+  const skillHasSpecialities = (skillId: string) => {
+    const skill = getSkillDefinition(skillId)
+    return Boolean(skill?.specialities?.length || skill?.requiresSpeciality)
+  }
+  const skillSpecialityOptions = (skillId: string) => {
+    const skill = getSkillDefinition(skillId)
+    return (skill?.specialities ?? []).map((speciality) => `${skillId}/${speciality}`)
+  }
+  const skillNeedsSpecialityAtLevel = (skillId: string, targetLevel: number) => skillHasSpecialities(skillId) && targetLevel >= 1
+
+  const skillName = (skillId: string) => {
+    if (skillId.includes(':') || skillId.includes('/')) return skillOptionLabel(skillId)
+    const skill = getSkillDefinition(skillId)
+    return skill?.name ?? skillId
+  }
 
   const skillFromLabel = (label: string) => {
     const trimmed = label.trim()
@@ -1035,7 +1066,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     }
     const slashSpecialityMatch = trimmed.match(/^(.+?)\/(.+)$/)
     if (slashSpecialityMatch) {
-      const baseSkill = skillsData.skills.find((item) => item.id === slashSpecialityMatch[1] || item.name.toLowerCase() === slashSpecialityMatch[1].toLowerCase())
+      const baseSkill = skillDefinitions.value.find((item) => item.id === slashSpecialityMatch[1] || item.name.toLowerCase() === slashSpecialityMatch[1].toLowerCase())
       const specialityId = normalizeSpeciality(baseSkill, slashSpecialityMatch[2])
       const speciality = specialityId === 'any'
         ? 'any'
@@ -1051,7 +1082,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     const specialityMatch = trimmed.match(/^(.+?)\s*\((.+)\)$/)
     const baseName = (specialityMatch?.[1] ?? trimmed).trim()
     const speciality = specialityMatch?.[2]?.trim()
-    const baseSkill = skillsData.skills.find((item) => item.id === baseName || item.name.toLowerCase() === baseName.toLowerCase())
+    const baseSkill = skillDefinitions.value.find((item) => item.id === baseName || item.name.toLowerCase() === baseName.toLowerCase())
     const specialityId = speciality ? normalizeSpeciality(baseSkill, speciality) : undefined
     const specialityName = specialityId === 'any'
       ? 'any'
@@ -1085,6 +1116,18 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
       .filter((record) => record.id.startsWith(`${skill.baseId}:`))
       .map((record) => record.level)
 
+    if (skill.specialityId) {
+      if (skillSpecialityMode(skill.baseId) === 'shared-zero') {
+        if (typeof baseLevel === 'number') return baseLevel
+        if (typeof backgroundLevel === 'number') return backgroundLevel
+        if (specialityLevels.length) return 0
+      }
+    }
+
+    if (!skill.specialityId && skillSpecialityMode(skill.baseId) === 'shared-zero' && specialityLevels.length) {
+      return Math.max(0, ...specialityLevels)
+    }
+
     const candidateLevels = [
       typeof baseLevel === 'number' ? baseLevel : undefined,
       typeof backgroundLevel === 'number' ? backgroundLevel : undefined,
@@ -1100,33 +1143,66 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
       : untrainedPenalty
   }
 
-  const defaultSkillCharacteristic = (label: string): CharacteristicId | null => {
+  const defaultSkillCharacteristics = (label: string): CharacteristicId[] => {
     const skill = skillFromLabel(label)
-    const defaults: Record<string, CharacteristicId> = {
-      athletics: 'str',
-      carouse: 'soc',
-      deception: 'int',
-      diplomat: 'soc',
-      'gun-combat': 'dex',
-      gambler: 'int',
-      investigate: 'int',
-      leadership: 'soc',
-      melee: 'str',
-      persuade: 'soc',
-      recon: 'int',
-      stealth: 'dex',
-      streetwise: 'soc',
-      survival: 'end',
-      tactics: 'int',
-    }
+    const definition = getSkillDefinition(skill.baseId)
+    const specialityCharacteristic = skill.specialityId
+      ? definition?.specialityCharacteristics?.[skill.specialityId]
+      : undefined
+    if (specialityCharacteristic?.length) return specialityCharacteristic
+    if (definition?.defaultCharacteristics?.length) return definition.defaultCharacteristics
 
-    return defaults[skill.baseId] ?? null
+    const defaults: Record<string, CharacteristicId[]> = {
+      athletics: ['str', 'dex', 'end'],
+      carouse: ['soc'],
+      deception: ['int'],
+      diplomat: ['soc'],
+      'gun-combat': ['dex'],
+      gambler: ['int'],
+      investigate: ['int'],
+      leadership: ['soc'],
+      melee: ['str', 'dex'],
+      persuade: ['soc'],
+      recon: ['int'],
+      stealth: ['dex'],
+      streetwise: ['soc'],
+      survival: ['end'],
+      tactics: ['int'],
+    }
+    return defaults[skill.baseId] ?? []
   }
 
+  const defaultSkillCharacteristic = (label: string): CharacteristicId | null => defaultSkillCharacteristics(label)[0] ?? null
+  const defaultSkillCharacteristicLabel = (label: string) => defaultSkillCharacteristics(label)
+    .map((id) => id.toUpperCase())
+    .join(' or ')
+
   const skillCheckDm = (label: string, characteristic?: string) => {
-    const characteristicId = (characteristic as CharacteristicId | undefined) ?? defaultSkillCharacteristic(label)
-    const characteristicDm = characteristicId ? diceModifier(values[characteristicId] ?? 0) : 0
+    const explicit = characteristic as CharacteristicId | undefined
+    const characteristicIds = explicit ? [explicit] : defaultSkillCharacteristics(label)
+    const characteristicDm = characteristicIds.length
+      ? Math.max(...characteristicIds.map((id) => diceModifier(values[id] ?? 0)))
+      : 0
     return skillLevel(label) + characteristicDm
+  }
+
+  const queueSpecialitySkillChoice = (
+    baseSkillId: string,
+    source: string,
+    label: string,
+    level?: number,
+    increase?: boolean,
+  ) => {
+    const options = skillSpecialityOptions(baseSkillId)
+    if (!options.length) return false
+    pendingSkillChoice.value = {
+      label,
+      source,
+      options,
+      level,
+      increase,
+    }
+    return true
   }
 
   const addSkillSource = (skill: CharacterSkill, source: string) => {
@@ -1137,6 +1213,9 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
 
   const setSkillMinimum = (label: string, level: number, source: string) => {
     const skill = skillFromLabel(label)
+    if (!skill.specialityId && skillNeedsSpecialityAtLevel(skill.baseId, level)) {
+      if (queueSpecialitySkillChoice(skill.baseId, source, `${skill.name} specialty`, level, false)) return
+    }
     const existing = appliedSkillRecords[skill.id]
 
     if (existing) {
@@ -1155,6 +1234,9 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
 
   const increaseSkill = (label: string, source: string) => {
     const skill = skillFromLabel(label)
+    if (!skill.specialityId && skillHasSpecialities(skill.baseId)) {
+      if (queueSpecialitySkillChoice(skill.baseId, source, `${skill.name} specialty`, undefined, true)) return
+    }
     const existing = appliedSkillRecords[skill.id]
 
     if (existing) {
@@ -1666,7 +1748,14 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
       })
     }
 
-    return [...skills.values()].sort((left, right) => left.name.localeCompare(right.name))
+    return [...skills.values()]
+      .filter((skill) => {
+        const parsed = skillFromLabel(skill.id)
+        if (parsed.specialityId || skill.level > 0) return true
+        if (skillSpecialityMode(parsed.baseId) !== 'shared-zero') return true
+        return ![...skills.keys()].some((id) => id.startsWith(`${parsed.baseId}:`))
+      })
+      .sort((left, right) => left.name.localeCompare(right.name))
   })
 
   const generalSkillOptions = computed(() => skillsData.skills
@@ -1841,8 +1930,10 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     const check = effect.check as Record<string, any> | undefined
     if (check?.characteristic) return `${String(check.characteristic).toUpperCase()} ${check.target ?? 8}+`
     if (check?.skill) {
-      const characteristic = check.characteristic ?? defaultSkillCharacteristic(String(check.skill))
-      return `${skillOptionLabel(String(check.skill))}${characteristic ? ` + ${String(characteristic).toUpperCase()}` : ''} ${check.target ?? 8}+`
+      const characteristic = typeof check.characteristic === 'string'
+        ? String(check.characteristic).toUpperCase()
+        : defaultSkillCharacteristicLabel(String(check.skill))
+      return `${skillOptionLabel(String(check.skill))}${characteristic ? ` + ${characteristic}` : ''} ${check.target ?? 8}+`
     }
     if (effect.type === 'check_known_term_skill') return `Known term skill ${effect.target ?? 8}+`
     return `Check ${check?.target ?? effect.target ?? 8}+`
@@ -2293,8 +2384,11 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
         const characteristic = typeof check.characteristic === 'string'
           ? check.characteristic
           : defaultSkillCharacteristic(skill) ?? undefined
+        const characteristicLabel = typeof check.characteristic === 'string'
+          ? String(check.characteristic).toUpperCase()
+          : defaultSkillCharacteristicLabel(skill)
         return {
-          label: `${skillOptionLabel(skill)}${characteristic ? ` + ${characteristic.toUpperCase()}` : ''} ${target}+`,
+          label: `${skillOptionLabel(skill)}${characteristicLabel ? ` + ${characteristicLabel}` : ''} ${target}+`,
           skill,
           target,
           dm: skillCheckDm(skill, characteristic),
@@ -4678,14 +4772,14 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     if (effect.type === 'check') {
       if (effect.check?.characteristic) return `${effect.check.characteristic.toUpperCase()} ${effect.check.target}+`
       if (effect.check?.skill) {
-        const characteristic = defaultSkillCharacteristic(effect.check.skill)
-        return `${safeSkillOptionLabel(effect.check.skill)}${characteristic ? ` + ${characteristic.toUpperCase()}` : ''} ${effect.check.target ?? 8}+`
+        const characteristic = defaultSkillCharacteristicLabel(effect.check.skill)
+        return `${safeSkillOptionLabel(effect.check.skill)}${characteristic ? ` + ${characteristic}` : ''} ${effect.check.target ?? 8}+`
       }
       return `2D ${effect.check?.target ?? effect.target ?? 8}+`
     }
     if (effect.type === 'check_any') return `Check ${effect.checks?.map((check: Record<string, any>) => {
-      const characteristic = check.skill ? defaultSkillCharacteristic(check.skill) : null
-      return `${safeSkillOptionLabel(check.skill ?? check.characteristic)}${characteristic ? ` + ${characteristic.toUpperCase()}` : ''} ${check.target}+`
+      const characteristic = check.skill ? defaultSkillCharacteristicLabel(check.skill) : null
+      return `${safeSkillOptionLabel(check.skill ?? check.characteristic)}${characteristic ? ` + ${characteristic}` : ''} ${check.target}+`
     }).join(' or ')}`
     if (effect.type === 'choose_skill_increase') return effect.skills
       ? `Choose skill increase: ${effect.skills.map((skill: string) => skillOptionLabel(skill)).join(', ')}`
@@ -4778,10 +4872,14 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     }
     profile.characteristics.psi.value = psiScore.value ?? 0
     profile.characteristics.psi.dm = psiDm.value
-    profile.skills = currentTravellerSkills.value.map((skill) => ({
-      ...skill,
-      sources: [...skill.sources],
-    }))
+    profile.skills = currentTravellerSkills.value.map((skill) => {
+      const parsedSkill = skillFromLabel(skill.id)
+      return {
+        ...skill,
+        speciality: parsedSkill.specialityId ? parsedSkill.name.match(/\((.+)\)$/)?.[1] : undefined,
+        sources: [...skill.sources],
+      }
+    })
     profile.careers = termHistory.value.map((term) => ({
       ...term,
       details: [...term.details],

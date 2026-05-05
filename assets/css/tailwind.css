@@ -629,7 +629,9 @@
   }
 
   .travellers-mobile-toggle {
-    display: none;
+    display: none !important;
+    align-items: center;
+    justify-content: center;
   }
 
   .travellers-mobile-toggle__chevron {
@@ -654,8 +656,14 @@
     gap: 0.5rem;
   }
 
+  .travellers-manual-create-link {
+    display: grid !important;
+    place-items: center;
+  }
+
   .travellers-mobile-manual-create-link {
     display: none !important;
+    place-items: center;
   }
 
   .app-footer {
@@ -746,9 +754,7 @@
     }
 
     .travellers-mobile-toggle {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
+      display: inline-flex !important;
     }
 
     .travellers-mobile-collapsible {
@@ -779,7 +785,7 @@
     }
 
     .travellers-mobile-manual-create-link {
-      display: grid;
+      display: grid !important;
     }
 
     .app-footer-nav {

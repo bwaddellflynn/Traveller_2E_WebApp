@@ -30,7 +30,7 @@ const travellerShipAssignment = (profile: TravellerProfile) => {
       </div>
       <div class="flex items-center gap-2">
         <button
-          class="travellers-mobile-toggle hud-link grid h-10 w-10 place-items-center"
+          class="travellers-mobile-toggle hud-link h-10 w-10"
           :aria-expanded="mobileProfilesExpanded"
           aria-label="Toggle Traveller profiles"
           title="Toggle Traveller profiles"
@@ -41,7 +41,7 @@ const travellerShipAssignment = (profile: TravellerProfile) => {
         </button>
         <NuxtLink
           aria-label="Create a manually entered Traveller"
-          class="travellers-manual-create-link hud-link grid h-10 w-10 place-items-center"
+          class="travellers-manual-create-link hud-link h-10 w-10"
           title="Create a manually entered Traveller"
           to="/character/sheet"
         >
@@ -74,7 +74,7 @@ const travellerShipAssignment = (profile: TravellerProfile) => {
         </NuxtLink>
         <NuxtLink
           aria-label="Create a manually entered Traveller"
-          class="travellers-mobile-manual-create-link hud-link grid h-10 w-10 place-items-center"
+          class="travellers-mobile-manual-create-link hud-link h-10 w-10"
           title="Create a manually entered Traveller"
           to="/character/sheet"
         >
