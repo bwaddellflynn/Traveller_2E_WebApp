@@ -5,8 +5,8 @@ import { useTravellersStore } from '~/stores/travellers'
 const travellers = useTravellersStore()
 const { userProfiles } = storeToRefs(travellers)
 
-onMounted(() => {
-  travellers.loadProfiles()
+onMounted(async () => {
+  await travellers.loadProfiles()
 })
 </script>
 

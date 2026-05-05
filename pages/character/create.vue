@@ -364,16 +364,16 @@ watch(
   { deep: true },
 )
 
-const saveCreatedTraveller = () => {
-  const saved = travellers.saveCreatorProfile(characterProfile.value)
+const saveCreatedTraveller = async () => {
+  const saved = await travellers.saveCreatorProfile(characterProfile.value)
   creatorSaveMessage.value = `Saved ${saved.identity.name || 'Traveller'}`
   return saved
 }
 
-const saveAndOpenCreatedTraveller = () => {
-  const saved = saveCreatedTraveller()
+const saveAndOpenCreatedTraveller = async () => {
+  const saved = await saveCreatedTraveller()
   clearBuilderDraft(CHARACTER_CREATOR_DRAFT_CACHE_KEY)
-  router.push(`/character/sheet?id=${saved.id}`)
+  await router.push(`/character/sheet?id=${saved.id}`)
 }
 
 const restartCharacterCreation = () => {

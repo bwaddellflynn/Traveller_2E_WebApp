@@ -4,7 +4,7 @@ import type { TravellerAssociate, TravellerCharacteristicId, TravellerProfile, T
 import { useTravellersStore } from '~/stores/travellers'
 import { clearBuilderDraft, loadBuilderDraft, saveBuilderDraft } from '~/utils/traveller/draftCache'
 import { travellerProfileToPdfFields, validateTravellerPdfFields } from '~/utils/traveller/pdfFields'
-import { cloneTravellerProfile, createBlankTravellerProfile } from '~/utils/traveller/profile'
+import { cloneTravellerProfile, createBlankTravellerProfile, normalizeTravellerProfile } from '~/utils/traveller/profile'
 
 const MANUAL_TRAVELLER_DRAFT_CACHE_VERSION = 1
 const manualTravellerDraftCacheKey = (id: string) => `scoutsuite.builder.manualTraveller.${id || 'new'}.v1`
@@ -598,40 +598,40 @@ const selectMobileSheetSection = (sectionId: MobileSheetSectionId) => {
   portraitClearConfirmOpen.value = false
 }
 
-const saveSheet = () => {
+const saveSheet = async () => {
   manualSheetDraftCachePaused.value = true
   clearBuilderDraft(activeManualSheetDraftCacheKey.value)
-  const saved = travellers.saveProfile(draft.value)
+  const saved = await travellers.saveProfile(draft.value)
   draft.value = cloneTravellerProfile(saved)
   saveMessage.value = `Saved ${saved.identity.name || 'Traveller'}`
-  router.replace({ path: '/character/sheet', query: { id: saved.id } })
+  await router.replace({ path: '/character/sheet', query: { id: saved.id } })
   nextTick(() => {
     manualSheetDraftCachePaused.value = false
   })
 }
 
-const duplicateSheet = () => {
+const duplicateSheet = async () => {
   manualSheetDraftCachePaused.value = true
   clearBuilderDraft(activeManualSheetDraftCacheKey.value)
-  const saved = travellers.saveProfile(draft.value)
-  const copy = travellers.duplicateProfile(saved.id)
+  const saved = await travellers.saveProfile(draft.value)
+  const copy = await travellers.duplicateProfile(saved.id)
   if (!copy) {
     manualSheetDraftCachePaused.value = false
     return
   }
   draft.value = cloneTravellerProfile(copy)
   saveMessage.value = `Duplicated ${copy.identity.name || 'Traveller'}`
-  router.replace({ path: '/character/sheet', query: { id: copy.id } })
+  await router.replace({ path: '/character/sheet', query: { id: copy.id } })
   nextTick(() => {
     manualSheetDraftCachePaused.value = false
   })
 }
 
-const deleteSheet = () => {
+const deleteSheet = async () => {
   if (!window.confirm(`Delete ${draft.value.identity.name || 'this Traveller'}?`)) return
   clearBuilderDraft(activeManualSheetDraftCacheKey.value)
-  travellers.deleteProfile(draft.value.id)
-  router.push('/')
+  await travellers.deleteProfile(draft.value.id)
+  await router.push('/')
 }
 
 const downloadJson = (payload: unknown, filename: string) => {
@@ -674,12 +674,12 @@ const importJson = async (event: Event) => {
 
   try {
     const imported = JSON.parse(await file.text()) as TravellerProfile
-    draft.value = cloneTravellerProfile({
+    draft.value = normalizeTravellerProfile({
       ...createBlankTravellerProfile(imported.source ?? 'imported'),
       ...imported,
       source: imported.source ?? 'imported',
       updatedAt: new Date().toISOString(),
-    })
+    }, imported.source ?? 'imported')
     saveMessage.value = `Imported ${draft.value.identity.name || 'Traveller'}`
   } catch {
     saveMessage.value = 'Import failed. Select a Traveller profile JSON file.'
@@ -688,10 +688,10 @@ const importJson = async (event: Event) => {
   }
 }
 
-onMounted(() => {
+onMounted(async () => {
   updateSheetViewport()
   window.addEventListener('resize', updateSheetViewport)
-  travellers.loadProfiles()
+  await travellers.loadProfiles()
   const id = typeof route.query.id === 'string' ? route.query.id : ''
   const existing = id ? travellers.getProfile(id) : null
   const cachedDraft = loadBuilderDraft<TravellerProfile>(

@@ -7,8 +7,8 @@ const travellers = useTravellersStore()
 const { userProfiles } = storeToRefs(travellers)
 const mobileProfilesExpanded = ref(false)
 
-onMounted(() => {
-  travellers.loadProfiles()
+onMounted(async () => {
+  await travellers.loadProfiles()
 })
 
 const travellerShipAssignment = (profile: TravellerProfile) => {
