@@ -64,8 +64,11 @@ watch(() => route.fullPath, () => {
         <NuxtLink class="hud-link px-3 py-2 text-sm font-semibold" to="/">
           Hub
         </NuxtLink>
+        <NuxtLink class="hud-link px-3 py-2 text-sm font-semibold" to="/embassy">
+          Embassy
+        </NuxtLink>
         <NuxtLink class="hud-link px-3 py-2 text-sm font-semibold" to="/character/create">
-          Creator
+          Dossiers
         </NuxtLink>
         <NuxtLink class="hud-link px-3 py-2 text-sm font-semibold" to="/weapons">
           Armory

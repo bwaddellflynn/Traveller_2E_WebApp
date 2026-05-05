@@ -49,7 +49,7 @@ onBeforeUnmount(() => {
       <div class="flex min-w-max items-center gap-2 pr-1">
         <button
           :class="[
-            'hidden h-10 shrink-0 rounded-md px-3 text-sm font-semibold sm:inline-flex',
+            'hidden h-10 shrink-0 items-center justify-center rounded-md px-3 text-center text-sm font-semibold sm:inline-flex',
             setupTabActive
               ? 'bg-zinc-950 text-white'
               : 'text-zinc-700 hover:bg-stone-100 hover:text-zinc-950'

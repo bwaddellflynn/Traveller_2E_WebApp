@@ -40,6 +40,8 @@ export type TravellerTermRecord = {
   careerId?: string
   assignmentId?: string
   educationId?: string
+  rank?: number
+  title?: string
   startAge: number
   endAge: number
   summary: string
@@ -78,6 +80,7 @@ export type TravellerProfile = {
     title: string
     age: number
     species: string
+    gender: string
     homeworld: string
     traits: string
     distinguishingFeatures: string

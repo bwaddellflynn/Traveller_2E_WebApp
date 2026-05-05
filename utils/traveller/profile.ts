@@ -1,4 +1,5 @@
 import type { TravellerCharacteristic, TravellerCharacteristicId, TravellerProfile, TravellerProfileSource } from '~/types/traveller'
+import { normalizeTravellerSkillRecord } from '~/utils/traveller/skills'
 
 export const LOCAL_USER_ID = 'local-user'
 export const TRAVELLER_PROFILE_SCHEMA_VERSION = 1
@@ -40,6 +41,7 @@ export const createBlankTravellerProfile = (source: TravellerProfileSource = 'ma
       title: '',
       age: 18,
       species: 'Human',
+      gender: '',
       homeworld: '',
       traits: '',
       distinguishingFeatures: '',
@@ -154,6 +156,7 @@ export const normalizeTravellerProfile = (
     title: stringOr(identity.title, profile.identity.title),
     age: numberOr(identity.age, profile.identity.age),
     species: stringOr(identity.species, profile.identity.species),
+    gender: stringOr(identity.gender, profile.identity.gender),
     homeworld: stringOr(identity.homeworld, profile.identity.homeworld),
     traits: stringOr(identity.traits, profile.identity.traits),
     distinguishingFeatures: stringOr(identity.distinguishingFeatures, profile.identity.distinguishingFeatures),
@@ -169,7 +172,7 @@ export const normalizeTravellerProfile = (
     }
   }
 
-  profile.skills = arrayOr<Record<string, unknown>>(value.skills).map((skill, index) => ({
+  profile.skills = arrayOr<Record<string, unknown>>(value.skills).map((skill, index) => normalizeTravellerSkillRecord({
     id: stringOr(skill.id, `skill-${index}`),
     name: stringOr(skill.name, 'Unknown Skill'),
     speciality: stringOr(skill.speciality, undefined as unknown as string),

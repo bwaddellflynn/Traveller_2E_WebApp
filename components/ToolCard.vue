@@ -3,7 +3,7 @@ defineProps<{
   title: string
   eyebrow: string
   description: string
-  icon: 'user' | 'briefcase' | 'wrench' | 'car' | 'bot' | 'rocket' | 'ship'
+  icon: 'user' | 'briefcase' | 'wrench' | 'car' | 'bot' | 'rocket' | 'ship' | 'scout-badge'
   to?: string
   disabled?: boolean
 }>()

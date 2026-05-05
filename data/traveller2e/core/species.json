@@ -1,0 +1,1057 @@
+{
+  "source": {
+    "books": [
+      "Aliens of Charted Space Volume 1",
+      "Aliens of Charted Space Volume 2",
+      "Aliens of Charted Space Volume 3",
+      "Aliens of Charted Space Volume 4"
+    ]
+  },
+  "raceProfiles": [
+    {
+      "id": "human",
+      "name": "Human",
+      "category": "major-race",
+      "embassyVisible": false,
+      "playable": true,
+      "selectableAsSpecies": true,
+      "sexModel": "binary",
+      "summary": "Baseline Traveller core species.",
+      "appearance": "Humans are the baseline sophont body plan used by the core rules: upright bipeds with wide variation in height, build, skin tone and features depending on homeworld and ancestry.",
+      "physiology": "No special physiological rules are assumed beyond the normal Traveller human baseline. Humans are the control group against which most alien and minor-race modifiers are measured.",
+      "culture": "Human cultures in Charted Space are politically fragmented and historically diverse. Imperial, Solomani, Vilani and countless local traditions all produce different social expectations without changing the baseline species profile.",
+      "behaviour": "Human behavioural norms vary by culture rather than species. This makes humans the default reference case for careers, education, aging and social advancement.",
+      "implementationStatus": "implemented",
+      "statModifiers": "None",
+      "statAdjustments": [],
+      "characterCreation": {
+        "other": [
+          "Uses the core Traveller 2E baseline character creation rules."
+        ]
+      },
+      "mechanics": [
+        "Uses the core Traveller 2E baseline character creation rules.",
+        "No species-specific modifiers or mandatory generation hooks.",
+        "Serves as the default reference when no alien or culture-specific rules apply."
+      ],
+      "characterCreationHooks": [
+        "core-rulebook baseline"
+      ]
+    },
+    {
+      "id": "aslan",
+      "name": "Aslan",
+      "category": "major-race",
+      "embassyVisible": true,
+      "playable": true,
+      "selectableAsSpecies": true,
+      "sexModel": "binary",
+      "summary": "Honor-bound felinoid major race of the Hierate.",
+      "appearance": "Aslan are large, felinoid sophonts with strong sexual dimorphism and an immediately recognisable predatory build. Their posture, dentition, fur and body language all reinforce their reputation as proud territorial hunters.",
+      "physiology": "Aslan are near-obligate carnivores with species-specific social and biological distinctions between males and females. Male social standing is tightly tied to territory, a concept formalised as the additional Territory characteristic in Aslan generation.",
+      "culture": "Aslan culture is built on clan, family, territorial legitimacy, obligation and ritual honour. Family structures, inheritance, ancestral deeds and gendered roles all materially affect how an Aslan enters adult life and which careers are considered proper.",
+      "behaviour": "Aslan are formal, status-aware and sensitive to respect, familiarity and insult. Males are especially driven by territorial ambition and public honour, while both sexes operate inside a dense code of obligation and ritual conduct.",
+      "sourceBook": "Aliens of Charted Space Volume 1",
+      "travellerPage": 15,
+      "implementationStatus": "sampled",
+      "characterCreation": {
+        "traits": [
+          "Uses core Aslan species traits."
+        ],
+        "specialCharacteristics": [
+          "Male Aslan use Territory (TER) as an additional characteristic.",
+          "Social standing is tied to ancestral territory and inheritance structures."
+        ],
+        "startingAge": [
+          "Begins careers at 16 Aslan years, about 14 standard years."
+        ],
+        "careerAccess": [
+          "Career access and assignments diverge strongly by sex.",
+          "Aslan social role and inheritance rules materially affect career choices."
+        ],
+        "socialStructure": [
+          "Clan, ancestry and inherited territory are part of character generation."
+        ]
+      },
+      "mechanics": [
+        "Requires Aslan-specific species traits and characteristic treatment.",
+        "Uses gender-linked social and career generation rules.",
+        "Adds territory, clan and ancestral tables into character creation.",
+        "Includes career access differences driven by Aslan society."
+      ],
+      "branches": [
+        {
+          "id": "aslan-male",
+          "name": "Male Aslan",
+          "kind": "sex-linked",
+          "description": "Male Aslan generation is driven by territory, inheritance and public honour. Males are the minority sex and are culturally channelled toward warfare, rulership and diplomacy.",
+          "selectableAsRace": true,
+          "characterCreation": {
+            "specialCharacteristics": [
+              "Gain the additional Territory (TER) characteristic, starting at 0.",
+              "SOC is derived from Ancestral Territory rather than rolled normally."
+            ],
+            "backgroundSkills": [
+              "If SOC 10+ and male, gain Leadership 1."
+            ],
+            "careerAccess": [
+              "Many Aslan careers and assignments are male-only."
+            ]
+          },
+          "mechanics": [
+            "Gain the additional Territory (TER) characteristic, starting at 0.",
+            "SOC is derived from Ancestral Territory rather than rolled normally.",
+            "If SOC 10+ and male, gain Leadership 1.",
+            "Many Aslan careers and assignments are male-only."
+          ]
+        },
+        {
+          "id": "aslan-female",
+          "name": "Female Aslan",
+          "kind": "sex-linked",
+          "description": "Female Aslan dominate science, management, commerce and administration within Hierate society, and many technical or support roles are culturally reserved to them.",
+          "selectableAsRace": true,
+          "characterCreation": {
+            "specialCharacteristics": [
+              "Do not use Territory as a personal characteristic in the same way males do."
+            ],
+            "careerAccess": [
+              "Many Aslan careers and assignments are female-only, especially technical, mercantile and administrative paths."
+            ]
+          },
+          "mechanics": [
+            "Do not use Territory as a personal characteristic in the same way males do.",
+            "Many Aslan careers and assignments are female-only, especially technical, mercantile and administrative paths."
+          ]
+        },
+        {
+          "id": "aslan-clan-ancestry",
+          "name": "Clan and Ancestry",
+          "kind": "ancestry-mechanic",
+          "description": "An Aslan traveller's clan, family deeds and inheritance determine status much more concretely than a simple social roll.",
+          "selectableAsRace": false,
+          "characterCreation": {
+            "socialStructure": [
+              "Roll clan and ancestry tables to determine Ancestral Territory.",
+              "Past deeds of forebears can raise or reduce family standing before careers begin.",
+              "Only the first son inherits the family Territory under normal Hierate rules."
+            ]
+          },
+          "mechanics": [
+            "Roll clan and ancestry tables to determine Ancestral Territory.",
+            "Past deeds of forebears can raise or reduce family standing before careers begin.",
+            "Only the first son inherits the family Territory under normal Hierate rules."
+          ]
+        }
+      ],
+      "tables": [
+        {
+          "id": "aslan-clan",
+          "name": "Clan",
+          "dice": "1D",
+          "entries": [
+            { "roll": "1-3", "result": "Minor Clan" },
+            { "roll": "4-6", "result": "Major Clan. DM+1 to Ancestral Deeds roll." }
+          ]
+        },
+        {
+          "id": "aslan-ancestral-deeds",
+          "name": "Ancestral Deeds",
+          "dice": "1D",
+          "entries": [
+            { "roll": "1", "result": "Your ancestor shamed the clan and you come from a branch long dishonoured. +0 Ancestral Territory." },
+            { "roll": "2", "result": "Your family's glory days are long gone, all that is left is the tales of great landholdings now lost to upstarts. +0 Ancestral Territory." },
+            { "roll": "3", "result": "Your family made its fortune in the great expansion after the discovery of jump drive; most family holdings are on distant worlds. +1 Ancestral Territory." },
+            { "roll": "4", "result": "Your family are the descendants of an ancient hero forgotten by most Aslan. +1 Ancestral Territory." },
+            { "roll": "5", "result": "Your family's ancestor was a trickster who deceived his enemies. +2 Ancestral Territory." },
+            { "roll": "6", "result": "Your ancestors were conquerors and great warriors. +2 Ancestral Territory." },
+            { "roll": "7", "result": "Your family is one of the most influential and wealthy in the Hierate. +3 Ancestral Territory." }
+          ]
+        },
+        {
+          "id": "aslan-past-deeds",
+          "name": "Past Deeds",
+          "dice": "2D",
+          "entries": [
+            { "roll": "2", "result": "Dishonoured. Gain Independence 0 if male or Profession 0 if female. Lose all Ancestral Territory." },
+            { "roll": "3", "result": "A foe conquered much of your land. Gain an Enemy and Gun Combat 0. -4 Ancestral Territory." },
+            { "roll": "4", "result": "A forebear gambled away much of your land. Gain Gamble 0 or Carouse 0. -3 Ancestral Territory." },
+            { "roll": "5", "result": "A forebear suffered from a degenerative genetic disease that you may have inherited. Gain Medic 0. -2 Ancestral Territory." },
+            { "roll": "6", "result": "A forebear barely held the family landhold. -1 Ancestral Territory." },
+            { "roll": "7", "result": "+1 Ancestral Territory." },
+            { "roll": "8", "result": "+2 Ancestral Territory." },
+            { "roll": "9", "result": "+3 Ancestral Territory." },
+            { "roll": "10", "result": "+4 Ancestral Territory." },
+            { "roll": "11", "result": "+5 Ancestral Territory." },
+            { "roll": "12", "result": "+6 Ancestral Territory." }
+          ]
+        },
+        {
+          "id": "aslan-family-inheritance",
+          "name": "Family Inheritance",
+          "dice": "2D",
+          "entries": [
+            { "roll": "Male 2-3", "result": "First Son" },
+            { "roll": "Male 4-10", "result": "Second Son" },
+            { "roll": "Male 11-12", "result": "Third Son" },
+            { "roll": "Female 2-3", "result": "Eldest Daughter" },
+            { "roll": "Female 4-10", "result": "Middle Daughter" },
+            { "roll": "Female 11-12", "result": "Youngest Daughter" }
+          ]
+        }
+      ],
+      "characterCreationHooks": [
+        "core Aslan traits",
+        "gender-based generation rules",
+        "territory characteristic/social standing rules",
+        "clan and ancestral territory tables",
+        "career restrictions by gender and society"
+      ]
+    },
+    {
+      "id": "darrian-confederation-aslan",
+      "name": "Darrian Confederation Aslan",
+      "category": "major-race",
+      "embassyVisible": true,
+      "branchType": "regional-variant",
+      "parentSpeciesId": "aslan",
+      "playable": true,
+      "selectableAsSpecies": true,
+      "sexModel": "binary",
+      "summary": "Aslan population integrated into the Darrian Confederation and generated under a distinct regional package.",
+      "appearance": "Darrian Confederation Aslan remain recognisably Aslan in body plan and sexual dimorphism, but generations of life inside the Confederation have also tied them to lower-gravity colonies and a more integrated civic culture than traditional Hierate populations.",
+      "physiology": "These Aslan retain core Aslan traits, but on the Confederation's common low-gravity worlds they use a distinct characteristic package during generation.",
+      "culture": "Integrated Confederation Aslan blend Aslan inheritance, military service and family honour with Darrian education, language and civic norms. They are often regarded by more traditional Hierate Aslan as socially compromised or softened.",
+      "behaviour": "They tend to show more tolerance for Darrian learning, language and institutions than orthodox Hierate Aslan, though gender preference patterns and pride remain visible.",
+      "sourceBook": "Aliens of Charted Space Volume 3",
+      "travellerPage": 20,
+      "implementationStatus": "sampled",
+      "statModifiers": "STR+1, DEX+1, EDU+1",
+      "statAdjustments": [
+        { "characteristic": "STR", "amount": 1 },
+        { "characteristic": "DEX", "amount": 1 },
+        { "characteristic": "EDU", "amount": 1 }
+      ],
+      "characterCreation": {
+        "traits": [
+          "Retains normal Aslan species traits."
+        ],
+        "careerAccess": [
+          "May join any career available to Darrians, though many still follow gendered Aslan preferences."
+        ],
+        "other": [
+          "May acquire Melee (natural)."
+        ]
+      },
+      "mechanics": [
+        "Uses Darrian Confederation Aslan modifiers STR+1, DEX+1, EDU+1 on low-gravity Confederation worlds.",
+        "Retains normal Aslan species traits.",
+        "May join any career available to Darrians, though many still follow gendered Aslan preferences.",
+        "May acquire Melee (natural)."
+      ],
+      "characterCreationHooks": [
+        "regional Aslan variant package",
+        "core Aslan traits",
+        "Darrian career access",
+        "low-gravity characteristic package"
+      ]
+    },
+    {
+      "id": "kkree",
+      "name": "K'kree",
+      "category": "major-race",
+      "embassyVisible": false,
+      "playable": true,
+      "selectableAsSpecies": true,
+      "sexModel": "binary",
+      "summary": "Militant herd species with strict social hierarchy.",
+      "appearance": "K'kree are large herbivorous herd sophonts whose body plan and posture make them visibly different from human and Aslan travellers. Their physical presence reinforces their communal, highly ordered social identity.",
+      "physiology": "Their species profile is built around herd-animal instincts, extreme resilience and a biology adapted to communal life rather than solitary action. K'kree are unusually hard to wear down physically and react badly to isolation.",
+      "culture": "K'kree civilisation is rigidly communal and strongly hierarchical, with herd identity taking precedence over individualism. Duty, order and collective legitimacy shape education, service and social rank.",
+      "behaviour": "K'kree travellers tend toward disciplined, group-oriented decision making and view isolation or erratic self-interest with suspicion. They read safety, morality and authority through the lens of the herd.",
+      "sourceBook": "Aliens of Charted Space Volume 1",
+      "travellerPage": 124,
+      "implementationStatus": "indexed",
+      "characteristicModifiers": "Traveller chapter uses species modifiers plus unusual END resilience and herd/caste rules",
+      "mechanics": [
+        "Uses K'kree species modifiers and traits.",
+        "Introduces culture-specific social expectations during chargen.",
+        "Requires background and career adjustments tied to herd-based society.",
+        "END loss from damage or exertion is reduced, and endurance duration is treated as higher than normal."
+      ],
+      "variants": [
+        {
+          "name": "Caste Paths",
+          "type": "social structure",
+          "description": "K'kree travellers are heavily filtered through herd role and caste expectations rather than open individual profession choice.",
+          "mechanics": [
+            "Traditional herd, servant-caste, skilled worker and noble-style paths are mechanically distinct.",
+            "Career access and mustering expectations differ by caste role."
+          ]
+        }
+      ],
+      "characterCreationHooks": [
+        "species modifiers and traits",
+        "background and career adjustments",
+        "culture-specific social rules"
+      ]
+    },
+    {
+      "id": "vargr",
+      "name": "Vargr",
+      "category": "major-race",
+      "embassyVisible": false,
+      "playable": true,
+      "selectableAsSpecies": true,
+      "sexModel": "binary",
+      "summary": "Charismatic canid major race with pack-based politics.",
+      "appearance": "Vargr are canid sophonts with a broad range of coat, muzzle and body shapes descended from uplifted Terran stock. Their physical expressiveness is part of how they project status and read one another socially.",
+      "physiology": "Vargr are biologically close enough to other major starfaring sophonts to travel widely, but their emotional expressiveness and pack instincts shape how their species traits manifest in play.",
+      "culture": "Vargr society is decentralized, opportunistic and reputation-driven. Personal charisma often matters more than office, and leadership is continually tested by results rather than protected by institutions.",
+      "behaviour": "Vargr tend to respond quickly to changing social strength, gravitating toward capable leaders and abandoning weak ones. Reputation, nerve and force of personality can matter as much as material resources.",
+      "sourceBook": "Aliens of Charted Space Volume 1",
+      "travellerPage": 179,
+      "implementationStatus": "indexed",
+      "mechanics": [
+        "Uses Vargr species modifiers and traits.",
+        "Adds charisma and leadership-driven social effects.",
+        "Applies background and career adjustments tied to Vargr culture."
+      ],
+      "characterCreationHooks": [
+        "species modifiers and traits",
+        "charisma/leadership social effects",
+        "background and career adjustments"
+      ]
+    },
+    {
+      "id": "zhodani",
+      "name": "Zhodani",
+      "category": "major-race",
+      "embassyVisible": false,
+      "playable": true,
+      "selectableAsSpecies": true,
+      "sexModel": "binary",
+      "summary": "Psionically adept human major race from the Consulate.",
+      "appearance": "Zhodani are outwardly human, but their social presentation, naming conventions and class signals mark them apart from Imperial populations. Their species dossier is as much about social structure as body plan.",
+      "physiology": "As a human major race, Zhodani use a largely human physical baseline, but their traveller rules modify early generation through PSI, SOC and EDU interactions tied to social class.",
+      "culture": "Zhodani society is inseparable from institutional psionics. Social class, education and political legitimacy are shaped by open psychic practice, producing a civilisation that sees privacy, ambition and social harmony very differently from the Imperium.",
+      "behaviour": "Zhodani are often more comfortable with overt social management and psychic transparency than Imperial humans. Their behaviour reflects a culture that sees controlled thought and emotional stability as civic goods rather than intrusions.",
+      "sourceBook": "Aliens of Charted Space Volume 1",
+      "travellerPage": 253,
+      "implementationStatus": "indexed",
+      "characterCreation": {
+        "psionics": [
+          "Institutional psionics are part of normal Zhodani society."
+        ],
+        "socialStructure": [
+          "Class matters during generation: Noble, Intendant and Prole follow the same society but diverge in status and expectations.",
+          "PSI, SOC and EDU interact during generation and can shift class threshold."
+        ]
+      },
+      "mechanics": [
+        "Uses Zhodani species modifiers and traits.",
+        "Integrates psionics directly into character generation.",
+        "Adjusts education and career outcomes for Consulate society."
+      ],
+      "variants": [
+        {
+          "name": "Noble / Intendant / Prole",
+          "type": "social class",
+          "description": "Zhodani travellers are divided into three broad social classifications, and those classes materially affect generation and social role.",
+          "mechanics": [
+            "SOC 11+ is Noble, SOC 10 is Intendant, SOC 9- is Prole.",
+            "Start-of-generation PSI, SOC and EDU adjustment rules can move a traveller between class thresholds.",
+            "Titles, suffixes and role expectations derive from social classification."
+          ]
+        }
+      ],
+      "characterCreationHooks": [
+        "species modifiers and traits",
+        "psionics integration",
+        "culture-specific education and career adjustments"
+      ]
+    },
+    {
+      "id": "solomani",
+      "name": "Solomani",
+      "category": "human-culture",
+      "embassyVisible": false,
+      "playable": true,
+      "branchType": "culture-overlay",
+      "selectableAsSpecies": false,
+      "sexModel": "binary",
+      "summary": "Human culture shaped by Solomani Confederation ideology.",
+      "appearance": "Solomani are human and cannot be distinguished from other human populations without lineage, context or testing. Their dossier is cultural and political rather than anatomical.",
+      "physiology": "Solomani use the standard human baseline. Their distinction lies in heritage ideology, state structures and political identity rather than a separate species physiology.",
+      "culture": "Solomani culture is shaped by Old Earth heritage, Confederation ideology, party politics and a strong sense of civilizational mission. Different member worlds preserve distinct Earth-derived traditions while still participating in a wider Solomani identity.",
+      "behaviour": "Solomani behaviour is often framed by cultural confidence, political consciousness and an expectation that authentic human cultures should be preserved and elevated. They can be patronising, missionary or highly civic-minded without being mechanically non-human.",
+      "sourceBook": "Aliens of Charted Space Volume 2",
+      "travellerPage": 123,
+      "implementationStatus": "sampled",
+      "statModifiers": "None",
+      "statAdjustments": [],
+      "characterCreation": {
+        "socialStructure": [
+          "Solomani is a cultural-political overlay rather than a separate physiology package."
+        ],
+        "careerAccess": [
+          "Career context is affected by Confederation politics, patronage and party structures."
+        ]
+      },
+      "mechanics": [
+        "Uses standard human baseline physical rules.",
+        "Adds Solomani party, social standing and patronage hooks.",
+        "Introduces culture-specific secrets, loyalties and career context."
+      ],
+      "variants": [
+        {
+          "name": "Cultural Solomani",
+          "type": "culture overlay",
+          "description": "Solomani is primarily a cultural-political dossier, not a separate physiology package. Travellers can be racial Solomani, other humans, or even aliens raised inside Confederation culture.",
+          "mechanics": [
+            "Uses human baseline characteristics.",
+            "Applies Confederation-specific pensions, politics and social hooks.",
+            "Cultural origin matters more than body plan."
+          ]
+        }
+      ],
+      "characterCreationHooks": [
+        "core human baseline",
+        "solomani party/social standing rules",
+        "secrets and patronage hooks",
+        "culture-specific career adjustments"
+      ]
+    },
+    {
+      "id": "droyne",
+      "name": "Droyne",
+      "category": "major-race",
+      "embassyVisible": false,
+      "playable": true,
+      "selectableAsSpecies": true,
+      "sexModel": "binary",
+      "summary": "Ancient small sophonts defined by caste and community.",
+      "appearance": "Droyne are small, ancient sophonts whose body plan and bearing immediately set them apart from human and major race norms. They present as a deeply distinct non-human traveller option rather than a cultural variant.",
+      "physiology": "Their species profile is tied to caste, community role and psionic potential rather than only characteristic deltas.",
+      "culture": "Droyne civilisation is organised around caste, community duty and traditions rooted in an extremely old past. A Droyne traveller’s social role is not incidental; it is part of how the species defines personhood and obligation.",
+      "behaviour": "Droyne behaviour tends to be purposeful, role-conscious and collective. Even individual wanderers are best understood against the caste and communal expectations they come from.",
+      "sourceBook": "Aliens of Charted Space Volume 2",
+      "travellerPage": 187,
+      "implementationStatus": "indexed",
+      "characterCreation": {
+        "psionics": [
+          "Psionics are integrated into Droyne identity."
+        ],
+        "socialStructure": [
+          "Caste and community are central to Droyne generation and progression."
+        ]
+      },
+      "mechanics": [
+        "Uses Droyne species modifiers and traits.",
+        "Adds psionics integration.",
+        "Requires caste and community generation hooks during character creation."
+      ],
+      "variants": [
+        {
+          "name": "Caste Identity",
+          "type": "social structure",
+          "description": "Droyne are not just one species profile with cosmetic flavour; caste is central to personhood, duty and expected life path.",
+          "mechanics": [
+            "Traveller identity should account for caste and community role, not just raw skills.",
+            "Psionics and community obligation are woven into how Droyne travellers are generated and portrayed."
+          ]
+        }
+      ],
+      "characterCreationHooks": [
+        "species modifiers and traits",
+        "psionics integration",
+        "caste/community generation hooks"
+      ]
+    },
+    {
+      "id": "hiver",
+      "name": "Hiver",
+      "category": "major-race",
+      "embassyVisible": false,
+      "playable": true,
+      "selectableAsSpecies": true,
+      "sexModel": "single",
+      "summary": "Manipulator major race of the Hive Federation.",
+      "appearance": "Hivers are unmistakably alien sophonts with a body plan built around manipulation rather than direct physical dominance. Their silhouette alone marks them as one of the stranger major race traveller options.",
+      "physiology": "Hiver physiology supports a species that prefers indirect solutions and organised intervention over personal force.",
+      "culture": "Hive Federation culture is patient, interventionist and oriented toward shaping outcomes by influence rather than command. Hivers are famous for seeing social engineering as practical governance rather than moral trespass.",
+      "behaviour": "Hivers prefer to act through leverage, guidance and manipulation. They are often cautious in direct conflict but decisive when they can reshape a situation through planning and pressure on others.",
+      "sourceBook": "Aliens of Charted Space Volume 2",
+      "travellerPage": 255,
+      "implementationStatus": "indexed",
+      "characterCreation": {
+        "specialCharacteristics": [
+          "Hiver generation uses Resolve (RES)."
+        ],
+        "socialStructure": [
+          "Nest origin shapes initial education, development and later career transitions."
+        ],
+        "careerAccess": [
+          "Career shifts are closely tied to nest support and nest type."
+        ]
+      },
+      "mechanics": [
+        "Uses Hiver species modifiers and traits.",
+        "Adds social and cultural rules centered on manipulation.",
+        "Applies background and career adjustments for Hive Federation society.",
+        "Hiver traveller generation uses Resolve (RES) and nest-based development."
+      ],
+      "variants": [
+        {
+          "name": "Nest Type",
+          "type": "development path",
+          "description": "A Hiver's nest origin shapes development, worldview and educational emphasis before formal careers begin.",
+          "mechanics": [
+            "Background and basic training are influenced by nest type.",
+            "All Hivers receive broad nest education, but specialisation depends on the nest's function."
+          ]
+        }
+      ],
+      "characterCreationHooks": [
+        "species modifiers and traits",
+        "culture and manipulation/social rules",
+        "background and career adjustments"
+      ]
+    },
+    {
+      "id": "darrian",
+      "name": "Darrian",
+      "category": "human-minor-race",
+      "embassyVisible": false,
+      "playable": true,
+      "selectableAsSpecies": true,
+      "sexModel": "binary",
+      "summary": "Refined human minor race descended from Darrian stock.",
+      "appearance": "Darrians are typically slender and luminous in complexion, with skin tones that can appear to glow and hair that ranges from white to platinum blonde. Their bodies store little subcutaneous fat, giving them a lean, almost delicate look compared to other humans.",
+      "physiology": "Darrians have heightened hearing and vision, natural ozone immunity and somewhat better resistance to heat and cold extremes than baseline humans. Their species profile also reflects lower raw strength and endurance offset by improved dexterity, intellect and education.",
+      "culture": "Darrian society is communal, learned and pacifistic, built around civility, self-discipline, social obligation and the pursuit of knowledge. Confederation identity outweighs tribe or nation, and even non-Darrian residents are expected to assimilate into the shared civic culture.",
+      "behaviour": "Darrians favour negotiation, intellect and social restraint over force. They are taught from childhood to be respectful, curious, communal and open to opposing views, with ostracism used to punish selfish or antisocial conduct.",
+      "sourceBook": "Aliens of Charted Space Volume 3",
+      "travellerPage": 36,
+      "implementationStatus": "sampled",
+      "statModifiers": "STR-1, DEX+1, END-1, INT+1, EDU+1",
+      "statAdjustments": [
+        { "characteristic": "STR", "amount": -1 },
+        { "characteristic": "DEX", "amount": 1 },
+        { "characteristic": "END", "amount": -1 },
+        { "characteristic": "INT", "amount": 1 },
+        { "characteristic": "EDU", "amount": 1 }
+      ],
+      "characterCreation": {
+        "traits": [
+          "Heightened Senses, Ozone Immunity, Temperature Resistance."
+        ],
+        "startingAge": [
+          "Begins careers at age 18."
+        ],
+        "education": [
+          "First term must be spent in university or one of the military branches."
+        ],
+        "backgroundSkills": [
+          "Gains Science 0 in addition to normal background skills."
+        ],
+        "aging": [
+          "First aging roll at 34; aging is less severe than for standard humans."
+        ]
+      },
+      "mechanics": [
+        "Uses Darrian characteristic modifiers and species traits.",
+        "Forces a first-term choice between university and military service.",
+        "Adds culture-specific naming and structured early-life hooks."
+      ],
+      "characterCreationHooks": [
+        "characteristic modifiers",
+        "species traits",
+        "mandatory first-term university or military service",
+        "culture-specific naming"
+      ]
+    },
+    {
+      "id": "geonee",
+      "name": "Geonee",
+      "category": "human-minor-race",
+      "embassyVisible": false,
+      "playable": true,
+      "selectableAsSpecies": true,
+      "sexModel": "binary",
+      "summary": "Claimants to Ancient descent with advanced archaeology.",
+      "appearance": "Geonee are short, stocky humans from a high-gravity world, with broad musculature, thick bones and a visibly powerful build. Their bodies tend to look muscular even when at rest and there is little difference in size between the sexes.",
+      "physiology": "Geonee are adapted to heavy gravity, with larger hearts, stronger musculature and rapid acclimatisation to new gravities. Their species rules reflect greater strength and endurance, reduced dexterity and some sensory limitations compared to other humans.",
+      "culture": "Geonee society is deeply shaped by migration, archaeology, technical survival and a long conviction that they stand near the legacy of the Ancients. Technical skill, practicality and historical identity carry unusual prestige in Geonee life.",
+      "behaviour": "Geonee are adaptive, pragmatic and strongly future-oriented. Their traditions are nomadic and resilient, but modern settlements also carry a species-wide sense that Geonee have an unfinished destiny to fulfill.",
+      "sourceBook": "Aliens of Charted Space Volume 3",
+      "travellerPage": 109,
+      "implementationStatus": "indexed",
+      "statModifiers": "STR+2, DEX-1, END+2, SOC-1",
+      "statAdjustments": [
+        { "characteristic": "STR", "amount": 2 },
+        { "characteristic": "DEX", "amount": -1 },
+        { "characteristic": "END", "amount": 2 },
+        { "characteristic": "SOC", "amount": -1 }
+      ],
+      "characterCreation": {
+        "traits": [
+          "Hyper-acclimatisation, Poor Senses."
+        ],
+        "backgroundSkills": [
+          "Gain one of Electronics 0, Engineer 0 or Mechanic 0."
+        ],
+        "careerAccess": [
+          "Geonee use core careers with major adjustments for Scholar and Geonee-specific careers."
+        ]
+      },
+      "mechanics": [
+        "Uses Geonee characteristic modifiers and species traits.",
+        "Applies background and career adjustments from Geonee society.",
+        "Adds chargen context tied to archaeology and inherited status."
+      ],
+      "characterCreationHooks": [
+        "characteristic modifiers",
+        "species traits",
+        "background and career adjustments"
+      ]
+    },
+    {
+      "id": "dolphin",
+      "name": "Dolphin",
+      "category": "uplifted",
+      "embassyVisible": false,
+      "playable": true,
+      "selectableAsSpecies": true,
+      "sexModel": "binary",
+      "summary": "Uplifted aquatic sophonts built for cooperation and freedom.",
+      "appearance": "Dolphins are uplifted aquatic sophonts whose morphology remains recognisably cetacean rather than humanoid. Any traveller reference for them must assume a body built for water, not for dry-land personal gear or standard vehicle ergonomics.",
+      "physiology": "Dolphins require explicit handling for aquatic embodiment, movement and interaction with equipment built for hands and legs. Their profile is fundamentally non-human and should be treated as such in character generation and outfitting.",
+      "culture": "Dolphin societies emphasise cooperation, movement and social interdependence rooted in aquatic life. Their cultural expectations do not naturally align with the assumptions built into most Imperial institutions.",
+      "behaviour": "Dolphin behaviour is social, communicative and strongly shaped by collective movement and environmental awareness. They should read as uplifted aquatic sophonts first, not as humans in alternate bodies.",
+      "sourceBook": "Aliens of Charted Space Volume 3",
+      "travellerPage": 155,
+      "implementationStatus": "indexed",
+      "statModifiers": "STR+4, END+2, SOC-4",
+      "statAdjustments": [
+        { "characteristic": "STR", "amount": 4 },
+        { "characteristic": "END", "amount": 2 },
+        { "characteristic": "SOC", "amount": -4 }
+      ],
+      "characterCreation": {
+        "traits": [
+          "Cold Resistance, Deep Diver (300m), Echolocation (100m), Succour Syndrome, Swimmer (12m)."
+        ],
+        "startingAge": [
+          "Begins careers at age 12."
+        ],
+        "aging": [
+          "Begins aging after the second term at age 20."
+        ],
+        "education": [
+          "Applies DM-1 for university and no DM penalty for Military Academy."
+        ],
+        "careerAccess": [
+          "Must acquire Vacc Suit before most standard human careers.",
+          "Cannot enter Drifter, Merchant or Noble."
+        ],
+        "skillRestrictions": [
+          "Cannot gain Broker or Gambler."
+        ],
+        "benefits": [
+          "Most off-career cash benefits are reduced to 10% of listed value."
+        ]
+      },
+      "mechanics": [
+        "Uses Dolphin modifiers STR+4, END+2, SOC-4.",
+        "Traits: Cold Resistance, Deep Diver (300m), Echolocation (100m), Succour Syndrome, Swimmer (12m).",
+        "Starts careers at age 12 and begins aging after the second term at age 20.",
+        "Must acquire Vacc Suit before most standard human careers and cannot enter Drifter, Merchant or Noble.",
+        "Cannot gain Broker or Gambler; most off-career cash benefits are reduced to 10% of listed value."
+      ],
+      "characterCreationHooks": [
+        "non-human physiology",
+        "characteristic modifiers and traits",
+        "equipment/environment interaction changes",
+        "accelerated starting age and aging schedule",
+        "vacc suit and career restrictions"
+      ]
+    },
+    {
+      "id": "orca",
+      "name": "Orca",
+      "category": "uplifted",
+      "embassyVisible": false,
+      "playable": true,
+      "selectableAsSpecies": true,
+      "sexModel": "binary",
+      "summary": "Uplifted matriarchal aquatic sophonts with aloof culture.",
+      "appearance": "Orcas are uplifted aquatic sophonts with a cetacean body plan distinct from Dolphins and immediately outside normal humanoid ergonomics. Their presence should feel physically and socially imposing rather than merely exotic.",
+      "physiology": "As aquatic uplifted sophonts, Orcas require species handling for body form, movement and equipment interaction. Their mechanics need to account for environmental assumptions very different from dry-land travellers.",
+      "culture": "Orca society is matriarchal, hierarchical and socially distinct even among uplifted cetaceans. Their culture shapes how authority, kinship and distance from outsiders are expressed.",
+      "behaviour": "Orcas tend to project aloofness, confidence and strong in-group identity. Their behaviour should reflect both aquatic embodiment and a structured social model rather than generic uplifted-human attitudes.",
+      "sourceBook": "Aliens of Charted Space Volume 3",
+      "travellerPage": 206,
+      "implementationStatus": "indexed",
+      "statModifiers": "STR+8, END+4, SOC-4",
+      "statAdjustments": [
+        { "characteristic": "STR", "amount": 8 },
+        { "characteristic": "END", "amount": 4 },
+        { "characteristic": "SOC", "amount": -4 }
+      ],
+      "characterCreation": {
+        "traits": [
+          "Big and Tough, Cold Resistance, Deep Diver (260m), Echolocation (100m), Succour Syndrome, Swimmer (16m)."
+        ],
+        "startingAge": [
+          "Begins careers at age 18."
+        ],
+        "aging": [
+          "Begins aging after the fourth term at age 32."
+        ],
+        "education": [
+          "Applies DM-2 for university and DM+1 for Military Academy."
+        ],
+        "careerAccess": [
+          "Must acquire Vacc Suit before most standard human careers.",
+          "Cannot enter Drifter, Merchant or Noble."
+        ],
+        "skillRestrictions": [
+          "Cannot gain Broker or Gambler."
+        ],
+        "benefits": [
+          "Many cash benefits are reduced to 10% outside Orca and Dolphin-native careers."
+        ]
+      },
+      "mechanics": [
+        "Uses Orca modifiers STR+8, END+4, SOC-4.",
+        "Traits: Big and Tough, Cold Resistance, Deep Diver (260m), Echolocation (100m), Succour Syndrome, Swimmer (16m).",
+        "Starts careers at age 18 and begins aging after the fourth term at age 32.",
+        "Applies DM-2 for university, DM+1 for Military Academy, and must acquire Vacc Suit before most standard human careers.",
+        "Cannot enter Drifter, Merchant or Noble; cannot gain Broker or Gambler; many cash benefits are reduced to 10% outside Orca and Dolphin-native careers."
+      ],
+      "characterCreationHooks": [
+        "non-human physiology",
+        "characteristic modifiers and traits",
+        "equipment/environment interaction changes",
+        "vacc suit and career restrictions",
+        "modified university/academy entry"
+      ]
+    },
+    {
+      "id": "bwap",
+      "name": "Bwap",
+      "category": "minor-race",
+      "embassyVisible": false,
+      "playable": true,
+      "selectableAsSpecies": true,
+      "sexModel": "binary",
+      "summary": "Meticulous amphibious bureaucrats tied to Vilani administration.",
+      "appearance": "Bwaps are amphibious non-human sophonts whose body plan and movement read as purposeful rather than imposing. Their species identity is tied more to manner, organisation and presence than to brute physicality.",
+      "physiology": "Their amphibious profile and non-human body form matter, but Bwap traveller identity is especially shaped by temperament and institutional fit. Exact characteristic modifiers still need a direct extraction pass.",
+      "culture": "Bwap society is meticulous, administrative and deeply comfortable with systems, records and process. Their long association with Vilani bureaucracy has turned cultural habits of order into a defining civilizational trait.",
+      "behaviour": "Bwaps are typically methodical, procedural and attentive to structure. They often seem born for clerical, diplomatic or administrative work because their social instincts reward order and compliance.",
+      "sourceBook": "Aliens of Charted Space Volume 3",
+      "travellerPage": 243,
+      "implementationStatus": "indexed",
+      "statModifiers": "STR-4, END-4",
+      "statAdjustments": [
+        { "characteristic": "STR", "amount": -4 },
+        { "characteristic": "END", "amount": -4 }
+      ],
+      "characterCreation": {
+        "traits": [
+          "Regeneration, Social Norms, Structured Mind."
+        ],
+        "startingAge": [
+          "Begins careers at age 18."
+        ],
+        "aging": [
+          "Suffers an additional DM-1 on the Aging table."
+        ],
+        "careerAccess": [
+          "May automatically enter Citizen (corporate).",
+          "Cannot enter most Agent paths or Rogue; strong DMs apply to several other careers."
+        ],
+        "skillRestrictions": [
+          "Structured Mind turns Admin 0, Advocate 0 and Broker 0 into level 1 automatically."
+        ]
+      },
+      "mechanics": [
+        "Uses Bwap modifiers STR-4, END-4.",
+        "Traits: Regeneration, Social Norms, Structured Mind.",
+        "Social Norms imposes DM-1 on Deception, Gambler, Persuade and Streetwise.",
+        "Structured Mind turns Admin 0, Advocate 0 and Broker 0 into level 1 automatically.",
+        "Starts careers at age 18 and suffers an additional DM-1 on the Aging table.",
+        "May automatically enter Citizen (corporate); cannot enter most Agent paths or Rogue and applies strong career DMs elsewhere."
+      ],
+      "characterCreationHooks": [
+        "characteristic modifiers",
+        "species traits",
+        "bureaucratic/social rule hooks",
+        "background and career adjustments",
+        "aging modifier and automatic citizen entry"
+      ]
+    },
+    {
+      "id": "suerrat",
+      "name": "Suerrat",
+      "category": "human-minor-race",
+      "embassyVisible": false,
+      "playable": true,
+      "selectableAsSpecies": true,
+      "sexModel": "binary",
+      "summary": "Arboreal human minor race resilient to cold and radiation.",
+      "appearance": "Suerrat are slim, agile humans covered in long silky body hair whose colour usually ranges from red and orange through darker browns. Their arboreal ancestry and low-gravity world leave them visibly light-framed, quick and adapted to climbing.",
+      "physiology": "Suerrat are physically agile and strong for their build, with fast-twitch musculature, excellent low-light vision and notable tolerance for cold. Their profile also carries heat sensitivity and bright-light penalties, along with mandatory Athletics training rooted in arboreal movement.",
+      "culture": "Suerrat cultures are intensely social, cosmopolitan and cooperative, with strong communal habits, audience participation in the arts and a preference for settlements integrated with natural environments. Family, civic participation and environmental restoration are recurring themes in Suerrat history.",
+      "behaviour": "Suerrat are gregarious, communal and quick to treat public life as participatory rather than passive. They thrive in crowded social settings, cooperative projects and political cultures that expect citizens to stay engaged.",
+      "sourceBook": "Aliens of Charted Space Volume 4",
+      "travellerPage": 48,
+      "implementationStatus": "sampled",
+      "statModifiers": "STR+1, DEX+2, SOC-1",
+      "statAdjustments": [
+        { "characteristic": "STR", "amount": 1 },
+        { "characteristic": "DEX", "amount": 2 },
+        { "characteristic": "SOC", "amount": -1 }
+      ],
+      "characterCreation": {
+        "traits": [
+          "Cold resistance, dim-light adaptation, bright-light penalty, heat sensitivity."
+        ],
+        "backgroundSkills": [
+          "Requires Athletics 0 as a mandatory background skill."
+        ],
+        "aging": [
+          "Begins aging at 34 and gains DM+1 on aging rolls."
+        ]
+      },
+      "mechanics": [
+        "Uses Suerrat characteristic modifiers and species traits.",
+        "Requires Athletics as a mandatory background skill.",
+        "Adds regional career options during generation."
+      ],
+      "characterCreationHooks": [
+        "characteristic modifiers",
+        "species traits",
+        "mandatory Athletics background skill",
+        "regional career options"
+      ]
+    },
+    {
+      "id": "zatatchk",
+      "name": "Za'tachk",
+      "category": "minor-race",
+      "embassyVisible": false,
+      "playable": true,
+      "selectableAsSpecies": true,
+      "sexModel": "binary",
+      "summary": "Orderly peaceful species long associated with the Hivers.",
+      "appearance": "Za'tachk are non-human sophonts whose arboreal ancestry and multi-limbed movement remain central to how they occupy space. Their posture and constant readiness to climb or brace against unstable surfaces are part of their species identity.",
+      "physiology": "Za'tachk use all limbs as manipulators or locomotors and are exceptional climbers. Traveller generation distinguishes matriarch and scout strains and applies different characteristic adjustments to those roles, alongside mandatory Admin training and species movement traits.",
+      "culture": "Za'tachk culture is matriarchal, structured and pacifistic, but it is not passive. Food availability, bureaucratic order, social cooperation and long Hiver influence shape a civilisation that prizes stability and anticipatory problem-solving.",
+      "behaviour": "Za'tachk prefer to prevent threats before they mature, usually through diplomacy, relocation or administration rather than open violence. Outsiders often misread this as cowardice when it is better understood as proactive pacifism.",
+      "sourceBook": "Aliens of Charted Space Volume 4",
+      "travellerPage": 104,
+      "implementationStatus": "indexed",
+      "statAdjustments": [
+        { "characteristic": "STR", "amount": 1 }
+      ],
+      "characterCreation": {
+        "traits": [
+          "Exceptional climber and multi-limbed body plan."
+        ],
+        "specialCharacteristics": [
+          "Uses Boldness (BOL) in species-specific rules."
+        ],
+        "backgroundSkills": [
+          "Mandatory Admin training."
+        ],
+        "education": [
+          "Only university pre-career is available; no military academy."
+        ],
+        "careerAccess": [
+          "No draft. If qualification fails, traveller must go Drifter or Rogue.",
+          "Career access diverges by sex/role path."
+        ]
+      },
+      "mechanics": [
+        "Uses Za'tachk species modifiers and traits.",
+        "Adds social and organisational culture rules.",
+        "Applies background and career adjustments tied to Hiver influence."
+      ],
+      "variants": [
+        {
+          "name": "Matriarch",
+          "type": "sex / role path",
+          "description": "Matriarchs are leaders and decision-makers in Za'tachk society, and their traveller path differs accordingly.",
+          "statAdjustments": [
+            { "characteristic": "INT", "amount": 1 },
+            { "characteristic": "EDU", "amount": 1 },
+            { "characteristic": "BOL", "amount": -1 }
+          ],
+          "characterCreation": {
+            "careerAccess": [
+              "May enter Citizen (corporate), Drifter, Merchant, Noble, Rogue and Scholar careers."
+            ]
+          },
+          "mechanics": [
+            "Additional modifiers: INT+1, EDU+1, BOL-1.",
+            "May enter Citizen (corporate), Drifter, Merchant, Noble, Rogue and Scholar careers."
+          ]
+        },
+        {
+          "name": "Scout",
+          "type": "sex / role path",
+          "description": "Scouts are more willing to risk danger than other Za'tachk and carry a different balance of intellect, education and boldness.",
+          "statAdjustments": [
+            { "characteristic": "INT", "amount": -1 },
+            { "characteristic": "EDU", "amount": -1 },
+            { "characteristic": "BOL", "amount": 1 }
+          ],
+          "characterCreation": {
+            "specialCharacteristics": [
+              "Za'tachk use Boldness (BOL) as a species-specific characteristic governing courage and self-preservation."
+            ]
+          },
+          "mechanics": [
+            "Additional modifiers: INT-1, EDU-1, BOL+1.",
+            "Za'tachk use Boldness (BOL) as a species-specific characteristic governing courage and self-preservation."
+          ]
+        }
+      ],
+      "characterCreationHooks": [
+        "species modifiers and traits",
+        "social/organisational culture rules",
+        "background and career adjustments"
+      ]
+    },
+    {
+      "id": "gurvin",
+      "name": "Gurvin",
+      "category": "minor-race",
+      "embassyVisible": false,
+      "playable": true,
+      "selectableAsSpecies": true,
+      "sexModel": "binary",
+      "summary": "Mercantile hexapods central to Hive Federation commerce.",
+      "appearance": "Gurvin are non-human hexapodal sophonts whose anatomy immediately separates them from standard humanoid expectations. Their species presentation is inseparable from commerce, mobility and practical adaptation.",
+      "physiology": "Gurvin mechanics must account for a non-human body plan as well as characteristic and species-trait handling from the traveller chapter.",
+      "culture": "Gurvin society is mercantile, outward-looking and deeply tied to trade inside the Hive Federation. Commercial competence and exchange are central to how Gurvin are understood by others and by themselves.",
+      "behaviour": "Gurvin behaviour tends to be practical, transactional and relationship-driven. They read as people accustomed to negotiation, movement of goods and mutual advantage rather than insulated hierarchy.",
+      "sourceBook": "Aliens of Charted Space Volume 4",
+      "travellerPage": 167,
+      "implementationStatus": "indexed",
+      "characterCreation": {
+        "traits": [
+          "Heightened Senses and Extra Limbs."
+        ],
+        "startingAge": [
+          "Begins careers at age 16."
+        ],
+        "aging": [
+          "Aging begins at 32; female Gurvin gain DM+1 while males suffer DM-1."
+        ],
+        "careerAccess": [
+          "Career DMs diverge strongly by sex."
+        ]
+      },
+      "mechanics": [
+        "Female Gurvin modifiers: INT+1, EDU+1. Male Gurvin modifiers: STR-1, DEX+1; male INT and EDU are each rolled on 1D+1.",
+        "Traits: Heightened Senses and Extra Limbs.",
+        "Starts careers at age 16; females gain Broker 0 in addition to normal background skills, while males gain extra background skill picks from higher EDU allowance.",
+        "Strongly divergent career DMs by sex: females are steered toward corporate, merchant and wealth-building careers; males toward law enforcement, military and performer paths.",
+        "Aging begins at 32; females gain DM+1 on aging rolls while males suffer DM-1."
+      ],
+      "variants": [
+        {
+          "name": "Female Gurvin",
+          "type": "sex / social path",
+          "description": "Female Gurvin dominate Gurvin society, commerce, politics and inheritance, and their traveller generation is tuned toward profit, administration and leadership.",
+          "statAdjustments": [
+            { "characteristic": "INT", "amount": 1 },
+            { "characteristic": "EDU", "amount": 1 }
+          ],
+          "characterCreation": {
+            "backgroundSkills": [
+              "Automatically gains Broker 0 in addition to normal background skill selection."
+            ],
+            "careerAccess": [
+              "Gains DM+2 to qualify for Agent (corporate), Citizen (corporate) and Merchant, plus DM+1 to advancement in those careers."
+            ],
+            "aging": [
+              "Gains DM+1 to aging rolls."
+            ]
+          },
+          "mechanics": [
+            "Characteristic modifiers: INT+1, EDU+1.",
+            "Automatically gains Broker 0 in addition to normal background skill selection.",
+            "Gains DM+2 to qualify for Agent (corporate), Citizen (corporate) and Merchant, plus DM+1 to advancement in those careers.",
+            "Gains DM+1 to aging rolls."
+          ]
+        },
+        {
+          "name": "Male Gurvin",
+          "type": "sex / dependent path",
+          "description": "Male Gurvin are socially subordinate, physically more ornamental and service-oriented, and their traveller generation reflects both biological and legal dependence within Gurvin society.",
+          "statAdjustments": [
+            { "characteristic": "STR", "amount": -1 },
+            { "characteristic": "DEX", "amount": 1 }
+          ],
+          "characterCreation": {
+            "backgroundSkills": [
+              "Receives background skills equal to EDU DM+3 instead of the normal Gurvin female spread."
+            ],
+            "careerAccess": [
+              "Favours Agent (law enforcement), Army, Entertainer, Marine and Navy careers with DM+2 to qualification, but suffers DM-2 to commission."
+            ],
+            "other": [
+              "INT and EDU are each rolled on 1D+1."
+            ],
+            "aging": [
+              "Suffers DM-1 to aging rolls."
+            ]
+          },
+          "mechanics": [
+            "Characteristic modifiers: STR-1, DEX+1; INT and EDU are each rolled on 1D+1.",
+            "Receives background skills equal to EDU DM+3 instead of the normal Gurvin female spread.",
+            "Favours Agent (law enforcement), Army, Entertainer, Marine and Navy careers with DM+2 to qualification, but suffers DM-2 to commission.",
+            "Suffers DM-1 to aging rolls."
+          ]
+        }
+      ],
+      "characterCreationHooks": [
+        "non-human physiology",
+        "characteristic modifiers and traits",
+        "trade/merchant culture hooks",
+        "sex-based generation branches",
+        "background and career divergence by sex"
+      ]
+    },
+    {
+      "id": "tezcat",
+      "name": "Tezcat",
+      "category": "minor-race",
+      "embassyVisible": false,
+      "playable": true,
+      "summary": "Violent feline xenophobes unified by the Shaper Church.",
+      "appearance": "Tezcat are feline non-human sophonts whose look reinforces the species’ reputation for intensity and menace. Their physical presentation supports a social identity built around inward loyalty and outward hostility.",
+      "physiology": "Tezcat traveller rules combine species traits with a body plan suited to aggression and controlled violence.",
+      "culture": "Tezcat culture is xenophobic, violent and religiously unified under the Shaper Church. Social order, legitimacy and acceptable ambition are framed through that ideological structure rather than through pluralistic civic norms.",
+      "behaviour": "Tezcat tend to be insular, confrontational and suspicious of outsiders. Their behavioural profile should communicate a species whose social energy is directed inward toward unity and outward toward threat response.",
+      "sourceBook": "Aliens of Charted Space Volume 4",
+      "travellerPage": 224,
+      "implementationStatus": "indexed",
+      "characteristicModifiers": "Species modifiers plus religious and xenophobic social rules",
+      "mechanics": [
+        "Uses Tezcat characteristic modifiers and species traits.",
+        "Adds culture-specific social and career rules.",
+        "Requires chargen context for xenophobic and religious social structure."
+      ],
+      "characterCreationHooks": [
+        "characteristic modifiers and traits",
+        "culture-specific social/career rules"
+      ]
+    }
+  ]
+}

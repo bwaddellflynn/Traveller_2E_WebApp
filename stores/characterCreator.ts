@@ -2,6 +2,7 @@ import { computed, nextTick, reactive, ref, watch } from 'vue'
 import { defineStore } from 'pinia'
 import characteristicsData from '~/data/traveller2e/core/characteristics.json'
 import skillsData from '~/data/traveller2e/core/skills.json'
+import speciesData from '~/data/traveller2e/core/species.json'
 import careersData from '~/data/traveller2e/core/careers-summary.json'
 import creationRulesData from '~/data/traveller2e/core/character-creation-rules.json'
 import agingData from '~/data/traveller2e/core/aging-and-injuries.json'
@@ -10,6 +11,7 @@ import careerRanksData from '~/data/traveller2e/core/career-ranks.json'
 import type { TravellerCharacteristicId, TravellerProfile } from '~/types/traveller'
 import { getCareerEvent, getCareerMishap, getEducationEvent, getEventFromTable, normalizeTravellerEventEffect, type TravellerEvent, type TravellerEventEffect } from '~/utils/traveller/events'
 import { createBlankTravellerProfile } from '~/utils/traveller/profile'
+import { buildTravellerSkill, parseTravellerSkill, travellerSkillHasSpecialities, travellerSkillMode } from '~/utils/traveller/skills'
 
 type CharacteristicId = 'str' | 'dex' | 'end' | 'int' | 'edu' | 'soc'
 type StatRoll = {
@@ -39,6 +41,25 @@ type SkillDefinition = {
   special?: boolean
   psionic?: boolean
 }
+type SpeciesDefinition = {
+  id: string
+  name: string
+  playable?: boolean
+  selectableAsSpecies?: boolean
+  sexModel?: 'single' | 'binary' | 'trisexual' | string
+  summary?: string
+  branches?: Array<{
+    id?: string
+    name: string
+    kind?: string
+    selectableAsRace?: boolean
+    description?: string
+  }>
+  variants?: Array<{
+    name: string
+    description?: string
+  }>
+}
 type CheckRule = {
   characteristic?: string
   target?: number
@@ -65,6 +86,8 @@ type TermHistoryEntry = {
   careerId?: string
   assignmentId?: string
   educationId?: string
+  rank?: number
+  title?: string
   startAge: number
   endAge: number
   summary: string
@@ -293,6 +316,9 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     soc: 0,
   })
   const characterName = ref('')
+  const characterHomeworld = ref('')
+  const characterSpecies = ref('Human')
+  const characterGender = ref('')
   const selectedBackgroundSkills = ref<string[]>([])
   const backgroundSkillsCollapsed = ref(false)
   const backgroundSkillsAutoCollapsed = ref(false)
@@ -489,6 +515,85 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
 
   const currentAge = computed(() => 18 + ((currentTermNumber.value - 1) * 4))
   const endOfTermAge = computed(() => currentAge.value + 4)
+  const creatorSpeciesCatalog = computed(() => (speciesData.raceProfiles as SpeciesDefinition[])
+    .filter((species) => species.id === 'human' && species.playable !== false && species.selectableAsSpecies !== false)
+    .map((species) => ({
+      id: species.id,
+      name: species.name,
+      summary: species.summary ?? '',
+    })))
+  const creatorSpeciesOptions = computed(() => creatorSpeciesCatalog.value.map((species) => species.name))
+  watch(creatorSpeciesCatalog, (options) => {
+    const allowedSpecies = options.map((species) => species.name)
+    if (!allowedSpecies.length) {
+      characterSpecies.value = ''
+      return
+    }
+
+    if (!allowedSpecies.includes(characterSpecies.value)) {
+      characterSpecies.value = allowedSpecies[0]
+    }
+  }, { immediate: true })
+  const creatorSelectedSpeciesDefinition = computed(() => (speciesData.raceProfiles as SpeciesDefinition[])
+    .find((species) => species.name === characterSpecies.value) ?? null)
+  const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const simplifyGenderBranchLabel = (label: string, speciesName: string) => {
+    const simplified = label
+      .replace(new RegExp(`\\b${escapeRegExp(speciesName)}\\b`, 'ig'), '')
+      .replace(/\s{2,}/g, ' ')
+      .replace(/^[-/:|]+|[-/:|]+$/g, '')
+      .trim()
+
+    return simplified || label
+  }
+  const creatorGenderOptions = computed(() => {
+    const species = creatorSelectedSpeciesDefinition.value
+    if (!species) return []
+
+    const sexLinkedBranches = (species.branches ?? [])
+      .filter((branch) => branch.kind === 'sex-linked')
+      .map((branch, index) => ({
+        id: branch.id ?? `${species.id}::sex::${index}`,
+        label: simplifyGenderBranchLabel(branch.name, species.name),
+        summary: branch.description ?? '',
+      }))
+
+    if (sexLinkedBranches.length) return sexLinkedBranches
+    if (species.sexModel === 'single') return []
+    if (species.sexModel === 'binary') {
+      return [
+        { id: `${species.id}::male`, label: 'Male', summary: '' },
+        { id: `${species.id}::female`, label: 'Female', summary: '' },
+      ]
+    }
+
+    return []
+  })
+  const creatorGenderVisible = computed(() => creatorGenderOptions.value.length > 0)
+  watch(creatorGenderOptions, (options) => {
+    if (!options.length) {
+      characterGender.value = ''
+      return
+    }
+
+    if (!options.some((option) => option.label === characterGender.value)) {
+      characterGender.value = options[0].label
+    }
+  }, { immediate: true })
+  const creatorSelectedGenderSummary = computed(() =>
+    creatorGenderOptions.value.find((option) => option.label === characterGender.value)?.summary ?? '')
+  const creatorSelectedSpeciesSummary = computed(() =>
+    creatorSelectedGenderSummary.value
+    || creatorSpeciesCatalog.value.find((species) => species.name === characterSpecies.value)?.summary
+    || 'Species-specific character creation rules will extend this selection.')
+  const creatorDisplayTitle = computed(() => {
+    const titles = careerRanks.value
+      .map((rank) => rank.title?.trim())
+      .filter((title): title is string => Boolean(title))
+      .filter((title, index, array) => array.findIndex((candidate) => candidate.toLocaleLowerCase() === title.toLocaleLowerCase()) === index)
+
+    return titles.join(' / ')
+  })
   const psionicTalents: PsionicTalent[] = [
     { id: 'telepathy', name: 'Telepathy', learningDm: 4 },
     { id: 'clairvoyance', name: 'Clairvoyance', learningDm: 3 },
@@ -1032,15 +1137,8 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     skillDefinitions.value.map((skill) => [skill.id, skill]),
   ))
   const getSkillDefinition = (skillId: string) => skillDefinitionsById.value[skillId]
-  const skillSpecialityMode = (skillId: string) => {
-    const skill = getSkillDefinition(skillId)
-    if (!skill?.specialities?.length && !skill?.requiresSpeciality) return 'none' as const
-    return skill?.specialityMode ?? 'shared-zero'
-  }
-  const skillHasSpecialities = (skillId: string) => {
-    const skill = getSkillDefinition(skillId)
-    return Boolean(skill?.specialities?.length || skill?.requiresSpeciality)
-  }
+  const skillSpecialityMode = (skillId: string) => travellerSkillMode(skillId)
+  const skillHasSpecialities = (skillId: string) => travellerSkillHasSpecialities(skillId)
   const skillSpecialityOptions = (skillId: string) => {
     const skill = getSkillDefinition(skillId)
     return (skill?.specialities ?? []).map((speciality) => `${skillId}/${speciality}`)
@@ -1053,54 +1151,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     return skill?.name ?? skillId
   }
 
-  const skillFromLabel = (label: string) => {
-    const trimmed = label.trim()
-    const normalizeSpeciality = (baseSkill: { specialities?: string[] } | undefined, value: string) => {
-      const slug = slugifySkill(value === '*' ? 'any' : value)
-      if (slug === 'any') return slug
-      const exact = baseSkill?.specialities?.find((speciality) => slugifySkill(speciality) === slug)
-      if (exact) return slugifySkill(exact)
-      const singular = slug.endsWith('s') ? slug.slice(0, -1) : slug
-      const singularMatch = baseSkill?.specialities?.find((speciality) => slugifySkill(speciality) === singular)
-      return singularMatch ? slugifySkill(singularMatch) : slug
-    }
-    const slashSpecialityMatch = trimmed.match(/^(.+?)\/(.+)$/)
-    if (slashSpecialityMatch) {
-      const baseSkill = skillDefinitions.value.find((item) => item.id === slashSpecialityMatch[1] || item.name.toLowerCase() === slashSpecialityMatch[1].toLowerCase())
-      const specialityId = normalizeSpeciality(baseSkill, slashSpecialityMatch[2])
-      const speciality = specialityId === 'any'
-        ? 'any'
-        : baseSkill?.specialities?.find((item) => slugifySkill(item) === specialityId) ?? slashSpecialityMatch[2]
-      return {
-        id: `${baseSkill?.id ?? slugifySkill(slashSpecialityMatch[1])}:${specialityId}`,
-        name: `${baseSkill?.name ?? slashSpecialityMatch[1]} (${speciality})`,
-        baseId: baseSkill?.id ?? slugifySkill(slashSpecialityMatch[1]),
-        specialityId,
-      }
-    }
-
-    const specialityMatch = trimmed.match(/^(.+?)\s*\((.+)\)$/)
-    const baseName = (specialityMatch?.[1] ?? trimmed).trim()
-    const speciality = specialityMatch?.[2]?.trim()
-    const baseSkill = skillDefinitions.value.find((item) => item.id === baseName || item.name.toLowerCase() === baseName.toLowerCase())
-    const specialityId = speciality ? normalizeSpeciality(baseSkill, speciality) : undefined
-    const specialityName = specialityId === 'any'
-      ? 'any'
-      : baseSkill?.specialities?.find((item) => slugifySkill(item) === specialityId) ?? speciality
-    const id = speciality
-      ? `${baseSkill?.id ?? slugifySkill(baseName)}:${specialityId}`
-      : baseSkill?.id ?? slugifySkill(baseName)
-    const name = speciality
-      ? `${baseSkill?.name ?? baseName} (${specialityName})`
-      : baseSkill?.name ?? baseName
-
-    return {
-      id,
-      name,
-      baseId: baseSkill?.id ?? slugifySkill(baseName),
-      specialityId,
-    }
-  }
+  const skillFromLabel = (label: string) => parseTravellerSkill(label)
 
   const skillOptionLabel = (label: string) => skillFromLabel(label).name
   const safeSkillOptionLabel = (label?: string) => label ? skillOptionLabel(label) : 'Skill'
@@ -1740,12 +1791,10 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
         continue
       }
 
-      skills.set(skill.id, {
-        id: skill.id,
-        name: skill.name,
-        level: skill.level,
+      skills.set(skill.id, buildTravellerSkill(skillFromLabel(skill.id).baseId, skill.level, skillFromLabel(skill.id).specialityName, {
         sources: [...skill.sources],
-      })
+        notes: '',
+      }))
     }
 
     return [...skills.values()]
@@ -4259,6 +4308,37 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
       })
   }
 
+  const currentTermCareerRankSnapshot = () => {
+    if (selectedTermPath.value !== 'career') return { rank: undefined, title: undefined }
+
+    const rankAssignmentId = careerRankAssignmentId.value
+    const state = findCareerRankState(selectedCareerId.value, rankAssignmentId)
+    if (!state) return { rank: undefined, title: undefined }
+
+    return {
+      rank: state.rank,
+      title: state.title,
+    }
+  }
+
+  const creatorHistoryNotes = computed(() => {
+    const blocks: string[] = []
+
+    if (termHistory.value.length) {
+      blocks.push(...termHistory.value.map((term) => {
+        const heading = `Term ${term.termNumber}: ${term.summary}`
+        const detailLines = term.details.map((detail) => `- ${detail}`)
+        return [heading, ...detailLines].join('\n')
+      }))
+    }
+
+    if (personalBenefits.value.length) {
+      blocks.push(`Benefits: ${personalBenefits.value.join(', ')}`)
+    }
+
+    return blocks.join('\n\n').trim()
+  })
+
   const currentTermConstraintExists = (effectType: string, careerId = selectedCareerId.value) => {
     return careerConstraints.value.some((constraint) => {
       return constraint.appliesTermNumber === currentTermNumber.value + 1
@@ -4395,6 +4475,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
       ...buildTermHistoryDetails(advancement),
       ...nextTermConstraintDetails(),
     ]
+    const rankSnapshot = currentTermCareerRankSnapshot()
 
     termHistory.value = [
       ...termHistory.value,
@@ -4404,6 +4485,8 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
         careerId: selectedTermPath.value === 'career' ? selectedCareerId.value : undefined,
         assignmentId: selectedTermPath.value === 'career' ? selectedAssignmentId.value : undefined,
         educationId: selectedTermPath.value === 'education' ? selectedEducationId.value : undefined,
+        rank: rankSnapshot.rank,
+        title: rankSnapshot.title,
         startAge: currentAge.value,
         endAge: endOfTermAge.value,
         summary,
@@ -4866,20 +4949,25 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     profile.updatedAt = new Date().toISOString()
     profile.source = 'lifepath'
     profile.identity.name = characterName.value.trim() || 'Unnamed Traveller'
+    profile.identity.title = creatorDisplayTitle.value
     profile.identity.age = currentAge.value
+    profile.identity.species = characterSpecies.value
+    profile.identity.gender = characterGender.value
+    profile.identity.homeworld = characterHomeworld.value.trim()
     for (const characteristic of characteristicRows.value) {
       profile.characteristics[characteristic.id as TravellerCharacteristicId] = { ...characteristic }
     }
     profile.characteristics.psi.value = psiScore.value ?? 0
     profile.characteristics.psi.dm = psiDm.value
-    profile.skills = currentTravellerSkills.value.map((skill) => {
-      const parsedSkill = skillFromLabel(skill.id)
-      return {
-        ...skill,
-        speciality: parsedSkill.specialityId ? parsedSkill.name.match(/\((.+)\)$/)?.[1] : undefined,
+    profile.skills = currentTravellerSkills.value.map((skill) => buildTravellerSkill(
+      skillFromLabel(skill.id).baseId,
+      skill.level,
+      skillFromLabel(skill.id).specialityName,
+      {
         sources: [...skill.sources],
-      }
-    })
+        notes: '',
+      },
+    ))
     profile.careers = termHistory.value.map((term) => ({
       ...term,
       details: [...term.details],
@@ -4918,6 +5006,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     profile.finances.shipShares = shipShares.value
     profile.history.events = narrativeEvents.value.map((event) => ({ ...event }))
     profile.history.background = selectedBackgroundSkills.value.map((skill) => skillOptionLabel(skill)).join(', ')
+    profile.history.notes = creatorHistoryNotes.value
     profile.metadata.creatorComplete = lifepathComplete.value
     return profile
   })
@@ -4930,6 +5019,9 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     values,
     characteristicAdjustments,
     characterName,
+    characterHomeworld,
+    characterSpecies,
+    characterGender,
     selectedBackgroundSkills,
     backgroundSkillsCollapsed,
     backgroundSkillsAutoCollapsed,
@@ -4951,6 +5043,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     lifepathComplete,
     termHistory,
     careerRanks,
+    creatorHistoryNotes,
     advancementResult,
     appliedSkillRecords,
     educationSkillsApplied,
@@ -5009,6 +5102,13 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     cancelCharacteristicReroll,
     currentAge,
     endOfTermAge,
+    creatorSpeciesCatalog,
+    creatorSpeciesOptions,
+    creatorGenderOptions,
+    creatorGenderVisible,
+    creatorSelectedGenderSummary,
+    creatorSelectedSpeciesSummary,
+    creatorDisplayTitle,
     psionicTalents,
     psiTermsServed,
     psiDm,

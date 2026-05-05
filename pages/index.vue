@@ -1,6 +1,14 @@
 <script setup lang="ts">
 const tools = [
   {
+    title: 'Embassy',
+    eyebrow: 'Species',
+    description: 'Reference species, origin books, character creation hooks, and implementation status.',
+    icon: 'scout-badge',
+    to: '/embassy',
+    disabled: false,
+  },
+  {
     title: 'Character Creator',
     eyebrow: 'Core Rulebook',
     description: 'Build a Traveller from characteristics through early career choices using structured Core data.',

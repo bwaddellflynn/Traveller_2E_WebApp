@@ -6,6 +6,7 @@ import { clearBuilderDraft, clearDraftPointer, loadBuilderDraft, saveBuilderDraf
 import { MANUAL_TRAVELLER_ACTIVE_DRAFT_POINTER_KEY, MANUAL_TRAVELLER_DRAFT_CACHE_VERSION, manualTravellerDraftCacheKey } from '~/utils/traveller/manualDraft'
 import { travellerProfileToPdfFields, validateTravellerPdfFields } from '~/utils/traveller/pdfFields'
 import { cloneTravellerProfile, createBlankTravellerProfile, normalizeTravellerProfile } from '~/utils/traveller/profile'
+import { buildTravellerSkill, formatTravellerSkillSpeciality, parseTravellerSkill, slugifyTravellerSkill, titleCaseTravellerSkill, travellerSkillHasSpecialities, travellerSkillMode } from '~/utils/traveller/skills'
 
 const route = useRoute()
 const router = useRouter()
@@ -107,18 +108,6 @@ const customSpecialityDrafts = reactive<Record<string, string>>({})
 const activeSkillPickerId = ref<string | null>(null)
 const skillNameCollator = new Intl.Collator('en', { sensitivity: 'base' })
 
-const slugifySheetSkill = (value: string) => value
-  .trim()
-  .toLowerCase()
-  .replace(/[^a-z0-9]+/g, '-')
-  .replace(/^-+|-+$/g, '')
-
-const titleCaseSheetSkill = (value: string) => value
-  .split(/[-\s]+/)
-  .filter(Boolean)
-  .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-  .join(' ')
-
 const loadSheetFromRoute = () => {
   const id = activeSheetRouteId.value
   const draftId = activeSheetDraftId.value
@@ -143,25 +132,21 @@ const loadSheetFromRoute = () => {
 }
 
 const formatSheetSpeciality = (definition: SkillDefinition | undefined, value: string) => {
-  const normalized = slugifySheetSkill(value)
-  const known = definition?.specialities?.find((speciality) => slugifySheetSkill(speciality) === normalized)
-  return known ? titleCaseSheetSkill(known) : titleCaseSheetSkill(value)
+  const baseId = definition?.id ?? ''
+  return baseId ? formatTravellerSkillSpeciality(baseId, value) : titleCaseTravellerSkill(value)
 }
 
 const normalizeSheetSkill = (skill: TravellerSkill): NormalizedSheetSkill => {
-  const baseIdFromId = skill.id.includes(':') ? skill.id.split(':')[0] : skill.id
-  const specialityFromId = skill.id.includes(':') ? skill.id.split(':').slice(1).join(':') : ''
-  const definition = sheetSkillDefinitionsById.value[baseIdFromId]
-    ?? sheetSkillDefinitions.value.find((item) => item.name.toLowerCase() === skill.name.toLowerCase())
-  const baseName = definition?.name ?? skill.name.replace(/\s*\(.+\)\s*$/, '').trim()
-  const bracketSpeciality = skill.name.match(/\((.+)\)/)?.[1]?.trim()
-  const specialityName = skill.speciality?.trim() || bracketSpeciality || specialityFromId || ''
+  const parsed = parseTravellerSkill(skill.id || skill.name)
+  const definition = sheetSkillDefinitionsById.value[parsed.baseId]
+    ?? sheetSkillDefinitions.value.find((item) => item.name.toLowerCase() === parsed.baseName.toLowerCase())
+  const specialityName = skill.speciality?.trim() || parsed.specialityName || ''
 
   return {
     record: skill,
-    baseId: definition?.id ?? baseIdFromId,
-    baseName,
-    specialityId: specialityName ? slugifySheetSkill(specialityName) : undefined,
+    baseId: definition?.id ?? parsed.baseId,
+    baseName: definition?.name ?? parsed.baseName,
+    specialityId: specialityName ? slugifyTravellerSkill(specialityName) : undefined,
     specialityName: specialityName ? formatSheetSpeciality(definition, specialityName) : undefined,
   }
 }
@@ -171,13 +156,13 @@ const findSheetSkillRecord = (baseId: string, specialityId?: string) => normaliz
   skill.baseId === baseId && (specialityId ? skill.specialityId === specialityId : !skill.specialityId))
 const findSheetSkillIndex = (baseId: string, specialityId?: string) => normalizedSheetSkills.value.findIndex((skill) =>
   skill.baseId === baseId && (specialityId ? skill.specialityId === specialityId : !skill.specialityId))
-const sheetSkillMode = (definition: SkillDefinition) => definition.specialityMode ?? (definition.specialities?.length || definition.requiresSpeciality ? 'shared-zero' : 'none')
-const sheetSkillHasSpecialities = (definition: SkillDefinition) => Boolean(definition.specialities?.length || definition.requiresSpeciality)
+const sheetSkillMode = (definition: SkillDefinition) => travellerSkillMode(definition.id)
+const sheetSkillHasSpecialities = (definition: SkillDefinition) => travellerSkillHasSpecialities(definition.id)
 const sheetSkillCustomSpecialities = (baseId: string) => normalizedSheetSkills.value
-  .filter((skill) => skill.baseId === baseId && skill.specialityId && !sheetSkillDefinitionsById.value[baseId]?.specialities?.some((speciality) => slugifySheetSkill(speciality) === skill.specialityId))
+  .filter((skill) => skill.baseId === baseId && skill.specialityId && !sheetSkillDefinitionsById.value[baseId]?.specialities?.some((speciality) => slugifyTravellerSkill(speciality) === skill.specialityId))
   .map((skill) => ({
     specialityId: skill.specialityId as string,
-    specialityName: skill.specialityName ?? titleCaseSheetSkill(skill.specialityId as string),
+    specialityName: skill.specialityName ?? titleCaseTravellerSkill(skill.specialityId as string),
   }))
   .filter((skill, index, array) => array.findIndex((candidate) => candidate.specialityId === skill.specialityId) === index)
 const selectedSheetSpecialities = (definition: SkillDefinition) => {
@@ -202,22 +187,21 @@ const buildSheetSkillLabel = (definition: SkillDefinition, specialityName?: stri
   : definition.name
 
 const ensureSheetSkill = (definition: SkillDefinition, level: number, specialityName?: string) => {
-  const specialityId = specialityName ? slugifySheetSkill(specialityName) : undefined
+  const specialityId = specialityName ? slugifyTravellerSkill(specialityName) : undefined
   const existingIndex = findSheetSkillIndex(definition.id, specialityId)
   if (existingIndex >= 0) {
-    draft.value.skills[existingIndex].level = level
-    if (specialityName) draft.value.skills[existingIndex].speciality = specialityName
+    const existing = draft.value.skills[existingIndex]
+    draft.value.skills[existingIndex] = buildTravellerSkill(definition.id, level, specialityName, {
+      sources: existing.sources ?? ['Manual Sheet'],
+      notes: existing.notes ?? '',
+    })
     return
   }
 
-  draft.value.skills.push({
-    id: specialityId ? `${definition.id}:${specialityId}` : definition.id,
-    name: buildSheetSkillLabel(definition, specialityName),
-    speciality: specialityName,
-    level,
+  draft.value.skills.push(buildTravellerSkill(definition.id, level, specialityName, {
     sources: ['Manual Sheet'],
     notes: '',
-  })
+  }))
 }
 
 const removeSheetSkill = (baseId: string, specialityId?: string) => {
@@ -226,7 +210,7 @@ const removeSheetSkill = (baseId: string, specialityId?: string) => {
 }
 
 const specialityDisplayName = (definition: SkillDefinition, speciality: string) => formatSheetSpeciality(definition, speciality)
-const specialitySlug = (value: string) => slugifySheetSkill(value)
+const specialitySlug = (value: string) => slugifyTravellerSkill(value)
 const baseSkillEntry = (definition: SkillDefinition) => findSheetSkillRecord(definition.id)
 const specialitySkillEntry = (definition: SkillDefinition, speciality: string) => findSheetSkillRecord(definition.id, specialitySlug(speciality))
 const baseSkillHasAnySpeciality = (definition: SkillDefinition) => normalizedSheetSkills.value.some((skill) => skill.baseId === definition.id && skill.specialityId)
@@ -370,6 +354,18 @@ const historyBackgroundLines = computed({
     draft.value.history.notes = rest.join('\n').trim()
   },
 })
+
+const termRankLabel = (term: TravellerProfile['careers'][number]) => {
+  if (typeof term.rank === 'number' && term.title) return `R${term.rank} · ${term.title}`
+  if (typeof term.rank === 'number') return `Rank ${term.rank}`
+  if (term.title) return term.title
+  return ''
+}
+
+const termNotesLabel = (term: TravellerProfile['careers'][number]) => {
+  const segments = [`Age ${term.startAge}-${term.endAge}`, ...term.details]
+  return segments.filter(Boolean).join(' | ')
+}
 
 const diceModifier = (score: number) => {
   if (score <= 0) return -3
@@ -1241,8 +1237,8 @@ watch(
                       <input v-model="term.summary" class="sheet-cell-input" placeholder="Career / assignment">
                       <input :value="term.rolls.find((roll) => roll.label === 'Survival')?.total ?? ''" class="sheet-cell-input" readonly>
                       <input :value="term.rolls.find((roll) => roll.label === 'Advancement')?.total ?? ''" class="sheet-cell-input" readonly>
-                      <input :value="`${term.startAge}-${term.endAge}`" class="sheet-cell-input" readonly>
-                      <input :value="term.details.join(' | ')" class="sheet-cell-input" placeholder="Notes" readonly>
+                      <input :value="termRankLabel(term)" class="sheet-cell-input" readonly>
+                      <input :value="termNotesLabel(term)" class="sheet-cell-input" placeholder="Notes" readonly>
                       <button aria-label="Remove career" class="sheet-remove" title="Remove career" type="button" @click="removeCareer(index)">
                         <AppIcon name="close" />
                       </button>
@@ -1864,8 +1860,8 @@ watch(
                     <input v-model="term.summary" class="sheet-cell-input" placeholder="Career / assignment">
                     <input :value="term.rolls.find((roll) => roll.label === 'Survival')?.total ?? ''" class="sheet-cell-input" readonly>
                     <input :value="term.rolls.find((roll) => roll.label === 'Advancement')?.total ?? ''" class="sheet-cell-input" readonly>
-                    <input :value="`${term.startAge}-${term.endAge}`" class="sheet-cell-input" readonly>
-                    <input :value="term.details.join(' | ')" class="sheet-cell-input" placeholder="Notes" readonly>
+                    <input :value="termRankLabel(term)" class="sheet-cell-input" readonly>
+                    <input :value="termNotesLabel(term)" class="sheet-cell-input" placeholder="Notes" readonly>
                     <button aria-label="Remove career" class="sheet-remove" title="Remove career" type="button" @click="removeCareer(index)">
                       <AppIcon name="close" />
                     </button>
