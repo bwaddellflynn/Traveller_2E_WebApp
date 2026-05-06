@@ -1,0 +1,52 @@
+{
+  "sourceId": "mgt2e-element-class-cruisers",
+  "sourceName": "Element-Class Cruisers",
+  "status": "seed",
+  "ships": [
+    {
+      "id": "ecc-amara-class",
+      "name": "Amara-Class Heavy Armoured Cruiser",
+      "sourcePage": 45,
+      "category": "cruiser",
+      "role": "Heavy fleet cruiser",
+      "tons": 75000,
+      "techLevel": null,
+      "jump": "See source",
+      "thrust": "See source",
+      "crew": "Varies",
+      "cost": "See source",
+      "traits": ["Element family", "Pod-configurable"],
+      "description": "Enhanced Capability derivative of Project CC-1061 carrying six pods on an elongated main hull."
+    },
+    {
+      "id": "ecc-ghalalk-class",
+      "name": "Ghalalk-Class Armoured Cruiser",
+      "sourcePage": 56,
+      "category": "cruiser",
+      "role": "Multirole armoured cruiser",
+      "tons": 50000,
+      "techLevel": null,
+      "jump": "See source",
+      "thrust": "See source",
+      "crew": "Varies",
+      "cost": "See source",
+      "traits": ["Element family", "Pod-configurable"],
+      "description": "Original Project CC-1061 production cruiser built around a particle accelerator and four pods."
+    },
+    {
+      "id": "ecc-khumakirri-class",
+      "name": "Khumakirri-Class Light Armoured Cruiser",
+      "sourcePage": 58,
+      "category": "cruiser",
+      "role": "Light patrol and escort cruiser",
+      "tons": 25000,
+      "techLevel": null,
+      "jump": "See source",
+      "thrust": "See source",
+      "crew": "Varies",
+      "cost": "See source",
+      "traits": ["Element family", "Pod-configurable"],
+      "description": "Smaller Project CC-1061 derivative carrying one pair of pods for patrol and escort work."
+    }
+  ]
+}

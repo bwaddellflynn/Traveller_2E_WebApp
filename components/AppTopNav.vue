@@ -2,24 +2,13 @@
 import { storeToRefs } from 'pinia'
 import { useAuthStore } from '~/stores/auth'
 
-const username = ref('')
-const password = ref('')
 const mobileMenuOpen = ref(false)
 const route = useRoute()
 const authStore = useAuthStore()
-const { isAuthenticated, loginError, signedInUser } = storeToRefs(authStore)
-
-const login = () => {
-  if (authStore.login(username.value, password.value)) {
-    password.value = ''
-    mobileMenuOpen.value = false
-  }
-}
+const { isAuthenticated, profileDisplayName } = storeToRefs(authStore)
 
 const logout = () => {
   authStore.logout()
-  username.value = ''
-  password.value = ''
   mobileMenuOpen.value = false
 }
 
@@ -75,56 +64,28 @@ onMounted(() => {
         <NuxtLink class="hud-link px-3 py-2 text-sm font-semibold" to="/vehicles">
           Garage
         </NuxtLink>
-        <span class="app-top-nav-disabled hud-link inline-flex items-center gap-2 px-3 py-2 text-sm font-semibold" aria-disabled="true">
+        <NuxtLink class="hud-link px-3 py-2 text-sm font-semibold" to="/robots">
           Factory
-          <AppIcon name="warning" />
-        </span>
-        <span class="app-top-nav-disabled hud-link inline-flex items-center gap-2 px-3 py-2 text-sm font-semibold" aria-disabled="true">
+        </NuxtLink>
+        <NuxtLink class="hud-link px-3 py-2 text-sm font-semibold" to="/shuttlebay">
           Shuttle Bay
-          <AppIcon name="warning" />
-        </span>
-        <span class="app-top-nav-disabled hud-link inline-flex items-center gap-2 px-3 py-2 text-sm font-semibold" aria-disabled="true">
+        </NuxtLink>
+        <NuxtLink class="hud-link px-3 py-2 text-sm font-semibold" to="/shipyard">
           Shipyard
-          <AppIcon name="warning" />
-        </span>
+        </NuxtLink>
       </nav>
 
-      <form v-if="!isAuthenticated" class="app-top-nav-auth" @submit.prevent="login">
-        <div class="app-top-nav-field">
-          <input
-            id="dummy-email"
-            v-model="username"
-            autocapitalize="none"
-            autocomplete="off"
-            class="h-11 w-32 rounded-md border border-cyan-400/30 px-3 text-sm outline-none placeholder:text-cyan-100/35"
-            name="scoutsuite-dummy-email"
-            placeholder="Email"
-            spellcheck="false"
-            type="text"
-          >
-        </div>
-        <div class="app-top-nav-field">
-          <input
-            id="dummy-password"
-            v-model="password"
-            autocomplete="new-password"
-            class="h-11 w-36 rounded-md border border-cyan-400/30 px-3 text-sm outline-none placeholder:text-cyan-100/35"
-            name="scoutsuite-dummy-password"
-            placeholder="Password"
-            type="password"
-          >
-        </div>
-        <button class="hud-link h-10 px-3 text-sm font-semibold" type="submit">
-          Login
+      <div v-if="!isAuthenticated" class="app-top-nav-auth">
+        <button class="hud-link h-10 px-3 text-sm font-semibold" type="button" @click="authStore.openAuthModal()">
+          Sign In
         </button>
-        <span v-if="loginError" class="text-xs font-semibold text-amber-700">{{ loginError }}</span>
-      </form>
+      </div>
 
       <div v-else class="app-top-nav-auth">
-        <button class="hud-link flex h-10 items-center gap-2 px-3 text-sm font-semibold" title="Profile controls" type="button">
+        <NuxtLink class="hud-link flex h-10 items-center gap-2 px-3 text-sm font-semibold" title="Profile" to="/profile">
           <AppIcon name="user" />
-          {{ signedInUser }}
-        </button>
+          {{ profileDisplayName }}
+        </NuxtLink>
         <button class="hud-link h-10 px-3 text-sm font-semibold" type="button" @click="logout">
           Logout
         </button>

@@ -597,6 +597,14 @@
   }
 
   .app-shell-content {
+    display: flex;
+    min-width: 0;
+    min-height: calc(100vh - 4.5rem);
+    flex-direction: column;
+  }
+
+  .app-shell-content > :first-child {
+    flex: 1 1 auto;
     min-width: 0;
   }
 

@@ -1,0 +1,52 @@
+{
+  "sourceId": "mgt2e-core-2022",
+  "sourceName": "Traveller Core Rulebook 2022",
+  "status": "seed",
+  "craft": [
+    {
+      "id": "core-launch",
+      "name": "Launch",
+      "category": "working",
+      "role": "General utility small craft",
+      "tons": 20,
+      "techLevel": null,
+      "thrust": "See source",
+      "crew": "Varies",
+      "passengers": "Varies",
+      "costCredits": null,
+      "cost": "See source",
+      "traits": [],
+      "description": "Baseline utility launch referenced throughout the core book deck plans and docking layouts."
+    },
+    {
+      "id": "core-ships-boat",
+      "name": "Ship's Boat",
+      "category": "working",
+      "role": "Ship-to-surface utility craft",
+      "tons": 30,
+      "techLevel": null,
+      "thrust": "See source",
+      "crew": "Varies",
+      "passengers": "Varies",
+      "costCredits": null,
+      "cost": "See source",
+      "traits": [],
+      "description": "Standard embarked utility boat carried by larger starships."
+    },
+    {
+      "id": "core-modular-cutter",
+      "name": "Modular Cutter",
+      "category": "module",
+      "role": "Modular utility small craft",
+      "tons": 50,
+      "techLevel": null,
+      "thrust": "See source",
+      "crew": "Varies",
+      "passengers": "Varies",
+      "costCredits": null,
+      "cost": "See source",
+      "traits": ["Module-capable"],
+      "description": "Core modular utility craft designed around interchangeable mission modules."
+    }
+  ]
+}

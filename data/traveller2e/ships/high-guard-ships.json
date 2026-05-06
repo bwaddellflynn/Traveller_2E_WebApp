@@ -1,0 +1,22 @@
+{
+  "sourceId": "mgt2e-high-guard-2022",
+  "sourceName": "High Guard Update 2022",
+  "status": "seed",
+  "ships": [
+    {
+      "id": "hg-fleet-courier",
+      "sourcePage": 101,
+      "name": "Fleet Courier",
+      "category": "courier",
+      "role": "Fleet dispatch courier example",
+      "tons": 400,
+      "techLevel": null,
+      "jump": "Designed example",
+      "thrust": "Designed example",
+      "crew": "Varies",
+      "cost": "See source",
+      "traits": [],
+      "description": "High Guard deck plan example used to demonstrate starship layout and systems allocation."
+    }
+  ]
+}

@@ -1,0 +1,77 @@
+{
+  "sourceId": "mgt2e-core-2022",
+  "sourceName": "Traveller Core Rulebook 2022",
+  "status": "seed",
+  "ships": [
+    {
+      "id": "core-scout-courier",
+      "name": "Scout/Courier",
+      "category": "courier",
+      "role": "Scout and dispatch vessel",
+      "tons": 100,
+      "techLevel": null,
+      "jump": "See source",
+      "thrust": "See source",
+      "crew": "Varies",
+      "cost": "See source",
+      "traits": [],
+      "description": "Core Scout Service courier and exploration platform."
+    },
+    {
+      "id": "core-free-trader",
+      "name": "Free Trader",
+      "category": "merchant",
+      "role": "Independent tramp trader",
+      "tons": 200,
+      "techLevel": null,
+      "jump": "See source",
+      "thrust": "See source",
+      "crew": "Varies",
+      "cost": "See source",
+      "traits": [],
+      "description": "Baseline independent merchant ship used throughout Traveller campaigns."
+    },
+    {
+      "id": "core-far-trader",
+      "name": "Far Trader",
+      "category": "merchant",
+      "role": "Longer-ranged merchant trader",
+      "tons": 200,
+      "techLevel": null,
+      "jump": "See source",
+      "thrust": "See source",
+      "crew": "Varies",
+      "cost": "See source",
+      "traits": [],
+      "description": "Merchant hull optimised for longer trade routes than the Free Trader."
+    },
+    {
+      "id": "core-lab-ship",
+      "name": "Lab Ship",
+      "category": "exploration",
+      "role": "Scientific research vessel",
+      "tons": 400,
+      "techLevel": null,
+      "jump": "See source",
+      "thrust": "See source",
+      "crew": "Varies",
+      "cost": "See source",
+      "traits": [],
+      "description": "Scientific ship with laboratory capacity for research and survey missions."
+    },
+    {
+      "id": "core-yacht",
+      "name": "Yacht",
+      "category": "luxury",
+      "role": "Private luxury vessel",
+      "tons": 200,
+      "techLevel": null,
+      "jump": "See source",
+      "thrust": "See source",
+      "crew": "Varies",
+      "cost": "See source",
+      "traits": [],
+      "description": "Private luxury ship for nobles, executives, and wealthy travellers."
+    }
+  ]
+}
