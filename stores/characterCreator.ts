@@ -47,6 +47,7 @@ type SpeciesDefinition = {
   playable?: boolean
   selectableAsSpecies?: boolean
   sexModel?: 'single' | 'binary' | 'trisexual' | string
+  startingAge?: number
   summary?: string
   branches?: Array<{
     id?: string
@@ -513,7 +514,8 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     })
   }
 
-  const currentAge = computed(() => 18 + ((currentTermNumber.value - 1) * 4))
+  const creatorStartingAge = computed(() => creatorSelectedSpeciesDefinition.value?.startingAge ?? 18)
+  const currentAge = computed(() => creatorStartingAge.value + ((currentTermNumber.value - 1) * 4))
   const endOfTermAge = computed(() => currentAge.value + 4)
   const creatorSpeciesCatalog = computed(() => (speciesData.raceProfiles as SpeciesDefinition[])
     .filter((species) => species.id === 'human' && species.playable !== false && species.selectableAsSpecies !== false)
@@ -559,6 +561,13 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
       }))
 
     if (sexLinkedBranches.length) return sexLinkedBranches
+    if (species.id === 'human') {
+      return [
+        { id: `${species.id}::male`, label: 'Male', summary: '' },
+        { id: `${species.id}::female`, label: 'Female', summary: '' },
+        { id: `${species.id}::other`, label: 'Other', summary: '' },
+      ]
+    }
     if (species.sexModel === 'single') return []
     if (species.sexModel === 'binary') {
       return [
@@ -5100,6 +5109,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     rollCharacteristics,
     confirmCharacteristicReroll,
     cancelCharacteristicReroll,
+    creatorStartingAge,
     currentAge,
     endOfTermAge,
     creatorSpeciesCatalog,

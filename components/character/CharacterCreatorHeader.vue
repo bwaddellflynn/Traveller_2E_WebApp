@@ -10,6 +10,7 @@ const {
   characterGender,
   characterHomeworld,
   characterSpecies,
+  creatorStartingAge,
   currentAge,
   creatorGenderOptions,
   creatorGenderVisible,
@@ -20,7 +21,7 @@ const {
 } = storeToRefs(characterCreator)
 
 const characterCreatorAgeLabel = computed(() => {
-  if (['creation', 'setup-stats', 'setup-skills'].includes(activeCreatorTab.value)) return 'Age 18'
+  if (['creation', 'setup-stats', 'setup-skills'].includes(activeCreatorTab.value)) return `Age ${creatorStartingAge.value}`
   return `Age ${currentAge.value}-${endOfTermAge.value}`
 })
 </script>
@@ -59,10 +60,9 @@ const characterCreatorAgeLabel = computed(() => {
 
         <label class="creator-header-grid__species">
           <div class="hud-field h-11">
-            <span class="hud-field__prefix">Species</span>
             <select v-model="characterSpecies" class="hud-field__input hud-field__input--select">
               <option disabled value="">
-                Select species
+                Species
               </option>
               <option
                 v-for="species in creatorSpeciesCatalog"
@@ -138,16 +138,6 @@ const characterCreatorAgeLabel = computed(() => {
   color: #f4f4f5;
   cursor: pointer;
   padding-right: 2.4rem;
-}
-
-.hud-field__prefix {
-  margin-left: 0.85rem;
-  flex: 0 0 auto;
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: rgba(103, 232, 249, 0.82);
 }
 
 .hud-readout {
@@ -238,6 +228,21 @@ const characterCreatorAgeLabel = computed(() => {
 .creator-header-grid {
   display: grid;
   gap: 0.75rem;
+}
+
+@media (max-width: 639px) {
+  .hud-toggle-strip__label {
+    display: none;
+  }
+
+  .hud-toggle-strip__controls {
+    width: 100%;
+  }
+
+  .hud-toggle-strip__button {
+    padding: 0 0.55rem;
+    font-size: 0.75rem;
+  }
 }
 
 @media (min-width: 1280px) {

@@ -12,11 +12,12 @@
       "id": "human",
       "name": "Human",
       "category": "major-race",
-      "embassyVisible": false,
+      "embassyVisible": true,
       "playable": true,
       "selectableAsSpecies": true,
       "sexModel": "binary",
-      "summary": "Baseline Traveller core species.",
+      "startingAge": 18,
+      "summary": "Stock human profile and baseline Traveller 2E species package.",
       "appearance": "Humans are the baseline sophont body plan used by the core rules: upright bipeds with wide variation in height, build, skin tone and features depending on homeworld and ancestry.",
       "physiology": "No special physiological rules are assumed beyond the normal Traveller human baseline. Humans are the control group against which most alien and minor-race modifiers are measured.",
       "culture": "Human cultures in Charted Space are politically fragmented and historically diverse. Imperial, Solomani, Vilani and countless local traditions all produce different social expectations without changing the baseline species profile.",
@@ -26,11 +27,11 @@
       "statAdjustments": [],
       "characterCreation": {
         "other": [
-          "Uses the core Traveller 2E baseline character creation rules."
+          "Uses core character creation rules."
         ]
       },
       "mechanics": [
-        "Uses the core Traveller 2E baseline character creation rules.",
+        "Uses core character creation rules.",
         "No species-specific modifiers or mandatory generation hooks.",
         "Serves as the default reference when no alien or culture-specific rules apply."
       ],

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 const props = defineProps<{
-  name: 'user' | 'portrait' | 'briefcase' | 'wrench' | 'car' | 'bot' | 'rocket' | 'ship' | 'scout-badge' | 'dice' | 'arrow' | 'check' | 'lock' | 'plus' | 'sliders' | 'sort-asc' | 'sort-desc' | 'warning' | 'close' | 'restart' | 'import' | 'export' | 'copy' | 'trash' | 'save'
+  name: 'user' | 'portrait' | 'briefcase' | 'wrench' | 'car' | 'bot' | 'rocket' | 'ship' | 'scout-badge' | 'dice' | 'arrow' | 'check' | 'lock' | 'plus' | 'sliders' | 'sort-asc' | 'sort-desc' | 'warning' | 'close' | 'restart' | 'import' | 'export' | 'copy' | 'trash' | 'save' | 'fullscreen-enter' | 'fullscreen-exit'
 }>()
 
 const paths = {
@@ -168,6 +168,26 @@ const paths = {
     'M8 4v5h7',
     'M8 20v-6h8v6',
     'M15 4v5',
+  ],
+  'fullscreen-enter': [
+    'M4 9V4h5',
+    'M20 9V4h-5',
+    'M4 15v5h5',
+    'M20 15v5h-5',
+    'M9 4L4 9',
+    'M15 4l5 5',
+    'M9 20l-5-5',
+    'M15 20l5-5',
+  ],
+  'fullscreen-exit': [
+    'M9 4v5H4',
+    'M15 4v5h5',
+    'M9 20v-5H4',
+    'M15 20v-5h5',
+    'M4 4l5 5',
+    'M20 4l-5 5',
+    'M4 20l5-5',
+    'M20 20l-5-5',
   ],
 }
 </script>

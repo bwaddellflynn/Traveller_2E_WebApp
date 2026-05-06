@@ -1,36 +1,34 @@
 <script setup lang="ts">
-const dummyUsername = 'User'
-const dummyPassword = 'Welcome01'
+import { storeToRefs } from 'pinia'
+import { useAuthStore } from '~/stores/auth'
 
 const username = ref('')
 const password = ref('')
-const loginError = ref('')
-const signedInUser = ref('')
 const mobileMenuOpen = ref(false)
 const route = useRoute()
+const authStore = useAuthStore()
+const { isAuthenticated, loginError, signedInUser } = storeToRefs(authStore)
 
 const login = () => {
-  if (username.value === dummyUsername && password.value === dummyPassword) {
-    signedInUser.value = dummyUsername
-    loginError.value = ''
+  if (authStore.login(username.value, password.value)) {
     password.value = ''
     mobileMenuOpen.value = false
-    return
   }
-
-  loginError.value = 'Invalid credentials'
 }
 
 const logout = () => {
-  signedInUser.value = ''
+  authStore.logout()
   username.value = ''
   password.value = ''
-  loginError.value = ''
   mobileMenuOpen.value = false
 }
 
 watch(() => route.fullPath, () => {
   mobileMenuOpen.value = false
+})
+
+onMounted(() => {
+  authStore.hydrate()
 })
 </script>
 
@@ -47,6 +45,7 @@ watch(() => route.fullPath, () => {
     </NuxtLink>
 
     <button
+      v-if="isAuthenticated"
       class="app-top-nav-toggle hud-link h-10 w-11"
       :aria-expanded="mobileMenuOpen"
       aria-controls="app-mobile-nav"
@@ -60,7 +59,7 @@ watch(() => route.fullPath, () => {
     </button>
 
     <div id="app-mobile-nav" :class="['app-top-nav-menu', mobileMenuOpen ? 'is-open' : '']">
-      <nav class="app-top-nav-tools" aria-label="Toolkit views">
+      <nav v-if="isAuthenticated" class="app-top-nav-tools" aria-label="Toolkit views">
         <NuxtLink class="hud-link px-3 py-2 text-sm font-semibold" to="/">
           Hub
         </NuxtLink>
@@ -90,27 +89,31 @@ watch(() => route.fullPath, () => {
         </span>
       </nav>
 
-      <form v-if="!signedInUser" class="app-top-nav-auth" @submit.prevent="login">
-        <label class="app-top-nav-field" for="dummy-email">
-          <span>Email</span>
+      <form v-if="!isAuthenticated" class="app-top-nav-auth" @submit.prevent="login">
+        <div class="app-top-nav-field">
           <input
             id="dummy-email"
             v-model="username"
-            autocomplete="username"
-            class="h-11 w-32 rounded-md border border-cyan-400/30 px-3 pb-1 pt-4 text-sm outline-none"
+            autocapitalize="none"
+            autocomplete="off"
+            class="h-11 w-32 rounded-md border border-cyan-400/30 px-3 text-sm outline-none placeholder:text-cyan-100/35"
+            name="scoutsuite-dummy-email"
+            placeholder="Email"
+            spellcheck="false"
             type="text"
           >
-        </label>
-        <label class="app-top-nav-field" for="dummy-password">
-          <span>Password</span>
+        </div>
+        <div class="app-top-nav-field">
           <input
             id="dummy-password"
             v-model="password"
-            autocomplete="current-password"
-            class="h-11 w-36 rounded-md border border-cyan-400/30 px-3 pb-1 pt-4 text-sm outline-none"
+            autocomplete="new-password"
+            class="h-11 w-36 rounded-md border border-cyan-400/30 px-3 text-sm outline-none placeholder:text-cyan-100/35"
+            name="scoutsuite-dummy-password"
+            placeholder="Password"
             type="password"
           >
-        </label>
+        </div>
         <button class="hud-link h-10 px-3 text-sm font-semibold" type="submit">
           Login
         </button>
