@@ -4,7 +4,7 @@ import type { TravellerArmorRecord, TravellerEquipmentRecord } from '~/types/arm
 import type { CustomWeaponDesign, TravellerWeaponRecord } from '~/types/weapon'
 import { useWeaponsStore } from '~/stores/weapons'
 import { loadBuilderDraft, saveBuilderDraft } from '~/utils/traveller/draftCache'
-import { calculateFieldCatalogueWeapon, cloneWeapon, createBlankCustomWeapon, fieldCatalogueDesign } from '~/utils/traveller/weapons'
+import { calculateFieldCatalogueWeapon, cloneWeapon, createBlankCustomWeapon, fieldCatalogueDesign, getFieldCatalogueSelectionWarnings, resolveWeaponFamily, resolveWeaponFamilyIcon } from '~/utils/traveller/weapons'
 
 type DesignTableItem = {
   id: string
@@ -28,7 +28,7 @@ type DesignTables = {
   accessories: DesignTableItem[]
 }
 
-type WeaponSortKey = 'name' | 'techLevel' | 'range' | 'damage' | 'massKg' | 'costCredits' | 'traits'
+type WeaponSortKey = 'name' | 'skill' | 'techLevel' | 'range' | 'damage' | 'massKg' | 'costCredits' | 'traits'
 type ArmorSortKey = 'name' | 'protection' | 'techLevel' | 'radiationProtection' | 'massKg' | 'costCredits' | 'requiredSkill'
 type EquipmentSortKey = 'name' | 'category' | 'techLevel' | 'massKg' | 'costCredits' | 'effect'
 type WeaponSortIcon = 'sort-asc' | 'sort-desc'
@@ -70,6 +70,16 @@ const traitInput = ref('')
 const accessoryInput = ref('')
 const weaponBuilderDraftRestored = ref(false)
 
+const normalizeDraft = (weapon: CustomWeaponDesign) => {
+  if (weapon.design.targetTechLevel === null || weapon.design.targetTechLevel === undefined) {
+    weapon.design.targetTechLevel = weapon.techLevel ?? 8
+  }
+  if (!weapon.category) weapon.category = 'slug'
+  if (!weapon.skill) weapon.skill = 'gun-combat'
+  if (!weapon.speciality) weapon.speciality = 'slug'
+  return weapon
+}
+
 onMounted(() => {
   weaponsStore.loadWeapons()
 
@@ -79,7 +89,7 @@ onMounted(() => {
   )
 
   if (cachedDraft?.draft) {
-    draft.value = cloneWeapon(cachedDraft.draft)
+    draft.value = normalizeDraft(cloneWeapon(cachedDraft.draft))
     activeDesignStep.value = cachedDraft.activeDesignStep ?? 0
     traitInput.value = cachedDraft.traitInput ?? ''
     accessoryInput.value = cachedDraft.accessoryInput ?? ''
@@ -156,14 +166,51 @@ const designSteps = [
   { id: 'receiver', label: 'Receiver', title: 'Receiver', description: 'Choose the receiver, firing mechanism and receiver-level modifications.' },
   { id: 'body', label: 'Body', title: 'Barrel & Feed', description: 'Choose the barrel, stock or mount, feed device and capacity adjustment.' },
   { id: 'extras', label: 'Extras', title: 'Accessories', description: 'Add accessories, special ammunition, traits and design notes.' },
-  { id: 'review', label: 'Review', title: 'Review', description: 'Apply calculated values, review warnings and save the finished custom weapon.' },
+  { id: 'finish', label: 'Finish', title: 'Finish', description: 'Inspect the finished package, review traits and warnings, and save the completed custom weapon.' },
 ]
 
 const designTables = fieldCatalogueDesign.componentTables as DesignTables
 const designPreview = computed(() => calculateFieldCatalogueWeapon(draft.value))
 
+const builderCategoryOptions = [
+  { id: 'melee', label: 'Melee' },
+  { id: 'slug', label: 'Slug' },
+  { id: 'energy', label: 'Energy' },
+  { id: 'grenade', label: 'Grenade' },
+  { id: 'explosive', label: 'Explosive' },
+  { id: 'support', label: 'Support' },
+  { id: 'heavy', label: 'Heavy' },
+  { id: 'other', label: 'Other' },
+]
+
+const skillOptionsByCategory: Record<string, string[]> = {
+  melee: ['melee'],
+  slug: ['gun-combat'],
+  energy: ['gun-combat'],
+  grenade: ['athletics'],
+  explosive: ['explosives'],
+  support: ['gun-combat', 'heavy-weapons'],
+  heavy: ['gun-combat', 'heavy-weapons'],
+  other: ['gun-combat', 'athletics', 'explosives', 'heavy-weapons', 'melee'],
+}
+
+const specialityOptionsBySkill: Record<string, string[]> = {
+  melee: ['blade', 'bludgeon', 'natural', 'unarmed'],
+  'gun-combat': ['archaic', 'energy', 'slug'],
+  athletics: ['dexterity'],
+  explosives: ['demolitions'],
+  'heavy-weapons': ['portable', 'vehicle'],
+}
+
+const categoriesByWeaponType: Record<string, string[]> = {
+  projectile: ['slug', 'support', 'heavy', 'other'],
+  energy: ['energy', 'support', 'heavy', 'other'],
+  grenade: ['grenade', 'explosive', 'heavy', 'other'],
+}
+
 const sortableWeaponColumns: { key: WeaponSortKey, label: string }[] = [
   { key: 'name', label: 'Weapon' },
+  { key: 'skill', label: 'Skill' },
   { key: 'techLevel', label: 'TL' },
   { key: 'range', label: 'Range' },
   { key: 'damage', label: 'Damage' },
@@ -258,13 +305,36 @@ const equipmentDisplayName = (item: TravellerEquipmentRecord) => {
   return `${name} TL ${item.techLevel}`
 }
 
+const weaponSkillLabel = (weapon: TravellerWeaponRecord) => {
+  if (weapon.skill && weapon.speciality) return `${weapon.skill} (${weapon.speciality})`
+  return weapon.skill ?? weapon.speciality ?? '-'
+}
+
+const titleCaseLabel = (value: string) => value
+  .split(/[-\s]+/)
+  .filter(Boolean)
+  .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
+  .join(' ')
+
 const sortReferenceWeapons = (weapons: TravellerWeaponRecord[]) => {
   const direction = weaponSortDirection.value === 'asc' ? 1 : -1
   const key = weaponSortKey.value
 
   return [...weapons].sort((first, second) => {
-    const firstValue = key === 'name' ? weaponDisplayName(first) : key === 'traits' ? first.traits.join(', ') : first[key]
-    const secondValue = key === 'name' ? weaponDisplayName(second) : key === 'traits' ? second.traits.join(', ') : second[key]
+    const firstValue = key === 'name'
+      ? weaponDisplayName(first)
+      : key === 'traits'
+        ? first.traits.join(', ')
+        : key === 'skill'
+          ? weaponSkillLabel(first)
+          : first[key]
+    const secondValue = key === 'name'
+      ? weaponDisplayName(second)
+      : key === 'traits'
+        ? second.traits.join(', ')
+        : key === 'skill'
+          ? weaponSkillLabel(second)
+          : second[key]
 
     return compareValues(firstValue, secondValue, direction)
   })
@@ -413,6 +483,8 @@ const itemRules = (item: DesignTableItem) => {
   if (item.penetrationModifier) rules.push(`Pen ${signedNumber(item.penetrationModifier)}`)
   if (item.quickdraw !== undefined) rules.push(`Quickdraw ${item.quickdraw}`)
   if (item.quickdrawModifier) rules.push(`Quickdraw ${signedNumber(item.quickdrawModifier)}`)
+  if (item.autoModifier) rules.push(`Auto ${signedNumber(item.autoModifier)}`)
+  if (item.heatDissipationModifier) rules.push(`Cooling ${signedNumber(item.heatDissipationModifier)}`)
   if (item.auto) rules.push(`Auto ${item.auto}`)
   if (item.traits?.length) rules.push(item.traits.join(', '))
   return rules
@@ -464,6 +536,123 @@ const weaponDescription = (weapon: typeof referenceWeapons.value[number]) => {
   return `A personal weapon or combat item from ${source}; exact visual description still needs source-text review.`
 }
 
+const buildTechLevel = computed<number | null>(() => {
+  const componentIds = [
+    draft.value.design.weaponType && ['weaponTypes', draft.value.design.weaponType] as const,
+    draft.value.design.ammunitionType && ['ammunitionTypes', draft.value.design.ammunitionType] as const,
+    draft.value.design.receiverType && ['receivers', draft.value.design.receiverType] as const,
+    draft.value.design.mechanism && ['mechanisms', draft.value.design.mechanism] as const,
+    draft.value.design.barrel && ['barrels', draft.value.design.barrel] as const,
+    draft.value.design.furniture && ['furniture', draft.value.design.furniture] as const,
+    draft.value.design.feedDevice && ['feedDevices', draft.value.design.feedDevice] as const,
+    draft.value.design.specialAmmunition && ['specialAmmunition', draft.value.design.specialAmmunition] as const,
+    ...(draft.value.design.receiverFeatures ?? []).map((id) => ['receiverFeatures', id] as const),
+    ...(draft.value.design.accessories ?? []).map((id) => ['accessories', id] as const),
+  ].filter(Boolean) as [keyof DesignTables, string][]
+
+  let highest: number | null = null
+
+  for (const [tableKey, id] of componentIds) {
+    const item = selectedItem(designTables[tableKey], id)
+    if (typeof item?.techLevel !== 'number') continue
+    highest = highest === null ? item.techLevel : Math.max(highest, item.techLevel)
+  }
+
+  return highest
+})
+
+const builderSkillOptions = computed(() => {
+  const category = draft.value.category || 'slug'
+  return skillOptionsByCategory[category] ?? ['gun-combat']
+})
+
+const builderSpecialityOptions = computed(() => {
+  const skill = draft.value.skill || 'gun-combat'
+  return specialityOptionsBySkill[skill] ?? []
+})
+
+const filteredCategoryOptions = computed(() => {
+  const weaponType = draft.value.design.weaponType
+  const allowedIds = categoriesByWeaponType[weaponType] ?? builderCategoryOptions.map((item) => item.id)
+  return builderCategoryOptions.filter((item) => allowedIds.includes(item.id))
+})
+
+const builderCostLabel = computed(() => {
+  if (!draft.value.design.receiverType || !draft.value.design.ammunitionType) return '—'
+  return formatCredits(designPreview.value.costCredits)
+})
+
+const resolvedWeaponFamily = computed(() => resolveWeaponFamily(draft.value))
+const finalWeaponIconName = computed(() => resolveWeaponFamilyIcon(resolvedWeaponFamily.value))
+
+watch(
+  () => draft.value.design.weaponType,
+  (weaponType) => {
+    const allowedCategories = categoriesByWeaponType[weaponType] ?? builderCategoryOptions.map((item) => item.id)
+    if (!allowedCategories.includes(draft.value.category)) {
+      draft.value.category = allowedCategories[0] ?? 'slug'
+    }
+  },
+  { immediate: true },
+)
+
+watch(
+  () => draft.value.category,
+  (category) => {
+    const nextCategory = category || 'slug'
+    const allowedSkills = skillOptionsByCategory[nextCategory] ?? ['gun-combat']
+    if (!allowedSkills.includes(draft.value.skill)) {
+      draft.value.skill = allowedSkills[0] ?? 'gun-combat'
+    }
+  },
+  { immediate: true },
+)
+
+watch(
+  () => draft.value.skill,
+  (skill) => {
+    const allowedSpecialties = specialityOptionsBySkill[skill || 'gun-combat'] ?? []
+    if (!allowedSpecialties.includes(draft.value.speciality)) {
+      draft.value.speciality = allowedSpecialties[0] ?? ''
+    }
+  },
+  { immediate: true },
+)
+
+const clampDesignTechLevel = (value: number | null | undefined) => {
+  const numeric = Number(value ?? 0)
+  if (!Number.isFinite(numeric)) return 0
+  return Math.min(18, Math.max(0, Math.round(numeric)))
+}
+
+const onDesignTechLevelWheel = (event: WheelEvent) => {
+  event.preventDefault()
+  const delta = event.deltaY > 0 ? -1 : 1
+  draft.value.design.targetTechLevel = clampDesignTechLevel((draft.value.design.targetTechLevel ?? 0) + delta)
+}
+
+const adjustDesignTechLevel = (delta: number) => {
+  draft.value.design.targetTechLevel = clampDesignTechLevel((draft.value.design.targetTechLevel ?? 0) + delta)
+}
+
+const onDesignTechLevelInput = (event: Event) => {
+  const target = event.target as HTMLInputElement
+  draft.value.design.targetTechLevel = clampDesignTechLevel(Number(target.value))
+}
+
+const onDesignTechLevelKeydown = (event: KeyboardEvent) => {
+  if (event.key === 'ArrowUp') {
+    event.preventDefault()
+    adjustDesignTechLevel(1)
+    return
+  }
+
+  if (event.key === 'ArrowDown') {
+    event.preventDefault()
+    adjustDesignTechLevel(-1)
+  }
+}
+
 const selectedWeaponType = computed(() => selectedItem(designTables.weaponTypes, draft.value.design.weaponType))
 const selectedAmmunition = computed(() => selectedItem(designTables.ammunitionTypes, draft.value.design.ammunitionType))
 const selectedSpecialAmmunition = computed(() => selectedItem(designTables.specialAmmunition, draft.value.design.specialAmmunition))
@@ -472,6 +661,22 @@ const selectedMechanism = computed(() => selectedItem(designTables.mechanisms, d
 const selectedBarrel = computed(() => selectedItem(designTables.barrels, draft.value.design.barrel))
 const selectedFurniture = computed(() => selectedItem(designTables.furniture, draft.value.design.furniture))
 const selectedFeedDevice = computed(() => selectedItem(designTables.feedDevices, draft.value.design.feedDevice))
+
+const selectionWarnings = (tableKey: 'mechanisms' | 'receiverFeatures' | 'specialAmmunition' | 'accessories', id: string) => (
+  getFieldCatalogueSelectionWarnings(draft.value, tableKey, id)
+)
+
+const canSelectChoice = (
+  tableKey: 'mechanisms' | 'receiverFeatures' | 'specialAmmunition' | 'accessories',
+  id: string,
+  selected = false,
+) => selected || selectionWarnings(tableKey, id).length === 0
+
+const accessoryWarnings = (id: string) => selectionWarnings('accessories', id)
+
+const canToggleAccessory = (id: string) => (
+  canSelectChoice('accessories', id, draft.value.design.accessories.includes(id))
+)
 
 const isStepComplete = (index: number) => {
   const design = draft.value.design
@@ -505,28 +710,48 @@ const previousDesignStep = () => {
   activeDesignStep.value = Math.max(activeDesignStep.value - 1, 0)
 }
 
+const buildPersistedWeaponDraft = () => {
+  const preview = designPreview.value
+  const nextDraft = normalizeDraft(cloneWeapon(draft.value))
+  nextDraft.techLevel = buildTechLevel.value ?? nextDraft.design.targetTechLevel ?? nextDraft.techLevel
+  nextDraft.family = resolveWeaponFamily(nextDraft)
+  nextDraft.iconName = resolveWeaponFamilyIcon(nextDraft.family)
+
+  if (preview.ready) {
+    nextDraft.range = preview.range
+    nextDraft.damage = preview.damage
+    nextDraft.massKg = preview.massKg
+    nextDraft.costCredits = preview.costCredits
+    nextDraft.magazine = preview.magazine
+    nextDraft.magazineCostCredits = preview.magazineCostCredits
+    nextDraft.traits = preview.traits
+  }
+
+  return nextDraft
+}
+
 const editWeapon = (weapon: CustomWeaponDesign) => {
-  draft.value = cloneWeapon(weapon)
+  draft.value = normalizeDraft(cloneWeapon(weapon))
   activeArmoryTab.value = 'create'
   activeDesignStep.value = 0
   saveMessage.value = ''
 }
 
 const newWeapon = () => {
-  draft.value = createBlankCustomWeapon(weaponsStore.activeUserId)
+  draft.value = normalizeDraft(createBlankCustomWeapon(weaponsStore.activeUserId))
   activeArmoryTab.value = 'create'
   activeDesignStep.value = 0
   saveMessage.value = ''
 }
 
 const saveWeapon = () => {
-  const saved = weaponsStore.saveCustomWeapon(draft.value)
+  const saved = weaponsStore.saveCustomWeapon(buildPersistedWeaponDraft())
   draft.value = cloneWeapon(saved)
   saveMessage.value = `Saved ${saved.name}`
 }
 
 const duplicateWeapon = () => {
-  const saved = weaponsStore.saveCustomWeapon(draft.value)
+  const saved = weaponsStore.saveCustomWeapon(buildPersistedWeaponDraft())
   const copy = weaponsStore.duplicateCustomWeapon(saved.id)
   if (!copy) return
   draft.value = cloneWeapon(copy)
@@ -577,23 +802,16 @@ const toggleDesignAccessory = (id: string) => {
     : [...current, id]
 }
 
+const handleAccessoryChoice = (id: string) => {
+  if (!canToggleAccessory(id)) return
+  toggleDesignAccessory(id)
+}
+
 const toggleReceiverFeature = (id: string) => {
   const current = draft.value.design.receiverFeatures ?? []
   draft.value.design.receiverFeatures = current.includes(id)
     ? current.filter((item) => item !== id)
     : [...current, id]
-}
-
-const applyDesignPreview = () => {
-  const preview = designPreview.value
-  if (!preview.ready) return
-  draft.value.range = preview.range
-  draft.value.damage = preview.damage
-  draft.value.massKg = preview.massKg
-  draft.value.costCredits = preview.costCredits
-  draft.value.magazine = preview.magazine
-  draft.value.magazineCostCredits = preview.magazineCostCredits
-  draft.value.traits = preview.traits
 }
 
 const copyReferenceWeapon = (weapon: typeof referenceWeapons.value[number]) => {
@@ -609,6 +827,7 @@ const copyReferenceWeapon = (weapon: typeof referenceWeapons.value[number]) => {
     updatedAt: now,
     design: {
       rulesSource: 'mgt2e-field-catalogue',
+      targetTechLevel: weapon.techLevel,
       weaponType: weapon.category === 'slug' ? 'projectile' : weapon.category,
       mechanism: 'semi-automatic',
       receiverFeatures: [],
@@ -624,6 +843,7 @@ const copyReferenceWeapon = (weapon: typeof referenceWeapons.value[number]) => {
       notes: `Added from ${weapon.sourceId}: ${weaponDisplayName(weapon)}`,
     },
   }
+  draft.value = normalizeDraft(draft.value)
   activeArmoryTab.value = 'create'
   activeDesignStep.value = 0
 }
@@ -750,6 +970,7 @@ const toggleExpandedEquipment = (itemId: string) => {
                     </button>
                     <span class="mt-1 block text-xs font-medium text-zinc-500">{{ weapon.sourceName ?? weapon.sourceId }}<template v-if="weapon.sourcePage"> p. {{ weapon.sourcePage }}</template></span>
                   </td>
+                  <td class="px-3 py-2">{{ weaponSkillLabel(weapon) }}</td>
                   <td class="px-3 py-2">{{ weapon.techLevel ?? '-' }}</td>
                   <td class="px-3 py-2">{{ weapon.range }}</td>
                   <td class="px-3 py-2">{{ weapon.damage }}</td>
@@ -765,6 +986,7 @@ const toggleExpandedEquipment = (itemId: string) => {
                 <tr v-if="expandedWeaponId === weapon.id" class="mobile-detail-row border-t border-cyan-400/20">
                   <td :colspan="sortableWeaponColumns.length + 1" class="px-3 py-3">
                     <div class="mobile-row-detail-grid">
+                      <div><span>Skill</span><strong>{{ weaponSkillLabel(weapon) }}</strong></div>
                       <div><span>TL</span><strong>{{ weapon.techLevel ?? '-' }}</strong></div>
                       <div><span>Range</span><strong>{{ weapon.range }}</strong></div>
                       <div><span>Damage</span><strong>{{ weapon.damage }}</strong></div>
@@ -988,9 +1210,15 @@ const toggleExpandedEquipment = (itemId: string) => {
             <p class="mt-1 text-sm text-zinc-600">Guided Field Catalogue component process with gated steps.</p>
           </div>
           <div class="relative flex flex-wrap gap-2">
-            <button class="rounded-md border border-zinc-300 px-3 py-2 text-sm font-semibold text-zinc-700 hover:border-amber-600" type="button" @click="duplicateWeapon">Duplicate</button>
-            <button class="rounded-md border border-red-200 px-3 py-2 text-sm font-semibold text-red-700 hover:border-red-500" type="button" @click="requestDeleteWeapon">Delete</button>
-            <button class="rounded-md bg-amber-500 px-4 py-2 text-sm font-semibold text-zinc-950 hover:bg-amber-400" type="button" @click="saveWeapon">Save</button>
+            <button aria-label="Duplicate weapon" class="sheet-action-button" title="Duplicate weapon" type="button" @click="duplicateWeapon">
+              <AppIcon name="copy" />
+            </button>
+            <button aria-label="Delete weapon" class="sheet-action-button sheet-action-button--danger" title="Delete weapon" type="button" @click="requestDeleteWeapon">
+              <AppIcon name="trash" />
+            </button>
+            <button aria-label="Save weapon" class="sheet-action-button sheet-action-button--primary" title="Save weapon" type="button" @click="saveWeapon">
+              <AppIcon name="save" />
+            </button>
             <div v-if="deleteWeaponConfirmOpen" class="absolute right-0 top-[calc(100%+0.5rem)] z-20 grid min-w-[10rem] gap-2 rounded-[10px_0_10px_0] border border-cyan-400/25 bg-slate-950/95 p-3 shadow-[0_12px_28px_rgba(2,8,23,0.45)] [clip-path:polygon(0_0,calc(100%-10px)_0,100%_10px,100%_100%,10px_100%,0_calc(100%-10px))]">
               <p class="text-xs font-semibold text-cyan-50">Delete weapon?</p>
               <div class="flex justify-end gap-2">
@@ -1027,55 +1255,79 @@ const toggleExpandedEquipment = (itemId: string) => {
               <h3 class="mt-1 text-xl font-semibold">{{ designSteps[activeDesignStep].title }}</h3>
               <p class="mt-1 text-sm text-zinc-600">{{ designSteps[activeDesignStep].description }}</p>
             </div>
-            <p class="rounded-md px-3 py-2 text-sm font-semibold" :class="isStepComplete(activeDesignStep) ? 'bg-emerald-50 text-emerald-800' : 'bg-amber-50 text-amber-800'">
-              {{ isStepComplete(activeDesignStep) ? 'Complete' : 'Selection needed' }}
-            </p>
+            <div class="grid gap-2 justify-items-end">
+              <div class="weapon-cost-callout">
+                <span class="weapon-cost-callout__label">Cost</span>
+                <strong class="weapon-cost-callout__value">{{ builderCostLabel }}</strong>
+              </div>
+              <p class="rounded-md px-3 py-2 text-sm font-semibold" :class="isStepComplete(activeDesignStep) ? 'bg-emerald-50 text-emerald-800' : 'bg-amber-50 text-amber-800'">
+                {{ isStepComplete(activeDesignStep) ? 'Complete' : 'Selection needed' }}
+              </p>
+            </div>
           </div>
 
-          <div v-if="activeDesignStep === 0" class="mt-5 grid gap-4 md:grid-cols-3">
-            <label class="grid gap-2 md:col-span-2">
+          <div v-if="activeDesignStep === 0" class="mt-5 grid gap-4 md:grid-cols-2">
+            <label class="grid gap-2">
               <span class="text-sm font-semibold text-zinc-700">Name</span>
-              <input v-model="draft.name" class="h-11 rounded-md border border-zinc-300 px-3 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200">
+              <input v-model="draft.name" class="weapon-form-control h-11 px-3">
             </label>
             <label class="grid gap-2">
-              <span class="text-sm font-semibold text-zinc-700">TL</span>
-              <input v-model.number="draft.techLevel" class="h-11 rounded-md border border-zinc-300 px-3 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200" type="number">
-            </label>
-            <label class="grid gap-2">
-              <span class="text-sm font-semibold text-zinc-700">Category</span>
-              <select v-model="draft.category" class="h-11 rounded-md border border-zinc-300 bg-white px-3 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200">
-                <option value="melee">Melee</option>
-                <option value="slug">Slug</option>
-                <option value="energy">Energy</option>
-                <option value="grenade">Grenade</option>
-                <option value="explosive">Explosive</option>
-                <option value="support">Support</option>
-                <option value="heavy">Heavy</option>
-                <option value="other">Other</option>
-              </select>
-            </label>
-            <label class="grid gap-2">
-              <span class="text-sm font-semibold text-zinc-700">Skill</span>
-              <input v-model="draft.skill" class="h-11 rounded-md border border-zinc-300 px-3 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200">
-            </label>
-            <label class="grid gap-2">
-              <span class="text-sm font-semibold text-zinc-700">Specialty</span>
-              <input v-model="draft.speciality" class="h-11 rounded-md border border-zinc-300 px-3 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200">
-            </label>
-            <label class="grid gap-2 md:col-span-3">
               <span class="text-sm font-semibold text-zinc-700">Weapon Type</span>
-              <select v-model="draft.design.weaponType" class="h-11 rounded-md border border-zinc-300 bg-white px-3">
+              <select v-model="draft.design.weaponType" class="weapon-form-control weapon-form-control--select h-11 px-3">
                 <option value="">Select type</option>
                 <option v-for="item in designTables.weaponTypes" :key="item.id" :value="item.id">{{ item.name }}</option>
               </select>
             </label>
-            <p v-if="selectedWeaponType" class="rounded-md bg-stone-50 p-3 text-sm text-zinc-700 md:col-span-3">{{ itemDescription(selectedWeaponType) }}</p>
+            <div class="grid gap-3 md:col-span-2 md:grid-cols-[8rem_repeat(3,minmax(0,1fr))]">
+            <label class="grid max-w-[8rem] gap-2">
+              <span class="text-sm font-semibold text-zinc-700">Design TL</span>
+              <div class="flex items-center gap-1.5">
+                <input
+                  :value="draft.design.targetTechLevel ?? 0"
+                  class="weapon-form-control weapon-tl-input h-10 w-12 px-2 text-center text-sm font-semibold"
+                  type="number"
+                  min="0"
+                  max="18"
+                  step="1"
+                  @input="onDesignTechLevelInput"
+                  @wheel.prevent="onDesignTechLevelWheel"
+                >
+                <div class="flex flex-col gap-1">
+                <button class="weapon-tl-stepper" type="button" @click="adjustDesignTechLevel(1)">
+                  <AppIcon class="sheet-stepper-icon sheet-stepper-icon--up" name="arrow" />
+                </button>
+                <button class="weapon-tl-stepper" type="button" @click="adjustDesignTechLevel(-1)">
+                  <AppIcon class="sheet-stepper-icon sheet-stepper-icon--down" name="arrow" />
+                </button>
+                </div>
+              </div>
+            </label>
+            <div class="grid gap-2">
+              <span class="text-sm font-semibold text-zinc-700">Category</span>
+              <select v-model="draft.category" class="weapon-form-control weapon-form-control--select h-10 px-3 text-sm">
+                <option v-for="category in filteredCategoryOptions" :key="category.id" :value="category.id">{{ category.label }}</option>
+              </select>
+            </div>
+            <div class="grid gap-2">
+              <span class="text-sm font-semibold text-zinc-700">Skill</span>
+              <select v-model="draft.skill" class="weapon-form-control weapon-form-control--select h-10 px-3 text-sm">
+                <option v-for="skill in builderSkillOptions" :key="skill" :value="skill">{{ titleCaseLabel(skill) }}</option>
+              </select>
+            </div>
+            <div class="grid gap-2">
+              <span class="text-sm font-semibold text-zinc-700">Specialty</span>
+              <select v-model="draft.speciality" class="weapon-form-control weapon-form-control--select h-10 px-3 text-sm">
+                <option v-for="speciality in builderSpecialityOptions" :key="speciality" :value="speciality">{{ titleCaseLabel(speciality) }}</option>
+              </select>
+            </div>
+            </div>
+            <p v-if="selectedWeaponType" class="rounded-md bg-stone-50 p-3 text-sm text-zinc-700 md:col-span-2">{{ itemDescription(selectedWeaponType) }}</p>
           </div>
 
           <div v-else-if="activeDesignStep === 1" class="mt-5 grid gap-4">
             <label class="grid gap-2">
               <span class="text-sm font-semibold text-zinc-700">Ammunition / Power Source</span>
-              <select v-model="draft.design.ammunitionType" class="h-11 rounded-md border border-zinc-300 bg-white px-3">
+              <select v-model="draft.design.ammunitionType" class="weapon-form-control weapon-form-control--select h-11 px-3">
                 <option value="">Select ammunition</option>
                 <option v-for="item in designTables.ammunitionTypes" :key="item.id" :value="item.id">{{ item.name }}</option>
               </select>
@@ -1087,22 +1339,34 @@ const toggleExpandedEquipment = (itemId: string) => {
             <div class="grid gap-4 md:grid-cols-2">
               <label class="grid gap-2">
                 <span class="text-sm font-semibold text-zinc-700">Receiver</span>
-                <select v-model="draft.design.receiverType" class="h-11 rounded-md border border-zinc-300 bg-white px-3">
+                <select v-model="draft.design.receiverType" class="weapon-form-control weapon-form-control--select h-11 px-3">
                   <option value="">Select receiver</option>
                   <option v-for="item in designTables.receivers" :key="item.id" :value="item.id">{{ item.name }}</option>
                 </select>
               </label>
               <label class="grid gap-2">
                 <span class="text-sm font-semibold text-zinc-700">Mechanism</span>
-                <select v-model="draft.design.mechanism" class="h-11 rounded-md border border-zinc-300 bg-white px-3">
+                <select v-model="draft.design.mechanism" class="weapon-form-control weapon-form-control--select h-11 px-3">
                   <option value="">Select mechanism</option>
-                  <option v-for="item in designTables.mechanisms" :key="item.id" :value="item.id">{{ item.name }}</option>
+                  <option
+                    v-for="item in designTables.mechanisms"
+                    :key="item.id"
+                    :value="item.id"
+                    :disabled="!canSelectChoice('mechanisms', item.id, draft.design.mechanism === item.id)"
+                  >
+                    {{ item.name }}
+                  </option>
                 </select>
               </label>
             </div>
             <div class="grid gap-3 md:grid-cols-2">
               <p v-if="selectedReceiver" class="rounded-md bg-stone-50 p-3 text-sm text-zinc-700">{{ itemDescription(selectedReceiver) }}</p>
               <p v-if="selectedMechanism" class="rounded-md bg-stone-50 p-3 text-sm text-zinc-700">{{ itemDescription(selectedMechanism) }}</p>
+            </div>
+            <div v-if="draft.design.mechanism && selectionWarnings('mechanisms', draft.design.mechanism).length" class="grid gap-1">
+              <p v-for="warning in selectionWarnings('mechanisms', draft.design.mechanism)" :key="warning" class="rounded border border-amber-300 bg-amber-50/80 px-3 py-2 text-xs font-semibold text-amber-900">
+                {{ warning }}
+              </p>
             </div>
             <div class="grid gap-2">
               <span class="text-sm font-semibold text-zinc-700">Receiver Features</span>
@@ -1111,12 +1375,20 @@ const toggleExpandedEquipment = (itemId: string) => {
                   v-for="item in designTables.receiverFeatures"
                   :key="item.id"
                   class="rounded-md border p-3 text-left text-sm"
-                  :class="(draft.design.receiverFeatures ?? []).includes(item.id) ? 'border-zinc-950 bg-zinc-950 text-white' : 'border-zinc-300 text-zinc-700 hover:border-amber-600'"
+                  :class="(draft.design.receiverFeatures ?? []).includes(item.id)
+                    ? 'border-zinc-950 bg-zinc-950 text-white'
+                    : canSelectChoice('receiverFeatures', item.id)
+                      ? 'border-zinc-300 text-zinc-700 hover:border-amber-600'
+                      : 'border-zinc-200 text-zinc-400 opacity-60'"
                   type="button"
+                  :disabled="!canSelectChoice('receiverFeatures', item.id, (draft.design.receiverFeatures ?? []).includes(item.id))"
                   @click="toggleReceiverFeature(item.id)"
                 >
                   <span class="font-semibold">{{ item.name }}</span>
                   <span class="mt-1 block text-xs opacity-80">{{ itemDescription(item) }}</span>
+                  <span v-if="selectionWarnings('receiverFeatures', item.id).length && !(draft.design.receiverFeatures ?? []).includes(item.id)" class="mt-2 block text-[11px] font-semibold text-amber-300">
+                    {{ selectionWarnings('receiverFeatures', item.id)[0] }}
+                  </span>
                 </button>
               </div>
             </div>
@@ -1126,25 +1398,28 @@ const toggleExpandedEquipment = (itemId: string) => {
             <div class="grid gap-4 md:grid-cols-2">
               <label class="grid gap-2">
                 <span class="text-sm font-semibold text-zinc-700">Barrel</span>
-                <select v-model="draft.design.barrel" class="h-11 rounded-md border border-zinc-300 bg-white px-3">
+                <select v-model="draft.design.barrel" class="weapon-form-control weapon-form-control--select h-11 px-3">
                   <option value="">Select barrel</option>
                   <option v-for="item in designTables.barrels" :key="item.id" :value="item.id">{{ item.name }}</option>
                 </select>
               </label>
-              <label class="flex items-center gap-3 rounded-md border border-zinc-200 px-3 py-2">
-                <input v-model="draft.design.heavyBarrel" class="h-4 w-4 accent-zinc-950" type="checkbox">
-                <span class="text-sm font-semibold text-zinc-700">Heavy barrel</span>
-              </label>
+              <div class="grid gap-2">
+                <span aria-hidden="true" class="text-sm font-semibold text-transparent select-none">Barrel</span>
+                <label class="weapon-toggle-field">
+                  <input v-model="draft.design.heavyBarrel" class="weapon-toggle-checkbox" type="checkbox">
+                  <span class="text-sm font-semibold text-zinc-700">Heavy barrel</span>
+                </label>
+              </div>
               <label class="grid gap-2">
                 <span class="text-sm font-semibold text-zinc-700">Furniture</span>
-                <select v-model="draft.design.furniture" class="h-11 rounded-md border border-zinc-300 bg-white px-3">
+                <select v-model="draft.design.furniture" class="weapon-form-control weapon-form-control--select h-11 px-3">
                   <option value="">Select furniture</option>
                   <option v-for="item in designTables.furniture" :key="item.id" :value="item.id">{{ item.name }}</option>
                 </select>
               </label>
               <label class="grid gap-2">
                 <span class="text-sm font-semibold text-zinc-700">Feed Device</span>
-                <select v-model="draft.design.feedDevice" class="h-11 rounded-md border border-zinc-300 bg-white px-3">
+                <select v-model="draft.design.feedDevice" class="weapon-form-control weapon-form-control--select h-11 px-3">
                   <option value="">Select feed</option>
                   <option v-for="item in designTables.feedDevices" :key="item.id" :value="item.id">{{ item.name }}</option>
                 </select>
@@ -1164,23 +1439,51 @@ const toggleExpandedEquipment = (itemId: string) => {
           <div v-else-if="activeDesignStep === 4" class="mt-5 grid gap-4">
             <label class="grid gap-2">
               <span class="text-sm font-semibold text-zinc-700">Special Ammunition</span>
-              <select v-model="draft.design.specialAmmunition" class="h-11 rounded-md border border-zinc-300 bg-white px-3">
+              <select v-model="draft.design.specialAmmunition" class="weapon-form-control weapon-form-control--select h-11 px-3">
                 <option value="">Ball / standard</option>
-                <option v-for="item in designTables.specialAmmunition" :key="item.id" :value="item.id">{{ item.name }}</option>
+                <option
+                  v-for="item in designTables.specialAmmunition"
+                  :key="item.id"
+                  :value="item.id"
+                  :disabled="!canSelectChoice('specialAmmunition', item.id, draft.design.specialAmmunition === item.id)"
+                >
+                  {{ item.name }}
+                </option>
               </select>
             </label>
             <p v-if="selectedSpecialAmmunition" class="rounded-md bg-stone-50 p-3 text-sm text-zinc-700">{{ itemDescription(selectedSpecialAmmunition) }}</p>
+            <div v-if="draft.design.specialAmmunition && selectionWarnings('specialAmmunition', draft.design.specialAmmunition).length" class="grid gap-1">
+              <p v-for="warning in selectionWarnings('specialAmmunition', draft.design.specialAmmunition)" :key="warning" class="rounded border border-amber-300 bg-amber-50/80 px-3 py-2 text-xs font-semibold text-amber-900">
+                {{ warning }}
+              </p>
+            </div>
             <div class="grid gap-2">
               <span class="text-sm font-semibold text-zinc-700">Field Catalogue Accessories</span>
               <div class="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
                 <button
                   v-for="item in designTables.accessories"
                   :key="item.id"
-                  class="rounded-md border p-3 text-left text-sm"
-                  :class="draft.design.accessories.includes(item.id) ? 'border-zinc-950 bg-zinc-950 text-white' : 'border-zinc-300 text-zinc-700 hover:border-amber-600'"
+                  class="group relative rounded-md border p-3 text-left text-sm"
+                  :class="draft.design.accessories.includes(item.id)
+                    ? 'border-zinc-950 bg-zinc-950 text-white'
+                    : canToggleAccessory(item.id)
+                      ? 'border-zinc-300 text-zinc-700 hover:border-amber-600'
+                      : 'cursor-not-allowed border-zinc-200 text-zinc-400 opacity-60'"
                   type="button"
-                  @click="toggleDesignAccessory(item.id)"
+                  :aria-disabled="!canToggleAccessory(item.id)"
+                  @click="handleAccessoryChoice(item.id)"
                 >
+                  <span
+                    v-if="accessoryWarnings(item.id).length && !draft.design.accessories.includes(item.id)"
+                    class="absolute right-2 top-2 inline-flex h-4 w-4 cursor-help items-center justify-center text-amber-300"
+                    :aria-label="accessoryWarnings(item.id)[0]"
+                    :title="accessoryWarnings(item.id)[0]"
+                  >
+                    <AppIcon class="h-3.5 w-3.5" name="warning" />
+                    <span class="weapon-warning-tooltip">
+                      {{ accessoryWarnings(item.id)[0] }}
+                    </span>
+                  </span>
                   <span class="font-semibold">{{ item.name }}</span>
                   <span class="mt-1 block text-xs opacity-80">{{ itemDescription(item) }}</span>
                 </button>
@@ -1219,63 +1522,118 @@ const toggleExpandedEquipment = (itemId: string) => {
           </div>
 
           <div v-else class="mt-5 grid gap-4">
-            <div class="rounded-md border border-amber-200 bg-amber-50 p-4">
-              <div class="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <p class="text-sm font-semibold text-zinc-950">Calculated Design</p>
-                  <p class="mt-1 text-sm text-zinc-700">
-                    <span v-if="designPreview.ready">
-                      {{ designPreview.damage }} · {{ designPreview.range }} · Cr{{ designPreview.costCredits }} · {{ designPreview.massKg }}kg · Magazine {{ designPreview.magazine }} / Cr{{ designPreview.magazineCostCredits }}
-                    </span>
-                    <span v-else>Select {{ designPreview.missing.join(' and ') }} to calculate Field Catalogue values.</span>
-                  </p>
-                  <p v-if="designPreview.quickdraw !== null" class="mt-1 text-xs font-semibold text-zinc-600">
-                    Quickdraw {{ designPreview.quickdraw }} · Recoil {{ designPreview.recoil }} · Penetration {{ designPreview.penetration }}<span v-if="designPreview.heat !== null"> · Heat {{ designPreview.heat }}</span> · {{ designPreview.traits.join(', ') || 'No traits' }}
-                  </p>
-                  <div v-if="designPreview.warnings.length" class="mt-3 grid gap-1">
-                    <p v-for="warning in designPreview.warnings" :key="warning" class="rounded border border-amber-300 bg-white/70 px-2 py-1 text-xs font-semibold text-amber-900">
-                      {{ warning }}
-                    </p>
-                  </div>
+            <section class="weapon-final-card">
+              <div class="weapon-final-card__header">
+                <div class="weapon-final-card__icon">
+                  <AppIcon :name="finalWeaponIconName" class="h-16 w-16" />
                 </div>
-                <button class="rounded-md bg-zinc-950 px-3 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-zinc-300" type="button" :disabled="!designPreview.ready" @click="applyDesignPreview">
-                  Apply calculated values
-                </button>
+                <div class="min-w-0">
+                  <p class="weapon-final-card__eyebrow">Completed Weapon Package</p>
+                  <h3 class="weapon-final-card__title">{{ draft.name.trim() || 'Untitled Weapon' }}</h3>
+                  <p class="weapon-final-card__subline">
+                    {{ titleCaseLabel(draft.design.weaponType || 'custom') }} · {{ titleCaseLabel(draft.category || 'other') }} ·
+                    {{ titleCaseLabel(draft.skill || 'gun-combat') }}<span v-if="draft.speciality"> ({{ titleCaseLabel(draft.speciality) }})</span> ·
+                    {{ titleCaseLabel(resolvedWeaponFamily) }}
+                  </p>
+                </div>
               </div>
-            </div>
-            <div class="grid gap-4 md:grid-cols-3">
-              <label class="grid gap-2">
-                <span class="text-sm font-semibold text-zinc-700">Range</span>
-                <input v-model="draft.range" class="h-11 rounded-md border border-zinc-300 px-3 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200">
-              </label>
-              <label class="grid gap-2">
-                <span class="text-sm font-semibold text-zinc-700">Damage</span>
-                <input v-model="draft.damage" class="h-11 rounded-md border border-zinc-300 px-3 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200">
-              </label>
-              <label class="grid gap-2">
-                <span class="text-sm font-semibold text-zinc-700">Mass KG</span>
-                <input v-model.number="draft.massKg" class="h-11 rounded-md border border-zinc-300 px-3 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200" type="number">
-              </label>
-              <label class="grid gap-2">
-                <span class="text-sm font-semibold text-zinc-700">Cost</span>
-                <input v-model.number="draft.costCredits" class="h-11 rounded-md border border-zinc-300 px-3 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200" type="number">
-              </label>
-              <label class="grid gap-2">
-                <span class="text-sm font-semibold text-zinc-700">Magazine</span>
-                <input v-model="draft.magazine" class="h-11 rounded-md border border-zinc-300 px-3 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200">
-              </label>
-              <label class="grid gap-2">
-                <span class="text-sm font-semibold text-zinc-700">Magazine Cost</span>
-                <input v-model.number="draft.magazineCostCredits" class="h-11 rounded-md border border-zinc-300 px-3 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200" type="number">
-              </label>
-            </div>
+
+              <div v-if="!designPreview.ready" class="weapon-final-card__pending">
+                Select {{ designPreview.missing.join(' and ') }} to complete the Field Catalogue calculation.
+              </div>
+
+              <div v-else class="weapon-final-table">
+                <div class="weapon-final-table__row">
+                  <span class="weapon-final-table__label">Design TL</span>
+                  <span class="weapon-final-table__value">{{ draft.design.targetTechLevel ?? '—' }}</span>
+                </div>
+                <div class="weapon-final-table__row">
+                  <span class="weapon-final-table__label">Result TL</span>
+                  <span class="weapon-final-table__value">{{ buildTechLevel ?? '—' }}</span>
+                </div>
+                <div class="weapon-final-table__row">
+                  <span class="weapon-final-table__label">Range</span>
+                  <span class="weapon-final-table__value">{{ designPreview.range }}</span>
+                </div>
+                <div class="weapon-final-table__row">
+                  <span class="weapon-final-table__label">Damage</span>
+                  <span class="weapon-final-table__value">{{ designPreview.damage }}</span>
+                </div>
+                <div class="weapon-final-table__row">
+                  <span class="weapon-final-table__label">Mass</span>
+                  <span class="weapon-final-table__value">{{ designPreview.massKg }}kg</span>
+                </div>
+                <div class="weapon-final-table__row">
+                  <span class="weapon-final-table__label">Cost</span>
+                  <span class="weapon-final-table__value">{{ formatCredits(designPreview.costCredits) }}</span>
+                </div>
+                <div class="weapon-final-table__row">
+                  <span class="weapon-final-table__label">Magazine</span>
+                  <span class="weapon-final-table__value">{{ designPreview.magazine }}</span>
+                </div>
+                <div class="weapon-final-table__row">
+                  <span class="weapon-final-table__label">Magazine Cost</span>
+                  <span class="weapon-final-table__value">{{ formatCredits(designPreview.magazineCostCredits) }}</span>
+                </div>
+                <div class="weapon-final-table__row">
+                  <span class="weapon-final-table__label">Quickdraw</span>
+                  <span class="weapon-final-table__value">{{ designPreview.quickdraw ?? '—' }}</span>
+                </div>
+                <div class="weapon-final-table__row">
+                  <span class="weapon-final-table__label">Recoil</span>
+                  <span class="weapon-final-table__value">{{ designPreview.recoil }}</span>
+                </div>
+                <div class="weapon-final-table__row">
+                  <span class="weapon-final-table__label">Penetration</span>
+                  <span class="weapon-final-table__value">{{ designPreview.penetration }}</span>
+                </div>
+                <div class="weapon-final-table__row">
+                  <span class="weapon-final-table__label">Heat</span>
+                  <span class="weapon-final-table__value">{{ designPreview.heat !== null ? `${designPreview.heat}/attack` : '—' }}</span>
+                </div>
+                <div class="weapon-final-table__row" v-if="designPreview.heatProfile">
+                  <span class="weapon-final-table__label">Cooling</span>
+                  <span class="weapon-final-table__value">{{ designPreview.heatProfile.dissipation }}/round</span>
+                </div>
+                <div class="weapon-final-table__row" v-if="designPreview.heatProfile">
+                  <span class="weapon-final-table__label">Thresholds</span>
+                  <span class="weapon-final-table__value">
+                    {{ designPreview.heatProfile.thresholds.overheat }}/{{ designPreview.heatProfile.thresholds.danger }}/{{ designPreview.heatProfile.thresholds.disaster }}
+                  </span>
+                </div>
+              </div>
+
+              <div class="weapon-final-card__section">
+                <p class="weapon-final-card__section-title">Traits</p>
+                <div class="weapon-final-chip-list">
+                  <span v-for="trait in (designPreview.ready ? designPreview.traits : draft.traits)" :key="trait" class="weapon-final-chip">
+                    {{ trait }}
+                  </span>
+                  <span v-if="!(designPreview.ready ? designPreview.traits : draft.traits).length" class="weapon-final-chip weapon-final-chip--muted">No Traits</span>
+                </div>
+              </div>
+
+              <div v-if="draft.design.notes?.trim()" class="weapon-final-card__section">
+                <p class="weapon-final-card__section-title">Design Notes</p>
+                <p class="weapon-final-card__notes">{{ draft.design.notes }}</p>
+              </div>
+
+              <div v-if="designPreview.warnings.length" class="weapon-final-card__section">
+                <p class="weapon-final-card__section-title">Warnings</p>
+                <div class="grid gap-1">
+                  <p v-for="warning in designPreview.warnings" :key="warning" class="rounded border border-amber-300 bg-white/70 px-2 py-1 text-xs font-semibold text-amber-900">
+                    {{ warning }}
+                  </p>
+                </div>
+              </div>
+            </section>
           </div>
 
           <div class="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-zinc-200 pt-4">
             <button class="rounded-md border border-zinc-300 px-3 py-2 text-sm font-semibold text-zinc-700 disabled:cursor-not-allowed disabled:opacity-40" type="button" :disabled="activeDesignStep === 0" @click="previousDesignStep">
               Previous
             </button>
-            <button class="rounded-md bg-zinc-950 px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-zinc-300" type="button" :disabled="!isStepComplete(activeDesignStep) || activeDesignStep === designSteps.length - 1" @click="nextDesignStep">
+            <button v-if="activeDesignStep !== designSteps.length - 1" class="rounded-md bg-zinc-950 px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-zinc-300" type="button" :disabled="!isStepComplete(activeDesignStep)" @click="nextDesignStep">
               Next
             </button>
           </div>
@@ -1414,6 +1772,7 @@ const toggleExpandedEquipment = (itemId: string) => {
   background: rgba(2, 6, 23, 0.72);
   color: #e0fbff;
   box-shadow: inset 0 0 18px rgba(34, 211, 238, 0.08);
+  clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px));
 }
 
 .armory-hud input::placeholder,
@@ -1472,5 +1831,412 @@ const toggleExpandedEquipment = (itemId: string) => {
 .armory-hud .border-amber-200,
 .armory-hud .border-emerald-200 {
   border-color: rgba(34, 211, 238, 0.32) !important;
+}
+
+.sheet-action-button,
+.sheet-stepper-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(34, 211, 238, 0.3);
+  background: rgba(8, 18, 32, 0.82);
+  color: #bae6fd;
+  box-shadow: inset 0 0 18px rgba(34, 211, 238, 0.08);
+  clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px));
+  transition: border-color 160ms ease, background-color 160ms ease, color 160ms ease, box-shadow 160ms ease;
+}
+
+.sheet-action-button {
+  width: 2.5rem;
+  height: 2.5rem;
+}
+
+.sheet-action-button--primary {
+  color: #fef3c7;
+  border-color: rgba(245, 158, 11, 0.35);
+  background: rgba(120, 53, 15, 0.72);
+}
+
+.sheet-action-button--danger {
+  color: #fecaca;
+  border-color: rgba(248, 113, 113, 0.35);
+  background: rgba(127, 29, 29, 0.72);
+}
+
+.sheet-action-button:hover,
+.sheet-action-button:focus-visible,
+.sheet-stepper-button:hover,
+.sheet-stepper-button:focus-visible {
+  border-color: rgba(103, 232, 249, 0.9);
+  background: rgba(14, 116, 144, 0.22);
+  box-shadow: 0 0 0 1px rgba(34, 211, 238, 0.16), inset 0 0 18px rgba(34, 211, 238, 0.12);
+  outline: none;
+}
+
+.sheet-action-button--primary:hover,
+.sheet-action-button--primary:focus-visible {
+  border-color: rgba(245, 158, 11, 0.75);
+  background: rgba(180, 83, 9, 0.72);
+}
+
+.sheet-action-button--danger:hover,
+.sheet-action-button--danger:focus-visible {
+  border-color: rgba(248, 113, 113, 0.75);
+  background: rgba(153, 27, 27, 0.72);
+}
+
+.sheet-action-button :deep(svg),
+.sheet-stepper-button :deep(svg) {
+  width: 1rem;
+  height: 1rem;
+}
+
+.sheet-stepper-button {
+  width: 2.2rem;
+  height: 2.2rem;
+}
+
+.sheet-stepper-icon--down {
+  transform: rotate(90deg);
+}
+
+.sheet-stepper-icon--up {
+  transform: rotate(-90deg);
+}
+
+.weapon-tl-stepper {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.7rem;
+  height: 1.25rem;
+  border: 1px solid rgba(34, 211, 238, 0.3);
+  background: rgba(8, 18, 32, 0.82);
+  color: #bae6fd;
+  box-shadow: inset 0 0 14px rgba(34, 211, 238, 0.08);
+  clip-path: polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px));
+}
+
+.weapon-tl-stepper:hover,
+.weapon-tl-stepper:focus-visible {
+  border-color: rgba(103, 232, 249, 0.9);
+  background: rgba(14, 116, 144, 0.22);
+  box-shadow: 0 0 0 1px rgba(34, 211, 238, 0.16), inset 0 0 14px rgba(34, 211, 238, 0.12);
+  outline: none;
+}
+
+.weapon-tl-stepper :deep(svg) {
+  width: 0.7rem;
+  height: 0.7rem;
+}
+
+.weapon-derived-field {
+  display: flex;
+  align-items: center;
+  min-height: 2.5rem;
+  border: 1px solid rgba(34, 211, 238, 0.24);
+  background: rgba(8, 18, 32, 0.55);
+  padding: 0 0.75rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #bae6fd;
+  opacity: 0.95;
+}
+
+.weapon-derived-field--compact {
+  min-height: 2.2rem;
+  font-size: 0.8rem;
+  padding: 0 0.65rem;
+}
+
+.weapon-cost-callout {
+  display: inline-flex;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: 0.45rem;
+  min-width: 9rem;
+  border: 1px solid rgba(245, 158, 11, 0.48);
+  background:
+    linear-gradient(180deg, rgba(120, 53, 15, 0.92), rgba(67, 20, 7, 0.94)),
+    linear-gradient(90deg, rgba(251, 191, 36, 0.14), transparent 40%, rgba(34, 211, 238, 0.06));
+  padding: 0.55rem 0.8rem 0.5rem;
+  color: #fef3c7;
+  box-shadow:
+    inset 0 0 20px rgba(251, 191, 36, 0.12),
+    0 0 0 1px rgba(120, 53, 15, 0.18),
+    0 0 22px rgba(245, 158, 11, 0.08);
+  clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px));
+}
+
+.weapon-cost-callout__label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(254, 243, 199, 0.82);
+}
+
+.weapon-cost-callout__value {
+  font-size: 1.15rem;
+  line-height: 1;
+  color: #fef3c7;
+  text-shadow: 0 0 12px rgba(251, 191, 36, 0.2);
+}
+
+.weapon-form-control {
+  border: 1px solid rgba(34, 211, 238, 0.42) !important;
+  background:
+    linear-gradient(180deg, rgba(10, 22, 38, 0.94), rgba(3, 7, 18, 0.94)),
+    linear-gradient(90deg, rgba(34, 211, 238, 0.08), transparent 35%, rgba(245, 158, 11, 0.05));
+  color: #e0fbff !important;
+  box-shadow:
+    inset 0 0 18px rgba(34, 211, 238, 0.08),
+    0 0 0 1px rgba(8, 47, 73, 0.25);
+  clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px));
+  border-radius: 0 !important;
+  appearance: none;
+}
+
+.weapon-form-control:focus {
+  border-color: rgba(103, 232, 249, 0.95) !important;
+  box-shadow:
+    0 0 0 2px rgba(34, 211, 238, 0.2),
+    inset 0 0 18px rgba(34, 211, 238, 0.1);
+  outline: none;
+}
+
+.weapon-form-control--select {
+  background-image:
+    linear-gradient(45deg, transparent 50%, rgba(186, 230, 253, 0.9) 50%),
+    linear-gradient(135deg, rgba(186, 230, 253, 0.9) 50%, transparent 50%),
+    linear-gradient(180deg, rgba(10, 22, 38, 0.94), rgba(3, 7, 18, 0.94)),
+    linear-gradient(90deg, rgba(34, 211, 238, 0.08), transparent 35%, rgba(245, 158, 11, 0.05));
+  background-position:
+    calc(100% - 1rem) calc(50% - 2px),
+    calc(100% - 0.7rem) calc(50% - 2px),
+    0 0,
+    0 0;
+  background-size:
+    0.35rem 0.35rem,
+    0.35rem 0.35rem,
+    100% 100%,
+    100% 100%;
+  background-repeat: no-repeat;
+  padding-right: 2rem;
+}
+
+.weapon-toggle-field {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  height: 2.75rem;
+  width: 100%;
+  border: 1px solid rgba(34, 211, 238, 0.32);
+  background: rgba(8, 18, 32, 0.72);
+  padding: 0 0.875rem;
+  box-shadow: inset 0 0 18px rgba(34, 211, 238, 0.08);
+  clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px));
+  box-sizing: border-box;
+}
+
+.weapon-toggle-checkbox {
+  width: 1rem;
+  height: 1rem;
+  margin: 0;
+  accent-color: rgb(245 158 11);
+}
+
+.weapon-warning-tooltip {
+  pointer-events: none;
+  position: absolute;
+  right: 0;
+  top: calc(100% + 0.35rem);
+  z-index: 30;
+  min-width: 11rem;
+  max-width: 14rem;
+  opacity: 0;
+  transform: translateY(-0.2rem);
+  border: 1px solid rgba(34, 211, 238, 0.28);
+  background: rgba(2, 6, 23, 0.96);
+  padding: 0.45rem 0.55rem;
+  color: #fde68a;
+  font-size: 0.7rem;
+  font-weight: 600;
+  line-height: 1.25;
+  box-shadow: 0 12px 28px rgba(2, 8, 23, 0.45), inset 0 0 16px rgba(34, 211, 238, 0.08);
+  clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px));
+  transition: opacity 160ms ease, transform 160ms ease;
+}
+
+.group:hover .weapon-warning-tooltip,
+.group:focus-within .weapon-warning-tooltip {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.weapon-final-card {
+  border: 1px solid rgba(34, 211, 238, 0.28);
+  background:
+    linear-gradient(180deg, rgba(12, 18, 32, 0.96), rgba(4, 8, 19, 0.96)),
+    linear-gradient(90deg, rgba(245, 158, 11, 0.08), transparent 28%, rgba(34, 211, 238, 0.06) 70%, rgba(245, 158, 11, 0.05));
+  padding: 1rem;
+  box-shadow:
+    inset 0 0 0 1px rgba(34, 211, 238, 0.06),
+    inset 0 0 30px rgba(34, 211, 238, 0.05),
+    0 0 0 1px rgba(8, 47, 73, 0.18);
+  clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px));
+}
+
+.weapon-final-card__header {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 0.9rem;
+  margin-bottom: 1rem;
+}
+
+.weapon-final-card__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 4.1rem;
+  height: 4.1rem;
+  border: 1px solid rgba(245, 158, 11, 0.46);
+  background:
+    linear-gradient(180deg, rgba(120, 53, 15, 0.88), rgba(67, 20, 7, 0.94)),
+    linear-gradient(90deg, rgba(251, 191, 36, 0.18), transparent 42%, rgba(34, 211, 238, 0.05));
+  color: #fde68a;
+  box-shadow: inset 0 0 18px rgba(251, 191, 36, 0.08), 0 0 18px rgba(245, 158, 11, 0.08);
+  clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px));
+}
+
+.weapon-final-card__eyebrow {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #fbbf24;
+}
+
+.weapon-final-card__title {
+  margin-top: 0.15rem;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #f8fafc;
+}
+
+.weapon-final-card__subline {
+  margin-top: 0.15rem;
+  font-size: 0.85rem;
+  color: #94a3b8;
+}
+
+.weapon-final-card__pending {
+  border: 1px solid rgba(245, 158, 11, 0.34);
+  background:
+    linear-gradient(180deg, rgba(120, 53, 15, 0.22), rgba(67, 20, 7, 0.2)),
+    rgba(15, 23, 42, 0.72);
+  padding: 0.75rem 0.9rem;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #fcd34d;
+  clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px));
+}
+
+.weapon-final-table {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  gap: 0.6rem;
+}
+
+.weapon-final-table__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  min-height: 2.7rem;
+  border: 1px solid rgba(34, 211, 238, 0.18);
+  background:
+    linear-gradient(180deg, rgba(8, 18, 32, 0.78), rgba(2, 6, 23, 0.82)),
+    linear-gradient(90deg, rgba(245, 158, 11, 0.06), transparent 42%);
+  box-shadow: inset 0 0 16px rgba(34, 211, 238, 0.04);
+  padding: 0.55rem 0.75rem;
+  clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px));
+}
+
+.weapon-final-table__label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #fbbf24;
+}
+
+.weapon-final-table__value {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: #e0f2fe;
+  text-align: right;
+}
+
+.weapon-final-card__section {
+  margin-top: 0.95rem;
+}
+
+.weapon-final-card__section-title {
+  margin-bottom: 0.45rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #fbbf24;
+}
+
+.weapon-final-chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.weapon-final-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2rem;
+  border: 1px solid rgba(34, 211, 238, 0.18);
+  background:
+    linear-gradient(180deg, rgba(8, 18, 32, 0.8), rgba(2, 6, 23, 0.84)),
+    linear-gradient(90deg, rgba(245, 158, 11, 0.06), transparent 55%);
+  padding: 0.3rem 0.65rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #e2e8f0;
+  clip-path: polygon(0 0, calc(100% - 7px) 0, 100% 7px, 100% 100%, 7px 100%, 0 calc(100% - 7px));
+}
+
+.weapon-final-chip--muted {
+  color: #94a3b8;
+}
+
+.weapon-final-card__notes {
+  border: 1px solid rgba(34, 211, 238, 0.16);
+  background:
+    linear-gradient(180deg, rgba(8, 18, 32, 0.8), rgba(2, 6, 23, 0.84)),
+    linear-gradient(90deg, rgba(245, 158, 11, 0.05), transparent 60%);
+  padding: 0.7rem 0.8rem;
+  font-size: 0.85rem;
+  line-height: 1.45;
+  color: #cbd5e1;
+  clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px));
+}
+
+.weapon-tl-input::-webkit-outer-spin-button,
+.weapon-tl-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.weapon-tl-input {
+  -moz-appearance: textfield;
+  appearance: textfield;
 }
 </style>

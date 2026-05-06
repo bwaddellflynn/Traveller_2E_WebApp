@@ -1,6 +1,6 @@
 <script setup lang="ts">
 const props = defineProps<{
-  name: 'user' | 'portrait' | 'briefcase' | 'wrench' | 'car' | 'bot' | 'rocket' | 'ship' | 'scout-badge' | 'dice' | 'arrow' | 'check' | 'lock' | 'plus' | 'sliders' | 'sort-asc' | 'sort-desc' | 'warning' | 'close' | 'restart' | 'import' | 'export' | 'copy' | 'trash' | 'save' | 'fullscreen-enter' | 'fullscreen-exit'
+  name: 'user' | 'portrait' | 'briefcase' | 'wrench' | 'car' | 'bot' | 'rocket' | 'ship' | 'scout-badge' | 'dice' | 'arrow' | 'check' | 'lock' | 'plus' | 'sliders' | 'sort-asc' | 'sort-desc' | 'warning' | 'close' | 'restart' | 'import' | 'export' | 'copy' | 'trash' | 'save' | 'fullscreen-enter' | 'fullscreen-exit' | 'weapon-melee' | 'weapon-sidearm' | 'weapon-longarm' | 'weapon-shotgun' | 'weapon-support' | 'weapon-heavy' | 'weapon-launcher' | 'weapon-grenade' | 'weapon-charge' | 'weapon-energy-sidearm' | 'weapon-energy-longarm'
 }>()
 
 const paths = {
@@ -188,6 +188,71 @@ const paths = {
     'M20 4l-5 5',
     'M4 20l5-5',
     'M20 20l-5-5',
+  ],
+  'weapon-melee': [
+    'M5 20l7-14 3 3-7 14H5Z',
+    'M12 6l5-5 2 2-5 5',
+    'M8 18l-2 4',
+  ],
+  'weapon-sidearm': [
+    'M2 11h12l2-2h4l2 2v3l-2 2h-3l-1 2h-3l-2-3H9l-2 5H4l1-6H2Z',
+    'M12 9h7',
+    'M15 16l1 3',
+    'M10 16l-1 4',
+  ],
+  'weapon-longarm': [
+    'M2 12h14l4-2 2 1-2 2h-4l-3 2H8l-2 4H3l1-4H2Z',
+    'M8 12V8h6',
+    'M12 17l2 4',
+  ],
+  'weapon-shotgun': [
+    'M2 12h14l3-1 3 1-3 2h-4l-2 2H8l-2 4H3l1-4H2Z',
+    'M7 11h8',
+    'M13 17l1 4',
+  ],
+  'weapon-support': [
+    'M1.5 11h15l4-2 2 2-2 2h-4l-2 2H10',
+    'M7 11V7h10',
+    'M9 15l-2 7',
+    'M16 15l2 7',
+    'M19 11v7',
+  ],
+  'weapon-heavy': [
+    'M2 11h14l4-2 2 2-2 2h-4l-2 2H10',
+    'M7 11V6h10',
+    'M9 16l-3 6',
+    'M17 16l3 6',
+    'M19 13h4',
+  ],
+  'weapon-launcher': [
+    'M2 11h12l6-2 2 2-2 2h-5l-3 4H8l-2 3H3l1-3H2Z',
+    'M6 11V7h8',
+    'M18 8h4',
+  ],
+  'weapon-grenade': [
+    'M8 8h8l2 2v6l-6 6-6-6v-6Z',
+    'M10 8V4h4v4',
+    'M14 4l3-2',
+  ],
+  'weapon-charge': [
+    'M4 8h16v10H4Z',
+    'M8 8V4h8v4',
+    'M12 11v6',
+    'M9 13h6',
+  ],
+  'weapon-energy-sidearm': [
+    'M2 11h12l2-2h4l2 2v3l-2 2h-3l-1 2h-3l-2-3H9l-2 5H4l1-6H2Z',
+    'M12 9h7',
+    'M18 8h4',
+    'M18 12h4',
+    'M15 16l1 3',
+  ],
+  'weapon-energy-longarm': [
+    'M2 12h14l4-2 2 1-2 2h-4l-3 2H8l-2 4H3l1-4H2Z',
+    'M8 12V8h6',
+    'M17 8h4',
+    'M17 12h4',
+    'M12 17l2 4',
   ],
 }
 </script>

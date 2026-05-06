@@ -2,12 +2,24 @@ import coreWeaponsData from '~/data/traveller2e/weapons/core-weapons.json'
 import cscWeaponsData from '~/data/traveller2e/weapons/central-supply-catalogue-weapons.json'
 import fieldCatalogueDesignData from '~/data/traveller2e/weapons/field-catalogue-design.json'
 import fieldWeaponsData from '~/data/traveller2e/weapons/field-catalogue-weapons.json'
-import type { CustomWeaponDesign, TravellerWeaponRecord } from '~/types/weapon'
+import type { CustomWeaponDesign, TravellerWeaponFamily, TravellerWeaponIconName, TravellerWeaponRecord } from '~/types/weapon'
 
 type FieldCatalogueComponent = {
   id: string
   name: string
   [key: string]: any
+}
+
+type FieldCatalogueCompatibilityComponent = FieldCatalogueComponent & {
+  techLevel?: number
+  exclusiveGroup?: string
+  requiresWeaponTypes?: string[]
+  requiresReceiverTypes?: string[]
+  requiresMechanisms?: string[]
+  requiresFurniture?: string
+  incompatibleWith?: string[]
+  autoModifier?: number
+  heatDissipationModifier?: number
 }
 
 type FieldCatalogueComponentTables = {
@@ -23,6 +35,69 @@ type FieldCatalogueComponentTables = {
   accessories: FieldCatalogueComponent[]
 }
 
+type FieldCatalogueSelectableTableKey =
+  | 'mechanisms'
+  | 'receiverFeatures'
+  | 'barrels'
+  | 'furniture'
+  | 'feedDevices'
+  | 'specialAmmunition'
+  | 'accessories'
+
+type CompatibilityContext = {
+  techLevel: number | null
+  weaponType: string
+  receiverType: string
+  mechanism: string
+  furniture: string
+  selectedIds: string[]
+  selectedByExclusiveGroup: Map<string, string[]>
+}
+
+type PenetrationOutcome = {
+  damage: string
+  trait: string
+}
+
+type HeatProfile = {
+  generation: number
+  dissipation: number
+  thresholds: {
+    overheat: number
+    danger: number
+    disaster: number
+  }
+}
+
+type FieldCatalogueCalculationResult = {
+  ready: boolean
+  missing: string[]
+  costCredits: number
+  massKg: number
+  range: string
+  damage: string
+  magazine: string
+  quickdraw: number | null
+  penetration: number | null
+  recoil: number | null
+  heat: number | null
+  heatProfile?: HeatProfile | null
+  magazineCostCredits: number
+  warnings: string[]
+  traits: string[]
+  components: {
+    receiver: FieldCatalogueComponent | undefined
+    ammunition: FieldCatalogueComponent | undefined
+    mechanism: FieldCatalogueComponent | undefined
+    receiverFeatures: FieldCatalogueComponent[]
+    barrel: FieldCatalogueComponent | undefined
+    furniture: FieldCatalogueComponent | undefined
+    feedDevice: FieldCatalogueComponent | undefined
+    specialAmmunition: FieldCatalogueComponent | undefined
+    accessories: FieldCatalogueComponent[]
+  }
+}
+
 export const weaponSources = {
   core: coreWeaponsData,
   centralSupplyCatalogue: cscWeaponsData,
@@ -30,6 +105,14 @@ export const weaponSources = {
 }
 
 export const fieldCatalogueDesign = fieldCatalogueDesignData
+
+const receiverHeatProfiles: Record<string, HeatProfile['thresholds'] & { dissipation: number }> = {
+  handgun: { dissipation: 2, overheat: 10, danger: 15, disaster: 20 },
+  assault: { dissipation: 4, overheat: 15, danger: 30, disaster: 45 },
+  longarm: { dissipation: 6, overheat: 20, danger: 40, disaster: 60 },
+  'light-support': { dissipation: 8, overheat: 25, danger: 50, disaster: 75 },
+  heavy: { dissipation: 10, overheat: 30, danger: 60, disaster: 90 },
+}
 
 const weaponSourcePriority: Record<string, number> = {
   'mgt2e-field-catalogue': 3,
@@ -96,6 +179,8 @@ export const createBlankCustomWeapon = (userId = 'local-user'): CustomWeaponDesi
     scale: 'personal',
     skill: 'gun-combat',
     speciality: 'slug',
+    family: 'sidearm',
+    iconName: 'weapon-sidearm',
     techLevel: 8,
     range: '10m',
     damage: '3D',
@@ -107,6 +192,7 @@ export const createBlankCustomWeapon = (userId = 'local-user'): CustomWeaponDesi
     tags: [],
     design: {
       rulesSource: 'mgt2e-field-catalogue',
+      targetTechLevel: 8,
       weaponType: '',
       mechanism: 'semi-automatic',
       receiverFeatures: [],
@@ -125,8 +211,77 @@ export const createBlankCustomWeapon = (userId = 'local-user'): CustomWeaponDesi
 }
 
 export const cloneWeapon = <T extends TravellerWeaponRecord | CustomWeaponDesign>(weapon: T): T => {
-  if (typeof structuredClone === 'function') return structuredClone(weapon)
   return JSON.parse(JSON.stringify(weapon)) as T
+}
+
+export const resolveWeaponFamily = (weapon: Pick<TravellerWeaponRecord, 'category' | 'scale' | 'name'> & {
+  skill?: string
+  speciality?: string
+  design?: Partial<CustomWeaponDesign['design']>
+}) : TravellerWeaponFamily => {
+  const category = weapon.category
+  const weaponType = weapon.design?.weaponType ?? ''
+  const receiverType = weapon.design?.receiverType ?? ''
+  const ammunitionType = weapon.design?.ammunitionType ?? ''
+  const furniture = weapon.design?.furniture ?? ''
+  const mechanism = weapon.design?.mechanism ?? ''
+
+  if (category === 'melee') return 'melee'
+  if (category === 'explosive') return 'charge'
+  if (category === 'grenade') return 'grenade'
+
+  if (weaponType === 'grenade') {
+    if (category === 'support' || category === 'heavy' || receiverType === 'light-support' || receiverType === 'heavy') {
+      return 'launcher'
+    }
+    return category === 'explosive' ? 'charge' : 'grenade'
+  }
+
+  if (weaponType === 'energy' || category === 'energy') {
+    if (receiverType === 'handgun') return 'energy-sidearm'
+    if (receiverType === 'light-support' || receiverType === 'heavy' || category === 'heavy') return 'heavy'
+    if (category === 'support') return 'support'
+    return 'energy-longarm'
+  }
+
+  if (weaponType === 'projectile' || category === 'slug' || category === 'support' || category === 'heavy') {
+    if (ammunitionType === 'rocket') return 'launcher'
+    if (receiverType === 'heavy' || category === 'heavy' || furniture === 'support-mount') return 'heavy'
+    if (receiverType === 'light-support' || category === 'support' || mechanism === 'rapid-fire' || mechanism === 'very-rapid-fire') return 'support'
+    if (ammunitionType.includes('smoothbore')) return 'shotgun'
+    if (receiverType === 'handgun') return 'sidearm'
+    return 'longarm'
+  }
+
+  return 'longarm'
+}
+
+export const resolveWeaponFamilyIcon = (family: TravellerWeaponFamily): TravellerWeaponIconName => {
+  switch (family) {
+    case 'melee':
+      return 'weapon-melee'
+    case 'sidearm':
+      return 'weapon-sidearm'
+    case 'shotgun':
+      return 'weapon-shotgun'
+    case 'support':
+      return 'weapon-support'
+    case 'heavy':
+      return 'weapon-heavy'
+    case 'launcher':
+      return 'weapon-launcher'
+    case 'grenade':
+      return 'weapon-grenade'
+    case 'charge':
+      return 'weapon-charge'
+    case 'energy-sidearm':
+      return 'weapon-energy-sidearm'
+    case 'energy-longarm':
+      return 'weapon-energy-longarm'
+    case 'longarm':
+    default:
+      return 'weapon-longarm'
+  }
 }
 
 const applyPercent = (value: number, percent = 0) => value * (1 + percent / 100)
@@ -142,6 +297,16 @@ const addDamagePerDie = (damage: string, perDieBonus: number) => {
   const modifier = Number(match[2] ?? 0) + dice * perDieBonus
   if (modifier === 0) return `${dice}D`
   return `${dice}D${modifier > 0 ? '+' : ''}${modifier}`
+}
+
+const addFlatDamageModifier = (damage: string, flatModifier: number) => {
+  const match = damage.match(/^(\d+)D(?:3)?([+-]\d+)?$/)
+  if (!match) return damage
+  const dice = match[1]
+  const d3 = damage.includes('D3') ? 'D3' : 'D'
+  const modifier = Number(match[2] ?? 0) + flatModifier
+  if (modifier === 0) return `${dice}${d3}`
+  return `${dice}${d3}${modifier > 0 ? '+' : ''}${modifier}`
 }
 
 const addDamageDice = (damage: string, diceBonus: number) => {
@@ -175,21 +340,122 @@ const reduceDamageToD3s = (damage: string) => {
   return `${dice}D3${modifier}`
 }
 
-const penetrationTrait = (penetration: number) => {
-  if (penetration > 0) return `AP ${penetration}`
-  if (penetration < 0) return `Lo-Pen ${Math.abs(penetration)}`
-  return ''
-}
-
 const traitRating = (traits: string[], name: string) => {
   const trait = traits.find((item) => item.toLowerCase().startsWith(name.toLowerCase()))
   if (!trait) return 0
   return Number(trait.match(/-?\d+/)?.[0] ?? 0)
 }
 
+const selectedItemsByExclusiveGroup = (
+  tables: FieldCatalogueComponentTables,
+  selectedIds: string[],
+) => {
+  const groups = new Map<string, string[]>()
+
+  for (const tableKey of ['receiverFeatures', 'accessories'] as const) {
+    for (const id of selectedIds) {
+      const item = (tables[tableKey] as FieldCatalogueCompatibilityComponent[]).find((entry) => entry.id === id)
+      if (!item?.exclusiveGroup) continue
+      groups.set(item.exclusiveGroup, [...(groups.get(item.exclusiveGroup) ?? []), item.id])
+    }
+  }
+
+  return groups
+}
+
+const componentCompatibilityWarnings = (
+  component: FieldCatalogueCompatibilityComponent | undefined,
+  context: CompatibilityContext,
+) => {
+  if (!component) return []
+
+  const warnings: string[] = []
+
+  if (component.techLevel && context.techLevel !== null && component.techLevel > context.techLevel) {
+    warnings.push(`${component.name} requires TL ${component.techLevel}+.`)
+  }
+
+  if (component.requiresWeaponTypes?.length && context.weaponType && !component.requiresWeaponTypes.includes(context.weaponType)) {
+    warnings.push(`${component.name} is only valid for ${component.requiresWeaponTypes.join(', ')} weapon builds.`)
+  }
+
+  if (component.requiresReceiverTypes?.length && context.receiverType && !component.requiresReceiverTypes.includes(context.receiverType)) {
+    warnings.push(`${component.name} requires ${component.requiresReceiverTypes.join(', ')} receivers.`)
+  }
+
+  if (component.requiresMechanisms?.length && context.mechanism && !component.requiresMechanisms.includes(context.mechanism)) {
+    warnings.push(`${component.name} requires ${component.requiresMechanisms.join(', ')} operation.`)
+  }
+
+  if (component.requiresFurniture && context.furniture && component.requiresFurniture !== context.furniture) {
+    warnings.push(`${component.name} requires ${component.requiresFurniture.replace(/-/g, ' ')} furniture.`)
+  }
+
+  if (component.incompatibleWith?.length) {
+    const found = component.incompatibleWith.filter((id) => context.selectedIds.includes(id))
+    if (found.length) warnings.push(`${component.name} is incompatible with ${found.join(', ')}.`)
+  }
+
+  if (component.exclusiveGroup) {
+    const selectedInGroup = (context.selectedByExclusiveGroup.get(component.exclusiveGroup) ?? []).filter((id) => id !== component.id)
+    if (selectedInGroup.length) warnings.push(`${component.name} cannot be combined with another ${component.exclusiveGroup.replace(/-/g, ' ')} option.`)
+  }
+
+  return warnings
+}
+
+const applyFinalPenetration = (damage: string, penetration: number): PenetrationOutcome => {
+  const dice = fullDamageDice(damage)
+
+  if (penetration <= -4) return { damage, trait: 'Lo-Pen 5' }
+  if (penetration === -3) return { damage, trait: 'Lo-Pen 4' }
+  if (penetration === -2) return { damage, trait: 'Lo-Pen 3' }
+  if (penetration === -1) return { damage, trait: 'Lo-Pen 2' }
+  if (penetration === 0) return { damage, trait: '' }
+  if (penetration === 1) return { damage, trait: `AP ${dice}` }
+  if (penetration === 2) return {
+    damage: addFlatDamageModifier(damage, -Math.floor(dice / 2)),
+    trait: `AP ${1 + dice}`,
+  }
+  if (penetration === 3) return {
+    damage: addFlatDamageModifier(damage, -(2 * Math.floor(dice / 3))),
+    trait: `AP ${3 + 3 * Math.floor(dice / 2)}`,
+  }
+
+  return {
+    damage: addFlatDamageModifier(damage, -dice),
+    trait: `AP ${5 + 2 * dice}`,
+  }
+}
+
+export const getFieldCatalogueSelectionWarnings = (
+  weapon: CustomWeaponDesign,
+  tableKey: FieldCatalogueSelectableTableKey,
+  itemId: string,
+) => {
+  const tables = fieldCatalogueDesignData.componentTables as FieldCatalogueComponentTables
+  const component = (tables[tableKey] as FieldCatalogueCompatibilityComponent[]).find((item) => item.id === itemId)
+  const selectedIds = [
+    ...(weapon.design.receiverFeatures ?? []),
+    ...(weapon.design.accessories ?? []),
+  ]
+
+  const context: CompatibilityContext = {
+    techLevel: weapon.design.targetTechLevel ?? weapon.techLevel,
+    weaponType: weapon.design.weaponType,
+    receiverType: weapon.design.receiverType,
+    mechanism: weapon.design.mechanism,
+    furniture: weapon.design.furniture,
+    selectedIds,
+    selectedByExclusiveGroup: selectedItemsByExclusiveGroup(tables, selectedIds),
+  }
+
+  return componentCompatibilityWarnings(component, context)
+}
+
 const receiverOrder = ['handgun', 'assault', 'longarm', 'light-support', 'heavy']
 
-export const calculateFieldCatalogueWeapon = (weapon: CustomWeaponDesign) => {
+export const calculateFieldCatalogueWeapon = (weapon: CustomWeaponDesign): FieldCatalogueCalculationResult => {
   const tables = fieldCatalogueDesignData.componentTables as FieldCatalogueComponentTables
   const receiver = tables.receivers.find((item) => item.id === weapon.design.receiverType)
   const ammunition = tables.ammunitionTypes.find((item) => item.id === weapon.design.ammunitionType)
@@ -243,6 +509,7 @@ export const calculateFieldCatalogueWeapon = (weapon: CustomWeaponDesign) => {
   let damage = ammunition.damage ?? weapon.damage
   let auto = mechanism?.auto ?? 0
   let heat: number | null = null
+  let heatProfile: HeatProfile | null = null
   const traits: string[] = [...(ammunition.traits ?? [])]
 
   receiverCost = applyPercent(receiverCost, ammunition.receiverCostModifierPercent ?? 0)
@@ -282,8 +549,22 @@ export const calculateFieldCatalogueWeapon = (weapon: CustomWeaponDesign) => {
     rangeMeters = Math.max(1, Math.round(applyPercent(rangeMeters, feature.rangeModifierPercent ?? 0)))
     quickdraw += feature.quickdrawModifier ?? 0
     penetration += feature.penetrationModifier ?? 0
+    auto += feature.autoModifier ?? 0
     traits.push(...(feature.traits ?? []))
   }
+
+  const selectedIds = [...(weapon.design.receiverFeatures ?? []), ...(weapon.design.accessories ?? [])]
+  const compatibilityContext: CompatibilityContext = {
+    techLevel: weapon.design.targetTechLevel ?? weapon.techLevel,
+    weaponType: weapon.design.weaponType,
+    receiverType: weapon.design.receiverType,
+    mechanism: weapon.design.mechanism,
+    furniture: weapon.design.furniture,
+    selectedIds,
+    selectedByExclusiveGroup: selectedItemsByExclusiveGroup(tables, selectedIds),
+  }
+
+  for (const feature of receiverFeatures) warnings.push(...componentCompatibilityWarnings(feature, compatibilityContext))
 
   const featureIds = receiverFeatures.map((feature) => feature.id)
   if (featureIds.includes('compact') && featureIds.includes('very-compact')) warnings.push('Compact and Very Compact cannot both be applied.')
@@ -330,6 +611,7 @@ export const calculateFieldCatalogueWeapon = (weapon: CustomWeaponDesign) => {
   }
 
   if (specialAmmunition) {
+    warnings.push(...componentCompatibilityWarnings(specialAmmunition as FieldCatalogueCompatibilityComponent, compatibilityContext))
     penetration += specialAmmunition.penetrationModifier ?? 0
     rangeMeters = specialAmmunition.fixedRangeMeters ?? Math.max(1, Math.round(applyPercent(rangeMeters, specialAmmunition.rangeModifierPercent ?? 0)))
     if (specialAmmunition.damageDiceModifier) damage = addDamageDice(damage, specialAmmunition.damageDiceModifier)
@@ -341,6 +623,7 @@ export const calculateFieldCatalogueWeapon = (weapon: CustomWeaponDesign) => {
   let accessoryCost = 0
   let accessoryWeight = 0
   for (const accessory of accessories) {
+    warnings.push(...componentCompatibilityWarnings(accessory, compatibilityContext))
     accessoryCost += accessory.costCredits ?? receiverCost * ((accessory.costPercentOfReceiver ?? 0) / 100)
     accessoryWeight += accessory.weightKg ?? receiverWeight * ((accessory.weightPercentOfReceiver ?? 0) / 100)
     rangeMeters = Math.max(1, Math.round(applyPercent(rangeMeters, accessory.rangeModifierPercent ?? 0)))
@@ -353,9 +636,29 @@ export const calculateFieldCatalogueWeapon = (weapon: CustomWeaponDesign) => {
   const massKg = Math.round((receiverWeight + barrelWeight + furnitureWeight + accessoryWeight) * 100) / 100
   const recoilCompensation = traitRating(traits, 'Recoil Compensation')
   const recoil = Math.max(0, fullDamageDice(damage) + (auto || 0) + (receiver.recoilModifier ?? 0) + (ammunition.recoilModifier ?? 0) - recoilCompensation)
-  if (mechanism?.id === 'rapid-fire') heat = (auto || 0) + fullDamageDice(damage) * 2
-  if (mechanism?.id === 'very-rapid-fire') heat = (auto || 0) + fullDamageDice(damage) * 3
-  const finalPenetrationTrait = penetrationTrait(penetration)
+  const receiverHeatProfile = receiverHeatProfiles[receiver.id]
+  const heatDissipationBonus = (weapon.design.heavyBarrel ? 2 : 0) + receiverFeatures.reduce((total, feature) => total + (feature.heatDissipationModifier ?? 0), 0)
+  const heatGenerationBase = fullDamageDice(damage) + (auto || 0)
+  if (receiverHeatProfile && (auto > 0 || weapon.design.weaponType === 'energy')) {
+    heat = heatGenerationBase
+    heatProfile = {
+      generation: heatGenerationBase,
+      dissipation: receiverHeatProfile.dissipation + heatDissipationBonus,
+      thresholds: {
+        overheat: receiverHeatProfile.overheat,
+        danger: receiverHeatProfile.danger,
+        disaster: receiverHeatProfile.disaster,
+      },
+    }
+
+    if (heatProfile.generation >= heatProfile.thresholds.overheat) {
+      warnings.push('A sustained firing sequence can cross the overheating threshold in a single attack; add cooling or reduce rate of fire.')
+    }
+  }
+
+  const penetrationOutcome = applyFinalPenetration(damage, penetration)
+  damage = penetrationOutcome.damage
+  const finalPenetrationTrait = penetrationOutcome.trait
   if (finalPenetrationTrait) traits.push(finalPenetrationTrait)
   const ammunitionCostCredits = (ammunition.costPer100Credits ?? 0) * capacity / 100 * (specialAmmunition?.costMultiplier ?? ammunition.costMultiplier ?? 1)
   const feedDeviceCostCredits = feedDevice?.id === 'fixed-magazine'
@@ -375,6 +678,7 @@ export const calculateFieldCatalogueWeapon = (weapon: CustomWeaponDesign) => {
     penetration,
     recoil,
     heat,
+    heatProfile,
     magazineCostCredits,
     warnings,
     traits: uniqueTraits([...(weapon.traits ?? []), ...traits]),

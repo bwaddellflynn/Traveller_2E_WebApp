@@ -4,6 +4,32 @@ export type TravellerWeaponCategory = 'melee' | 'slug' | 'energy' | 'grenade' | 
 
 export type TravellerWeaponScale = 'personal' | 'support' | 'vehicle' | 'spacecraft'
 
+export type TravellerWeaponFamily =
+  | 'melee'
+  | 'sidearm'
+  | 'longarm'
+  | 'shotgun'
+  | 'support'
+  | 'heavy'
+  | 'launcher'
+  | 'grenade'
+  | 'charge'
+  | 'energy-sidearm'
+  | 'energy-longarm'
+
+export type TravellerWeaponIconName =
+  | 'weapon-melee'
+  | 'weapon-sidearm'
+  | 'weapon-longarm'
+  | 'weapon-shotgun'
+  | 'weapon-support'
+  | 'weapon-heavy'
+  | 'weapon-launcher'
+  | 'weapon-grenade'
+  | 'weapon-charge'
+  | 'weapon-energy-sidearm'
+  | 'weapon-energy-longarm'
+
 export type TravellerWeaponRecord = {
   id: string
   name: string
@@ -24,6 +50,8 @@ export type TravellerWeaponRecord = {
   traits: string[]
   description?: string
   tags?: string[]
+  family?: TravellerWeaponFamily
+  iconName?: TravellerWeaponIconName
 }
 
 export type CustomWeaponDesign = TravellerWeaponRecord & {
@@ -32,6 +60,7 @@ export type CustomWeaponDesign = TravellerWeaponRecord & {
   updatedAt: string
   design: {
     rulesSource: TravellerWeaponSourceId
+    targetTechLevel: number | null
     weaponType: string
     mechanism: string
     receiverFeatures: string[]
