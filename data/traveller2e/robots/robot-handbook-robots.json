@@ -55,7 +55,8 @@
       ],
       "summary": "Deployable walking cover platform for advancing infantry.",
       "description": "A broad shield on legs, the Walking Strongpoint unfolds into mobile cover for an advancing fire team. It carries extra ammunition bins, integral entrenching tools, recon sensors, and hardened communications gear. It is designed to operate in vacuum and under heavy radiation exposure, trading reach and manipulator utility for protective value on the battlefield.",
-      "notes": "Can provide directional radiation protection while deployed and full shielding when used over a foxhole with firing slits closed."
+      "notes": "Can provide directional radiation protection while deployed and full shielding when used over a foxhole with firing slits closed.",
+      "originCulture": "Third Imperium"
     },
     {
       "id": "rh-long-duration-security-robot",
@@ -100,7 +101,8 @@
         "Wireless Data Link"
       ],
       "summary": "Autonomous long-duration lethal perimeter security robot.",
-      "description": "The long-duration Security Robot is built for remote autonomous guard duty on mining claims, depots, and other isolated facilities. RTG power and self-maintenance let it patrol for decades with minimal support, using lethal force inside a programmed perimeter but declining to pursue beyond its assigned boundary."
+      "description": "The long-duration Security Robot is built for remote autonomous guard duty on mining claims, depots, and other isolated facilities. RTG power and self-maintenance let it patrol for decades with minimal support, using lethal force inside a programmed perimeter but declining to pursue beyond its assigned boundary.",
+      "originCulture": "Third Imperium"
     },
     {
       "id": "rh-naasirka-model-899",
@@ -138,7 +140,8 @@
         "Wireless Data Link"
       ],
       "summary": "Boarding, firefighting, and security support carrier robot.",
-      "description": "The Model 899 is an Imperial-friendly support platform intended to assist defensive teams, boarding parties, and rescue crews without crossing fully into the warbot category. Its grav-supported cylindrical body can carry heavy gear, cut through bulkheads, and unfold into improvised cover for advancing or retreating personnel."
+      "description": "The Model 899 is an Imperial-friendly support platform intended to assist defensive teams, boarding parties, and rescue crews without crossing fully into the warbot category. Its grav-supported cylindrical body can carry heavy gear, cut through bulkheads, and unfold into improvised cover for advancing or retreating personnel.",
+      "originCulture": "Third Imperium"
     },
     {
       "id": "rh-peacekeeper-riot-control-robot",
@@ -191,7 +194,8 @@
         "Wireless Data Link"
       ],
       "summary": "Autonomous non-lethal crowd suppression robot.",
-      "description": "The Peacekeeper is a grav-propelled autonomous riot-control robot optimized for non-lethal restraint and dispersal. It combines dialogue capability, law-enforcement parameter logic, and stun-focused weaponry to suppress disorder while retaining firefighting, rescue, and medical support utility."
+      "description": "The Peacekeeper is a grav-propelled autonomous riot-control robot optimized for non-lethal restraint and dispersal. It combines dialogue capability, law-enforcement parameter logic, and stun-focused weaponry to suppress disorder while retaining firefighting, rescue, and medical support utility.",
+      "originCulture": "Third Imperium"
     },
     {
       "id": "rh-security-drone",
@@ -238,7 +242,8 @@
         "Wireless Data Link"
       ],
       "summary": "Persistent corporate and government perimeter-security drone.",
-      "description": "Security Drones are long-endurance VTOL perimeter guards used around compounds and semi-sensitive facilities. They coordinate with one another, can be updated on the fly, and are typically configured for escalating force rather than immediate lethal engagement, though their weapon fit can be altered easily enough."
+      "description": "Security Drones are long-endurance VTOL perimeter guards used around compounds and semi-sensitive facilities. They coordinate with one another, can be updated on the fly, and are typically configured for escalating force rather than immediate lethal engagement, though their weapon fit can be altered easily enough.",
+      "originCulture": "Third Imperium"
     },
     {
       "id": "rh-shadow-security-robot",
@@ -298,7 +303,8 @@
         "Wireless Data Link"
       ],
       "summary": "Ambush-oriented stealth security and patrol hunter.",
-      "description": "The Shadow Security Robot is an outside-patrol specialist designed to blend into difficult terrain, detect intruders first, and decide whether to strike, retreat, or coordinate an ambush. Its camouflage and stealth profile make it far more dangerous than static perimeter defenders."
+      "description": "The Shadow Security Robot is an outside-patrol specialist designed to blend into difficult terrain, detect intruders first, and decide whether to strike, retreat, or coordinate an ambush. Its camouflage and stealth profile make it far more dangerous than static perimeter defenders.",
+      "originCulture": "Third Imperium"
     },
     {
       "id": "rh-sindalian-deathbot",
@@ -339,7 +345,8 @@
         "Wireless Data Link"
       ],
       "summary": "Ancient Sindalian intimidation and anti-personnel deathbot.",
-      "description": "The Sindalian Deathbot is a status-symbol terror weapon from the old Sindalian Empire, built to be noticed as much as feared. Its ovoid body conceals heavier weaponry than its appearance suggests, and its role was often less about battlefield efficiency than public intimidation and hostage-control symbolism."
+      "description": "The Sindalian Deathbot is a status-symbol terror weapon from the old Sindalian Empire, built to be noticed as much as feared. Its ovoid body conceals heavier weaponry than its appearance suggests, and its role was often less about battlefield efficiency than public intimidation and hostage-control symbolism.",
+      "originCulture": "Third Imperium"
     },
     {
       "id": "rh-sindalian-enforcement-robot",
@@ -377,7 +384,8 @@
         "Wireless Data Link"
       ],
       "summary": "Ancient Sindalian patrol and enforcement hunter.",
-      "description": "This old Sindalian Empire robot is a flat-topped table-like walker whose turreted weapon system pops up when threatened. Though sometimes used as furniture by owners with a sense of humour, it is fundamentally a compact laser-armed enforcement machine."
+      "description": "This old Sindalian Empire robot is a flat-topped table-like walker whose turreted weapon system pops up when threatened. Though sometimes used as furniture by owners with a sense of humour, it is fundamentally a compact laser-armed enforcement machine.",
+      "originCulture": "Third Imperium"
     },
     {
       "id": "rh-spider-bomb",
@@ -418,7 +426,8 @@
         "Wireless Data Link"
       ],
       "summary": "Expendable explosive battlefield pursuit drone.",
-      "description": "The Spider Bomb is a disposable small robot designed to sprint across a battlefield and detonate beside a moving target. It can be programmed on the fly and, if desired, rigged to explode immediately when damaged."
+      "description": "The Spider Bomb is a disposable small robot designed to sprint across a battlefield and detonate beside a moving target. It can be programmed on the fly and, if desired, rigged to explode immediately when damaged.",
+      "originCulture": "Third Imperium"
     },
     {
       "id": "rh-urban-pacification-police-robot",
@@ -465,7 +474,8 @@
         "Wireless Data Link"
       ],
       "summary": "Heavy urban assault and pacification police robot.",
-      "description": "Urban Pacification models were sold as the next step in law enforcement and condemned by critics as battlefield machines masquerading as police support. Heavily armed and armoured, they can storm defended positions but are notorious for lethal interactions in civilian environments."
+      "description": "Urban Pacification models were sold as the next step in law enforcement and condemned by critics as battlefield machines masquerading as police support. Heavily armed and armoured, they can storm defended positions but are notorious for lethal interactions in civilian environments.",
+      "originCulture": "Third Imperium"
     },
     {
       "id": "rh-light-warbot",
@@ -509,7 +519,8 @@
         "Wireless Data Link"
       ],
       "summary": "Compact Zhodani commando-deployed warbot.",
-      "description": "Light Warbots are small enough for Zhodani commandos to carry and even teleport in with them, making them ideal for surprise-deployed havoc behind enemy lines. Their role is shock, demoralisation, and rapid violent disruption rather than protracted engagement."
+      "description": "Light Warbots are small enough for Zhodani commandos to carry and even teleport in with them, making them ideal for surprise-deployed havoc behind enemy lines. Their role is shock, demoralisation, and rapid violent disruption rather than protracted engagement.",
+      "originCulture": "Zhodani"
     },
     {
       "id": "rh-medium-warbot",
@@ -552,7 +563,8 @@
         "Wireless Data Link"
       ],
       "summary": "Mainline adaptable Zhodani warbot chassis.",
-      "description": "The Medium Warbot is a reliable general-purpose Zhodani combat platform with many mission-specific variants. Boarding units often swap their primary armament, but the baseline model already covers reconnaissance, ranged attack, and tactical utility in a compact grav frame."
+      "description": "The Medium Warbot is a reliable general-purpose Zhodani combat platform with many mission-specific variants. Boarding units often swap their primary armament, but the baseline model already covers reconnaissance, ranged attack, and tactical utility in a compact grav frame.",
+      "originCulture": "Zhodani"
     },
     {
       "id": "rh-heavy-warbot",
@@ -596,7 +608,8 @@
         "Wireless Data Link"
       ],
       "summary": "Heavy assault and defensive Zhodani warbot.",
-      "description": "The Heavy Warbot is built for direct assault against heavily armed opposition, using a protected low-profile chassis and a fearsome portable heavy weapon to dominate exposed battle lines. It also works effectively as a defensive or scouting platform where its sensors and armour can be exploited."
+      "description": "The Heavy Warbot is built for direct assault against heavily armed opposition, using a protected low-profile chassis and a fearsome portable heavy weapon to dominate exposed battle lines. It also works effectively as a defensive or scouting platform where its sensors and armour can be exploited.",
+      "originCulture": "Zhodani"
     },
     {
       "id": "rh-angel-of-mercy",
@@ -650,7 +663,8 @@
       ],
       "summary": "Flying autodoc and casualty extraction robot.",
       "description": "The Angel of Mercy combines a battlefield autodoc, search-and-rescue frame, and grav evacuation platform into one armoured emergency robot. Its sensors can locate casualties in rubble, its external tools can cut victims free, and its integrated medical chamber lets it begin treatment while still in transit to a better facility.",
-      "notes": "Lacks the storage capacity and bioreactor of a standard autodoc but can handle immediate trauma care and extraction."
+      "notes": "Lacks the storage capacity and bioreactor of a standard autodoc but can handle immediate trauma care and extraction.",
+      "originCulture": "Third Imperium"
     },
     {
       "id": "rh-astro-mech-droid",
@@ -701,7 +715,8 @@
       ],
       "summary": "Compact starship support droid for astrogation and maintenance.",
       "description": "Astro-mech droids are built to serve as small spacecraft companions, especially for jump plotting and engineering upkeep. Their nonhumanoid cylindrical frames carry a surprising spread of tools and equipment, and they are noted for adaptability and rapid learning once advanced societies absorb them into everyday operations.",
-      "notes": "Marketed as a small spacecraft's best friend and often becomes ubiquitous in mature high-tech settings."
+      "notes": "Marketed as a small spacecraft's best friend and often becomes ubiquitous in mature high-tech settings.",
+      "originCulture": "Third Imperium"
     },
     {
       "id": "rh-autodoc-basic",
@@ -743,7 +758,8 @@
       ],
       "summary": "Baseline installed autodoc for starships and small medical facilities.",
       "description": "The basic autodoc is a coffin-shaped treatment box mounted into a ship or facility, able to hold and operate on a human-sized patient inside a sealed transparent chamber. Its internal arms, medikit, bioreactor, and refrigerated stores support diagnosis, surgery, and biological sample work, but it still requires outside help to load a patient into the chamber.",
-      "notes": "Spare slots support chamber expansion, cryoberth or low berth options, species-specific add-ons, and improved bioreactors."
+      "notes": "Spare slots support chamber expansion, cryoberth or low berth options, species-specific add-ons, and improved bioreactors.",
+      "originCulture": "Third Imperium"
     },
     {
       "id": "rh-autodoc-improved",
@@ -788,7 +804,8 @@
       ],
       "summary": "Enhanced autodoc with reanimation and low berth capability.",
       "description": "The improved autodoc extends the basic model with reanimation support, low berth functionality, and a more capable bioreaction chamber for rapid repair or regrowth of damaged limbs and organs. Its stronger biological knowledge makes it better suited to unfamiliar diseases, exotic microbes, and critical trauma cases.",
-      "notes": "Can preserve badly injured patients or serve as an additional low berth on some ships."
+      "notes": "Can preserve badly injured patients or serve as an additional low berth on some ships.",
+      "originCulture": "Third Imperium"
     },
     {
       "id": "rh-autodoc-advanced",
@@ -838,7 +855,8 @@
       ],
       "summary": "Deluxe autodoc with fabrication and advanced diagnostic capability.",
       "description": "The advanced autodoc pushes beyond surgical automation into forensic and scientific medicine. It carries a more sophisticated brain, a fabrication chamber for biological and cybernetic parts, and a full instrument suite including bioscanner and neural activity sensors, allowing it to diagnose novel illnesses and develop treatments with minimal supervision.",
-      "notes": "Capable of reconstructing every organ but the brain, and even some parts of the brain, though it repairs rather than enhances."
+      "notes": "Capable of reconstructing every organ but the brain, and even some parts of the brain, though it repairs rather than enhances.",
+      "originCulture": "Third Imperium"
     },
     {
       "id": "rh-bandbot",
@@ -881,7 +899,8 @@
       ],
       "summary": "Performance robot built for music, stage effects, and choreography.",
       "description": "BandBots were conceived as backup singers or instrumentalists but are often used as autonomous entertainers or as members of entirely robotic acts. Their audio-visual systems, agility, and spare slot capacity support live effects and stage performance, while their skill package can be swapped at significant cost to retrain them for a new instrument or performance role.",
-      "notes": "Normally installed with a specific performance or instrumental package at purchase."
+      "notes": "Normally installed with a specific performance or instrumental package at purchase.",
+      "originCulture": "Third Imperium"
     },
     {
       "id": "rh-beautybot",
@@ -923,7 +942,8 @@
         "Wireless Data Link"
       ],
       "summary": "Salon and grooming robot for starports and high-tech worlds.",
-      "description": "BeautyBots are common fixtures in salon booths and off-concourse service spaces, using multiple arms and a full suite of stylist, grooming, and cleaning tools to deliver beautician services efficiently. Their projector and screen systems can preview current styles on a customer, while spare slots support extra species-specific equipment or other appearance-focused upgrades."
+      "description": "BeautyBots are common fixtures in salon booths and off-concourse service spaces, using multiple arms and a full suite of stylist, grooming, and cleaning tools to deliver beautician services efficiently. Their projector and screen systems can preview current styles on a customer, while spare slots support extra species-specific equipment or other appearance-focused upgrades.",
+      "originCulture": "Third Imperium"
     },
     {
       "id": "rh-brokerbot",
@@ -969,7 +989,8 @@
       ],
       "summary": "Specialist interstellar trade and negotiation robot.",
       "description": "The Makhidkarun B12 Brokerbot was designed for the interstellar trade market and updated from a gourmet-food specialist into a broad-spectrum merchandise broker. With refined communication systems, microexpression-reading skill, and a tendency to develop eccentric hobby expertise, it is prized by independent traders who want a hard-edged commercial negotiator aboard.",
-      "notes": "Well-developed olfactory sensors give it an edge in evaluating fine foods and drink."
+      "notes": "Well-developed olfactory sensors give it an edge in evaluating fine foods and drink.",
+      "originCulture": "Third Imperium"
     },
     {
       "id": "rh-cloning-creche",
@@ -1010,7 +1031,8 @@
         "Wireless Data Link"
       ],
       "summary": "Clone growth and early-development support system.",
-      "description": "A cloning creche resembles an autodoc or low berth but is designed to raise an accelerated clone to toddlerhood and guide continued rapid development. It acts as bed, monitor, tutor, and caretaker, helping a clone reach adulthood in roughly eighteen months while supporting growth with an enhanced bioreaction chamber and basic education functions."
+      "description": "A cloning creche resembles an autodoc or low berth but is designed to raise an accelerated clone to toddlerhood and guide continued rapid development. It acts as bed, monitor, tutor, and caretaker, helping a clone reach adulthood in roughly eighteen months while supporting growth with an enhanced bioreaction chamber and basic education functions.",
+      "originCulture": "Third Imperium"
     },
     {
       "id": "rh-cloning-vat",
@@ -1052,7 +1074,8 @@
         "Wireless Data Link"
       ],
       "summary": "Stand-alone full-cycle cloning system.",
-      "description": "The cloning vat is a dedicated cloning robot built around a 50-slot advanced bioreaction chamber that can force-grow a clone to adulthood at accelerated rates. It is able to perform the entire workflow from genetic tissue collection through maturation, and its integrated fabrication chamber supports cybernetic implantation during development."
+      "description": "The cloning vat is a dedicated cloning robot built around a 50-slot advanced bioreaction chamber that can force-grow a clone to adulthood at accelerated rates. It is able to perform the entire workflow from genetic tissue collection through maturation, and its integrated fabrication chamber supports cybernetic implantation during development.",
+      "originCulture": "Third Imperium"
     },
     {
       "id": "rh-crew-droid",
@@ -1110,7 +1133,8 @@
       ],
       "summary": "General-purpose small starship crew robot.",
       "description": "Crew Droids target lone scouts, belters, and other small-ship operators who need a reliable all-round hand. They combine steward, medic, administrative, and damage-control capability in a durable humanoid frame equipped for vacuum work, hull crawling, and long operational life under solar support.",
-      "notes": "Intentionally lacks combat capability and cannot operate ship weapons without skill-package changes."
+      "notes": "Intentionally lacks combat capability and cannot operate ship weapons without skill-package changes.",
+      "originCulture": "Third Imperium"
     },
     {
       "id": "rh-danger-droid",
@@ -1173,7 +1197,8 @@
         "Wireless Data Link"
       ],
       "summary": "Hazardous-environment explorer and rescue droid.",
-      "description": "Danger Droids are built to operate where biological operators would be at extreme risk, from deep ocean trenches to corrosive atmospheres, heavy radiation zones, vacuum, and bomb-disposal scenes. Their default package is intentionally broad, combining scientific, medical, investigative, survival, and tactical support skills into a single highly versatile field unit."
+      "description": "Danger Droids are built to operate where biological operators would be at extreme risk, from deep ocean trenches to corrosive atmospheres, heavy radiation zones, vacuum, and bomb-disposal scenes. Their default package is intentionally broad, combining scientific, medical, investigative, survival, and tactical support skills into a single highly versatile field unit.",
+      "originCulture": "Third Imperium"
     },
     {
       "id": "rh-deep-diver-droid",
@@ -1222,7 +1247,8 @@
         "Wireless Data Link"
       ],
       "summary": "Under-ice and abyssal ocean exploration droid.",
-      "description": "Deep Diver Droids are intended for frozen moons and hostile ocean worlds, using long-duration RTG power and heavy submersible protection to reach dark subsurface seas and remain there for years. They can melt through ice, deploy repeaters before descent, and recover pressurised samples for later study, even though many units never return from the oceans they are built to explore."
+      "description": "Deep Diver Droids are intended for frozen moons and hostile ocean worlds, using long-duration RTG power and heavy submersible protection to reach dark subsurface seas and remain there for years. They can melt through ice, deploy repeaters before descent, and recover pressurised samples for later study, even though many units never return from the oceans they are built to explore.",
+      "originCulture": "Third Imperium"
     },
     {
       "id": "rh-emergency-medical-response-robot",
@@ -1269,7 +1295,8 @@
         "Wireless Data Link"
       ],
       "summary": "Rapid-response grav medic for emergencies and battlefield triage.",
-      "description": "EMR-Bots are fast, multi-armed grav ambulatory units built to reach casualties before full ambulance support arrives. They combine search sensors, medical tools, injectors, and cutting equipment to stabilise and sometimes operate on patients in situ, and their triage routines treat the wounded strictly by need rather than allegiance."
+      "description": "EMR-Bots are fast, multi-armed grav ambulatory units built to reach casualties before full ambulance support arrives. They combine search sensors, medical tools, injectors, and cutting equipment to stabilise and sometimes operate on patients in situ, and their triage routines treat the wounded strictly by need rather than allegiance.",
+      "originCulture": "Third Imperium"
     },
     {
       "id": "rh-exploration-rover",
@@ -1315,7 +1342,8 @@
         "Wireless Data Link"
       ],
       "summary": "Early-generation planetary exploration rover.",
-      "description": "The Exploration Rover is an early planetary scout for vacuum and standard-atmosphere bodies within a narrow orbital range beyond habitable zones. It relies on solar power, remote instructions, and simple autonomous navigation to perform sample gathering and in-situ scientific analysis over decades of slow but dependable service."
+      "description": "The Exploration Rover is an early planetary scout for vacuum and standard-atmosphere bodies within a narrow orbital range beyond habitable zones. It relies on solar power, remote instructions, and simple autonomous navigation to perform sample gathering and in-situ scientific analysis over decades of slow but dependable service.",
+      "originCulture": "Third Imperium"
     },
     {
       "id": "rh-nursebot",
@@ -1358,7 +1386,8 @@
         "Wireless Data Link"
       ],
       "summary": "Long-term patient-care robot for home and hospital support.",
-      "description": "The Nursebot is designed for long-term care and light hospital duty. It combines patient care, diagnostics, domestic cleaning, and supply storage in a rounded wheeled chassis intended to be non-threatening in home-care and recovery settings."
+      "description": "The Nursebot is designed for long-term care and light hospital duty. It combines patient care, diagnostics, domestic cleaning, and supply storage in a rounded wheeled chassis intended to be non-threatening in home-care and recovery settings.",
+      "originCulture": "Third Imperium"
     },
     {
       "id": "rh-offworld-construction-master-robot",
@@ -1414,7 +1443,8 @@
         "Wireless Data Link"
       ],
       "summary": "Autonomous offworld construction foreman and facility builder.",
-      "description": "The OCMR is a large tracked construction robot built to create remote vacuum installations with little or no direct supervision. It can coordinate up to eight construction drones, work from prepared materials, or mine and fabricate key components from scratch to establish outposts on moons and asteroids."
+      "description": "The OCMR is a large tracked construction robot built to create remote vacuum installations with little or no direct supervision. It can coordinate up to eight construction drones, work from prepared materials, or mine and fabricate key components from scratch to establish outposts on moons and asteroids.",
+      "originCulture": "Third Imperium"
     },
     {
       "id": "rh-protocol-droid",
@@ -1459,7 +1489,8 @@
         "Wireless Data Link"
       ],
       "summary": "High-end etiquette and translation droid for diplomacy and hospitality.",
-      "description": "The Protocol Droid is built to bridge species, language, and etiquette gaps across interstellar society. Its value lies as much in culture, customs, and social protocol as in translation, making it a dedicated diplomatic and hospitality unit rather than a general utility robot."
+      "description": "The Protocol Droid is built to bridge species, language, and etiquette gaps across interstellar society. Its value lies as much in culture, customs, and social protocol as in translation, making it a dedicated diplomatic and hospitality unit rather than a general utility robot.",
+      "originCulture": "Third Imperium"
     },
     {
       "id": "rh-sanitation-droid",
@@ -1496,7 +1527,8 @@
         "Wireless Data Link"
       ],
       "summary": "Dedicated domestic and environmental hygiene droid.",
-      "description": "The Sanitation Droid is a household, office, and shipboard hygiene specialist built to keep living spaces clean and food-ready. It can handle sanitation and domestic chores on one platform, though that flexibility comes with the usual concerns about mixed-purpose service machinery."
+      "description": "The Sanitation Droid is a household, office, and shipboard hygiene specialist built to keep living spaces clean and food-ready. It can handle sanitation and domestic chores on one platform, though that flexibility comes with the usual concerns about mixed-purpose service machinery.",
+      "originCulture": "Third Imperium"
     },
     {
       "id": "rh-ships-mechanic-robot",
@@ -1536,7 +1568,8 @@
         "Wireless Data Link"
       ],
       "summary": "Shipboard mechanic assistant with built-in damage-control defence.",
-      "description": "This ship's mechanic pattern is a relatively cheap engineering assistant intended for maintenance and damage control rather than full engineering responsibility. The featured model adds defensive claws and anti-boarding behaviour to routine repair capability."
+      "description": "This ship's mechanic pattern is a relatively cheap engineering assistant intended for maintenance and damage control rather than full engineering responsibility. The featured model adds defensive claws and anti-boarding behaviour to routine repair capability.",
+      "originCulture": "Third Imperium"
     },
     {
       "id": "rh-standard-engineer-droid",
@@ -1580,7 +1613,8 @@
         "Wireless Data Link"
       ],
       "summary": "Broad but junior-grade engineering droid for independent ship work.",
-      "description": "The SED is a medium repair drone upgraded with an advanced brain and wider bandwidth to function as a general starship engineer. It can operate independently and often serves as the only engineer on smaller traders, though it struggles with the hardest technical work."
+      "description": "The SED is a medium repair drone upgraded with an advanced brain and wider bandwidth to function as a general starship engineer. It can operate independently and often serves as the only engineer on smaller traders, though it struggles with the hardest technical work.",
+      "originCulture": "Third Imperium"
     },
     {
       "id": "rh-starship-repair-boss",
@@ -1635,7 +1669,8 @@
         "Wireless Data Link"
       ],
       "summary": "Hull-repair supervisor robot for starship maintenance teams.",
-      "description": "The LSP Starship Repair Boss is a specialist spacecraft repair unit built to supervise repair drones and conduct external hull work. Gecko traction, limited thrusters, and multiple tool arms let it work across bulkheads and outer hull surfaces in both gravity and zero-g."
+      "description": "The LSP Starship Repair Boss is a specialist spacecraft repair unit built to supervise repair drones and conduct external hull work. Gecko traction, limited thrusters, and multiple tool arms let it work across bulkheads and outer hull surfaces in both gravity and zero-g.",
+      "originCulture": "Third Imperium"
     },
     {
       "id": "rh-startek",
@@ -1684,7 +1719,8 @@
         "Wireless Data Link"
       ],
       "summary": "High-end all-purpose engineer robot with disaster-response capability.",
-      "description": "The StarTek is a sophisticated engineering replacement robot based loosely on Aslan technician patterns. It combines grav access, broad electronics and engineering competence, medical support, explosives handling, and hostile-environment protection into a single premium shipboard platform."
+      "description": "The StarTek is a sophisticated engineering replacement robot based loosely on Aslan technician patterns. It combines grav access, broad electronics and engineering competence, medical support, explosives handling, and hostile-environment protection into a single premium shipboard platform.",
+      "originCulture": "Third Imperium"
     },
     {
       "id": "rh-stewaid",
@@ -1720,7 +1756,8 @@
         "Wireless Data Link"
       ],
       "summary": "Low-cost shipboard service robot for food and light maintenance.",
-      "description": "The Stewaid is a compact shipboard helper intended to cover basic meal service, corridor cleaning, and light maintenance in one inexpensive package. It is a compromise design, but its versatility makes it attractive for crews that need broad minimal support from a single machine."
+      "description": "The Stewaid is a compact shipboard helper intended to cover basic meal service, corridor cleaning, and light maintenance in one inexpensive package. It is a compromise design, but its versatility makes it attractive for crews that need broad minimal support from a single machine.",
+      "originCulture": "Third Imperium"
     },
     {
       "id": "rh-steward-droid",
@@ -1762,7 +1799,8 @@
         "Wireless Data Link"
       ],
       "summary": "Humanoid steward and hospitality droid for ships and estates.",
-      "description": "The Steward Droid is a humanoid service droid meant to replace a qualified steward or house butler for routine hospitality work. It combines food preparation, guest comfort, basic first aid, and even limited chauffeur capability in a compact people-facing platform."
+      "description": "The Steward Droid is a humanoid service droid meant to replace a qualified steward or house butler for routine hospitality work. It combines food preparation, guest comfort, basic first aid, and even limited chauffeur capability in a compact people-facing platform.",
+      "originCulture": "Third Imperium"
     },
     {
       "id": "rh-surgeon-bot",
@@ -1806,7 +1844,8 @@
         "Wireless Data Link"
       ],
       "summary": "Hospital-grade surgical robot and forensic medical examiner.",
-      "description": "The Surgeon Bot is a high-skill replacement medical doctor optimized for hospital environments. It combines four highly dexterous arms, strong diagnostic senses, built-in injector needles, and forensic tooling, but depends on a full medical bay to exploit its abilities fully."
+      "description": "The Surgeon Bot is a high-skill replacement medical doctor optimized for hospital environments. It combines four highly dexterous arms, strong diagnostic senses, built-in injector needles, and forensic tooling, but depends on a full medical bay to exploit its abilities fully.",
+      "originCulture": "Third Imperium"
     },
     {
       "id": "rh-surrogate-droid-basic",
@@ -1843,7 +1882,8 @@
         "Wireless Data Link"
       ],
       "summary": "Clearly robotic surrogate-pregnancy android with servant baseline.",
-      "description": "The basic Surrogate Droid is a humanoid robot with an artificial womb intended to carry pregnancies in societies that permit or encourage the practice. It makes little effort to pass as biological and doubles as a simple domestic servant platform with parental override capability."
+      "description": "The basic Surrogate Droid is a humanoid robot with an artificial womb intended to carry pregnancies in societies that permit or encourage the practice. It makes little effort to pass as biological and doubles as a simple domestic servant platform with parental override capability.",
+      "originCulture": "Third Imperium"
     },
     {
       "id": "rh-utility-droid",
@@ -1878,7 +1918,8 @@
         "Wireless Data Link"
       ],
       "summary": "Cheap configurable humanoid droid for repetitive low-skill tasks.",
-      "description": "Utility Droids are mass-produced adaptable workers meant to be reconfigured for almost any basic service or labour role. They are intentionally cheap enough to be treated as near-disposable on many worlds, which also drives a large second-hand and reprogramming market."
+      "description": "Utility Droids are mass-produced adaptable workers meant to be reconfigured for almost any basic service or labour role. They are intentionally cheap enough to be treated as near-disposable on many worlds, which also drives a large second-hand and reprogramming market.",
+      "originCulture": "Third Imperium"
     },
     {
       "id": "rh-vigilance-ccr",
@@ -1928,7 +1969,8 @@
         "Wireless Data Link"
       ],
       "summary": "Customs-control inspection robot built to detect contraband and intimidation failures.",
-      "description": "The Vigilance Custom Control Robot is a customs and boarding-party machine designed for port inspection, contraband detection, and suspect scrutiny. Its appeal is that it is hard to bribe, hard to deter, and equipped with the sensing and forensic tools needed to know what to inspect."
+      "description": "The Vigilance Custom Control Robot is a customs and boarding-party machine designed for port inspection, contraband detection, and suspect scrutiny. Its appeal is that it is hard to bribe, hard to deter, and equipped with the sensing and forensic tools needed to know what to inspect.",
+      "originCulture": "Third Imperium"
     },
     {
       "id": "rh-ag300-agricultural-worker",
@@ -1971,7 +2013,8 @@
         "Wireless Data Link"
       ],
       "summary": "General farm and hydroponics labour robot with crop-sensing tools.",
-      "description": "The AG300 is an LSP agricultural worker built for open fields and hydroponic farms. Its mixed manipulator set, refrigerated storage, and crop-evaluation sensors let it plant, harvest, and transport produce efficiently across a wide range of agricultural environments."
+      "description": "The AG300 is an LSP agricultural worker built for open fields and hydroponic farms. Its mixed manipulator set, refrigerated storage, and crop-evaluation sensors let it plant, harvest, and transport produce efficiently across a wide range of agricultural environments.",
+      "originCulture": "Third Imperium"
     },
     {
       "id": "rh-bulk-delivery-servitor",
@@ -2014,7 +2057,8 @@
         "Wireless Data Link"
       ],
       "summary": "Fast armoured grav courier for bulk or hostile-environment delivery.",
-      "description": "The Bulk Delivery Servitor is a large streamlined grav courier built to move cargo at very high speed while shrugging off most small-arms threats. It is sold to courier firms and governments that need a secure bulk carrier capable of suborbital and low-orbit delivery runs."
+      "description": "The Bulk Delivery Servitor is a large streamlined grav courier built to move cargo at very high speed while shrugging off most small-arms threats. It is sold to courier firms and governments that need a secure bulk carrier capable of suborbital and low-orbit delivery runs.",
+      "originCulture": "Third Imperium"
     },
     {
       "id": "rh-basic-courier",
@@ -2053,7 +2097,8 @@
         "Wireless Data Link"
       ],
       "summary": "Small grav parcel courier for urgent local deliveries.",
-      "description": "The Basic Courier is a straightforward grav delivery robot whose entire role is moving small packages quickly. It can interpret verbal delivery instructions literally, keep cargo temperature-controlled, and act as a simple confirmation relay for sender and recipient."
+      "description": "The Basic Courier is a straightforward grav delivery robot whose entire role is moving small packages quickly. It can interpret verbal delivery instructions literally, keep cargo temperature-controlled, and act as a simple confirmation relay for sender and recipient.",
+      "originCulture": "Third Imperium"
     },
     {
       "id": "rh-advanced-courier",
@@ -2094,7 +2139,8 @@
         "Wireless Data Link"
       ],
       "summary": "High-speed regional and orbital courier for precise package delivery.",
-      "description": "The Advanced Courier is a faster, longer-range grav courier built for regional transport and low-orbit surface runs. It is still rigidly focused on delivery work, but its navigation systems and vacuum capability let it service a much broader operational envelope than the basic model."
+      "description": "The Advanced Courier is a faster, longer-range grav courier built for regional transport and low-orbit surface runs. It is still rigidly focused on delivery work, but its navigation systems and vacuum capability let it service a much broader operational envelope than the basic model.",
+      "originCulture": "Third Imperium"
     },
     {
       "id": "rh-domestic-servant",
@@ -2131,13 +2177,14 @@
         "Wireless Data Link"
       ],
       "summary": "Cheap early-stellar home and office cleaning robot.",
-      "description": "The Domestic Servant is a small low-tech cleaning robot built to work quietly in homes and offices with minimal interaction. It cannot manipulate its own waste bin or do much beyond cleaning and status reporting, but it is cheap enough to be ubiquitous."
+      "description": "The Domestic Servant is a small low-tech cleaning robot built to work quietly in homes and offices with minimal interaction. It cannot manipulate its own waste bin or do much beyond cleaning and status reporting, but it is cheap enough to be ubiquitous.",
+      "originCulture": "Third Imperium"
     },
     {
       "id": "rh-basic-lab-control-robot",
       "name": "Basic Lab Control Robot",
       "sourcePage": 179,
-      "category": "utility",
+      "category": "brain",
       "entryType": "brain",
       "techLevel": 12,
       "locomotion": "None",
@@ -2167,13 +2214,14 @@
         "Wireless Data Link"
       ],
       "summary": "Bench-mounted single-drone control brain for testing and lab work.",
-      "description": "The Basic Lab Control Robot is a small controller-brain box for operating a single drone or robot in a laboratory environment. It exists to provide controlled testing and limited customization, not broad flexible remote operations."
+      "description": "The Basic Lab Control Robot is a small controller-brain box for operating a single drone or robot in a laboratory environment. It exists to provide controlled testing and limited customization, not broad flexible remote operations.",
+      "originCulture": "Third Imperium"
     },
     {
       "id": "rh-advanced-lab-control-robot",
       "name": "Advanced Lab Control Robot",
       "sourcePage": 180,
-      "category": "utility",
+      "category": "brain",
       "entryType": "brain",
       "techLevel": 12,
       "locomotion": "None",
@@ -2205,7 +2253,8 @@
         "Wireless Data Link"
       ],
       "summary": "Multi-drone lab control brain with avatar and swarm support.",
-      "description": "The Advanced Lab Control Robot is a more capable remote-operations brain designed to run multiple drones, operate a single avatar body, and supervise swarm tasks. Its robotics knowledge also makes it suitable for diagnosing problems and conducting limited independent research."
+      "description": "The Advanced Lab Control Robot is a more capable remote-operations brain designed to run multiple drones, operate a single avatar body, and supervise swarm tasks. Its robotics knowledge also makes it suitable for diagnosing problems and conducting limited independent research.",
+      "originCulture": "Third Imperium"
     },
     {
       "id": "rh-labour-droid",
@@ -2240,7 +2289,8 @@
         "Wireless Data Link"
       ],
       "summary": "Mass-produced baseline worker droid for low-skill industrial labour.",
-      "description": "The Labour Droid is the cheap default replacement for low-skilled biological workers on many TL10+ worlds. It is intentionally simple and replaceable, with most specialization left to aftermarket tools or packaged variants."
+      "description": "The Labour Droid is the cheap default replacement for low-skilled biological workers on many TL10+ worlds. It is intentionally simple and replaceable, with most specialization left to aftermarket tools or packaged variants.",
+      "originCulture": "Third Imperium"
     },
     {
       "id": "rh-low-berth-advanced",
@@ -2281,7 +2331,8 @@
         "Wireless Data Link"
       ],
       "summary": "Autonomous cryo and hibernation berth with integrated medical support.",
-      "description": "The Advanced Low Berth is a self-contained cryoberth / low-berth unit able to freeze, preserve, monitor, and revive occupants without outside medical help. Its onboard brain and manipulators make it far safer than an unassisted berth and useful for emergency medical stasis."
+      "description": "The Advanced Low Berth is a self-contained cryoberth / low-berth unit able to freeze, preserve, monitor, and revive occupants without outside medical help. Its onboard brain and manipulators make it far safer than an unassisted berth and useful for emergency medical stasis.",
+      "originCulture": "Third Imperium"
     },
     {
       "id": "rh-low-berth-grav",
@@ -2323,7 +2374,8 @@
         "Wireless Data Link"
       ],
       "summary": "Mobile grav-capable advanced berth for casualty transfer and stasis.",
-      "description": "The Grav Low Berth is a self-propelled version of the advanced low berth, built to move patients between ships, vehicles, and facilities under its own power. It trades long static endurance for mobility while keeping the same cryo and hibernation functionality."
+      "description": "The Grav Low Berth is a self-propelled version of the advanced low berth, built to move patients between ships, vehicles, and facilities under its own power. It trades long static endurance for mobility while keeping the same cryo and hibernation functionality.",
+      "originCulture": "Third Imperium"
     },
     {
       "id": "rh-mining-bot",
@@ -2362,7 +2414,8 @@
         "Wireless Data Link"
       ],
       "summary": "Independent asteroid and vacuum mining robot based on the mining drone chassis.",
-      "description": "The Mining Bot is effectively a mining drone upgraded with a proper robot brain and speech capability, allowing it to work independently as a miner instead of under direct drone control. It can identify economically viable ore during extraction but still lacks the deeper prospecting capability of a true survey robot."
+      "description": "The Mining Bot is effectively a mining drone upgraded with a proper robot brain and speech capability, allowing it to work independently as a miner instead of under direct drone control. It can identify economically viable ore during extraction but still lacks the deeper prospecting capability of a true survey robot.",
+      "originCulture": "Third Imperium"
     },
     {
       "id": "rh-robodiver",
@@ -2409,7 +2462,8 @@
         "Wireless Data Link"
       ],
       "summary": "Deep-water repair and inspection robot for crushing ocean environments.",
-      "description": "Robodivers are robust human-sized subsea robots built to work at extreme depths where pressure would crush unprotected operators. They are primarily used for repair and maintenance work but retain enough sensors and autonomy to perform basic reconnaissance underwater."
+      "description": "Robodivers are robust human-sized subsea robots built to work at extreme depths where pressure would crush unprotected operators. They are primarily used for repair and maintenance work but retain enough sensors and autonomy to perform basic reconnaissance underwater.",
+      "originCulture": "Third Imperium"
     },
     {
       "id": "rh-rpru",
@@ -2456,7 +2510,8 @@
         "Wireless Data Link"
       ],
       "summary": "Sphere-shaped grav reconnaissance unit for stealthy remote observation.",
-      "description": "The Remotely Piloted Reconnaissance Unit is a compact grav observation sphere studded with sensors and designed for low-signature scouting. It is usually drone-operated through its control case but has enough autonomous evasion logic to survive short comms disruptions."
+      "description": "The Remotely Piloted Reconnaissance Unit is a compact grav observation sphere studded with sensors and designed for low-signature scouting. It is usually drone-operated through its control case but has enough autonomous evasion logic to survive short comms disruptions.",
+      "originCulture": "Third Imperium"
     },
     {
       "id": "rh-special-delivery-servitor",
@@ -2498,7 +2553,8 @@
         "Wireless Data Link"
       ],
       "summary": "Premium fast courier robot for same-day planetary and orbital delivery.",
-      "description": "The Special Delivery Servitor is a high-end streamlined grav courier built for speed, reach, and secure hazardous-material transport. Its aggressive marketing pitch is essentially that if a package absolutely must arrive today, this is the robot to do it."
+      "description": "The Special Delivery Servitor is a high-end streamlined grav courier built for speed, reach, and secure hazardous-material transport. Its aggressive marketing pitch is essentially that if a package absolutely must arrive today, this is the robot to do it.",
+      "originCulture": "Third Imperium"
     },
     {
       "id": "rh-skitter",
@@ -2534,7 +2590,8 @@
         "Wireless Data Link"
       ],
       "summary": "Tiny wall-and-ceiling cleaning robot for continuous interior maintenance.",
-      "description": "The Skitter is a compact autonomous cleaning robot built around sheer efficiency and persistence. Gecko wheels let it clean walls and ceilings as well as floors, and its small size makes it a common permanent resident in buildings and larger vehicles."
+      "description": "The Skitter is a compact autonomous cleaning robot built around sheer efficiency and persistence. Gecko wheels let it clean walls and ceilings as well as floors, and its small size makes it a common permanent resident in buildings and larger vehicles.",
+      "originCulture": "Third Imperium"
     },
     {
       "id": "rh-smart-probe-bot",
@@ -2582,7 +2639,8 @@
         "Wireless Data Link"
       ],
       "summary": "Independent planetary survey bot derived from the probe drone chassis.",
-      "description": "The Smart Probe Bot is a probe-drone variant with an advanced robot brain and dedicated planetology package, allowing it to carry out independent local investigations. It remains overridable via drone interface, but it is much more self-sufficient than a standard probe drone."
+      "description": "The Smart Probe Bot is a probe-drone variant with an advanced robot brain and dedicated planetology package, allowing it to carry out independent local investigations. It remains overridable via drone interface, but it is much more self-sufficient than a standard probe drone.",
+      "originCulture": "Third Imperium"
     },
     {
       "id": "rh-toolsack-workbot",
@@ -2620,7 +2678,8 @@
         "Wireless Data Link"
       ],
       "summary": "Tracked heavy work platform for construction, earthmoving, and site support.",
-      "description": "The Toolsack Workbot is a widely used tracked labour platform built for heavy tasks in many environments. Its modular bay and power capacity make it both a serious work machine and a field support hub for smaller robots riding in with it."
+      "description": "The Toolsack Workbot is a widely used tracked labour platform built for heavy tasks in many environments. Its modular bay and power capacity make it both a serious work machine and a field support hub for smaller robots riding in with it.",
+      "originCulture": "Third Imperium"
     },
     {
       "id": "rh-type-c-cargo-loader",
@@ -2658,7 +2717,8 @@
         "Wireless Data Link"
       ],
       "summary": "Semi-autonomous cargo handling robot common in ports and frontier trade.",
-      "description": "The Type C Cargo Loader is a common tracked loading robot used at ports, aboard merchant ships, and in frontier freight operations. Its heavy forklift platform and modest autonomy make it useful anywhere cargo must be shifted reliably with limited crew attention."
+      "description": "The Type C Cargo Loader is a common tracked loading robot used at ports, aboard merchant ships, and in frontier freight operations. Its heavy forklift platform and modest autonomy make it useful anywhere cargo must be shifted reliably with limited crew attention.",
+      "originCulture": "Third Imperium"
     },
     {
       "id": "rh-arerl-slave-machine",
@@ -2695,7 +2755,8 @@
         "Wireless Data Link"
       ],
       "summary": "Mass-produced Aslan labour machine in a humanoid labourer form.",
-      "description": "The Arerl Slave Machine is a straightforward Aslan labour robot built in a humanoid form that appeals to Aslan cultural instincts even if it is not the most efficient possible chassis. It exists to take on the lowest-status physical work roles in Aslan society."
+      "description": "The Arerl Slave Machine is a straightforward Aslan labour robot built in a humanoid form that appeals to Aslan cultural instincts even if it is not the most efficient possible chassis. It exists to take on the lowest-status physical work roles in Aslan society.",
+      "originCulture": "Aslan"
     },
     {
       "id": "rh-hikare-technician",
@@ -2738,7 +2799,8 @@
         "Wireless Data Link"
       ],
       "summary": "Sophisticated Aslan technician and scout-ship support robot.",
-      "description": "The Hikare' is a high-quality Aslan personal technician robot capable of filling engineer and servant roles, especially on small scout craft or under female supervision on larger ships. Older Hikare' units are common on backwater colonies, reflecting a long-lived and prestigious design lineage."
+      "description": "The Hikare' is a high-quality Aslan personal technician robot capable of filling engineer and servant roles, especially on small scout craft or under female supervision on larger ships. Older Hikare' units are common on backwater colonies, reflecting a long-lived and prestigious design lineage.",
+      "originCulture": "Aslan"
     },
     {
       "id": "rh-khyeseir-mousebot",
@@ -2773,7 +2835,8 @@
         "Wireless Data Link"
       ],
       "summary": "Aslan dining drone that serves heated meat in prey-like motion.",
-      "description": "The Khyeseir is a tiny Aslan service drone designed to evoke Kusyu prey animals during meals. Heated meat is mounted on its spikes and the unit is released to dart around the dining space, providing a culturally resonant substitute where live prey would be impractical."
+      "description": "The Khyeseir is a tiny Aslan service drone designed to evoke Kusyu prey animals during meals. Heated meat is mounted on its spikes and the unit is released to dart around the dining space, providing a culturally resonant substitute where live prey would be impractical.",
+      "originCulture": "Aslan"
     },
     {
       "id": "rh-gardener-servant",
@@ -2819,7 +2882,8 @@
         "Wireless Data Link"
       ],
       "summary": "Six-limbed Hiver general servant for gardening, care, and household support.",
-      "description": "The Gardener Servant is a Hiver multi-role servant robot that handles far more than gardening, including cleaning, cooking, medical aid, and veterinary work. It reflects Hiver preferences for indirect action through capable robotic assistants rather than direct labour."
+      "description": "The Gardener Servant is a Hiver multi-role servant robot that handles far more than gardening, including cleaning, cooking, medical aid, and veterinary work. It reflects Hiver preferences for indirect action through capable robotic assistants rather than direct labour.",
+      "originCulture": "Hiver"
     },
     {
       "id": "rh-hazardous-environment-scout",
@@ -2873,7 +2937,8 @@
         "Wireless Data Link"
       ],
       "summary": "Long-endurance Hiver scout robot for lethal survey and sampling work.",
-      "description": "The Hazardous Environment Scout is a premium Hiver robot built for places too corrosive, radioactive, or otherwise hostile for biological workers. It combines long-duration power, geological sampling, data relay, and rugged environmental protection in a six-limbed chassis."
+      "description": "The Hazardous Environment Scout is a premium Hiver robot built for places too corrosive, radioactive, or otherwise hostile for biological workers. It combines long-duration power, geological sampling, data relay, and rugged environmental protection in a six-limbed chassis.",
+      "originCulture": "Hiver"
     },
     {
       "id": "rh-marine-boarding-droid",
@@ -2938,7 +3003,8 @@
         "Wireless Data Link"
       ],
       "summary": "Elite Hiver boarding-war droid built for stealthy ship assault in any gravity.",
-      "description": "The Marine Boarding Droid is a high-end Six Eyes Nest combat robot optimized for shipboard assaults. It combines heavy armour, multi-spectrum camouflage, gecko grip mobility, advanced sensors, and an unusually broad weapon suite for close-quarters boarding actions."
+      "description": "The Marine Boarding Droid is a high-end Six Eyes Nest combat robot optimized for shipboard assaults. It combines heavy armour, multi-spectrum camouflage, gecko grip mobility, advanced sensors, and an unusually broad weapon suite for close-quarters boarding actions.",
+      "originCulture": "Hiver"
     },
     {
       "id": "rh-courier-drone",
@@ -2975,7 +3041,8 @@
         "Wireless Data Link"
       ],
       "summary": "Low-cost regional VTOL package transport drone.",
-      "description": "The Courier Drone is a mid-tech operator-driven delivery drone intended for small-package transport over regional distances. It uses small manipulator arms to handle pick-up and drop-off duties and includes a refrigerated compartment suitable for biological specimens as well as ordinary cargo."
+      "description": "The Courier Drone is a mid-tech operator-driven delivery drone intended for small-package transport over regional distances. It uses small manipulator arms to handle pick-up and drop-off duties and includes a refrigerated compartment suitable for biological specimens as well as ordinary cargo.",
+      "originCulture": "Third Imperium"
     },
     {
       "id": "rh-mining-drone",
@@ -3013,7 +3080,8 @@
         "Wireless Data Link"
       ],
       "summary": "Belter and prospector asteroid mining drone.",
-      "description": "The standard asteroid Mining Drone is a rugged thruster-based mining platform used by belters and prospectors. It combines heavy mining gear with modest manipulator capability, relying on solar support when possible and often being sold in groups with processing equipment and storage harnesses."
+      "description": "The standard asteroid Mining Drone is a rugged thruster-based mining platform used by belters and prospectors. It combines heavy mining gear with modest manipulator capability, relying on solar support when possible and often being sold in groups with processing equipment and storage harnesses.",
+      "originCulture": "Third Imperium"
     },
     {
       "id": "rh-offworld-construction-drone",
@@ -3058,7 +3126,8 @@
         "Wireless Data Link"
       ],
       "summary": "Remote microgravity construction and heavy repair drone.",
-      "description": "Often called the OCD, this blocky construction drone is operated by a skilled remote worker or construction master robot to build offworld installations and handle large-scale repair work. Gecko-coated tracks and a broad tool suite let it function in microgravity, while its chassis is substantial enough to serve as a starship repair drone when stowed aboard larger vessels."
+      "description": "Often called the OCD, this blocky construction drone is operated by a skilled remote worker or construction master robot to build offworld installations and handle large-scale repair work. Gecko-coated tracks and a broad tool suite let it function in microgravity, while its chassis is substantial enough to serve as a starship repair drone when stowed aboard larger vessels.",
+      "originCulture": "Third Imperium"
     },
     {
       "id": "rh-probe-drone",
@@ -3106,7 +3175,8 @@
         "Wireless Data Link"
       ],
       "summary": "Standard IISS planetary and orbital survey drone.",
-      "description": "The standard IISS Probe Drone is an old but resilient grav-powered survey drone dropped from orbit or deployed in atmosphere to gather information and relay data. It cannot return to orbit on its own but can function for years as an orbital relay or observation platform if left in place under solar support."
+      "description": "The standard IISS Probe Drone is an old but resilient grav-powered survey drone dropped from orbit or deployed in atmosphere to gather information and relay data. It cannot return to orbit on its own but can function for years as an orbital relay or observation platform if left in place under solar support.",
+      "originCulture": "Third Imperium"
     },
     {
       "id": "rh-advanced-probe-drone",
@@ -3154,7 +3224,8 @@
         "Wireless Data Link"
       ],
       "summary": "Improved long-endurance survey and observation probe.",
-      "description": "The advanced Probe Drone updates the standard IISS pattern with stronger sensors, tougher systems, and longer-lived vacuum solar panels. It fills the same atmospheric, orbital, and relay roles as the older model but with meaningfully greater resilience and reconnaissance capability."
+      "description": "The advanced Probe Drone updates the standard IISS pattern with stronger sensors, tougher systems, and longer-lived vacuum solar panels. It fills the same atmospheric, orbital, and relay roles as the older model but with meaningfully greater resilience and reconnaissance capability.",
+      "originCulture": "Third Imperium"
     },
     {
       "id": "rh-medium-repair-drone",
@@ -3194,7 +3265,8 @@
         "Wireless Data Link"
       ],
       "summary": "Human-sized general-purpose ship repair drone.",
-      "description": "The medium Repair Drone is roughly crew-sized and can use standard ship tools, panels, and embedded repair gear. It is the baseline member of the repair drone family and forms part of many smaller-vessel repair complements."
+      "description": "The medium Repair Drone is roughly crew-sized and can use standard ship tools, panels, and embedded repair gear. It is the baseline member of the repair drone family and forms part of many smaller-vessel repair complements.",
+      "originCulture": "Third Imperium"
     },
     {
       "id": "rh-small-repair-drone",
@@ -3235,7 +3307,8 @@
         "Wireless Data Link"
       ],
       "summary": "Tight-space repair drone for smaller access routes.",
-      "description": "The small Repair Drone is optimized for tighter spaces than the medium chassis while still being large enough to handle standard mechanical tools. Its limb arrangement lets it work with all four limbs in constrained areas that would block a full-sized operator."
+      "description": "The small Repair Drone is optimized for tighter spaces than the medium chassis while still being large enough to handle standard mechanical tools. Its limb arrangement lets it work with all four limbs in constrained areas that would block a full-sized operator.",
+      "originCulture": "Third Imperium"
     },
     {
       "id": "rh-extra-small-repair-drone",
@@ -3273,7 +3346,8 @@
         "Wireless Data Link"
       ],
       "summary": "Conduit-scale repair drone for very small access panels.",
-      "description": "The extra-small Repair Drone is built to move within conduits and very narrow maintenance spaces. Its compact frame and gecko grippers let it hang from surfaces and work in awkward gravity conditions while still using four-limb dexterity for delicate access tasks."
+      "description": "The extra-small Repair Drone is built to move within conduits and very narrow maintenance spaces. Its compact frame and gecko grippers let it hang from surfaces and work in awkward gravity conditions while still using four-limb dexterity for delicate access tasks.",
+      "originCulture": "Third Imperium"
     },
     {
       "id": "rh-large-repair-drone",
@@ -3319,7 +3393,8 @@
         "Wireless Data Link"
       ],
       "summary": "Heavy repair and reconstruction drone for major damage.",
-      "description": "The large Repair Drone is a deep-space workhorse intended for power-plant rebuilds, external hull repairs, and hazardous engineering environments. Its long-duration power pack, stronger manipulators, and heavier tooling suit it to sustained reconstruction work where smaller drones would be overwhelmed."
+      "description": "The large Repair Drone is a deep-space workhorse intended for power-plant rebuilds, external hull repairs, and hazardous engineering environments. Its long-duration power pack, stronger manipulators, and heavier tooling suit it to sustained reconstruction work where smaller drones would be overwhelmed.",
+      "originCulture": "Third Imperium"
     },
     {
       "id": "rh-extra-large-repair-drone",
@@ -3365,7 +3440,8 @@
         "Wireless Data Link"
       ],
       "summary": "Capital-ship repair drone for major structural damage.",
-      "description": "The extra-large Repair Drone is a two-ton hulking reconstruction machine usually found only aboard capital ships. It is designed to move across external hull surfaces, access large breaches, and clear or rebuild damage too severe for standard repair machines to handle."
+      "description": "The extra-large Repair Drone is a two-ton hulking reconstruction machine usually found only aboard capital ships. It is designed to move across external hull surfaces, access large breaches, and clear or rebuild damage too severe for standard repair machines to handle.",
+      "originCulture": "Third Imperium"
     },
     {
       "id": "rh-skyspotter",
@@ -3399,7 +3475,8 @@
         "Visual Spectrum Sensor"
       ],
       "summary": "Basic hand-thrown reconnaissance mini-aircraft drone.",
-      "description": "SkySpotter is a very simple small reconnaissance drone built around optical and thermal imaging with waypoint or preset-course operation. It is inexpensive and easy to control from a personal computer, making it common despite being fairly obvious to anyone specifically watching for such craft."
+      "description": "SkySpotter is a very simple small reconnaissance drone built around optical and thermal imaging with waypoint or preset-course operation. It is inexpensive and easy to control from a personal computer, making it common despite being fairly obvious to anyone specifically watching for such craft.",
+      "originCulture": "Third Imperium"
     },
     {
       "id": "rh-exterminator",
@@ -3439,7 +3516,8 @@
         "Wireless Data Link"
       ],
       "summary": "Autonomous lethal vermin-hunting microbot.",
-      "description": "The Exterminator is a rare legal exception to general restrictions on autonomous lethal robots, intended specifically to hunt small vermin. Its six-rotor frame and stinger blade let it pursue pests into cracks, under furniture, and back to their lairs with minimal operator involvement."
+      "description": "The Exterminator is a rare legal exception to general restrictions on autonomous lethal robots, intended specifically to hunt small vermin. Its six-rotor frame and stinger blade let it pursue pests into cracks, under furniture, and back to their lairs with minimal operator involvement.",
+      "originCulture": "Third Imperium"
     },
     {
       "id": "rh-hunter-bug",
@@ -3482,7 +3560,8 @@
         "Wireless Data Link"
       ],
       "summary": "Tiny blade-equipped infiltration and extermination microbot.",
-      "description": "The Hunter Bug is a 15-millimetre microbot built around a retractable synthetic-diamond blade with a hollow channel for carrying a fluid dose. Marketed for pest control but obviously adaptable to darker uses, it can operate in swarms, strike sleeping targets, and slip through almost any non-airtight opening."
+      "description": "The Hunter Bug is a 15-millimetre microbot built around a retractable synthetic-diamond blade with a hollow channel for carrying a fluid dose. Marketed for pest control but obviously adaptable to darker uses, it can operate in swarms, strike sleeping targets, and slip through almost any non-airtight opening.",
+      "originCulture": "Third Imperium"
     },
     {
       "id": "rh-nano-hero",
@@ -3521,7 +3600,8 @@
         "Wireless Data Link"
       ],
       "summary": "Action-figure scale avatar exploration microbot.",
-      "description": "RoboHero's Nano Hero is a bug-sized action-figure drone built as a miniature adventure avatar. It trades the full immersion of larger avatar systems for novelty, exploration, and custom cosmetic projection, letting users experience environments from a dramatically reduced scale."
+      "description": "RoboHero's Nano Hero is a bug-sized action-figure drone built as a miniature adventure avatar. It trades the full immersion of larger avatar systems for novelty, exploration, and custom cosmetic projection, letting users experience environments from a dramatically reduced scale.",
+      "originCulture": "Third Imperium"
     },
     {
       "id": "rh-peeping-spybot",
@@ -3562,7 +3642,8 @@
         "Wireless Data Link"
       ],
       "summary": "Grav-propelled reconnaissance and infiltration spy microbot.",
-      "description": "The Peeping Spybot is a silent camouflaged grav microbot built to gather information in hostile or inaccessible environments. Its small disk body can move through ducts, vacuum, and open air while recording or transmitting data, and it is capable of both independent and operator-driven surveillance work."
+      "description": "The Peeping Spybot is a silent camouflaged grav microbot built to gather information in hostile or inaccessible environments. Its small disk body can move through ducts, vacuum, and open air while recording or transmitting data, and it is capable of both independent and operator-driven surveillance work.",
+      "originCulture": "Third Imperium"
     },
     {
       "id": "rh-scout-mite",
@@ -3599,7 +3680,8 @@
         "Wireless Data Link"
       ],
       "summary": "Swarmable forensic and alert microbot.",
-      "description": "The Scout Mite was designed to be carried in large quantities by a Forensic Supervisor Droid, prioritising sensors over everything else. Its tiny 4mm body and simple brain make it closer to a sensor-rich drone than a full droid, but it can still act independently in limited ways when deployed alone or in swarms."
+      "description": "The Scout Mite was designed to be carried in large quantities by a Forensic Supervisor Droid, prioritising sensors over everything else. Its tiny 4mm body and simple brain make it closer to a sensor-rich drone than a full droid, but it can still act independently in limited ways when deployed alone or in swarms.",
+      "originCulture": "Third Imperium"
     },
     {
       "id": "rh-searcher-microbot",
@@ -3638,7 +3720,8 @@
         "Wireless Data Link"
       ],
       "summary": "Long-duration search, rescue, and spy reconnaissance microbot.",
-      "description": "The Searcher is a small multilegged reconnaissance robot able to crawl across almost any surface and provide high-definition observation from spaces too small for larger machines. It can act autonomously for long periods, especially with sunlight, and has obvious applications in survey, rescue, and covert surveillance."
+      "description": "The Searcher is a small multilegged reconnaissance robot able to crawl across almost any surface and provide high-definition observation from spaces too small for larger machines. It can act autonomously for long periods, especially with sunlight, and has obvious applications in survey, rescue, and covert surveillance.",
+      "originCulture": "Third Imperium"
     },
     {
       "id": "rh-construction-nano-queen",
@@ -3683,7 +3766,8 @@
         "Wireless Data Link"
       ],
       "summary": "Nanorobot swarm controller for construction and excavation.",
-      "description": "Often called the Swarm Mother, the Construction Nano Queen is a dog-sized quadruped robot built to operate and recycle construction nanorobot packages. It can coordinate multiple nano swarms, carry litres of nano stock and components, and use its fabrication chamber to rebuild worn-out nanos for effectively continuous remote construction work."
+      "description": "Often called the Swarm Mother, the Construction Nano Queen is a dog-sized quadruped robot built to operate and recycle construction nanorobot packages. It can coordinate multiple nano swarms, carry litres of nano stock and components, and use its fabrication chamber to rebuild worn-out nanos for effectively continuous remote construction work.",
+      "originCulture": "Third Imperium"
     },
     {
       "id": "rh-enhanced-android",
@@ -3728,7 +3812,8 @@
         "Wireless Data Link"
       ],
       "summary": "Flexible field-usable android that can pass as biological.",
-      "description": "The Enhanced Android is the first mainstream model able to pass as biological without very close inspection. It is built for flexibility, scouting, and hazardous-environment work, with spare slot capacity, self-repair capability, and enough sensor sophistication to fill remote field roles while still presenting as humanoid."
+      "description": "The Enhanced Android is the first mainstream model able to pass as biological without very close inspection. It is built for flexibility, scouting, and hazardous-environment work, with spare slot capacity, self-repair capability, and enough sensor sophistication to fill remote field roles while still presenting as humanoid.",
+      "originCulture": "Third Imperium"
     },
     {
       "id": "rh-superior-android",
@@ -3768,7 +3853,8 @@
         "Wireless Data Link"
       ],
       "summary": "Experimental high-end android for sentient-grade roles.",
-      "description": "The Superior Android is intended to mimic sophonts in nearly every respect except free will, allowing it to fill dangerous, repetitive, or unpleasant roles that would otherwise demand a sentient operator. Its self-aware brain, long-duration RTG power, and huge skill bandwidth make it one of the most capable synthetic bodies in the handbook."
+      "description": "The Superior Android is intended to mimic sophonts in nearly every respect except free will, allowing it to fill dangerous, repetitive, or unpleasant roles that would otherwise demand a sentient operator. Its self-aware brain, long-duration RTG power, and huge skill bandwidth make it one of the most capable synthetic bodies in the handbook.",
+      "originCulture": "Third Imperium"
     },
     {
       "id": "rh-body-double",
@@ -3808,7 +3894,8 @@
         "Wireless Data Link"
       ],
       "summary": "Custom impersonation android built to emulate a specific person.",
-      "description": "A Body Double is a premium custom android designed to impersonate and protect a specific individual, requiring extended acclimation in the presence of its biological template to perfect the deception. Its legal status is fraught on many worlds because it is explicitly intended to pass as a living being and often carries a destructive anti-abduction failsafe."
+      "description": "A Body Double is a premium custom android designed to impersonate and protect a specific individual, requiring extended acclimation in the presence of its biological template to perfect the deception. Its legal status is fraught on many worlds because it is explicitly intended to pass as a living being and often carries a destructive anti-abduction failsafe.",
+      "originCulture": "Third Imperium"
     },
     {
       "id": "rh-ceiling-cat",
@@ -3850,7 +3937,8 @@
         "Wireless Data Link"
       ],
       "summary": "Luxury wall-climbing android cat and surveillance pet.",
-      "description": "The Ceiling Cat is an extremely realistic android cat developed from a SURD exhibition concept and turned into a luxury status symbol. Gecko-padded paws and a prehensile tail let it move across walls and ceilings, while its advanced brain and sharp senses make it as much a surveillance and stealth platform as an indulgent companion."
+      "description": "The Ceiling Cat is an extremely realistic android cat developed from a SURD exhibition concept and turned into a luxury status symbol. Gecko-padded paws and a prehensile tail let it move across walls and ceilings, while its advanced brain and sharp senses make it as much a surveillance and stealth platform as an indulgent companion.",
+      "originCulture": "Third Imperium"
     },
     {
       "id": "rh-companion",
@@ -3893,7 +3981,8 @@
         "Wireless Data Link"
       ],
       "summary": "General-purpose lifelike android with broad upgrade headroom.",
-      "description": "The Companion is a lower-cost advanced android intended to emulate a biological person closely enough for social and household roles. It is often bought as a lower-cost body double or performance stand-in, and much of its value lies in spare slot capacity and upgrade potential rather than a heavy starting skill package."
+      "description": "The Companion is a lower-cost advanced android intended to emulate a biological person closely enough for social and household roles. It is often bought as a lower-cost body double or performance stand-in, and much of its value lies in spare slot capacity and upgrade potential rather than a heavy starting skill package.",
+      "originCulture": "Third Imperium"
     },
     {
       "id": "rh-counsellor",
@@ -3948,7 +4037,8 @@
         "Wireless Data Link"
       ],
       "summary": "Premium therapeutic and advisory android for elite clients.",
-      "description": "The Counsellor is a highly lifelike SURD android built around psychology, persuasion, and interpersonal expertise. It is sold as a top-tier confidential advisor, therapist, and relationship specialist, with enough spare capacity to absorb extra languages and social knowledge for its owner’s environment."
+      "description": "The Counsellor is a highly lifelike SURD android built around psychology, persuasion, and interpersonal expertise. It is sold as a top-tier confidential advisor, therapist, and relationship specialist, with enough spare capacity to absorb extra languages and social knowledge for its owner’s environment.",
+      "originCulture": "Third Imperium"
     },
     {
       "id": "rh-elvis-performance-double",
@@ -3987,7 +4077,8 @@
         "Wireless Data Link"
       ],
       "summary": "Entertainment android built to impersonate performers on stage.",
-      "description": "The Elvis Performance Double is one of Makhidkarun’s impersonation androids, designed to mimic famous or stylized entertainers for touring shows and revenue expansion into secondary markets. It trades top-end realism for scalable performance value and can also be occupied through avatar hardware for premium remote entertainment."
+      "description": "The Elvis Performance Double is one of Makhidkarun’s impersonation androids, designed to mimic famous or stylized entertainers for touring shows and revenue expansion into secondary markets. It trades top-end realism for scalable performance value and can also be occupied through avatar hardware for premium remote entertainment.",
+      "originCulture": "Third Imperium"
     },
     {
       "id": "rh-dupal-companion-robot",
@@ -4026,7 +4117,8 @@
         "Wireless Data Link"
       ],
       "summary": "Child-care and elder-care companion android in stylized elephant form.",
-      "description": "Dupal is a soft-skinned companion robot shaped like a pink elephant and aimed at children or elderly dependants. It combines nanny, nurse-mate, and light domestic-care roles with enough strength to physically support a human charge when needed."
+      "description": "Dupal is a soft-skinned companion robot shaped like a pink elephant and aimed at children or elderly dependants. It combines nanny, nurse-mate, and light domestic-care roles with enough strength to physically support a human charge when needed.",
+      "originCulture": "Third Imperium"
     },
     {
       "id": "rh-improved-surrogate-droid",
@@ -4066,7 +4158,8 @@
         "Wireless Data Link"
       ],
       "summary": "Natural-looking surrogate and caregiver android.",
-      "description": "The Improved Surrogate Droid is a natural-looking android variant intended for domestic care and surrogate-parent roles. It is more socially acceptable and biologically convincing than a basic droid chassis, though its intended role makes it taboo or distasteful in some societies."
+      "description": "The Improved Surrogate Droid is a natural-looking android variant intended for domestic care and surrogate-parent roles. It is more socially acceptable and biologically convincing than a basic droid chassis, though its intended role makes it taboo or distasteful in some societies.",
+      "originCulture": "Third Imperium"
     },
     {
       "id": "rh-synthetic-horse",
@@ -4108,7 +4201,8 @@
         "Wireless Data Link"
       ],
       "summary": "Animal-form android mount for restricted or low-tech worlds.",
-      "description": "The Synthetic Horse is an old android animal design sold to travellers who need a compliant mount rather than a living animal. Its control package is built to emulate equine behaviour while obeying verbal or electronic commands, making it attractive wherever vehicles are restricted and riding skill is uncommon."
+      "description": "The Synthetic Horse is an old android animal design sold to travellers who need a compliant mount rather than a living animal. Its control package is built to emulate equine behaviour while obeying verbal or electronic commands, making it attractive wherever vehicles are restricted and riding skill is uncommon.",
+      "originCulture": "Third Imperium"
     },
     {
       "id": "rh-entourage-biobot",
@@ -4147,7 +4241,8 @@
         "Wireless Data Link"
       ],
       "summary": "Customizable social-presence biobot for affluent owners.",
-      "description": "The Entourage Biobot is a biological robot built from a cloned or manufactured body and fitted with an artificial brain and nervous system to create an obedient member of a personal entourage. Appearance is flexible, skill packages can be swapped remotely, and unlike synthetic-bodied robots it ages and heals like a living organism."
+      "description": "The Entourage Biobot is a biological robot built from a cloned or manufactured body and fitted with an artificial brain and nervous system to create an obedient member of a personal entourage. Appearance is flexible, skill packages can be swapped remotely, and unlike synthetic-bodied robots it ages and heals like a living organism.",
+      "originCulture": "Third Imperium"
     },
     {
       "id": "rh-impersonator",
@@ -4180,7 +4275,8 @@
         "Wireless Data Link"
       ],
       "summary": "Quick-grown biological avatar body for remote occupation.",
-      "description": "The Impersonator is an avatar-oriented biological robot built around a designed quick-grown clone body with an embedded avatar receiver and robotic brain. When not actively inhabited under avatar or drone control, it can feed and clean itself and obey basic instructions, but its main purpose is to provide a remotely occupied living body."
+      "description": "The Impersonator is an avatar-oriented biological robot built around a designed quick-grown clone body with an embedded avatar receiver and robotic brain. When not actively inhabited under avatar or drone control, it can feed and clean itself and obey basic instructions, but its main purpose is to provide a remotely occupied living body.",
+      "originCulture": "Third Imperium"
     },
     {
       "id": "rh-zombie",
@@ -4214,7 +4310,8 @@
         "Wireless Data Link"
       ],
       "summary": "Requisitioned-body labour biobot commonly called a zombie.",
-      "description": "The Zombie is a macabre biological robot built by implanting a robotic brain and cybernetic interfaces into a fully grown biological body rather than growing a fresh one. Whether sourced from the brain-dead, the condemned, or outright victims, such units are typically used as labour teams under remote supervision and remain deeply controversial for obvious reasons."
+      "description": "The Zombie is a macabre biological robot built by implanting a robotic brain and cybernetic interfaces into a fully grown biological body rather than growing a fresh one. Whether sourced from the brain-dead, the condemned, or outright victims, such units are typically used as labour teams under remote supervision and remain deeply controversial for obvious reasons.",
+      "originCulture": "Third Imperium"
     },
     {
       "id": "rh-advanced-android-body-cyborg",
@@ -4255,7 +4352,8 @@
         "Wireless Data Link"
       ],
       "summary": "Life-saving brain-transplant cyborg in an advanced android body.",
-      "description": "This full-body cyborg package is intended as a last-ditch medical option for people whose original bodies are beyond recovery. The procedure moves a living brain into an advanced android body that can pass close inspection as natural while offering superior physical capability, hardened protection, and severe long-term psychological risk."
+      "description": "This full-body cyborg package is intended as a last-ditch medical option for people whose original bodies are beyond recovery. The procedure moves a living brain into an advanced android body that can pass close inspection as natural while offering superior physical capability, hardened protection, and severe long-term psychological risk.",
+      "originCulture": "Third Imperium"
     },
     {
       "id": "rh-egore",
@@ -4300,7 +4398,8 @@
         "Wireless Data Link"
       ],
       "summary": "Open-source penal-industrial full-body cyborg platform.",
-      "description": "The eGore originated as a punitive full-body cyborg project for a hostile mining world, then escaped into the broader market as an open-source procedure and design. It is a harsh functional chassis built for vacuum, radiation, tools, and endurance rather than comfort, with the procedure itself carrying most of the true cost and risk."
+      "description": "The eGore originated as a punitive full-body cyborg project for a hostile mining world, then escaped into the broader market as an open-source procedure and design. It is a harsh functional chassis built for vacuum, radiation, tools, and endurance rather than comfort, with the procedure itself carrying most of the true cost and risk.",
+      "originCulture": "Third Imperium"
     },
     {
       "id": "rh-meatbox-pilot",
@@ -4342,7 +4441,548 @@
         "Wireless Data Link"
       ],
       "summary": "Ship or vehicle pilot system pairing a human and robot brain.",
-      "description": "The Meatbox Pilot is an experimental hybrid pilot package that combines a living sophont brain with a very advanced robotic brain inside a compact box for installation into a ship or vehicle. It was intended to bypass artificial-brain astrogation limitations and reduce crew-space requirements, but psychological collapse among participants made it deeply controversial."
+      "description": "The Meatbox Pilot is an experimental hybrid pilot package that combines a living sophont brain with a very advanced robotic brain inside a compact box for installation into a ship or vehicle. It was intended to bypass artificial-brain astrogation limitations and reduce crew-space requirements, but psychological collapse among participants made it deeply controversial.",
+      "originCulture": "Third Imperium"
+    },
+    {
+      "id": "rh-friend-of-the-lowly",
+      "name": "Friend of the Lowly",
+      "sourcePage": 194,
+      "originCulture": "K'kree",
+      "category": "military",
+      "entryType": "robot",
+      "techLevel": 10,
+      "locomotion": "Grav",
+      "speed": "12m",
+      "hits": 20,
+      "costCredits": 25000,
+      "cost": "Cr25000",
+      "endurance": "10 hours",
+      "programming": "Hunter/Killer (standard) (INT 4)",
+      "attacks": [
+        "Laser Rifle (5D, Zero-G)"
+      ],
+      "manipulators": "—",
+      "skills": [
+        "Gun Combat 0",
+        "Recon 0"
+      ],
+      "traits": [
+        "Armour (+12)",
+        "Flyer (idle)",
+        "IR Vision"
+      ],
+      "options": [
+        "Auditory Sensor",
+        "Thermal Sensor",
+        "Transceiver 5km (improved)",
+        "Voder Speaker",
+        "Weapon Mount (medium)",
+        "Wireless Data Link"
+      ],
+      "summary": "Basic K'kree mobile laser support platform.",
+      "description": "The Friend of the Lowly is the simplest K'kree battlefield robot: an ovoid grav chassis carrying a medium laser weapon and enough sensor support to provide accurate fire while keeping pace with advancing cavalry and infantry. Its design goal is mobility and dependable ranged violence rather than autonomy or sophistication.",
+      "notes": "Movement is halved while firing on the move."
+    },
+    {
+      "id": "rh-distant-lance",
+      "name": "Distant Lance",
+      "sourcePage": 195,
+      "originCulture": "K'kree",
+      "category": "military",
+      "entryType": "robot",
+      "techLevel": 10,
+      "locomotion": "Grav",
+      "speed": "12m",
+      "hits": 28,
+      "costCredits": 45000,
+      "cost": "Cr45000",
+      "endurance": "10 hours",
+      "programming": "Hunter/Killer (standard) (INT 4)",
+      "attacks": [
+        "Laser Rifle (5D, Zero-G)"
+      ],
+      "manipulators": "—",
+      "skills": [
+        "Gun Combat (energy) 2",
+        "Recon 1"
+      ],
+      "traits": [
+        "Armour (+16)",
+        "Flyer (idle)",
+        "IR Vision"
+      ],
+      "options": [
+        "Auditory Sensor",
+        "Fire Control System (improved)",
+        "Recon Sensor (improved)",
+        "Thermal Sensor",
+        "Transceiver 5km (improved)",
+        "Voder Speaker",
+        "Weapon Mount (medium)",
+        "Wireless Data Link"
+      ],
+      "summary": "K'kree long-range fire support and sniper robot.",
+      "description": "The Distant Lance refines the same grav weapons-carrier pattern into a more capable precision fire unit. Improved target acquisition, better fire control, and heavier armour let it range ahead or work behind the line as a dependable sniper and support platform for K'kree formations."
+    },
+    {
+      "id": "rh-opener-of-the-way",
+      "name": "Opener-of-the-Way",
+      "sourcePage": 195,
+      "originCulture": "K'kree",
+      "category": "military",
+      "entryType": "robot",
+      "techLevel": 10,
+      "locomotion": "Grav",
+      "speed": "12m",
+      "hits": 28,
+      "costCredits": 35000,
+      "cost": "Cr35000",
+      "endurance": "10 hours",
+      "programming": "Hunter/Killer (standard) (INT 4)",
+      "attacks": [
+        "Explosive Charge",
+        "Autoloaders x2 (2D, Blast 2)"
+      ],
+      "manipulators": "—",
+      "skills": [
+        "Explosives 1",
+        "Recon 0"
+      ],
+      "traits": [
+        "Armour (+18)",
+        "Flyer (idle)",
+        "IR Vision"
+      ],
+      "options": [
+        "Auditory Sensor",
+        "Fire Control System (basic)",
+        "Thermal Sensor",
+        "Transceiver 5km (improved)",
+        "Voder Speaker",
+        "Weapon Mount (small)",
+        "Weapon Mount Autoloaders (small) x2",
+        "Wireless Data Link"
+      ],
+      "summary": "K'kree breach and obstacle-clearing support robot.",
+      "description": "The Opener-of-the-Way exists to clear minefields, wire, doors, and hard points so the herd can keep advancing. It combines compact bombardment weapons with demolition skill and enough armour to reach the problem before detonating or cutting it apart."
+    },
+    {
+      "id": "rh-guardian-of-glory",
+      "name": "Guardian-of-Glory",
+      "sourcePage": 196,
+      "originCulture": "K'kree",
+      "category": "military",
+      "entryType": "robot",
+      "techLevel": 12,
+      "locomotion": "Grav",
+      "speed": "10m",
+      "hits": 35,
+      "costCredits": 75000,
+      "cost": "Cr75000",
+      "endurance": "22 hours",
+      "programming": "Hunter/Killer (standard) (INT 4)",
+      "attacks": [
+        "Laser Rifle (5D, Zero-G)",
+        "Stagger Laser Rifle (5D, Auto 2, Zero-G)"
+      ],
+      "manipulators": "2x (STR 11 DEX 7)",
+      "skills": [
+        "Gun Combat (energy) 1",
+        "Recon 0"
+      ],
+      "traits": [
+        "Armour (+22)",
+        "Flyer (idle)",
+        "IR Vision",
+        "Large (+1)"
+      ],
+      "options": [
+        "Auditory Sensor",
+        "Fire Control Systems (basic) x2",
+        "Thermal Sensor",
+        "Transceiver 5km (improved)",
+        "Voder Speaker",
+        "Weapon Mounts (medium) x2",
+        "Wireless Data Link"
+      ],
+      "summary": "Heavy K'kree shield and line-holding combat robot.",
+      "description": "The Guardian-of-Glory is built to stand in the line and survive, pairing strong armour with twin weapons and manipulator-mounted shield structures that let it act as moving cover. Its cloak-like silhouette is intentional, serving both battlefield utility and K'kree cultural preference for intimidating martial forms."
+    },
+    {
+      "id": "rh-breaker-of-lines",
+      "name": "Breaker-of-Lines",
+      "sourcePage": 196,
+      "originCulture": "K'kree",
+      "category": "military",
+      "entryType": "robot",
+      "techLevel": 10,
+      "locomotion": "Grav",
+      "speed": "10m",
+      "hits": 50,
+      "costCredits": 150000,
+      "cost": "Cr150000",
+      "endurance": "14 hours",
+      "programming": "Hunter/Killer (standard) (INT 4)",
+      "attacks": [
+        "Hand-of-Length (4D, Auto 4, Zero-G)",
+        "Support Mortar (9D, Artillery, Blast 6)"
+      ],
+      "manipulators": "—",
+      "skills": [
+        "Gun Combat 0",
+        "Heavy Weapons (vehicle) 1",
+        "Recon 0"
+      ],
+      "traits": [
+        "Armour (+16)",
+        "Flyer (idle)",
+        "IR Vision",
+        "Large (+2)"
+      ],
+      "options": [
+        "Auditory Sensor",
+        "Fire Control System (basic)",
+        "Thermal Sensor",
+        "Transceiver 5km (improved)",
+        "Voder Speaker",
+        "Weapon Mount (medium)",
+        "Weapon Mount (vehicle)",
+        "Weapon Mount Autoloader (vehicle)",
+        "Wireless Data Link"
+      ],
+      "summary": "K'kree artillery-support robot for breaking fortified positions.",
+      "description": "The Breaker-of-Lines is a grav artillery unit intended to smash defended positions open for a charge. A support mortar gives it battlefield reach while the close-range Hand-of-Length weapon keeps it dangerous when hostile troops close the distance."
+    },
+    {
+      "id": "rh-slayer-of-shields",
+      "name": "Slayer-of-Shields",
+      "sourcePage": 197,
+      "originCulture": "K'kree",
+      "category": "military",
+      "entryType": "robot",
+      "techLevel": 12,
+      "locomotion": "Grav",
+      "speed": "12m",
+      "hits": 50,
+      "costCredits": 200000,
+      "cost": "Cr200000",
+      "endurance": "14 hours",
+      "programming": "Hunter/Killer (standard) (INT 4)",
+      "attacks": [
+        "Stagger Laser Rifle (5D, Auto 2, Zero-G)",
+        "Weapon-of-Destruction x2 (1DD, Very Bulky)"
+      ],
+      "manipulators": "—",
+      "skills": [
+        "Gun Combat 0",
+        "Heavy Weapons (portable) 1",
+        "Recon 0"
+      ],
+      "traits": [
+        "Armour (+24)",
+        "Flyer (idle)",
+        "IR Vision",
+        "Large (+2)"
+      ],
+      "options": [
+        "Auditory Sensor",
+        "Fire Control Systems (basic) x2",
+        "Thermal Sensor",
+        "Transceiver 5km (improved)",
+        "Voder Speaker",
+        "Weapon Mount (medium)",
+        "Weapon Mount (heavy)",
+        "Wireless Data Link"
+      ],
+      "summary": "Heavy K'kree direct-fire robot armed with twin plasma guns.",
+      "description": "The Slayer-of-Shields is a prestige direct-fire support unit built to tear apart heavy infantry, hard cover, and opposing shields. Its paired plasma weapons make it one of the most dangerous K'kree battlefield robots, though prolonged fire risks overheating the system."
+    },
+    {
+      "id": "rh-ammobot",
+      "name": "Confederation Army Ammobot",
+      "sourcePage": 198,
+      "originCulture": "Solomani",
+      "category": "military",
+      "entryType": "robot",
+      "techLevel": 12,
+      "locomotion": "Tracks",
+      "speed": "6m",
+      "hits": 20,
+      "costCredits": 7200,
+      "cost": "Cr7200",
+      "endurance": "86 hours",
+      "programming": "Basic (none) (INT 4)",
+      "attacks": [],
+      "manipulators": "2x (STR 9 DEX 7)",
+      "skills": [
+        "—"
+      ],
+      "traits": [
+        "Armour (+4)",
+        "ATV"
+      ],
+      "options": [
+        "Auditory Sensor",
+        "Transceiver 5km (improved)",
+        "Visual Spectrum Sensor",
+        "Voder Speaker",
+        "Weapon Mount Autoloaders (medium) x8",
+        "Wireless Data Link"
+      ],
+      "summary": "Tracked Solomani ammunition carrier and magazine dispenser.",
+      "description": "The Confederation Army Ammobot is a low tracked battlefield support robot built to keep infantry formations supplied with ammunition. It shuttles between supply points and firing lines, dispenses loaded magazines, accepts empties for automatic reloading, and is rugged enough to survive ordinary line conditions without being a front-rank combat unit."
+    },
+    {
+      "id": "rh-mortarbot",
+      "name": "Confederation Army Mortarbot",
+      "sourcePage": 199,
+      "originCulture": "Solomani",
+      "category": "military",
+      "entryType": "robot",
+      "techLevel": 12,
+      "locomotion": "Tracks",
+      "speed": "6m",
+      "hits": 34,
+      "costCredits": 40000,
+      "cost": "Cr40000",
+      "endurance": "86 hours",
+      "programming": "Basic (none) (INT 4)",
+      "attacks": [
+        "Support Mortar (9D, Artillery, Auto 3, Blast 6)"
+      ],
+      "manipulators": "2x (STR 11 DEX 7)",
+      "skills": [
+        "Heavy Weapons (vehicle) 0"
+      ],
+      "traits": [
+        "Armour (+4)",
+        "ATV",
+        "Large (+1)"
+      ],
+      "options": [
+        "Auditory Sensor",
+        "Transceiver 5km (improved)",
+        "Visual Spectrum Sensor",
+        "Voder Speaker",
+        "Weapon Mount (vehicle)",
+        "Weapon Mount Autoloader (vehicle)",
+        "Wireless Data Link"
+      ],
+      "summary": "Tracked Solomani indirect-fire support robot with triple mortar breech.",
+      "description": "The Mortarbot is a compact support platform built to ride with infantry or grav APC deployments and deliver rapid mortar fire onto enemy positions. Its three-barrel breech system supports quick salvos and non-military variants exist for firefighting, foliage clearance, and improvised reconnaissance drone launching."
+    },
+    {
+      "id": "rh-rover",
+      "name": "ROvER",
+      "sourcePage": 200,
+      "originCulture": "Solomani",
+      "category": "military",
+      "entryType": "robot",
+      "techLevel": 12,
+      "locomotion": "Walker",
+      "speed": "12m",
+      "hits": 20,
+      "costCredits": 230000,
+      "cost": "Cr230000",
+      "endurance": "130 hours",
+      "programming": "Hunter/Killer (tactical) (INT 4)",
+      "attacks": [
+        "Jaw Edging (3D)",
+        "Monoknife Claw Edging x2 (3D, AP10)",
+        "Self-Destruct (12D, Blast 5)"
+      ],
+      "manipulators": "—",
+      "skills": [
+        "Athletics (dexterity) 3",
+        "Melee (natural) 2",
+        "Recon 3",
+        "Tactics (military) 2"
+      ],
+      "traits": [
+        "Armour (+40)",
+        "ATV",
+        "Heightened Senses",
+        "IR/UV Vision"
+      ],
+      "options": [
+        "Auditory Sensor (broad spectrum)",
+        "Drone Interface",
+        "Fire Control System (improved)",
+        "Laser Designator",
+        "Olfactory Sensor (advanced)",
+        "PRIS Sensor",
+        "Recon Sensor (advanced)",
+        "Self-Destruct System: Offensive",
+        "Self-Repairing Chassis",
+        "Transceiver 50km (enhanced)",
+        "Vacuum Environment Protection",
+        "Voder Speaker",
+        "Weapon Mounts (small) x3",
+        "Wireless Data Link"
+      ],
+      "summary": "Heavily armoured Solomani robotic guard beast and intimidation platform.",
+      "description": "The Robotic Overwatch Enhanced Retriever, or ROvER, is a fearsome mechanical guard dog sold on some Solomani worlds for security and status. It combines extreme armour, sensory range, target designation capability, and brutal close assault tools in a chassis deliberately shaped to intimidate biological observers."
+    },
+    {
+      "id": "rh-advisor-robot",
+      "name": "Advisor Robot",
+      "sourcePage": 201,
+      "originCulture": "Vargr",
+      "category": "service",
+      "entryType": "robot",
+      "techLevel": 13,
+      "locomotion": "Tracks",
+      "speed": "3m",
+      "hits": 8,
+      "costCredits": 125000,
+      "cost": "Cr125000",
+      "endurance": "119 hours",
+      "programming": "Advanced (INT 8)",
+      "attacks": [],
+      "manipulators": "2x (STR 5 DEX 8)",
+      "skills": [
+        "Admin 2",
+        "Advocate 2",
+        "Broker 1"
+      ],
+      "traits": [
+        "Armour (+3)",
+        "ATV",
+        "Small (-2)"
+      ],
+      "options": [
+        "Auditory Sensor",
+        "Spare Slots x4",
+        "Transceiver 5km (improved)",
+        "Visual Spectrum Sensor",
+        "Voder Speaker",
+        "Wireless Data Link"
+      ],
+      "summary": "Vargr advisory robot for trade, legal, and bureaucratic consultation.",
+      "description": "The Advisor Robot is a small tracked specialist built for merchants, brokers, and corporate operators who need constant access to procedural, legal, and commercial guidance. It reflects a Vargr willingness to use robots in useful but low-prestige support roles rather than leadership positions."
+    },
+    {
+      "id": "rh-taskbot",
+      "name": "Taskbot",
+      "sourcePage": 202,
+      "originCulture": "Vargr",
+      "category": "utility",
+      "entryType": "robot",
+      "techLevel": 12,
+      "locomotion": "Walker",
+      "speed": "5m",
+      "hits": 26,
+      "costCredits": 30000,
+      "cost": "Cr30000",
+      "endurance": "108 hours",
+      "programming": "Advanced (INT 8)",
+      "attacks": [],
+      "manipulators": "2x (STR 9 DEX 7)",
+      "skills": [
+        "Admin 0",
+        "Advocate 0",
+        "Art 0",
+        "Broker 0",
+        "Drive 0",
+        "Electronics 0",
+        "Mechanic 0",
+        "Medic 0",
+        "Navigation 0",
+        "Survival 0"
+      ],
+      "traits": [
+        "Armour (+4)",
+        "ATV"
+      ],
+      "options": [
+        "Auditory Sensor",
+        "Spare Slots x8",
+        "Transceiver 5km (improved)",
+        "Visual Spectrum Sensor",
+        "Voder Speaker",
+        "Wireless Data Link"
+      ],
+      "summary": "General-purpose Vargr multi-skill utility robot.",
+      "description": "Taskbot is one of the more sophisticated general-purpose robots produced in Vargr space, built to cover a broad set of practical chores with a modest all-around skill package. Its humanoid styling mirrors Vargr physiology, but its real selling point is cheap functional breadth rather than elegance or prestige."
+    },
+    {
+      "id": "rh-trashbot",
+      "name": "Trashbot",
+      "sourcePage": 203,
+      "originCulture": "Zhodani",
+      "category": "service",
+      "entryType": "robot",
+      "techLevel": 11,
+      "locomotion": "Grav",
+      "speed": "6m",
+      "hits": 16,
+      "costCredits": 8000,
+      "cost": "Cr8000",
+      "endurance": "24 hours",
+      "programming": "Primitive (clean) (INT 1)",
+      "attacks": [],
+      "manipulators": "2x (STR 5 DEX 7)",
+      "skills": [
+        "Profession (domestic cleaner) 2",
+        "Recon 2"
+      ],
+      "traits": [
+        "Armour (+1)",
+        "Flyer (idle)",
+        "Small (-1)"
+      ],
+      "options": [
+        "Auditory Sensor",
+        "Industrial Cleaning Equipment (small)",
+        "Recon Sensor (enhanced)",
+        "Storage Compartment (4 Slots)",
+        "Transceiver 5km (improved)",
+        "Visual Spectrum Sensor",
+        "Voder Speaker",
+        "Wireless Data Link"
+      ],
+      "summary": "Zhodani grav janitorial robot with shredding waste-processing capability.",
+      "description": "This common Zhodani civic cleaning robot patrols public and administrative spaces, collects waste, shreds sensitive refuse, and returns to disposal points autonomously. It is both a sanitation machine and a quiet information-security tool in offices where discarded material should not survive intact."
+    },
+    {
+      "id": "rh-maintenance-bot",
+      "name": "Maintenance Bot",
+      "sourcePage": 204,
+      "originCulture": "Zhodani",
+      "category": "service",
+      "entryType": "robot",
+      "techLevel": 12,
+      "locomotion": "Grav",
+      "speed": "6m",
+      "hits": 20,
+      "costCredits": 16000,
+      "cost": "Cr16000",
+      "endurance": "36 hours",
+      "programming": "Advanced (INT 8)",
+      "attacks": [],
+      "manipulators": "2x (STR 9 DEX 7)",
+      "skills": [
+        "Mechanic 1",
+        "Recon 1",
+        "+1 Bandwidth available"
+      ],
+      "traits": [
+        "Armour (+4)",
+        "Flyer (idle)"
+      ],
+      "options": [
+        "Auditory Sensor",
+        "Mechanical Toolkit (improved)",
+        "Recon Sensor (improved)",
+        "Spare Slots x10",
+        "Transceiver 5km (improved)",
+        "Visual Spectrum Sensor",
+        "Voder Speaker",
+        "Wireless Data Link"
+      ],
+      "summary": "Standard Zhodani repair and maintenance grav robot.",
+      "description": "Manufactured by Chiadle, the Maintenance Bot is the most common general-purpose repair platform in Zhodani space. It is widely used in starports and aboard merchant and naval vessels, often replacing the need for a dedicated maintenance crewman in routine operations."
     }
   ]
 }

@@ -1,18 +1,27 @@
 export type TravellerRobotSourceId =
   | 'mgt2e-robot-handbook'
 
+export type TravellerRobotOriginCulture =
+  | 'Third Imperium'
+  | 'Aslan'
+  | 'Hiver'
+  | "K'kree"
+  | 'Solomani'
+  | 'Vargr'
+  | 'Zhodani'
+  | 'Other'
+
 export type TravellerRobotCategory =
   | 'military'
   | 'service'
   | 'utility'
+  | 'brain'
   | 'drone'
   | 'microbot'
   | 'nanorobot'
   | 'android'
   | 'biological-robot'
   | 'cyborg'
-  | 'vehicle-brain'
-  | 'ship-brain'
   | 'other'
 
 export type TravellerRobotEntryType =
@@ -32,6 +41,7 @@ export type TravellerRobotRecord = {
   sourceId: TravellerRobotSourceId
   sourceName?: string
   sourcePage?: number
+  originCulture: TravellerRobotOriginCulture
   category: TravellerRobotCategory
   entryType: TravellerRobotEntryType
   techLevel: number

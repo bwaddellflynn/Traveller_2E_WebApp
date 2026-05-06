@@ -22,14 +22,13 @@ const categories: { id: TravellerRobotCategory | 'all', label: string }[] = [
   { id: 'military', label: 'Military' },
   { id: 'service', label: 'Service' },
   { id: 'utility', label: 'Utility' },
+  { id: 'brain', label: 'Brains' },
   { id: 'drone', label: 'Drones' },
   { id: 'microbot', label: 'Microbots' },
   { id: 'nanorobot', label: 'Nanorobots' },
   { id: 'android', label: 'Androids' },
   { id: 'biological-robot', label: 'Biological Robots' },
   { id: 'cyborg', label: 'Cyborgs' },
-  { id: 'vehicle-brain', label: 'Vehicle Brains' },
-  { id: 'ship-brain', label: 'Ship Brains' },
   { id: 'other', label: 'Other' },
 ]
 
@@ -65,6 +64,7 @@ const filteredReferenceRobots = computed(() => sortReferenceRobots(referenceRobo
   const matchesSearch = !query || [
     robot.name,
     robot.entryType,
+    robot.originCulture,
     robot.summary,
     robot.description,
     robot.programming,
@@ -176,7 +176,7 @@ const entryTypeLabel = (entryType: TravellerRobotEntryType) => entryType.split('
                       <button class="mobile-row-toggle block w-full text-left font-semibold" type="button" @click.stop="toggleExpandedRobot(robot.id)">
                         {{ robot.name }}
                       </button>
-                      <span class="mt-1 block text-xs font-medium text-zinc-500">{{ robot.sourceName ?? robot.sourceId }}<template v-if="robot.sourcePage"> p. {{ robot.sourcePage }}</template></span>
+                      <span class="mt-1 block text-xs font-medium text-zinc-500">{{ robot.originCulture }} / {{ robot.sourceName ?? robot.sourceId }}<template v-if="robot.sourcePage"> p. {{ robot.sourcePage }}</template></span>
                     </td>
                     <td class="px-3 py-2">{{ entryTypeLabel(robot.entryType) }}</td>
                     <td class="px-3 py-2">{{ robot.techLevel }}</td>
@@ -190,6 +190,7 @@ const entryTypeLabel = (entryType: TravellerRobotEntryType) => entryType.split('
                         <div><span>Type</span><strong>{{ entryTypeLabel(robot.entryType) }}</strong></div>
                         <div><span>TL</span><strong>{{ robot.techLevel }}</strong></div>
                         <div><span>Locomotion</span><strong>{{ robot.locomotion }}</strong></div>
+                        <div><span>Origin</span><strong>{{ robot.originCulture }}</strong></div>
                         <div><span>Speed</span><strong>{{ robot.speed }}</strong></div>
                         <div><span>Hits</span><strong>{{ robot.hits ?? '-' }}</strong></div>
                         <div><span>Cost</span><strong>{{ formatCredits(robot.costCredits) }}</strong></div>
@@ -212,6 +213,7 @@ const entryTypeLabel = (entryType: TravellerRobotEntryType) => entryType.split('
         <p class="mt-2 text-sm text-cyan-100/72">{{ selectedRobot.summary }}</p>
         <p class="mt-3 text-sm text-cyan-100/78">{{ selectedRobot.description }}</p>
         <dl class="mt-5 grid gap-3 text-sm text-cyan-100/78">
+          <div class="flex items-center justify-between gap-4"><dt>Origin</dt><dd>{{ selectedRobot.originCulture }}</dd></div>
           <div class="flex items-center justify-between gap-4"><dt>Source</dt><dd>{{ selectedRobot.sourceName ?? selectedRobot.sourceId }}<template v-if="selectedRobot.sourcePage"> p. {{ selectedRobot.sourcePage }}</template></dd></div>
           <div class="flex items-center justify-between gap-4"><dt>TL</dt><dd>{{ selectedRobot.techLevel }}</dd></div>
           <div class="flex items-center justify-between gap-4"><dt>Locomotion</dt><dd>{{ selectedRobot.locomotion }}</dd></div>
