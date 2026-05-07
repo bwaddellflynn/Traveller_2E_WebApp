@@ -394,19 +394,37 @@ onBeforeUnmount(() => {
               v-for="row in characteristicRollPreview"
               :key="row.id"
               class="characteristic-roll-modal__row"
+              :class="{
+                'is-critical': characteristicRollSettledIds.includes(row.id) && row.total === 12,
+              }"
             >
               <div class="characteristic-roll-modal__dice">
-                <div class="characteristic-roll-modal__die" :class="{ 'is-rolling': characteristicRollModalRolling }">
+                <div
+                  class="characteristic-roll-modal__die"
+                  :class="{
+                    'is-rolling': characteristicRollModalRolling,
+                    'is-critical': characteristicRollSettledIds.includes(row.id) && row.total === 12,
+                  }"
+                >
                   {{ row.dice[0] }}
                 </div>
                 <div class="characteristic-roll-modal__plus">+</div>
-                <div class="characteristic-roll-modal__die" :class="{ 'is-rolling': characteristicRollModalRolling }">
+                <div
+                  class="characteristic-roll-modal__die"
+                  :class="{
+                    'is-rolling': characteristicRollModalRolling,
+                    'is-critical': characteristicRollSettledIds.includes(row.id) && row.total === 12,
+                  }"
+                >
                   {{ row.dice[1] }}
                 </div>
               </div>
               <div
                 class="characteristic-roll-modal__total"
-                :class="{ 'is-settled': characteristicRollSettledIds.includes(row.id) }"
+                :class="{
+                  'is-settled': characteristicRollSettledIds.includes(row.id),
+                  'is-critical': characteristicRollSettledIds.includes(row.id) && row.total === 12,
+                }"
               >
                 <span class="characteristic-roll-modal__total-frame">
                   {{ row.total }}
@@ -596,6 +614,7 @@ onBeforeUnmount(() => {
 }
 
 .characteristic-roll-modal__row {
+  position: relative;
   display: grid;
   grid-template-columns: minmax(0, 1fr) 4rem;
   align-items: center;
@@ -606,7 +625,51 @@ onBeforeUnmount(() => {
   clip-path: polygon(0 0, calc(100% - 0.65rem) 0, 100% 0.65rem, 100% 100%, 0.65rem 100%, 0 calc(100% - 0.65rem));
 }
 
+.characteristic-roll-modal__row::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent 0%, rgb(103 232 249 / 0.08) 28%, rgb(251 191 36 / 0.34) 50%, rgb(103 232 249 / 0.08) 72%, transparent 100%);
+  transform: translateX(-115%);
+}
+
+.characteristic-roll-modal__row.is-critical::after {
+  animation: characteristic-roll-critical-sweep 760ms ease-out;
+}
+
+.characteristic-roll-modal__row.is-critical::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  right: 3.85rem;
+  width: 4.5rem;
+  height: 2.6rem;
+  opacity: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(circle, rgb(255 251 235 / 0.95) 0 0.08rem, transparent 0.09rem) 16% 34% / 0.9rem 0.9rem no-repeat,
+    radial-gradient(circle, rgb(252 211 77 / 0.95) 0 0.08rem, transparent 0.09rem) 44% 72% / 1rem 1rem no-repeat,
+    radial-gradient(circle, rgb(251 191 36 / 0.95) 0 0.08rem, transparent 0.09rem) 71% 22% / 0.95rem 0.95rem no-repeat,
+    radial-gradient(circle, rgb(255 251 235 / 0.9) 0 0.07rem, transparent 0.08rem) 86% 62% / 0.9rem 0.9rem no-repeat;
+  filter: drop-shadow(0 0 4px rgb(252 211 77 / 0.46)) drop-shadow(0 0 10px rgb(245 158 11 / 0.28));
+  transform: translateY(-50%) scale(0.72);
+}
+
+.characteristic-roll-modal__row.is-critical .characteristic-roll-modal__dice::after {
+  content: '';
+  position: absolute;
+  inset: -0.15rem -0.4rem;
+  border-radius: 999px;
+  pointer-events: none;
+  background: radial-gradient(circle, rgb(252 211 77 / 0.18) 0%, rgb(245 158 11 / 0.08) 45%, transparent 74%);
+  opacity: 0.9;
+  filter: blur(10px);
+}
+
 .characteristic-roll-modal__dice {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: flex-start;
@@ -629,6 +692,15 @@ onBeforeUnmount(() => {
 
 .characteristic-roll-modal__die.is-rolling {
   animation: characteristic-roll-pulse 140ms linear infinite;
+}
+
+.characteristic-roll-modal__die.is-critical {
+  border-color: rgb(251 191 36 / 0.42);
+  color: rgb(254 240 138);
+  box-shadow:
+    inset 0 0 0 1px rgb(251 191 36 / 0.16),
+    0 0 20px rgb(252 211 77 / 0.26),
+    0 0 34px rgb(245 158 11 / 0.2);
 }
 
 .characteristic-roll-modal__plus {
@@ -679,6 +751,23 @@ onBeforeUnmount(() => {
     drop-shadow(0 0 18px rgb(245 158 11 / 0.26));
 }
 
+.characteristic-roll-modal__total.is-critical.is-settled {
+  animation: characteristic-roll-total-critical-settle 480ms ease-out;
+  filter:
+    drop-shadow(0 0 16px rgb(255 244 180 / 0.52))
+    drop-shadow(0 0 28px rgb(252 211 77 / 0.48))
+    drop-shadow(0 0 44px rgb(245 158 11 / 0.34));
+}
+
+.characteristic-roll-modal__total.is-critical .characteristic-roll-modal__total-frame {
+  border-color: rgb(251 191 36 / 0.44);
+  background: linear-gradient(180deg, rgb(134 50 10 / 0.96), rgb(92 31 8 / 0.98));
+  box-shadow:
+    inset 0 0 0 1px rgb(255 255 255 / 0.05),
+    0 0 20px rgb(252 211 77 / 0.24),
+    0 0 38px rgb(245 158 11 / 0.2);
+}
+
 @keyframes characteristic-roll-pulse {
   0%,
   100% {
@@ -706,6 +795,66 @@ onBeforeUnmount(() => {
       drop-shadow(0 0 8px rgb(252 211 77 / 0.32))
       drop-shadow(0 0 18px rgb(245 158 11 / 0.26));
   }
+}
+
+@keyframes characteristic-roll-total-critical-settle {
+  0% {
+    transform: scale(1.72);
+    filter:
+      drop-shadow(0 0 18px rgb(255 244 180 / 0.62))
+      drop-shadow(0 0 32px rgb(252 211 77 / 0.56))
+      drop-shadow(0 0 52px rgb(245 158 11 / 0.4));
+  }
+  35% {
+    transform: scale(1.2);
+    filter:
+      drop-shadow(0 0 18px rgb(255 244 180 / 0.58))
+      drop-shadow(0 0 34px rgb(252 211 77 / 0.54))
+      drop-shadow(0 0 54px rgb(245 158 11 / 0.42));
+  }
+  100% {
+    transform: scale(1);
+    filter:
+      drop-shadow(0 0 16px rgb(255 244 180 / 0.52))
+      drop-shadow(0 0 28px rgb(252 211 77 / 0.48))
+      drop-shadow(0 0 44px rgb(245 158 11 / 0.34));
+  }
+}
+
+@keyframes characteristic-roll-critical-sweep {
+  0% {
+    opacity: 0;
+    transform: translateX(-115%);
+  }
+  18% {
+    opacity: 1;
+  }
+  82% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(115%);
+  }
+}
+
+@keyframes characteristic-roll-critical-sparks {
+  0% {
+    opacity: 0;
+    transform: translateY(-50%) scale(0.7);
+  }
+  20% {
+    opacity: 1;
+    transform: translateY(-50%) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-50%) scale(1.22);
+  }
+}
+
+.characteristic-roll-modal__row.is-critical::before {
+  animation: characteristic-roll-critical-sparks 900ms ease-out;
 }
 
 @media (max-width: 640px) {
