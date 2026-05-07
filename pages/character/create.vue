@@ -285,11 +285,11 @@ const termStepTabs = computed(() => {
 
   const steps = [
     { id: 'direction', label: 'Direction' },
-    { id: 'qualification', label: 'Qualification' },
+    { id: 'qualification', label: 'Application' },
     { id: 'training', label: 'Training' },
     { id: 'survival', label: 'Survival' },
     { id: 'event', label: 'Event' },
-    { id: 'advancement', label: 'Advancement' },
+    { id: 'advancement', label: 'Rank' },
     { id: 'complete', label: 'Complete' },
   ]
   if (agingRequired.value) steps.splice(6, 0, { id: 'aging', label: 'Aging' })
@@ -1202,6 +1202,7 @@ if (import.meta.client) {
               :key="step.id"
               :class="[
                 'creator-step-chip',
+                index === termStepTabs.length - 1 ? 'is-terminal' : '',
                 activeTermStep === step.id
                   ? 'is-active'
                   : [
@@ -3022,6 +3023,7 @@ if (import.meta.client) {
   justify-content: center;
   padding: 0 1rem 0 1.35rem;
   border: 1px solid rgb(34 211 238 / 0.24);
+  border-right-width: 0;
   background: linear-gradient(180deg, rgb(9 33 49 / 0.96), rgb(6 24 38 / 0.98));
   color: rgb(207 250 254 / 0.9);
   font-size: 0.92rem;
@@ -3056,6 +3058,44 @@ if (import.meta.client) {
 
 .creator-step-chip:first-child::before {
   clip-path: polygon(0 0, calc(100% - 0.82rem) 0, 100% 50%, calc(100% - 0.82rem) 100%, 0 100%);
+}
+
+.creator-step-chip.is-terminal {
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, 0.8rem 50%);
+  padding-right: 1.55rem;
+  border-right-width: 1px;
+}
+
+.creator-step-chip.is-terminal::before {
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, 0.72rem 50%);
+}
+
+.creator-step-chip.is-terminal::after {
+  content: '';
+  position: absolute;
+  right: -1px;
+  top: -1px;
+  bottom: -1px;
+  width: 0.55rem;
+  background:
+    repeating-linear-gradient(
+      135deg,
+      rgb(34 211 238 / 0.88) 0,
+      rgb(34 211 238 / 0.88) 0.22rem,
+      rgb(8 29 44 / 0.98) 0.22rem,
+      rgb(8 29 44 / 0.98) 0.44rem
+    );
+  border-left: 1px solid rgb(34 211 238 / 0.34);
+  box-shadow:
+    inset 0 1px 0 rgb(34 211 238 / 0.34),
+    inset 0 -1px 0 rgb(34 211 238 / 0.34),
+    inset 0 0 0 1px rgb(255 255 255 / 0.04),
+    0 0 10px rgb(34 211 238 / 0.14);
+  z-index: 1;
+}
+
+.creator-step-chip:last-child {
+  border-right-width: 1px;
 }
 
 .creator-step-chip__label {
@@ -3110,6 +3150,14 @@ if (import.meta.client) {
 
   .creator-step-chip:not(:first-child) {
     margin-left: -0.42rem;
+  }
+
+  .creator-step-chip.is-terminal {
+    padding-right: 1.35rem;
+  }
+
+  .creator-step-chip.is-terminal::after {
+    width: 0.4rem;
   }
 }
 

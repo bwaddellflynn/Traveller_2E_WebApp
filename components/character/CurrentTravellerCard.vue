@@ -208,11 +208,11 @@ const currentTravellerAgeLabel = computed(() => {
     <div v-show="currentTravellerTab === 'direction'" class="mt-5 border-t border-white/15 pt-5">
       <p class="text-sm font-semibold text-zinc-200">Term {{ currentTermNumber }} Direction</p>
       <template v-if="selectedTermPath === 'career'">
-        <p class="mt-2 text-lg font-semibold">{{ selectedCareer.name }}</p>
-        <p class="text-sm text-zinc-400">{{ selectedAssignment.name }}</p>
+        <p class="mt-2 text-lg font-semibold">{{ selectedCareer?.name ?? 'No Career Selected' }}</p>
+        <p class="text-sm text-zinc-400">{{ selectedAssignment?.name ?? 'No Assignment Selected' }}</p>
       </template>
       <template v-else>
-        <p class="mt-2 text-lg font-semibold">{{ selectedEducationOption.name }}</p>
+        <p class="mt-2 text-lg font-semibold">{{ selectedEducationOption?.name ?? 'No Education Selected' }}</p>
         <p v-if="selectedEducationEntry" class="text-sm text-zinc-400">Entry {{ checkLabel(selectedEducationEntry) }}</p>
       </template>
     </div>
