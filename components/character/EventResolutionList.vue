@@ -25,6 +25,8 @@ const {
   enterManualEventResolutionPrisonLawyer,
   rollEventResolutionTable,
   enterManualEventResolutionTable,
+  rollEventResolutionAssociateCount,
+  enterManualEventResolutionAssociateCount,
   eventResolutionSelectedLabel,
   resolveEventAssociate,
   resolveEventNarrative,
@@ -54,6 +56,7 @@ const narrativeNotes = reactive<Record<string, string>>({})
 const manualCharacteristicAmounts = reactive<Record<string, number | null>>({})
 const medicalRestorePoints = reactive<Record<string, number | null>>({})
 const associateForms = reactive<Record<string, { type: string; name: string; notes: string }>>({})
+const manualAssociateCounts = reactive<Record<string, number | null>>({})
 
 const eventChoiceButtonLabel = (option: { label: string; buttonLabel?: string }) => {
   if (option.buttonLabel) return option.buttonLabel
@@ -246,6 +249,33 @@ const prisonLawyerForm = (resolution: { id: string }) => {
       </div>
 
       <div v-if="resolution.kind === 'associate' && !resolution.resolved" class="mt-3 grid gap-2">
+        <div v-if="resolution.associateCountRoll === 'D3'" class="flex flex-wrap items-center gap-2">
+          <button
+            class="h-9 rounded-md border border-amber-300 bg-white px-3 text-sm font-semibold text-amber-900 hover:border-amber-600"
+            type="button"
+            @click="rollEventResolutionAssociateCount(resolution.id)"
+          >
+            Roll D3
+          </button>
+          <template v-if="gmManualTableRollEntryEnabled">
+            <input
+              v-model.number="manualAssociateCounts[resolution.id]"
+              class="h-9 w-20 rounded-md border border-amber-300 bg-white px-2 text-sm text-amber-950"
+              max="3"
+              min="1"
+              placeholder="D3"
+              type="number"
+            >
+            <button
+              class="h-9 rounded-md border border-amber-300 bg-white px-3 text-sm font-semibold text-amber-900 hover:border-amber-600"
+              type="button"
+              @click="enterManualEventResolutionAssociateCount(resolution.id, manualAssociateCounts[resolution.id] ?? Number.NaN)"
+            >
+              Apply
+            </button>
+          </template>
+        </div>
+        <template v-else>
         <div class="flex flex-wrap gap-2">
           <button
             v-for="type in resolution.associateTypes"
@@ -283,6 +313,7 @@ const prisonLawyerForm = (resolution: { id: string }) => {
         >
           Add {{ associateTypeLabel(associateForm(resolution).type) }}
         </button>
+        </template>
       </div>
 
       <div v-if="resolution.kind === 'check' && !resolution.resolved" class="mt-3 flex flex-wrap items-center gap-2">

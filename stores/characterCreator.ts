@@ -114,6 +114,7 @@ type PendingEventResolution = {
   choiceOptions?: EventChoiceOption[]
   associateTypes?: string[]
   associateCount?: number | string
+  associateCountRoll?: 'D3' | string
   associateContext?: string
   associateTags?: string[]
   characteristicOptions?: CharacteristicId[]
@@ -2307,12 +2308,36 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     ? effect.associateTypes.map(String)
     : ['associate']
 
+  const normalizedAssociateCountRoll = (count: unknown) => {
+    if (typeof count !== 'string') return null
+    const normalized = count.trim().toUpperCase().replace(/\s+/g, '')
+    if (normalized === 'D3' || normalized === '1D3') return 'D3'
+    return null
+  }
+
   const addAssociateResolution = (effect: TravellerEventEffect, source: string, label = tableEffectLabel(effect)) => {
+    const countRoll = normalizedAssociateCountRoll(effect.count)
     const count = typeof effect.count === 'number' ? Math.max(1, effect.count) : 1
     const associateCount = typeof effect.count === 'number' || typeof effect.count === 'string' ? effect.count : 1
     const associateTypes = associateTypeOptions(effect)
     const associateTags = Array.isArray(effect.tags) ? effect.tags.map(String) : undefined
     const associateContext = typeof effect.context === 'string' ? effect.context : undefined
+
+    if (countRoll) {
+      addPendingEventResolution({
+        kind: 'associate',
+        label,
+        source,
+        effect,
+        associateTypes,
+        associateCount,
+        associateCountRoll: countRoll,
+        associateTags,
+        associateContext,
+      })
+      recordEventOutcome(source, effect, label, 'pending')
+      return
+    }
 
     for (let index = 0; index < count; index += 1) {
       addPendingEventResolution({
@@ -2327,6 +2352,45 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
       })
     }
     recordEventOutcome(source, effect, label, 'pending')
+  }
+
+  const resolveAssociateCountRoll = (resolutionId: string, count: number, source: 'rolled' | 'manual') => {
+    const resolution = pendingEventResolutions.value.find((item) => item.id === resolutionId)
+    if (!resolution || resolution.kind !== 'associate' || resolution.resolved) return
+    if (!resolution.associateCountRoll) return
+    if (!Number.isFinite(count) || count < 1 || count > 3) return
+
+    const created = Array.from({ length: count }, (_, index) => ({
+      id: makeEventOutcomeId('event-resolution'),
+      kind: 'associate' as const,
+      label: count > 1 ? `${resolution.label} (${index + 1} of ${count})` : resolution.label,
+      source: resolution.source,
+      effect: resolution.effect,
+      associateTypes: resolution.associateTypes,
+      associateCount: count,
+      associateTags: resolution.associateTags,
+      associateContext: resolution.associateContext,
+    }))
+
+    pendingEventResolutions.value = pendingEventResolutions.value.flatMap((item) => {
+      if (item.id !== resolutionId) return [item]
+      return created
+    })
+
+    recordEventOutcome(
+      resolution.source,
+      resolution.effect,
+      `${resolution.label}: ${count} ${count === 1 ? 'associate' : 'associates'} (${source === 'manual' ? 'manual' : 'rolled'})`,
+      'manual',
+    )
+  }
+
+  const rollEventResolutionAssociateCount = (resolutionId: string) => {
+    resolveAssociateCountRoll(resolutionId, Math.ceil(Math.random() * 6 / 2), 'rolled')
+  }
+
+  const enterManualEventResolutionAssociateCount = (resolutionId: string, count: number) => {
+    resolveAssociateCountRoll(resolutionId, count, 'manual')
   }
 
   const addAssociateConversionResolution = (effect: TravellerEventEffect, source: string, label = tableEffectLabel(effect)) => {
@@ -5388,6 +5452,8 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     resolveEventMedicalCare,
     resolveEventOutcomeChoice,
     resolveEventAssociate,
+    rollEventResolutionAssociateCount,
+    enterManualEventResolutionAssociateCount,
     resolveEventNarrative,
     resolveManualEventResolution,
     eventResolutionSelectedLabel,
