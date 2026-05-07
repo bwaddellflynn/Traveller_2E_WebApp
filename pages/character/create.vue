@@ -101,6 +101,7 @@ const {
   currentTermTabId,
   activeTermNumber,
   activeTermHistoryEntry,
+  termTabs,
   educationOptions,
   selectedEducation,
   educationSkillOptions,
@@ -125,6 +126,8 @@ const {
   careerCommissionAvailable,
   automaticCommissionConstraint,
   currentCareerQualificationDm,
+  activeQualificationRollModifiers,
+  activeQualificationRollModifierTotal,
   careerEvent,
   careerMishap,
   availableCareerSkillTables,
@@ -266,6 +269,19 @@ const termStepTabs = computed(() => {
   return steps
 })
 const activeTermStepIndex = computed(() => Math.max(0, termStepTabs.value.findIndex((step) => step.id === activeTermStep.value)))
+const creatorShellTabs = computed(() => {
+  const termIds = termTabs.value.map((termNumber) => `term-${termNumber}` as const)
+  return isMobileViewport.value
+    ? (['setup-stats', 'setup-skills', ...termIds] as const)
+    : (['creation', ...termIds] as const)
+})
+const activeCreatorShellIndex = computed(() => creatorShellTabs.value.findIndex((tab) => tab === activeCreatorTab.value))
+const canFooterNavigatePrev = computed(() => {
+  return activeCreatorShellIndex.value > 0
+})
+const canFooterNavigateNext = computed(() => {
+  return activeCreatorShellIndex.value > -1 && activeCreatorShellIndex.value < creatorShellTabs.value.length - 1
+})
 const folderTabPosition = (index: number, count: number) => count <= 1 ? 0 : index / (count - 1)
 const unresolvedEventResolutions = computed(() => pendingEventResolutions.value.some((resolution) => !resolution.resolved))
 const unresolvedEducationSkillChoices = computed(() => pendingEducationSkillChoices.value.some((choice) => !choice.selected))
@@ -330,6 +346,17 @@ const nextTermStep = () => {
   activeTermStep.value = termStepTabs.value[Math.min(termStepTabs.value.length - 1, activeTermStepIndex.value + 1)]?.id ?? 'direction'
   scrollToCreatorNavigation()
 }
+const navigateCreatorShell = (direction: -1 | 1) => {
+  const nextIndex = activeCreatorShellIndex.value + direction
+  const nextTab = creatorShellTabs.value[nextIndex]
+  if (!nextTab) return
+  if (nextTab.startsWith('term-')) {
+    selectTermTab(Number(nextTab.replace('term-', '')))
+  } else {
+    activeCreatorTab.value = nextTab
+  }
+  scrollToCreatorNavigation()
+}
 
 const creatorRandomDie = () => Math.floor(Math.random() * 6) + 1
 const clearCreatorRollModalTimers = () => {
@@ -354,20 +381,27 @@ const startCreatorRollModal = (title: string, result: string, modifier = 0, tota
   creatorRollModalOpen.value = true
   creatorRollModalRolling.value = true
   creatorRollModalDiceCount.value = fixedDice && fixedDice.length < 2 ? 1 : (fixedDice?.[1] === 0 ? 1 : 2)
+  const finalDice: [number, number] = [
+    fixedDice?.[0] ?? creatorRandomDie(),
+    creatorRollModalDiceCount.value === 2 ? (fixedDice?.[1] ?? creatorRandomDie()) : 0,
+  ]
+  const finalTotal = typeof total === 'number'
+    ? total
+    : finalDice[0] + (creatorRollModalDiceCount.value === 2 ? finalDice[1] : 0) + modifier
 
   const updateRoll = () => {
     const nextDice: [number, number] = [
-      fixedDice?.[0] ?? creatorRandomDie(),
-      fixedDice?.[1] ?? (creatorRollModalDiceCount.value === 2 ? creatorRandomDie() : 0),
+      creatorRandomDie(),
+      creatorRollModalDiceCount.value === 2 ? creatorRandomDie() : 0,
     ]
     creatorRollModalDice.value = nextDice
-    creatorRollModalTotal.value = typeof total === 'number'
-      ? total
-      : nextDice[0] + (creatorRollModalDiceCount.value === 2 ? nextDice[1] : 0) + modifier
+    creatorRollModalTotal.value = nextDice[0] + (creatorRollModalDiceCount.value === 2 ? nextDice[1] : 0) + modifier
   }
 
   updateRoll()
   if (!import.meta.client) {
+    creatorRollModalDice.value = finalDice
+    creatorRollModalTotal.value = finalTotal
     creatorRollModalRolling.value = false
     return
   }
@@ -375,7 +409,8 @@ const startCreatorRollModal = (title: string, result: string, modifier = 0, tota
   creatorRollModalTimer.value = window.setInterval(updateRoll, 90)
   creatorRollModalFinishTimer.value = window.setTimeout(() => {
     clearCreatorRollModalTimers()
-    updateRoll()
+    creatorRollModalDice.value = finalDice
+    creatorRollModalTotal.value = finalTotal
     creatorRollModalRolling.value = false
   }, 1100)
 }
@@ -525,6 +560,7 @@ onMounted(() => {
 
   if (cachedDraft) {
     characterCreator.$patch(cachedDraft as Partial<typeof characterCreator.$state>)
+    characterCreator.characteristicRollSequence = 0
     creatorSaveMessage.value = 'Restored cached character creation draft.'
   }
 
@@ -597,14 +633,14 @@ if (import.meta.client) {
 
 <template>
   <main class="min-h-screen">
-    <CharacterCreatorHeader />
+    <CharacterCreatorHeader @restart="requestRestartCharacterCreation" />
 
     <div class="mx-auto grid w-full max-w-7xl gap-6 px-5 py-6 sm:px-8 lg:grid-cols-[1fr_24rem] lg:px-10">
-      <section class="grid gap-6">
-        <div ref="creatorNavigationAnchor" class="rounded-lg border border-zinc-300 bg-white shadow-sm">
+      <section class="creator-shell-layout">
+        <div ref="creatorNavigationAnchor" class="creator-shell-main rounded-lg border border-zinc-300 bg-white shadow-sm min-h-0">
           <CreatorTabNavigation />
 
-          <div class="p-5">
+          <div class="creator-shell-content p-5">
             <CreationStepPanel
               v-if="activeCreatorTabIsSetup"
               :allow-background-skill-collapse="!isMobileViewport"
@@ -617,6 +653,11 @@ if (import.meta.client) {
                   <div>
                     <h2 class="text-xl font-semibold">Term {{ activeTermHistoryEntry.termNumber }}</h2>
                     <p class="mt-1 text-sm text-zinc-600">{{ activeTermHistoryEntry.summary }}</p>
+                    <div class="mt-3 flex flex-wrap gap-2">
+                      <span class="rounded-md border border-cyan-400/20 bg-cyan-950/70 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-cyan-100">
+                        {{ activeTermHistoryEntry.path === 'education' ? 'Education History' : 'Career History' }}
+                      </span>
+                    </div>
                   </div>
                   <span class="rounded-md bg-stone-100 px-3 py-2 text-sm font-semibold text-zinc-700">
                     Age {{ activeTermHistoryEntry.startAge }}-{{ activeTermHistoryEntry.endAge }}
@@ -787,6 +828,9 @@ if (import.meta.client) {
                 <p v-if="currentCareerQualificationDm" class="mt-1 text-xs text-zinc-500">
                   Career DM {{ formatDm(currentCareerQualificationDm) }}
                 </p>
+                <p v-if="activeQualificationRollModifierTotal" class="mt-1 text-xs text-amber-700">
+                  Active event DM {{ formatDm(activeQualificationRollModifierTotal) }}
+                </p>
               </div>
               <div class="rounded-md bg-stone-50 p-4">
                 <p class="text-xs font-semibold uppercase tracking-wide text-zinc-500">Survival</p>
@@ -851,6 +895,9 @@ if (import.meta.client) {
                     <p v-if="currentCareerQualificationDm" class="text-xs text-zinc-500">
                       Previous careers modifier {{ formatDm(currentCareerQualificationDm) }}
                     </p>
+                    <p v-if="activeQualificationRollModifierTotal" class="text-xs text-amber-700">
+                      Active event modifier {{ formatDm(activeQualificationRollModifierTotal) }}
+                    </p>
                   </div>
                   <button
                     v-if="!automaticCareerEntryConstraint && !sameCareerContinuationAvailable && !requiredDraftAvailable"
@@ -866,6 +913,16 @@ if (import.meta.client) {
                   <button class="h-10 rounded-md border border-zinc-300 px-3 text-sm font-semibold text-zinc-700 hover:border-amber-600" type="button" @click="triggerManualCheck('careerQualification', 'Qualification', selectedCareer.qualification)">
                     Manual
                   </button>
+                </div>
+                <div v-if="activeQualificationRollModifiers.length" class="mt-3 grid gap-2 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm">
+                  <p class="font-semibold text-amber-950">Active Qualification Modifiers</p>
+                  <div
+                    v-for="modifier in activeQualificationRollModifiers"
+                    :key="modifier.id"
+                    class="rounded-md bg-white px-3 py-2 text-amber-950"
+                  >
+                    {{ modifier.label }} · DM {{ formatDm(modifier.dm) }}
+                  </div>
                 </div>
                 <div v-if="termRolls.careerQualification" class="mt-3 rounded-md bg-stone-50 p-3 text-sm">
                   <p class="font-semibold">{{ rollSummary(termRolls.careerQualification) }} · {{ termRolls.careerQualification.finalSuccess ? 'Success' : 'Failure' }}</p>
@@ -1896,35 +1953,62 @@ if (import.meta.client) {
 
           <div class="mt-6 flex items-center justify-between gap-3 border-t border-cyan-400/20 pt-4">
             <button
-              class="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 text-sm font-semibold text-amber-950 hover:border-amber-500 hover:bg-amber-100 sm:px-4"
-              aria-label="Restart Character"
-              title="Restart Character"
+              class="creator-term-nav__button"
+              :disabled="activeTermStepIndex === 0"
+              aria-label="Previous step"
+              title="Previous step"
               type="button"
-              @click="requestRestartCharacterCreation"
+              @click="previousTermStep"
             >
-              <span class="text-red-500">
-                <AppIcon name="restart" />
-              </span>
-              <span class="hidden sm:inline">Restart Character</span>
+              <AppIcon class="creator-term-nav__icon creator-term-nav__icon--left" name="arrow" />
             </button>
-            <div class="flex justify-end gap-2">
-              <button
-                class="hud-link h-10 w-20 px-4 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-40"
-                :disabled="activeTermStepIndex === 0"
-                type="button"
-                @click="previousTermStep"
-              >
-                Prev
-              </button>
-              <button
-                class="hud-link h-10 w-20 px-4 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-40"
-                :disabled="activeTermStepIndex === termStepTabs.length - 1"
-                type="button"
-                @click="nextTermStep"
-              >
-                Next
-              </button>
-            </div>
+            <button
+              class="creator-term-nav__button"
+              :disabled="activeTermStepIndex === termStepTabs.length - 1"
+              aria-label="Next step"
+              title="Next step"
+              type="button"
+              @click="nextTermStep"
+            >
+              <AppIcon class="creator-term-nav__icon creator-term-nav__icon--right" name="arrow" />
+            </button>
+          </div>
+
+        </div>
+        <div class="creator-shell-footer rounded-lg border border-cyan-400/20 bg-zinc-950/55 p-3 shadow-[0_0_0_1px_rgba(34,211,238,0.05),0_18px_32px_rgba(2,6,23,0.28)]">
+          <button
+            class="creator-shell-footer__restart"
+            aria-label="Restart Character"
+            title="Restart Character"
+            type="button"
+            @click="requestRestartCharacterCreation"
+          >
+            <span class="creator-shell-footer__restart-icon">
+              <AppIcon name="restart" />
+            </span>
+            <span class="creator-shell-footer__restart-label">Restart Character</span>
+          </button>
+          <div class="creator-shell-footer__nav">
+            <button
+              class="creator-shell-footer__text-button"
+              :disabled="!canFooterNavigatePrev"
+              aria-label="Previous"
+              title="Previous"
+              type="button"
+              @click="navigateCreatorShell(-1)"
+            >
+              Prev
+            </button>
+            <button
+              class="creator-shell-footer__text-button"
+              :disabled="!canFooterNavigateNext"
+              aria-label="Next"
+              title="Next"
+              type="button"
+              @click="navigateCreatorShell(1)"
+            >
+              Next
+            </button>
           </div>
         </div>
           </div>
@@ -1949,14 +2033,17 @@ if (import.meta.client) {
               <p class="creator-roll-modal__kicker">Roll Result</p>
               <h2 class="creator-roll-modal__title">{{ creatorRollModalTitle }}</h2>
             </div>
-            <button
-              class="creator-roll-modal__close"
-              type="button"
-              aria-label="Close roll modal"
-              @click="closeCreatorRollModal"
-            >
-              Close
-            </button>
+            <div class="creator-roll-modal__header-actions">
+              <span class="creator-roll-modal__modifier">DM {{ formatDm(creatorRollModalModifier) }}</span>
+              <button
+                class="creator-roll-modal__close"
+                type="button"
+                aria-label="Close roll modal"
+                @click="closeCreatorRollModal"
+              >
+                Close
+              </button>
+            </div>
           </div>
 
           <div class="creator-roll-modal__body">
@@ -1973,11 +2060,12 @@ if (import.meta.client) {
             </div>
 
             <div class="creator-roll-modal__result-row">
-              <span class="creator-roll-modal__modifier">DM {{ formatDm(creatorRollModalModifier) }}</span>
-              <span class="creator-roll-modal__total">{{ creatorRollModalTotal }}</span>
+              <span class="creator-roll-modal__total" :class="{ 'is-settled': !creatorRollModalRolling }">
+                <span class="creator-roll-modal__total-frame">{{ creatorRollModalTotal }}</span>
+              </span>
             </div>
 
-            <p class="creator-roll-modal__result">{{ creatorRollModalResult }}</p>
+            <p v-if="!creatorRollModalRolling" class="creator-roll-modal__result">{{ creatorRollModalResult }}</p>
           </div>
         </div>
       </div>
@@ -2130,6 +2218,213 @@ if (import.meta.client) {
 </template>
 
 <style scoped>
+.creator-shell-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  min-height: calc(100vh - 14rem);
+}
+
+.creator-shell-main {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  min-height: 100%;
+}
+
+.creator-shell-content {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.creator-shell-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.9rem;
+  margin-top: auto;
+  border-radius: 12px 0 12px 0;
+  clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 14px 100%, 0 calc(100% - 14px));
+  background:
+    linear-gradient(180deg, rgba(8, 20, 35, 0.94), rgba(4, 10, 20, 0.96)),
+    linear-gradient(135deg, rgba(251, 191, 36, 0.12), transparent 42%),
+    radial-gradient(circle at 0 0, rgba(34, 211, 238, 0.14), transparent 8rem);
+}
+
+.creator-shell-footer__restart {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+  min-height: 2.75rem;
+  padding: 0 1rem;
+  border: 1px solid rgba(251, 191, 36, 0.35);
+  border-radius: 10px 0 10px 0;
+  clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px));
+  background:
+    linear-gradient(180deg, rgba(54, 20, 7, 0.92), rgba(34, 12, 5, 0.96)),
+    radial-gradient(circle at 0 0, rgba(251, 191, 36, 0.18), transparent 5rem);
+  color: rgb(255 237 213);
+  font-size: 0.95rem;
+  font-weight: 700;
+  transition: border-color 140ms ease, box-shadow 140ms ease, color 140ms ease, transform 140ms ease;
+}
+
+.creator-shell-footer__restart:hover {
+  border-color: rgba(251, 191, 36, 0.6);
+  box-shadow:
+    0 0 22px rgba(251, 191, 36, 0.14),
+    inset 0 0 0 1px rgba(251, 191, 36, 0.12);
+  color: rgb(255 247 237);
+}
+
+.creator-shell-footer__restart:active {
+  transform: translateY(1px);
+}
+
+.creator-shell-footer__restart-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  overflow: visible;
+  color: rgb(253 186 116);
+}
+
+.creator-shell-footer__restart-icon :deep(svg) {
+  overflow: visible;
+}
+
+.creator-shell-footer__nav {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.55rem;
+  margin-left: auto;
+}
+
+.creator-shell-footer__text-button,
+.creator-term-nav__button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 2.75rem;
+  border: 1px solid rgba(34, 211, 238, 0.26);
+  border-radius: 10px 0 10px 0;
+  clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px));
+  background:
+    linear-gradient(180deg, rgba(8, 18, 32, 0.92), rgba(3, 7, 18, 0.95)),
+    radial-gradient(circle at 50% 0, rgba(34, 211, 238, 0.14), transparent 4rem);
+  color: rgb(207 250 254);
+  font-size: 0.92rem;
+  font-weight: 700;
+  transition: border-color 140ms ease, box-shadow 140ms ease, color 140ms ease, transform 140ms ease;
+}
+
+.creator-shell-footer__text-button {
+  min-width: 5.25rem;
+  padding: 0 1rem;
+}
+
+.creator-term-nav__button {
+  width: 2.75rem;
+}
+
+.creator-shell-footer__text-button:hover:not(:disabled),
+.creator-term-nav__button:hover:not(:disabled) {
+  border-color: rgba(34, 211, 238, 0.5);
+  color: rgb(236 254 255);
+  box-shadow:
+    0 0 18px rgba(34, 211, 238, 0.14),
+    inset 0 0 0 1px rgba(34, 211, 238, 0.1);
+}
+
+.creator-shell-footer__text-button:active:not(:disabled),
+.creator-term-nav__button:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.creator-shell-footer__text-button:disabled,
+.creator-term-nav__button:disabled {
+  cursor: not-allowed;
+  opacity: 0.38;
+}
+
+.creator-term-nav__icon {
+  width: 1.05rem;
+  height: 1.05rem;
+}
+
+.creator-term-nav__icon--left {
+  transform: rotate(180deg);
+}
+
+.creator-term-nav__icon--right {
+  transform: rotate(0deg);
+}
+
+@media (max-width: 639px) {
+  .creator-shell-layout {
+    min-height: auto;
+  }
+
+  .creator-shell-footer {
+    gap: 0.65rem;
+    padding: 0.65rem;
+  }
+
+  .creator-shell-footer {
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
+  .creator-shell-footer__restart {
+    flex: 0 0 3rem;
+    justify-content: center;
+    width: 3rem;
+    min-width: 3rem;
+    height: 3rem;
+    min-height: 3rem;
+    padding: 0;
+    font-size: 0.88rem;
+  }
+
+  .creator-shell-footer__restart-label {
+    display: none;
+  }
+
+  .creator-shell-footer__restart-icon {
+    width: 1.35rem;
+    height: 1.35rem;
+  }
+
+  .creator-shell-footer__nav {
+    flex: 0 0 auto;
+    justify-content: flex-end;
+    margin-left: 0;
+  }
+
+  .creator-shell-footer__text-button {
+    min-width: 4.5rem;
+    padding: 0 0.75rem;
+    font-size: 0.84rem;
+  }
+
+  .creator-term-nav__button {
+    width: 2.5rem;
+    height: 2.5rem;
+  }
+
+  .creator-term-nav__icon {
+    width: 0.95rem;
+    height: 0.95rem;
+  }
+}
+
 .creator-roll-fade-enter-active,
 .creator-roll-fade-leave-active,
 .advancement-fade-enter-active,
@@ -2188,6 +2483,12 @@ if (import.meta.client) {
   padding: 1.25rem 1.25rem 1rem;
 }
 
+.creator-roll-modal__header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
 .creator-roll-modal__kicker {
   margin: 0;
   font-size: 0.72rem;
@@ -2238,6 +2539,7 @@ if (import.meta.client) {
   align-items: center;
   justify-content: center;
   gap: 0.85rem;
+  flex-wrap: wrap;
 }
 
 .creator-roll-modal__die {
@@ -2247,10 +2549,10 @@ if (import.meta.client) {
   height: 4.2rem;
   border: 1px solid rgb(34 211 238 / 0.3);
   background: linear-gradient(180deg, rgb(13 34 58 / 0.98), rgb(7 18 33 / 0.98));
-  color: rgb(255 249 196);
+  color: rgb(165 243 252);
   font-size: 1.8rem;
   font-weight: 800;
-  box-shadow: inset 0 0 0 1px rgb(251 191 36 / 0.08), 0 0 22px rgb(250 204 21 / 0.12);
+  box-shadow: inset 0 0 0 1px rgb(34 211 238 / 0.1), 0 0 22px rgb(34 211 238 / 0.14);
   clip-path: polygon(0 0, calc(100% - 0.8rem) 0, 100% 0.8rem, 100% 100%, 0.8rem 100%, 0 calc(100% - 0.8rem));
 }
 
@@ -2274,7 +2576,7 @@ if (import.meta.client) {
 .creator-roll-modal__modifier {
   border: 1px solid rgb(251 191 36 / 0.24);
   background: rgb(251 191 36 / 0.1);
-  color: rgb(253 224 71);
+  color: rgb(253 186 55);
   padding: 0.35rem 0.7rem;
   font-size: 0.82rem;
   font-weight: 700;
@@ -2282,9 +2584,40 @@ if (import.meta.client) {
 }
 
 .creator-roll-modal__total {
-  color: rgb(236 254 255);
-  font-size: 2rem;
+  display: inline-flex;
+  transform: scale(1);
+}
+
+.creator-roll-modal__total-frame {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 3.6rem;
+  height: 3.2rem;
+  border: 1px solid rgb(251 191 36 / 0.28);
+  background: linear-gradient(180deg, rgb(118 43 8 / 0.92), rgb(78 27 8 / 0.96));
+  color: rgb(255 248 214);
+  font-size: 1.8rem;
   font-weight: 800;
+  letter-spacing: 0.02em;
+  -webkit-text-stroke: 0.7px rgb(92 33 7 / 0.98);
+  box-shadow:
+    inset 0 0 0 1px rgb(255 255 255 / 0.04),
+    0 0 14px rgb(245 158 11 / 0.14);
+  text-shadow:
+    0 1px 0 rgb(92 33 7 / 0.95),
+    0 0 1px rgb(255 251 235 / 0.92),
+    0 0 6px rgb(252 211 77 / 0.44),
+    0 0 14px rgb(245 158 11 / 0.28);
+  clip-path: polygon(0 0, calc(100% - 0.6rem) 0, 100% 0.6rem, 100% 100%, 0.6rem 100%, 0 calc(100% - 0.6rem));
+  font-variant-numeric: tabular-nums;
+}
+
+.creator-roll-modal__total.is-settled {
+  animation: creator-roll-total-settle 320ms ease-out;
+  filter:
+    drop-shadow(0 0 8px rgb(252 211 77 / 0.32))
+    drop-shadow(0 0 18px rgb(245 158 11 / 0.26));
 }
 
 .creator-roll-modal__result {
@@ -2319,11 +2652,28 @@ if (import.meta.client) {
   0%,
   100% {
     transform: translateY(0);
-    box-shadow: inset 0 0 0 1px rgb(251 191 36 / 0.08), 0 0 18px rgb(250 204 21 / 0.12);
+    color: rgb(165 243 252);
+    box-shadow: inset 0 0 0 1px rgb(34 211 238 / 0.1), 0 0 18px rgb(34 211 238 / 0.14);
   }
   50% {
     transform: translateY(-1px);
-    box-shadow: inset 0 0 0 1px rgb(251 191 36 / 0.16), 0 0 28px rgb(250 204 21 / 0.22);
+    color: rgb(207 250 254);
+    box-shadow: inset 0 0 0 1px rgb(34 211 238 / 0.18), 0 0 28px rgb(34 211 238 / 0.24);
+  }
+}
+
+@keyframes creator-roll-total-settle {
+  0% {
+    transform: scale(1.52);
+    filter:
+      drop-shadow(0 0 12px rgb(252 211 77 / 0.4))
+      drop-shadow(0 0 24px rgb(245 158 11 / 0.34));
+  }
+  100% {
+    transform: scale(1);
+    filter:
+      drop-shadow(0 0 8px rgb(252 211 77 / 0.32))
+      drop-shadow(0 0 18px rgb(245 158 11 / 0.26));
   }
 }
 </style>

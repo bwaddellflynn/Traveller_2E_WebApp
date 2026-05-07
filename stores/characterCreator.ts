@@ -845,6 +845,8 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
       return sum + (Number(modifier.dmPer ?? 0) * previousCareerCount.value)
     }, 0)
   })
+  const activeQualificationRollModifiers = computed(() => activeRollModifiersFor('careerQualification'))
+  const activeQualificationRollModifierTotal = computed(() => activeQualificationRollModifiers.value.reduce((sum, modifier) => sum + modifier.dm, 0))
   const careerEvent = computed(() => {
     const roll = termRolls.careerEvent
     if (!roll) return null
@@ -5194,6 +5196,8 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     currentCareerTableData,
     previousCareerCount,
     currentCareerQualificationDm,
+    activeQualificationRollModifiers,
+    activeQualificationRollModifierTotal,
     careerEvent,
     careerMishap,
     currentCareerSkillTables,

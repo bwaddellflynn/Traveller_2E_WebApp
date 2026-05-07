@@ -912,6 +912,11 @@ onBeforeUnmount(() => {
     width: 3.1rem;
     height: 2.8rem;
     font-size: 1.45rem;
+    -webkit-text-stroke: 0;
+    text-shadow:
+      0 0 1px rgb(255 251 235 / 0.9),
+      0 0 5px rgb(252 211 77 / 0.34),
+      0 0 10px rgb(245 158 11 / 0.22);
   }
 }
 </style>

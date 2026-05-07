@@ -3,6 +3,10 @@ import { storeToRefs } from 'pinia'
 import { computed } from 'vue'
 import { useCharacterCreatorStore } from '~/stores/characterCreator'
 
+defineEmits<{
+  (event: 'restart'): void
+}>()
+
 const characterCreator = useCharacterCreatorStore()
 const {
   activeCreatorTab,
@@ -57,6 +61,16 @@ const characterCreatorAgeLabel = computed(() => {
             >
           </div>
         </label>
+
+        <button
+          class="creator-header-grid__restart hud-icon-button"
+          aria-label="Restart Character"
+          title="Restart Character"
+          type="button"
+          @click="$emit('restart')"
+        >
+          <AppIcon name="restart" />
+        </button>
 
         <label class="creator-header-grid__species">
           <div class="hud-field h-11">
@@ -161,6 +175,35 @@ const characterCreatorAgeLabel = computed(() => {
   line-height: 1.2;
 }
 
+.hud-icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.75rem;
+  width: 2.75rem;
+  border: 1px solid rgba(251, 191, 36, 0.35);
+  border-radius: 10px 0 10px 0;
+  clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px));
+  background:
+    linear-gradient(180deg, rgba(54, 20, 7, 0.9), rgba(34, 12, 5, 0.94)),
+    radial-gradient(circle at 50% 0, rgba(251, 191, 36, 0.18), transparent 4rem);
+  color: rgb(253 186 116);
+  box-shadow: inset 0 0 0 1px rgba(251, 191, 36, 0.08);
+  transition: border-color 140ms ease, color 140ms ease, box-shadow 140ms ease, transform 140ms ease;
+}
+
+.hud-icon-button:hover {
+  border-color: rgba(251, 191, 36, 0.58);
+  color: rgb(254 215 170);
+  box-shadow:
+    0 0 18px rgba(251, 191, 36, 0.16),
+    inset 0 0 0 1px rgba(251, 191, 36, 0.14);
+}
+
+.hud-icon-button:active {
+  transform: translateY(1px);
+}
+
 .hud-toggle-strip {
   display: flex;
   align-items: stretch;
@@ -230,6 +273,10 @@ const characterCreatorAgeLabel = computed(() => {
   gap: 0.75rem;
 }
 
+.creator-header-grid__restart {
+  justify-self: end;
+}
+
 @media (max-width: 639px) {
   .hud-toggle-strip__label {
     display: none;
@@ -243,11 +290,15 @@ const characterCreatorAgeLabel = computed(() => {
     padding: 0 0.55rem;
     font-size: 0.75rem;
   }
+
+  .creator-header-grid__restart {
+    display: none;
+  }
 }
 
 @media (min-width: 1280px) {
   .creator-header-grid {
-    grid-template-columns: minmax(0, 1.35fr) minmax(0, 1.2fr) 9rem minmax(0, 1.1fr);
+    grid-template-columns: minmax(0, 1.35fr) minmax(0, 1.2fr) 9rem minmax(0, 1.1fr) 2.75rem;
     align-items: center;
   }
 
@@ -263,6 +314,10 @@ const characterCreatorAgeLabel = computed(() => {
     grid-column: 4 / 5;
   }
 
+  .creator-header-grid__restart {
+    grid-column: 5 / 6;
+  }
+
   .creator-header-grid__species {
     grid-column: 1 / 2;
   }
@@ -272,12 +327,12 @@ const characterCreatorAgeLabel = computed(() => {
   }
 
   .creator-header-grid__species-summary {
-    grid-column: 3 / 5;
+    grid-column: 3 / 6;
     align-items: center;
   }
 
   .creator-header-grid__species-summary--wide {
-    grid-column: 2 / 5;
+    grid-column: 2 / 6;
   }
 }
 </style>

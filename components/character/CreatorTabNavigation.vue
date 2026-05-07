@@ -13,6 +13,7 @@ const {
 } = characterCreator
 const {
   activeCreatorTab,
+  currentTermNumber,
   gmOverrideMenuOpen,
   gmOverrideOptions,
   setupComplete,
@@ -21,6 +22,11 @@ const {
 
 const isMobileViewport = ref(false)
 const setupTabActive = computed(() => ['creation', 'setup-stats', 'setup-skills'].includes(activeCreatorTab.value))
+const termOneUnlocked = computed(() => {
+  return setupComplete.value
+    || currentTermNumber.value > 1
+    || activeCreatorTab.value === 'term-1'
+})
 let mobileViewportQuery: MediaQueryList | null = null
 const handleViewportChange = (event: MediaQueryListEvent) => syncViewportMode(event.matches)
 
@@ -90,11 +96,11 @@ onBeforeUnmount(() => {
             'h-10 shrink-0 rounded-md px-3 text-sm font-semibold',
             activeCreatorTab === `term-${termNumber}`
               ? 'bg-zinc-950 text-white'
-              : termNumber === 1 && !setupComplete
+              : termNumber === 1 && !termOneUnlocked
                 ? 'cursor-not-allowed text-zinc-300'
                 : 'text-zinc-700 hover:bg-stone-100 hover:text-zinc-950'
           ]"
-          :disabled="termNumber === 1 && !setupComplete"
+          :disabled="termNumber === 1 && !termOneUnlocked"
           type="button"
           @click="selectTermTab(termNumber)"
         >
