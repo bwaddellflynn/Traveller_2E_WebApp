@@ -15,8 +15,8 @@
   "componentTables": {
     "weaponTypes": [
       { "id": "projectile", "name": "Projectile Weapon", "skill": "gun-combat", "notes": "Personal firearms and gauss weapons built from receiver, ammunition, mechanism, barrel, furniture and accessories." },
-      { "id": "energy", "name": "Energy Weapon", "skill": "gun-combat", "notes": "Manual scaffold for laser/plasma/fusion weapon designs until the energy weapon construction rules are implemented." },
-      { "id": "grenade", "name": "Grenade or Explosive", "skill": "athletics", "notes": "Manual scaffold for thrown, launched and demolition explosive designs until explosive construction rules are implemented." }
+      { "id": "energy", "name": "Energy Weapon", "skill": "gun-combat", "notes": "Directed-energy weapons built from emitter chassis, power source, mechanism, barrel, furniture and accessories." },
+      { "id": "grenade", "name": "Grenade or Explosive", "skill": "athletics", "notes": "Thrown grenades, placed charges, mines and grenade-launcher designs." }
     ],
     "ammunitionTypes": [
       { "id": "archaic-pistol", "name": "Archaic Pistol", "damage": "2D-3", "rangeMeters": 20, "costPer100Credits": 10, "capacityModifierPercent": 0, "traits": ["Unreliable 2", "Slow Loader 6"], "signature": "Physical very high", "penetration": -2 },
@@ -39,14 +39,31 @@
       { "id": "rocket", "name": "Rocket Projectile", "damage": "As type", "rangeMeters": 250, "costMultiplier": 2, "capacityModifierPercent": -40, "receiverWeightMultiplier": 0.5, "barrelWeightMultiplier": 0.5, "traits": ["Inaccurate -1", "Zero-G"], "signature": "Physical normal", "penetration": 0 },
       { "id": "standard-gauss", "name": "Standard Gauss", "damage": "4D", "rangeMeters": 600, "costPer100Credits": 50, "capacityModifierPercent": 0, "receiverCostMultiplier": 2, "receiverWeightMultiplier": 1.25, "traits": [], "signature": "Emissions normal", "penetration": 2 },
       { "id": "small-gauss", "name": "Small Gauss", "damage": "3D", "rangeMeters": 100, "costPer100Credits": 50, "capacityModifierPercent": 0, "receiverCostMultiplier": 2, "receiverWeightMultiplier": 1.25, "traits": [], "signature": "Emissions low", "penetration": 2 },
-      { "id": "enhanced-gauss", "name": "Enhanced Gauss", "damage": "5D", "rangeMeters": 650, "costPer100Credits": 50, "capacityModifierPercent": 0, "receiverCostMultiplier": 2, "receiverWeightMultiplier": 1.25, "traits": [], "signature": "Emissions high", "penetration": 2 }
+      { "id": "enhanced-gauss", "name": "Enhanced Gauss", "damage": "5D", "rangeMeters": 650, "costPer100Credits": 50, "capacityModifierPercent": 0, "receiverCostMultiplier": 2, "receiverWeightMultiplier": 1.25, "traits": [], "signature": "Emissions high", "penetration": 2 },
+      { "id": "stun-cartridge", "name": "Stun Cartridge", "weaponTypes": ["energy"], "damage": "3D", "rangeMeters": 20, "costPer100Credits": 25, "capacityModifierPercent": 20, "receiverCostModifierPercent": 0, "receiverWeightModifierPercent": -10, "traits": ["Stun"], "signature": "Emissions low", "penetration": -1, "heatModifier": -1 },
+      { "id": "light-laser-cell", "name": "Light Laser Cell", "weaponTypes": ["energy"], "damage": "3D", "rangeMeters": 100, "costPer100Credits": 50, "capacityModifierPercent": 10, "receiverCostModifierPercent": 15, "receiverWeightModifierPercent": -10, "traits": [], "signature": "Emissions low", "penetration": 0, "heatModifier": 0 },
+      { "id": "standard-laser-cell", "name": "Standard Laser Cell", "weaponTypes": ["energy"], "damage": "4D", "rangeMeters": 250, "costPer100Credits": 75, "capacityModifierPercent": 0, "receiverCostModifierPercent": 25, "receiverWeightModifierPercent": 0, "traits": [], "signature": "Emissions normal", "penetration": 1, "heatModifier": 1 },
+      { "id": "advanced-laser-cell", "name": "Advanced Laser Cell", "weaponTypes": ["energy"], "damage": "5D", "rangeMeters": 400, "costPer100Credits": 100, "capacityModifierPercent": -10, "receiverCostModifierPercent": 50, "receiverWeightModifierPercent": 10, "traits": ["Very Bulky"], "signature": "Emissions high", "penetration": 2, "heatModifier": 2 },
+      { "id": "plasma-cartridge", "name": "Plasma Cartridge", "weaponTypes": ["energy"], "damage": "6D", "rangeMeters": 80, "costPer100Credits": 250, "capacityModifierPercent": -30, "receiverCostModifierPercent": 125, "receiverWeightModifierPercent": 30, "minimumReceiver": "assault", "traits": ["Blast 2", "Very Bulky"], "signature": "Emissions extreme", "penetration": 2, "heatModifier": 4 },
+      { "id": "fusion-bottle", "name": "Fusion Bottle", "weaponTypes": ["energy"], "damage": "8D", "rangeMeters": 120, "costPer100Credits": 750, "capacityModifierPercent": -60, "receiverCostModifierPercent": 250, "receiverWeightModifierPercent": 60, "minimumReceiver": "light-support", "traits": ["Blast 4", "Very Bulky"], "signature": "Emissions extreme", "penetration": 3, "heatModifier": 6 },
+      { "id": "frag-grenade", "name": "Frag Grenade", "weaponTypes": ["grenade"], "damage": "4D", "rangeMeters": 30, "costCredits": 50, "baseWeightKg": 0.25, "traits": ["Blast 5"], "signature": "Physical high", "penetration": 0 },
+      { "id": "flash-grenade", "name": "Flash Grenade", "weaponTypes": ["grenade"], "damage": "2D", "rangeMeters": 30, "costCredits": 60, "baseWeightKg": 0.25, "traits": ["Flash", "Blast 2"], "signature": "Physical high", "penetration": -1 },
+      { "id": "smoke-grenade", "name": "Smoke Grenade", "weaponTypes": ["grenade"], "damage": "0", "rangeMeters": 30, "costCredits": 40, "baseWeightKg": 0.25, "traits": ["Smoke"], "signature": "Physical normal", "penetration": 0 },
+      { "id": "incendiary-grenade", "name": "Incendiary Grenade", "weaponTypes": ["grenade"], "damage": "3D", "rangeMeters": 25, "costCredits": 75, "baseWeightKg": 0.3, "traits": ["Incendiary", "Blast 3"], "signature": "Physical high", "penetration": 0 },
+      { "id": "demo-charge", "name": "Demolition Charge", "weaponTypes": ["grenade"], "damage": "6D", "rangeMeters": 1, "costCredits": 200, "baseWeightKg": 1, "traits": ["Demolition", "Blast 6"], "signature": "Physical extreme", "penetration": 1 },
+      { "id": "breaching-charge", "name": "Breaching Charge", "weaponTypes": ["grenade"], "damage": "5D", "rangeMeters": 1, "costCredits": 150, "baseWeightKg": 0.75, "traits": ["Breaching", "Blast 3"], "signature": "Physical extreme", "penetration": 2 },
+      { "id": "pressure-mine", "name": "Pressure Mine", "weaponTypes": ["grenade"], "damage": "5D", "rangeMeters": 1, "costCredits": 125, "baseWeightKg": 0.75, "traits": ["Mine", "Blast 4"], "signature": "Physical high", "penetration": 1 },
+      { "id": "launcher-grenade-round", "name": "Launcher Grenade Round", "weaponTypes": ["grenade"], "damage": "4D", "rangeMeters": 100, "costCredits": 80, "baseWeightKg": 0.35, "traits": ["Blast 5"], "signature": "Physical high", "penetration": 0 }
     ],
     "receivers": [
       { "id": "handgun", "name": "Handgun", "baseCostCredits": 175, "baseWeightKg": 0.8, "baseCapacity": 10, "quickdraw": 4, "recoilModifier": -2 },
       { "id": "assault", "name": "Assault Weapon", "baseCostCredits": 300, "baseWeightKg": 2, "baseCapacity": 20, "quickdraw": 2, "recoilModifier": -4 },
       { "id": "longarm", "name": "Longarm", "baseCostCredits": 400, "baseWeightKg": 2.5, "baseCapacity": 30, "quickdraw": 0, "recoilModifier": -6 },
       { "id": "light-support", "name": "Light Support Weapon", "baseCostCredits": 1500, "baseWeightKg": 5, "baseCapacity": 50, "quickdraw": -4, "recoilModifier": -8 },
-      { "id": "heavy", "name": "Heavy Weapon", "baseCostCredits": 3000, "baseWeightKg": 10, "baseCapacity": 50, "quickdraw": -8, "recoilModifier": -8 }
+      { "id": "heavy", "name": "Heavy Weapon", "baseCostCredits": 3000, "baseWeightKg": 10, "baseCapacity": 50, "quickdraw": -8, "recoilModifier": -8 },
+      { "id": "launcher", "name": "Grenade Launcher", "weaponTypes": ["grenade"], "baseCostCredits": 250, "baseWeightKg": 1.5, "baseCapacity": 1, "quickdraw": 1, "recoilModifier": -2 },
+      { "id": "repeating-launcher", "name": "Repeating Launcher", "weaponTypes": ["grenade"], "baseCostCredits": 500, "baseWeightKg": 2.5, "baseCapacity": 6, "quickdraw": -1, "recoilModifier": -3 },
+      { "id": "support-launcher", "name": "Support Launcher", "weaponTypes": ["grenade"], "baseCostCredits": 1200, "baseWeightKg": 6, "baseCapacity": 12, "quickdraw": -4, "recoilModifier": -6 }
     ],
     "mechanisms": [
       { "id": "single-shot", "name": "Single Shot", "costModifierPercent": -75, "weightModifierPercent": 0, "capacityModifierPercent": 0, "traits": [] },
@@ -55,7 +72,8 @@
       { "id": "burst-capable", "name": "Burst-Capable", "costModifierPercent": 10, "weightModifierPercent": 0, "capacityModifierPercent": 0, "auto": 2, "traits": ["Auto 2"] },
       { "id": "fully-automatic", "name": "Fully-Automatic", "costModifierPercent": 20, "weightModifierPercent": 0, "capacityModifierPercent": 0, "auto": 3, "traits": ["Auto 3"] },
       { "id": "rapid-fire", "name": "Rapid-Fire", "costMultiplierFormula": "auto+2", "weightModifierPercent": 100, "capacityModifierPercent": 0, "auto": 4, "minimumAuto": 4, "traits": ["Bulky", "RF"], "requiresReceiverTypes": ["longarm", "light-support", "heavy"] },
-      { "id": "very-rapid-fire", "name": "Very Rapid-Fire", "costModifierPercent": 500, "weightModifierPercent": 400, "capacityModifierPercent": 0, "auto": 6, "minimumAuto": 6, "traits": ["Very Bulky", "VRF"], "requiresReceiverTypes": ["light-support", "heavy"] }
+      { "id": "very-rapid-fire", "name": "Very Rapid-Fire", "costModifierPercent": 500, "weightModifierPercent": 400, "capacityModifierPercent": 0, "auto": 6, "minimumAuto": 6, "traits": ["Very Bulky", "VRF"], "requiresReceiverTypes": ["light-support", "heavy"] },
+      { "id": "detonated", "name": "Detonated / Triggered", "weaponTypes": ["grenade"], "costModifierPercent": 0, "weightModifierPercent": 0, "capacityModifierPercent": 0, "traits": [] }
     ],
     "receiverFeatures": [
       { "id": "advanced-projectile", "name": "Advanced Projectile Weapon", "techLevel": 9, "costModifierPercent": 25, "weightModifierPercent": -10, "rangeModifierPercent": 25, "traits": [] },
@@ -89,7 +107,9 @@
       { "id": "carbine", "name": "Carbine", "costPercentOfReceiver": 25, "weightPercentOfReceiver": 40, "rangeModifierPercent": -10, "quickdrawModifier": 0 },
       { "id": "rifle", "name": "Rifle", "costPercentOfReceiver": 30, "weightPercentOfReceiver": 50, "rangeModifierPercent": 0, "quickdrawModifier": 0 },
       { "id": "long", "name": "Long", "costPercentOfReceiver": 50, "weightPercentOfReceiver": 75, "rangeModifierPercent": 10, "quickdrawModifier": 0 },
-      { "id": "very-long", "name": "Very Long", "costPercentOfReceiver": 100, "weightPercentOfReceiver": 100, "rangeModifierPercent": 25, "quickdrawModifier": 0 }
+      { "id": "very-long", "name": "Very Long", "costPercentOfReceiver": 100, "weightPercentOfReceiver": 100, "rangeModifierPercent": 25, "quickdrawModifier": 0 },
+      { "id": "launcher-tube", "name": "Launcher Tube", "weaponTypes": ["grenade"], "costPercentOfReceiver": 15, "weightPercentOfReceiver": 20, "rangeModifierPercent": 0, "quickdrawModifier": 0 },
+      { "id": "launcher-long", "name": "Long Launcher Tube", "weaponTypes": ["grenade"], "costPercentOfReceiver": 30, "weightPercentOfReceiver": 35, "rangeModifierPercent": 25, "quickdrawModifier": -1 }
     ],
     "furniture": [
       { "id": "stockless", "name": "No Stock", "costPercentOfReceiver": 0, "weightPercentOfReceiver": 0, "quickdrawModifier": 2 },

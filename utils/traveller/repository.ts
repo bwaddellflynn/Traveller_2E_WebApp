@@ -5,6 +5,7 @@ const STORAGE_KEY = 'traveller2e.profiles.v1'
 
 export type StoredTravellerState = {
   activeUserId: string
+  activeProfileId: string
   profiles: TravellerProfile[]
 }
 
@@ -24,6 +25,7 @@ const parseStoredState = (value: string | null): StoredTravellerState | null => 
 
     return {
       activeUserId: parsed.activeUserId || LOCAL_USER_ID,
+      activeProfileId: typeof parsed.activeProfileId === 'string' ? parsed.activeProfileId : '',
       profiles,
     }
   } catch {
@@ -36,12 +38,14 @@ export const createLocalStorageTravellerRepository = (): TravellerRepository => 
     if (!import.meta.client) {
       return {
         activeUserId: LOCAL_USER_ID,
+        activeProfileId: '',
         profiles: [],
       }
     }
 
     return parseStoredState(window.localStorage.getItem(STORAGE_KEY)) ?? {
       activeUserId: LOCAL_USER_ID,
+      activeProfileId: '',
       profiles: [],
     }
   },
@@ -51,6 +55,7 @@ export const createLocalStorageTravellerRepository = (): TravellerRepository => 
 
     const payload: StoredTravellerState = {
       activeUserId: state.activeUserId || LOCAL_USER_ID,
+      activeProfileId: state.activeProfileId || '',
       profiles: state.profiles.map((profile) => cloneTravellerProfile(normalizeTravellerProfile(profile, profile.source, state.activeUserId))),
     }
 

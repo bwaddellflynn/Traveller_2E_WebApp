@@ -6,7 +6,7 @@ import { makeProfileId } from '~/utils/traveller/profile'
 import { loadActiveManualTravellerDraftId } from '~/utils/traveller/manualDraft'
 
 const travellers = useTravellersStore()
-const { userProfiles } = storeToRefs(travellers)
+const { userProfiles, activeProfileId } = storeToRefs(travellers)
 const mobileProfilesExpanded = ref(false)
 const route = useRoute()
 const router = useRouter()
@@ -34,6 +34,15 @@ const openNewManualTraveller = async () => {
   })
 }
 
+const openTraveller = async (profileId: string) => {
+  await travellers.setActiveProfile(profileId)
+  await router.push(`/character/sheet?id=${profileId}`)
+}
+
+const clearActiveTraveller = async () => {
+  await travellers.clearActiveProfile()
+}
+
 const requestDeleteProfile = (profileId: string) => {
   pendingDeleteProfileId.value = profileId
 }
@@ -56,6 +65,14 @@ const confirmDeleteProfile = async (profileId: string) => {
     <div class="flex items-center justify-between gap-3 px-4 py-4">
       <div>
         <h2 class="text-xl font-semibold">Travellers</h2>
+        <button
+          v-if="activeProfileId"
+          class="mt-1 text-xs font-semibold text-cyan-200/75 hover:text-cyan-100"
+          type="button"
+          @click="clearActiveTraveller"
+        >
+          Reference Mode
+        </button>
       </div>
       <div class="flex items-center gap-2">
         <button
@@ -87,13 +104,15 @@ const confirmDeleteProfile = async (profileId: string) => {
           :key="profile.id"
           class="traveller-nav-entry group relative"
         >
-          <NuxtLink
+          <button
             class="traveller-nav-link"
-            :to="`/character/sheet?id=${profile.id}`"
+            :class="{ 'traveller-nav-link--active': activeProfileId === profile.id }"
+            type="button"
+            @click="openTraveller(profile.id)"
           >
             <span class="block font-semibold">{{ profile.identity.name || 'Unnamed Traveller' }}</span>
             <span class="mt-1 block text-xs">{{ travellerShipAssignment(profile) }}</span>
-          </NuxtLink>
+          </button>
           <button
             aria-label="Delete Traveller"
             class="traveller-nav-delete hud-link h-8 w-8"

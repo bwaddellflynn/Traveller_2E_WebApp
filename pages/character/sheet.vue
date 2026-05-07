@@ -125,6 +125,7 @@ const loadSheetFromRoute = () => {
   if (existing) {
     draft.value = cloneTravellerProfile(existing)
     draft.value.metadata.lastOpenedAt = new Date().toISOString()
+    void travellers.setActiveProfile(id)
     return
   }
 
@@ -755,6 +756,9 @@ watch(
   () => {
     if (!manualSheetDraftRestored.value) return
     manualSheetDraftCachePaused.value = true
+    if (activeSheetRouteId.value) {
+      void travellers.setActiveProfile(activeSheetRouteId.value)
+    }
     loadSheetFromRoute()
     nextTick(() => {
       manualSheetDraftCachePaused.value = false

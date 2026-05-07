@@ -6,6 +6,7 @@ import { travellerRepository } from '~/utils/traveller/repository'
 
 export const useTravellersStore = defineStore('travellers', () => {
   const activeUserId = ref(LOCAL_USER_ID)
+  const activeProfileId = ref('')
   const profiles = ref<TravellerProfile[]>([])
   const loaded = ref(false)
   let loadPromise: Promise<void> | null = null
@@ -17,6 +18,10 @@ export const useTravellersStore = defineStore('travellers', () => {
     loadPromise = travellerRepository.loadState().then((state) => {
       activeUserId.value = state.activeUserId || LOCAL_USER_ID
       profiles.value = state.profiles.map((profile) => normalizeTravellerProfile(profile, profile.source, state.activeUserId))
+      activeProfileId.value = state.activeProfileId || ''
+      if (activeProfileId.value && !profiles.value.some((profile) => profile.id === activeProfileId.value && profile.userId === activeUserId.value)) {
+        activeProfileId.value = ''
+      }
       loaded.value = true
     }).finally(() => {
       loadPromise = null
@@ -30,6 +35,7 @@ export const useTravellersStore = defineStore('travellers', () => {
 
     await travellerRepository.saveState({
       activeUserId: activeUserId.value,
+      activeProfileId: activeProfileId.value,
       profiles: profiles.value,
     })
   }
@@ -37,8 +43,22 @@ export const useTravellersStore = defineStore('travellers', () => {
   const userProfiles = computed(() => profiles.value
     .filter((profile) => profile.userId === activeUserId.value)
     .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt)))
+  const activeProfile = computed(() => profiles.value.find((profile) => profile.id === activeProfileId.value && profile.userId === activeUserId.value) ?? null)
 
   const getProfile = (id: string) => profiles.value.find((profile) => profile.id === id) ?? null
+
+  const setActiveProfile = async (id: string) => {
+    await loadProfiles()
+    const profile = getProfile(id)
+    activeProfileId.value = profile?.userId === activeUserId.value ? profile.id : ''
+    await persistProfiles()
+  }
+
+  const clearActiveProfile = async () => {
+    await loadProfiles()
+    activeProfileId.value = ''
+    await persistProfiles()
+  }
 
   const ensureUniqueProfileName = (name: string, profileId: string, userId: string) => {
     const baseName = (name || 'Unnamed Traveller').trim() || 'Unnamed Traveller'
@@ -115,6 +135,7 @@ export const useTravellersStore = defineStore('travellers', () => {
   const deleteProfile = async (id: string) => {
     await loadProfiles()
     profiles.value = profiles.value.filter((profile) => profile.id !== id)
+    if (activeProfileId.value === id) activeProfileId.value = ''
     await persistProfiles()
   }
 
@@ -141,10 +162,14 @@ export const useTravellersStore = defineStore('travellers', () => {
 
   return {
     activeUserId,
+    activeProfileId,
+    activeProfile,
     profiles,
     userProfiles,
     loadProfiles,
     getProfile,
+    setActiveProfile,
+    clearActiveProfile,
     createManualProfile,
     saveProfile,
     saveCreatorProfile,

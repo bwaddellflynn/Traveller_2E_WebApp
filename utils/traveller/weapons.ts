@@ -12,6 +12,7 @@ type FieldCatalogueComponent = {
 
 type FieldCatalogueCompatibilityComponent = FieldCatalogueComponent & {
   techLevel?: number
+  weaponTypes?: string[]
   exclusiveGroup?: string
   requiresWeaponTypes?: string[]
   requiresReceiverTypes?: string[]
@@ -113,6 +114,8 @@ const receiverHeatProfiles: Record<string, HeatProfile['thresholds'] & { dissipa
   'light-support': { dissipation: 8, overheat: 25, danger: 50, disaster: 75 },
   heavy: { dissipation: 10, overheat: 30, danger: 60, disaster: 90 },
 }
+
+const directExplosiveCategories = new Set(['grenade', 'explosive'])
 
 const weaponSourcePriority: Record<string, number> = {
   'mgt2e-field-catalogue': 3,
@@ -231,7 +234,11 @@ export const resolveWeaponFamily = (weapon: Pick<TravellerWeaponRecord, 'categor
   if (category === 'grenade') return 'grenade'
 
   if (weaponType === 'grenade') {
-    if (category === 'support' || category === 'heavy' || receiverType === 'light-support' || receiverType === 'heavy') {
+    if (
+      category === 'support'
+      || category === 'heavy'
+      || ['light-support', 'heavy', 'launcher', 'repeating-launcher', 'support-launcher'].includes(receiverType)
+    ) {
       return 'launcher'
     }
     return category === 'explosive' ? 'charge' : 'grenade'
@@ -314,7 +321,12 @@ export const resolveWeaponIconName = (weapon: Pick<TravellerWeaponRecord, 'categ
 
   if (weaponType === 'grenade') {
     if (weapon.category === 'explosive') return 'weapon-charge'
-    if (weapon.category === 'heavy' || isSupportMount || receiverType === 'light-support' || receiverType === 'heavy' || name.includes('launcher')) {
+    if (
+      weapon.category === 'heavy'
+      || isSupportMount
+      || ['light-support', 'heavy', 'launcher', 'repeating-launcher', 'support-launcher'].includes(receiverType)
+      || name.includes('launcher')
+    ) {
       return 'weapon-launcher-grenade'
     }
     return 'weapon-grenade'
@@ -359,6 +371,7 @@ export const resolveWeaponIconName = (weapon: Pick<TravellerWeaponRecord, 'categ
 }
 
 const applyPercent = (value: number, percent = 0) => value * (1 + percent / 100)
+const round2 = (value: number) => Math.round(value * 100) / 100
 
 const uniqueTraits = (traits: string[]) => Array.from(new Set(traits.filter(Boolean)))
 
@@ -435,6 +448,29 @@ const selectedItemsByExclusiveGroup = (
   }
 
   return groups
+}
+
+const defaultWeaponTypesByTable: Partial<Record<keyof FieldCatalogueComponentTables, string[]>> = {
+  ammunitionTypes: ['projectile'],
+  receivers: ['projectile', 'energy'],
+  mechanisms: ['projectile', 'energy', 'grenade'],
+  barrels: ['projectile', 'energy'],
+  furniture: ['projectile', 'energy', 'grenade'],
+  feedDevices: ['projectile', 'energy', 'grenade'],
+  specialAmmunition: ['projectile'],
+}
+
+export const fieldCatalogueComponentSupportsWeaponType = (
+  tableKey: keyof FieldCatalogueComponentTables,
+  item: FieldCatalogueComponent | undefined,
+  weaponType: string,
+) => {
+  if (!item || !weaponType) return true
+  const explicitWeaponTypes = (item as FieldCatalogueCompatibilityComponent).weaponTypes
+  if (explicitWeaponTypes?.length) return explicitWeaponTypes.includes(weaponType)
+  const fallbackWeaponTypes = defaultWeaponTypesByTable[tableKey]
+  if (!fallbackWeaponTypes?.length) return true
+  return fallbackWeaponTypes.includes(weaponType)
 }
 
 const componentCompatibilityWarnings = (
@@ -546,17 +582,14 @@ export const calculateFieldCatalogueWeapon = (weapon: CustomWeaponDesign): Field
     .filter(Boolean)
   const warnings: string[] = []
   const weaponType = tables.weaponTypes.find((item) => item.id === weapon.design.weaponType)
+  const isDirectExplosiveBuild = weapon.design.weaponType === 'grenade' && directExplosiveCategories.has(weapon.category)
 
-  if (weapon.design.weaponType && weapon.design.weaponType !== 'projectile') {
-    warnings.push(`${weaponType?.name ?? weapon.design.weaponType} designs are not mechanically implemented yet; use manual fields for now.`)
-  }
-
-  if (!receiver || !ammunition) {
+  if (!ammunition || (!receiver && !isDirectExplosiveBuild)) {
     return {
       ready: false,
       missing: [
-        !receiver ? 'receiver' : '',
         !ammunition ? 'ammunition' : '',
+        !receiver && !isDirectExplosiveBuild ? 'receiver' : '',
       ].filter(Boolean),
       costCredits: weapon.costCredits ?? 0,
       massKg: weapon.massKg ?? 0,
@@ -570,6 +603,35 @@ export const calculateFieldCatalogueWeapon = (weapon: CustomWeaponDesign): Field
       magazineCostCredits: weapon.magazineCostCredits ?? 0,
       warnings,
       traits: uniqueTraits([...(weapon.traits ?? []), ...(ammunition?.traits ?? [])]),
+      components: { receiver, ammunition, mechanism, receiverFeatures, barrel, furniture, feedDevice, specialAmmunition, accessories },
+    }
+  }
+
+  if (isDirectExplosiveBuild) {
+    const directTraits = uniqueTraits([...(weapon.traits ?? []), ...(ammunition.traits ?? [])])
+    const directRange = weapon.category === 'explosive' && (ammunition.rangeMeters ?? 0) <= 1
+      ? 'Contact'
+      : `${ammunition.rangeMeters ?? 0}m`
+    const directCost = Math.round(ammunition.costCredits ?? ammunition.costPer100Credits ?? weapon.costCredits ?? 0)
+    const directMass = round2(ammunition.baseWeightKg ?? ammunition.baseWeight ?? weapon.massKg ?? 0)
+    const directQuickdraw = weapon.category === 'grenade' ? 2 : 0
+
+    return {
+      ready: true,
+      missing: [],
+      costCredits: directCost,
+      massKg: directMass,
+      range: directRange,
+      damage: ammunition.damage ?? weapon.damage,
+      magazine: '1',
+      quickdraw: directQuickdraw,
+      penetration: ammunition.penetration ?? 0,
+      recoil: 0,
+      heat: null,
+      heatProfile: null,
+      magazineCostCredits: directCost,
+      warnings,
+      traits: directTraits,
       components: { receiver, ammunition, mechanism, receiverFeatures, barrel, furniture, feedDevice, specialAmmunition, accessories },
     }
   }
@@ -712,7 +774,7 @@ export const calculateFieldCatalogueWeapon = (weapon: CustomWeaponDesign): Field
   const recoil = Math.max(0, fullDamageDice(damage) + (auto || 0) + (receiver.recoilModifier ?? 0) + (ammunition.recoilModifier ?? 0) - recoilCompensation)
   const receiverHeatProfile = receiverHeatProfiles[receiver.id]
   const heatDissipationBonus = (weapon.design.heavyBarrel ? 2 : 0) + receiverFeatures.reduce((total, feature) => total + (feature.heatDissipationModifier ?? 0), 0)
-  const heatGenerationBase = fullDamageDice(damage) + (auto || 0)
+  const heatGenerationBase = fullDamageDice(damage) + (auto || 0) + (ammunition.heatModifier ?? 0)
   if (receiverHeatProfile && (auto > 0 || weapon.design.weaponType === 'energy')) {
     heat = heatGenerationBase
     heatProfile = {
@@ -734,7 +796,9 @@ export const calculateFieldCatalogueWeapon = (weapon: CustomWeaponDesign): Field
   damage = penetrationOutcome.damage
   const finalPenetrationTrait = penetrationOutcome.trait
   if (finalPenetrationTrait) traits.push(finalPenetrationTrait)
-  const ammunitionCostCredits = (ammunition.costPer100Credits ?? 0) * capacity / 100 * (specialAmmunition?.costMultiplier ?? ammunition.costMultiplier ?? 1)
+  const ammunitionCostCredits = ammunition.costCredits !== undefined
+    ? ammunition.costCredits * capacity * (specialAmmunition?.costMultiplier ?? ammunition.costMultiplier ?? 1)
+    : (ammunition.costPer100Credits ?? 0) * capacity / 100 * (specialAmmunition?.costMultiplier ?? ammunition.costMultiplier ?? 1)
   const feedDeviceCostCredits = feedDevice?.id === 'fixed-magazine'
     ? 0
     : costCredits * ((feedDevice?.costPercentOfWeapon ?? 1) / 100) * (feedDevice?.costMultiplier ?? 1)

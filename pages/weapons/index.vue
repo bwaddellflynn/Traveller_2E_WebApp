@@ -3,8 +3,11 @@ import { storeToRefs } from 'pinia'
 import type { TravellerArmorRecord, TravellerEquipmentRecord } from '~/types/armory'
 import type { CustomWeaponDesign, TravellerWeaponRecord } from '~/types/weapon'
 import { useWeaponsStore } from '~/stores/weapons'
+import { useTravellersStore } from '~/stores/travellers'
 import { loadBuilderDraft, saveBuilderDraft } from '~/utils/traveller/draftCache'
-import { calculateFieldCatalogueWeapon, cloneWeapon, createBlankCustomWeapon, fieldCatalogueDesign, getFieldCatalogueSelectionWarnings, resolveWeaponFamily, resolveWeaponFamilyIcon, resolveWeaponIconName } from '~/utils/traveller/weapons'
+import { MANUAL_TRAVELLER_DRAFT_CACHE_VERSION, manualTravellerDraftCacheKey } from '~/utils/traveller/manualDraft'
+import { cloneTravellerProfile } from '~/utils/traveller/profile'
+import { calculateFieldCatalogueWeapon, cloneWeapon, createBlankCustomWeapon, fieldCatalogueComponentSupportsWeaponType, fieldCatalogueDesign, getFieldCatalogueSelectionWarnings, makeWeaponId, resolveWeaponFamily, resolveWeaponFamilyIcon, resolveWeaponIconName } from '~/utils/traveller/weapons'
 import weaponSidearmIconUrl from '~/assets/weapon_icon_svgs/weapon_sidearm_icon_24.svg?url'
 import weaponRevolverIconUrl from '~/assets/weapon_icon_svgs/weapon_revolver_icon_24.svg?url'
 import weaponSmgIconUrl from '~/assets/weapon_icon_svgs/weapon_smg_icon_24.svg?url'
@@ -65,7 +68,9 @@ const WEAPON_BUILDER_DRAFT_CACHE_KEY = 'scoutsuite.builder.weapon.v1'
 const WEAPON_BUILDER_DRAFT_CACHE_VERSION = 1
 
 const weaponsStore = useWeaponsStore()
+const travellersStore = useTravellersStore()
 const { referenceWeapons, referenceArmor, referenceEquipment, userWeapons } = storeToRefs(weaponsStore)
+const { activeProfile } = storeToRefs(travellersStore)
 const selectedCategory = ref('all')
 const selectedArmorCategory = ref('all')
 const selectedEquipmentCategory = ref('all')
@@ -103,6 +108,7 @@ const normalizeDraft = (weapon: CustomWeaponDesign) => {
 
 onMounted(() => {
   weaponsStore.loadWeapons()
+  void travellersStore.loadProfiles()
 
   const cachedDraft = loadBuilderDraft<WeaponBuilderDraftCache>(
     WEAPON_BUILDER_DRAFT_CACHE_KEY,
@@ -192,6 +198,7 @@ const designSteps = [
 
 const designTables = fieldCatalogueDesign.componentTables as DesignTables
 const designPreview = computed(() => calculateFieldCatalogueWeapon(draft.value))
+const isDirectExplosiveBuild = computed(() => draft.value.design.weaponType === 'grenade' && ['grenade', 'explosive'].includes(draft.value.category))
 
 const builderCategoryOptions = [
   { id: 'melee', label: 'Melee' },
@@ -598,8 +605,23 @@ const filteredCategoryOptions = computed(() => {
   return builderCategoryOptions.filter((item) => allowedIds.includes(item.id))
 })
 
+const filterDesignTableByWeaponType = <T extends DesignTableItem>(items: T[], tableKey: keyof DesignTables) => {
+  const weaponType = draft.value.design.weaponType
+  if (!weaponType) return items
+  return items.filter((item) => fieldCatalogueComponentSupportsWeaponType(tableKey as any, item, weaponType))
+}
+
+const filteredAmmunitionOptions = computed(() => filterDesignTableByWeaponType(designTables.ammunitionTypes, 'ammunitionTypes'))
+const filteredReceiverOptions = computed(() => filterDesignTableByWeaponType(designTables.receivers, 'receivers'))
+const filteredMechanismOptions = computed(() => filterDesignTableByWeaponType(designTables.mechanisms, 'mechanisms'))
+const filteredBarrelOptions = computed(() => filterDesignTableByWeaponType(designTables.barrels, 'barrels'))
+const filteredFurnitureOptions = computed(() => filterDesignTableByWeaponType(designTables.furniture, 'furniture'))
+const filteredFeedDeviceOptions = computed(() => filterDesignTableByWeaponType(designTables.feedDevices, 'feedDevices'))
+const filteredSpecialAmmunitionOptions = computed(() => filterDesignTableByWeaponType(designTables.specialAmmunition, 'specialAmmunition'))
+
 const builderCostLabel = computed(() => {
-  if (!draft.value.design.receiverType || !draft.value.design.ammunitionType) return '—'
+  if (!draft.value.design.ammunitionType) return '—'
+  if (!isDirectExplosiveBuild.value && !draft.value.design.receiverType) return '—'
   return formatCredits(designPreview.value.costCredits)
 })
 
@@ -640,6 +662,27 @@ watch(
     if (!allowedCategories.includes(draft.value.category)) {
       draft.value.category = allowedCategories[0] ?? 'slug'
     }
+    if (!filteredAmmunitionOptions.value.some((item) => item.id === draft.value.design.ammunitionType)) {
+      draft.value.design.ammunitionType = ''
+    }
+    if (!filteredReceiverOptions.value.some((item) => item.id === draft.value.design.receiverType)) {
+      draft.value.design.receiverType = ''
+    }
+    if (!filteredMechanismOptions.value.some((item) => item.id === draft.value.design.mechanism)) {
+      draft.value.design.mechanism = weaponType === 'grenade' ? 'detonated' : 'semi-automatic'
+    }
+    if (!filteredBarrelOptions.value.some((item) => item.id === draft.value.design.barrel)) {
+      draft.value.design.barrel = ''
+    }
+    if (!filteredFurnitureOptions.value.some((item) => item.id === draft.value.design.furniture)) {
+      draft.value.design.furniture = ''
+    }
+    if (!filteredFeedDeviceOptions.value.some((item) => item.id === draft.value.design.feedDevice)) {
+      draft.value.design.feedDevice = ''
+    }
+    if (!filteredSpecialAmmunitionOptions.value.some((item) => item.id === draft.value.design.specialAmmunition)) {
+      draft.value.design.specialAmmunition = ''
+    }
   },
   { immediate: true },
 )
@@ -649,6 +692,17 @@ watch(
   (category) => {
     const nextCategory = category || 'slug'
     const allowedSkills = skillOptionsByCategory[nextCategory] ?? ['gun-combat']
+    if (draft.value.design.weaponType === 'grenade') {
+      if (['grenade', 'explosive'].includes(nextCategory)) {
+        draft.value.design.mechanism = 'detonated'
+        draft.value.design.receiverType = ''
+        draft.value.design.barrel = ''
+        draft.value.design.furniture = ''
+        draft.value.design.feedDevice = ''
+      } else if (draft.value.design.mechanism === 'detonated') {
+        draft.value.design.mechanism = 'single-shot'
+      }
+    }
     if (!allowedSkills.includes(draft.value.skill)) {
       draft.value.skill = allowedSkills[0] ?? 'gun-combat'
     }
@@ -729,9 +783,9 @@ const canToggleAccessory = (id: string) => (
 const isStepComplete = (index: number) => {
   const design = draft.value.design
   if (index === 0) return Boolean(draft.value.name.trim() && design.weaponType)
-  if (index === 1) return Boolean(design.weaponType !== 'projectile' || design.ammunitionType)
-  if (index === 2) return Boolean(design.weaponType !== 'projectile' || (design.receiverType && design.mechanism))
-  if (index === 3) return Boolean(design.weaponType !== 'projectile' || (design.barrel && design.furniture && design.feedDevice))
+  if (index === 1) return Boolean(design.ammunitionType)
+  if (index === 2) return isDirectExplosiveBuild.value || Boolean(design.receiverType && design.mechanism)
+  if (index === 3) return isDirectExplosiveBuild.value || Boolean(design.barrel && design.furniture && design.feedDevice)
   if (index === 4) return true
   return designPreview.value.ready
 }
@@ -796,6 +850,54 @@ const saveWeapon = () => {
   const saved = weaponsStore.saveCustomWeapon(buildPersistedWeaponDraft())
   draft.value = cloneWeapon(saved)
   saveMessage.value = `Saved ${saved.name}`
+}
+
+const canBuyCompletedWeapon = computed(() => Boolean(
+  designPreview.value.ready
+  && activeProfile.value
+  && designPreview.value.costCredits <= activeProfile.value.finances.cashOnHand,
+))
+
+const buyCompletedWeaponDisabledReason = computed(() => {
+  if (!designPreview.value.ready) return 'Complete the design first.'
+  if (!activeProfile.value) return 'Select a Traveller to enable purchases.'
+  if (designPreview.value.costCredits > activeProfile.value.finances.cashOnHand) return 'Selected Traveller does not have enough credits.'
+  return ''
+})
+
+const addCompletedWeaponToActiveTraveller = async () => {
+  if (!designPreview.value.ready || !activeProfile.value || designPreview.value.costCredits > activeProfile.value.finances.cashOnHand) return
+
+  const finalizedWeapon = weaponsStore.saveCustomWeapon(buildPersistedWeaponDraft())
+  const updatedProfile = await travellersStore.updateProfile(activeProfile.value.id, (profile) => ({
+    ...profile,
+    weapons: [
+      {
+        id: makeWeaponId(),
+        name: finalizedWeapon.name,
+        techLevel: finalizedWeapon.techLevel === null ? undefined : String(finalizedWeapon.techLevel),
+        range: finalizedWeapon.range,
+        damage: finalizedWeapon.damage,
+        kg: finalizedWeapon.massKg === null ? undefined : String(finalizedWeapon.massKg),
+        magazine: finalizedWeapon.magazine,
+        traits: finalizedWeapon.traits.join(', '),
+        notes: `Purchased from Armory${finalizedWeapon.family ? ` · ${titleCaseLabel(finalizedWeapon.family)}` : ''}`,
+      },
+      ...profile.weapons,
+    ],
+    finances: {
+      ...profile.finances,
+      cashOnHand: Math.max(0, profile.finances.cashOnHand - designPreview.value.costCredits),
+    },
+  }))
+  if (updatedProfile) {
+    saveBuilderDraft(
+      manualTravellerDraftCacheKey(updatedProfile.id),
+      MANUAL_TRAVELLER_DRAFT_CACHE_VERSION,
+      cloneTravellerProfile(updatedProfile),
+    )
+  }
+  saveMessage.value = `Added ${finalizedWeapon.name} to ${activeProfile.value.identity.name || 'Traveller'}`
 }
 
 const duplicateWeapon = () => {
@@ -1377,19 +1479,22 @@ const toggleExpandedEquipment = (itemId: string) => {
               <span class="text-sm font-semibold text-zinc-700">Ammunition / Power Source</span>
               <select v-model="draft.design.ammunitionType" class="weapon-form-control weapon-form-control--select h-11 px-3">
                 <option value="">Select ammunition</option>
-                <option v-for="item in designTables.ammunitionTypes" :key="item.id" :value="item.id">{{ item.name }}</option>
+                <option v-for="item in filteredAmmunitionOptions" :key="item.id" :value="item.id">{{ item.name }}</option>
               </select>
             </label>
             <p v-if="selectedAmmunition" class="rounded-md bg-stone-50 p-3 text-sm text-zinc-700">{{ itemDescription(selectedAmmunition) }}</p>
           </div>
 
           <div v-else-if="activeDesignStep === 2" class="mt-5 grid gap-4">
+            <p v-if="isDirectExplosiveBuild" class="rounded-md border border-cyan-400/20 bg-slate-950/60 p-4 text-sm text-cyan-100/90">
+              Thrown grenades, mines and placed charges do not use a receiver or firing mechanism. Continue to Finish once the payload is selected.
+            </p>
             <div class="grid gap-4 md:grid-cols-2">
               <label class="grid gap-2">
                 <span class="text-sm font-semibold text-zinc-700">Receiver</span>
                 <select v-model="draft.design.receiverType" class="weapon-form-control weapon-form-control--select h-11 px-3">
                   <option value="">Select receiver</option>
-                  <option v-for="item in designTables.receivers" :key="item.id" :value="item.id">{{ item.name }}</option>
+                  <option v-for="item in filteredReceiverOptions" :key="item.id" :value="item.id">{{ item.name }}</option>
                 </select>
               </label>
               <label class="grid gap-2">
@@ -1397,7 +1502,7 @@ const toggleExpandedEquipment = (itemId: string) => {
                 <select v-model="draft.design.mechanism" class="weapon-form-control weapon-form-control--select h-11 px-3">
                   <option value="">Select mechanism</option>
                   <option
-                    v-for="item in designTables.mechanisms"
+                    v-for="item in filteredMechanismOptions"
                     :key="item.id"
                     :value="item.id"
                     :disabled="!canSelectChoice('mechanisms', item.id, draft.design.mechanism === item.id)"
@@ -1443,12 +1548,15 @@ const toggleExpandedEquipment = (itemId: string) => {
           </div>
 
           <div v-else-if="activeDesignStep === 3" class="mt-5 grid gap-4">
+            <p v-if="isDirectExplosiveBuild" class="rounded-md border border-cyan-400/20 bg-slate-950/60 p-4 text-sm text-cyan-100/90">
+              This payload path does not use barrel, furniture or feed components. Grenade launchers remain available by choosing a launcher category and receiver path.
+            </p>
             <div class="grid gap-4 md:grid-cols-2">
               <label class="grid gap-2">
                 <span class="text-sm font-semibold text-zinc-700">Barrel</span>
                 <select v-model="draft.design.barrel" class="weapon-form-control weapon-form-control--select h-11 px-3">
                   <option value="">Select barrel</option>
-                  <option v-for="item in designTables.barrels" :key="item.id" :value="item.id">{{ item.name }}</option>
+                  <option v-for="item in filteredBarrelOptions" :key="item.id" :value="item.id">{{ item.name }}</option>
                 </select>
               </label>
               <div class="grid gap-2">
@@ -1462,14 +1570,14 @@ const toggleExpandedEquipment = (itemId: string) => {
                 <span class="text-sm font-semibold text-zinc-700">Furniture</span>
                 <select v-model="draft.design.furniture" class="weapon-form-control weapon-form-control--select h-11 px-3">
                   <option value="">Select furniture</option>
-                  <option v-for="item in designTables.furniture" :key="item.id" :value="item.id">{{ item.name }}</option>
+                  <option v-for="item in filteredFurnitureOptions" :key="item.id" :value="item.id">{{ item.name }}</option>
                 </select>
               </label>
               <label class="grid gap-2">
                 <span class="text-sm font-semibold text-zinc-700">Feed Device</span>
                 <select v-model="draft.design.feedDevice" class="weapon-form-control weapon-form-control--select h-11 px-3">
                   <option value="">Select feed</option>
-                  <option v-for="item in designTables.feedDevices" :key="item.id" :value="item.id">{{ item.name }}</option>
+                  <option v-for="item in filteredFeedDeviceOptions" :key="item.id" :value="item.id">{{ item.name }}</option>
                 </select>
               </label>
               <label class="grid gap-2">
@@ -1490,7 +1598,7 @@ const toggleExpandedEquipment = (itemId: string) => {
               <select v-model="draft.design.specialAmmunition" class="weapon-form-control weapon-form-control--select h-11 px-3">
                 <option value="">Ball / standard</option>
                 <option
-                  v-for="item in designTables.specialAmmunition"
+                  v-for="item in filteredSpecialAmmunitionOptions"
                   :key="item.id"
                   :value="item.id"
                   :disabled="!canSelectChoice('specialAmmunition', item.id, draft.design.specialAmmunition === item.id)"
@@ -1679,6 +1787,19 @@ const toggleExpandedEquipment = (itemId: string) => {
                     {{ warning }}
                   </p>
                 </div>
+              </div>
+
+              <div class="weapon-final-card__actions">
+                <button
+                  class="weapon-final-card__action weapon-final-card__action--primary"
+                  type="button"
+                  :disabled="!canBuyCompletedWeapon"
+                  :title="buyCompletedWeaponDisabledReason || `Add to ${activeProfile?.identity.name || 'Traveller'}`"
+                  @click="addCompletedWeaponToActiveTraveller"
+                >
+                  <AppIcon name="plus" />
+                  <span>{{ activeProfile ? `Add to ${activeProfile.identity.name || 'Traveller'}` : 'Select Traveller to Buy' }}</span>
+                </button>
               </div>
             </section>
           </div>
@@ -2293,6 +2414,48 @@ const toggleExpandedEquipment = (itemId: string) => {
   line-height: 1.45;
   color: #cbd5e1;
   clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px));
+}
+
+.weapon-final-card__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  padding-top: 0.25rem;
+}
+
+.weapon-final-card__action {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-height: 2.7rem;
+  padding: 0 1rem;
+  border: 1px solid rgba(34, 211, 238, 0.32);
+  color: rgba(236, 254, 255, 0.96);
+  background:
+    linear-gradient(180deg, rgba(11, 17, 32, 0.98), rgba(8, 12, 24, 0.98)),
+    radial-gradient(circle at 50% 0, rgba(34, 211, 238, 0.12), transparent 9rem);
+  clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px));
+  box-shadow: 0 0 18px rgba(34, 211, 238, 0.12);
+  transition: border-color 160ms ease, transform 160ms ease, opacity 160ms ease;
+}
+
+.weapon-final-card__action:hover:not(:disabled) {
+  transform: translateY(-1px);
+  border-color: rgba(103, 232, 249, 0.72);
+}
+
+.weapon-final-card__action:disabled {
+  opacity: 0.46;
+  cursor: not-allowed;
+}
+
+.weapon-final-card__action--primary {
+  border-color: rgba(251, 191, 36, 0.38);
+  color: rgba(255, 247, 237, 0.98);
+  background:
+    linear-gradient(180deg, rgba(81, 33, 9, 0.86), rgba(67, 20, 7, 0.94)),
+    radial-gradient(circle at 50% 0, rgba(251, 191, 36, 0.16), transparent 9rem);
+  box-shadow: 0 0 18px rgba(251, 191, 36, 0.16);
 }
 
 .weapon-tl-input::-webkit-outer-spin-button,
