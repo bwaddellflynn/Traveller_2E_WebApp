@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { storeToRefs } from 'pinia'
-import { computed, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useCharacterCreatorStore } from '~/stores/characterCreator'
 
 const characterCreator = useCharacterCreatorStore()
@@ -12,13 +12,71 @@ const {
 const currentTravellerTab = ref('profile')
 const currentTravellerTabs = [
   { id: 'profile', label: 'Stats & Skills' },
-  { id: 'direction', label: 'Term Direction' },
+  { id: 'direction', label: 'Direction' },
   { id: 'events', label: 'Events' },
   { id: 'benefits', label: 'Benefits' },
   { id: 'history', label: 'Term History' },
   { id: 'debt', label: 'Debt' },
 ]
 const currentTravellerTabIndex = computed(() => Math.max(0, currentTravellerTabs.findIndex((tab) => tab.id === currentTravellerTab.value)))
+const isMobileViewport = ref(false)
+let mobileViewportQuery: MediaQueryList | null = null
+const handleViewportChange = (event: MediaQueryListEvent) => {
+  isMobileViewport.value = event.matches
+}
+onMounted(() => {
+  mobileViewportQuery = window.matchMedia('(max-width: 639px)')
+  isMobileViewport.value = mobileViewportQuery.matches
+  mobileViewportQuery.addEventListener('change', handleViewportChange)
+})
+onBeforeUnmount(() => {
+  if (!mobileViewportQuery) return
+  mobileViewportQuery.removeEventListener('change', handleViewportChange)
+})
+
+const mobileTravellerCarouselTouchStartX = ref<number | null>(null)
+const mobileTravellerCarouselTouchStartAt = ref<number | null>(null)
+const mobileTravellerCarouselSwipeDelta = ref(0)
+const currentTravellerPrevTab = computed(() => {
+  const count = currentTravellerTabs.length
+  return count ? currentTravellerTabs[(currentTravellerTabIndex.value - 1 + count) % count] : null
+})
+const currentTravellerActiveTab = computed(() => currentTravellerTabs[currentTravellerTabIndex.value] ?? null)
+const currentTravellerNextTab = computed(() => {
+  const count = currentTravellerTabs.length
+  return count ? currentTravellerTabs[(currentTravellerTabIndex.value + 1) % count] : null
+})
+const navigateTravellerTab = (direction: 'prev' | 'next') => {
+  const count = currentTravellerTabs.length
+  if (!count) return
+  const nextIndex = direction === 'prev'
+    ? (currentTravellerTabIndex.value - 1 + count) % count
+    : (currentTravellerTabIndex.value + 1) % count
+  const target = currentTravellerTabs[nextIndex]
+  if (!target) return
+  currentTravellerTab.value = target.id
+}
+const handleTravellerCarouselTouchStart = (event: TouchEvent) => {
+  mobileTravellerCarouselTouchStartX.value = event.touches[0]?.clientX ?? null
+  mobileTravellerCarouselTouchStartAt.value = performance.now()
+}
+const handleTravellerCarouselTouchMove = (event: TouchEvent) => {
+  if (mobileTravellerCarouselTouchStartX.value === null) return
+  const currentX = event.touches[0]?.clientX
+  if (typeof currentX !== 'number') return
+  mobileTravellerCarouselSwipeDelta.value = currentX - mobileTravellerCarouselTouchStartX.value
+}
+const handleTravellerCarouselTouchEnd = () => {
+  const delta = mobileTravellerCarouselSwipeDelta.value
+  const elapsed = mobileTravellerCarouselTouchStartAt.value === null ? 999 : performance.now() - mobileTravellerCarouselTouchStartAt.value
+  const threshold = elapsed < 180 ? 18 : 36
+  if (delta <= -threshold) navigateTravellerTab('next')
+  else if (delta >= threshold) navigateTravellerTab('prev')
+
+  mobileTravellerCarouselTouchStartX.value = null
+  mobileTravellerCarouselTouchStartAt.value = null
+  mobileTravellerCarouselSwipeDelta.value = 0
+}
 const folderTabPosition = (index: number, count: number) => count <= 1 ? 0 : index / (count - 1)
 const {
   activeCreatorTab,
@@ -71,7 +129,7 @@ const currentTravellerAgeLabel = computed(() => {
       </span>
     </div>
 
-    <div class="hud-folder-tabs mt-5">
+    <div v-if="!isMobileViewport" class="hud-folder-tabs mt-5">
       <button
         v-for="(tab, index) in currentTravellerTabs"
         :key="tab.id"
@@ -94,6 +152,45 @@ const currentTravellerAgeLabel = computed(() => {
       >
         {{ tab.label }}
       </button>
+    </div>
+    <div
+      v-else
+      class="current-traveller-carousel mt-5"
+      @touchstart.passive="handleTravellerCarouselTouchStart"
+      @touchmove="handleTravellerCarouselTouchMove"
+      @touchend="handleTravellerCarouselTouchEnd"
+      @touchcancel="handleTravellerCarouselTouchEnd"
+    >
+      <div class="current-traveller-carousel__viewport">
+        <div class="current-traveller-carousel__track">
+          <button
+            v-if="currentTravellerPrevTab"
+            key="prev"
+            class="current-traveller-carousel__item is-near"
+            type="button"
+            @click="navigateTravellerTab('prev')"
+          >
+            <span class="current-traveller-carousel__label">{{ currentTravellerPrevTab.label }}</span>
+          </button>
+          <button
+            v-if="currentTravellerActiveTab"
+            key="current"
+            class="current-traveller-carousel__item is-current"
+            type="button"
+          >
+            <span class="current-traveller-carousel__label">{{ currentTravellerActiveTab.label }}</span>
+          </button>
+          <button
+            v-if="currentTravellerNextTab"
+            key="next"
+            class="current-traveller-carousel__item is-near"
+            type="button"
+            @click="navigateTravellerTab('next')"
+          >
+            <span class="current-traveller-carousel__label">{{ currentTravellerNextTab.label }}</span>
+          </button>
+        </div>
+      </div>
     </div>
 
     <div v-show="currentTravellerTab === 'profile'" class="mt-5 grid grid-cols-3 gap-2">
@@ -375,3 +472,119 @@ const currentTravellerAgeLabel = computed(() => {
     </div>
   </aside>
 </template>
+
+<style scoped>
+.current-traveller-carousel {
+  display: flex;
+  justify-content: center;
+  touch-action: pan-y;
+}
+
+.current-traveller-carousel__viewport {
+  width: 98%;
+  display: flex;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.current-traveller-carousel__track {
+  display: flex;
+  width: max-content;
+  align-items: center;
+  gap: 0.375rem;
+  will-change: transform;
+}
+
+.current-traveller-carousel-shift-move,
+.current-traveller-carousel-shift-enter-active,
+.current-traveller-carousel-shift-leave-active {
+  transition:
+    transform 240ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 240ms ease;
+}
+
+.current-traveller-carousel-shift-enter-from,
+.current-traveller-carousel-shift-leave-to {
+  opacity: 0;
+  transform: scale(0.92);
+}
+
+.current-traveller-carousel__item {
+  position: relative;
+  display: inline-flex;
+  width: 5.6rem;
+  flex: 0 0 5.6rem;
+  height: 2.45rem;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgb(34 211 238 / 0.24);
+  background: linear-gradient(180deg, rgb(9 33 49 / 0.96), rgb(6 24 38 / 0.98));
+  color: rgb(224 247 255 / 0.94);
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-align: center;
+  transition:
+    transform 260ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 260ms ease,
+    border-color 220ms ease,
+    box-shadow 260ms ease,
+    filter 260ms ease;
+}
+
+.current-traveller-carousel__item::before {
+  content: '';
+  position: absolute;
+  inset: 1px;
+  background: linear-gradient(180deg, rgb(8 21 34 / 0.86), rgb(5 14 25 / 0.92));
+  z-index: 0;
+}
+
+.current-traveller-carousel__item.is-current {
+  clip-path: polygon(0 0, calc(100% - 0.5rem) 0, 100% 0.5rem, 100% 100%, 0.5rem 100%, 0 calc(100% - 0.5rem));
+  border-color: rgb(103 232 249 / 0.54);
+  box-shadow:
+    inset 0 0 0 1px rgb(103 232 249 / 0.16),
+    0 0 18px rgb(34 211 238 / 0.12);
+  transform: scale(1.18);
+  z-index: 2;
+}
+
+.current-traveller-carousel__item.is-current::before {
+  clip-path: polygon(0 0, calc(100% - 0.42rem) 0, 100% 0.42rem, 100% 100%, 0.42rem 100%, 0 calc(100% - 0.42rem));
+  background:
+    linear-gradient(135deg, rgb(66 214 255 / 0.34), rgb(26 122 162 / 0.28) 48%, rgb(14 66 93 / 0.88)),
+    linear-gradient(180deg, rgb(11 59 81 / 0.94), rgb(8 30 48 / 0.98));
+}
+
+.current-traveller-carousel__item.is-near {
+  clip-path: polygon(0 0, calc(100% - 0.42rem) 0, 100% 0.42rem, 100% 100%, 0.42rem 100%, 0 calc(100% - 0.42rem));
+  opacity: 0.52;
+  transform: scale(0.74);
+}
+
+.current-traveller-carousel__item.is-near::before {
+  clip-path: polygon(0 0, calc(100% - 0.34rem) 0, 100% 0.34rem, 100% 100%, 0.34rem 100%, 0 calc(100% - 0.34rem));
+}
+
+.current-traveller-carousel__item.is-far {
+  clip-path: polygon(0 0, calc(100% - 0.42rem) 0, 100% 0.42rem, 100% 100%, 0.42rem 100%, 0 calc(100% - 0.42rem));
+  opacity: 0;
+  transform: scale(0.62);
+  filter: saturate(0.8);
+  pointer-events: none;
+}
+
+.current-traveller-carousel__item.is-far::before {
+  clip-path: polygon(0 0, calc(100% - 0.34rem) 0, 100% 0.34rem, 100% 100%, 0.34rem 100%, 0 calc(100% - 0.34rem));
+}
+
+.current-traveller-carousel__label {
+  position: relative;
+  z-index: 1;
+  overflow: hidden;
+  max-width: 100%;
+  padding: 0 0.35rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+</style>

@@ -296,6 +296,18 @@ const termStepTabs = computed(() => {
   return steps
 })
 const activeTermStepIndex = computed(() => Math.max(0, termStepTabs.value.findIndex((step) => step.id === activeTermStep.value)))
+const mobileStepCarouselTouchStartX = ref<number | null>(null)
+const mobileStepCarouselTouchStartAt = ref<number | null>(null)
+const mobileStepCarouselSwipeDelta = ref(0)
+const mobileStepPrev = computed(() => {
+  const count = termStepTabs.value.length
+  return count ? termStepTabs.value[(activeTermStepIndex.value - 1 + count) % count] : null
+})
+const mobileStepCurrent = computed(() => termStepTabs.value[activeTermStepIndex.value] ?? null)
+const mobileStepNext = computed(() => {
+  const count = termStepTabs.value.length
+  return count ? termStepTabs.value[(activeTermStepIndex.value + 1) % count] : null
+})
 const creatorShellTabs = computed(() => {
   const termIds = termTabs.value.map((termNumber) => `term-${termNumber}` as const)
   return isMobileViewport.value
@@ -312,6 +324,41 @@ const canFooterNavigateNext = computed(() => {
 const folderTabPosition = (index: number, count: number) => count <= 1 ? 0 : index / (count - 1)
 const unresolvedEventResolutions = computed(() => pendingEventResolutions.value.some((resolution) => !resolution.resolved))
 const unresolvedEducationSkillChoices = computed(() => pendingEducationSkillChoices.value.some((choice) => !choice.selected))
+
+const navigateMobileTermStep = (direction: 'prev' | 'next') => {
+  const count = termStepTabs.value.length
+  if (!count) return
+  const nextIndex = direction === 'prev'
+    ? (activeTermStepIndex.value - 1 + count) % count
+    : (activeTermStepIndex.value + 1) % count
+  const target = termStepTabs.value[nextIndex]
+  if (!target) return
+  activeTermStep.value = target.id
+}
+
+const handleMobileStepCarouselTouchStart = (event: TouchEvent) => {
+  mobileStepCarouselTouchStartX.value = event.touches[0]?.clientX ?? null
+  mobileStepCarouselTouchStartAt.value = performance.now()
+}
+
+const handleMobileStepCarouselTouchMove = (event: TouchEvent) => {
+  if (mobileStepCarouselTouchStartX.value === null) return
+  const currentX = event.touches[0]?.clientX
+  if (typeof currentX !== 'number') return
+  mobileStepCarouselSwipeDelta.value = currentX - mobileStepCarouselTouchStartX.value
+}
+
+const handleMobileStepCarouselTouchEnd = () => {
+  const delta = mobileStepCarouselSwipeDelta.value
+  const elapsed = mobileStepCarouselTouchStartAt.value === null ? 999 : performance.now() - mobileStepCarouselTouchStartAt.value
+  const threshold = elapsed < 180 ? 18 : 36
+  if (delta <= -threshold) navigateMobileTermStep('next')
+  else if (delta >= threshold) navigateMobileTermStep('prev')
+
+  mobileStepCarouselTouchStartX.value = null
+  mobileStepCarouselTouchStartAt.value = null
+  mobileStepCarouselSwipeDelta.value = 0
+}
 type CreatorStepActionKey =
   | 'roll-draft'
   | 'enter-drifter'
@@ -1196,7 +1243,7 @@ if (import.meta.client) {
             </button>
           </div>
 
-          <div class="creator-step-strip mt-5">
+          <div v-if="!isMobileViewport" class="creator-step-strip mt-5">
             <button
               v-for="(step, index) in termStepTabs"
               :key="step.id"
@@ -1214,6 +1261,42 @@ if (import.meta.client) {
             >
               <span class="creator-step-chip__label">{{ step.label }}</span>
             </button>
+          </div>
+          <div
+            v-else
+            class="creator-step-carousel mt-5"
+            @touchstart.passive="handleMobileStepCarouselTouchStart"
+            @touchmove="handleMobileStepCarouselTouchMove"
+            @touchend="handleMobileStepCarouselTouchEnd"
+            @touchcancel="handleMobileStepCarouselTouchEnd"
+          >
+            <div class="creator-step-carousel__viewport">
+              <div class="creator-step-carousel__track">
+                <button
+                  v-if="mobileStepPrev"
+                  class="creator-step-carousel__item is-near"
+                  type="button"
+                  @click="navigateMobileTermStep('prev')"
+                >
+                  <span class="creator-step-carousel__label">{{ mobileStepPrev.label }}</span>
+                </button>
+                <button
+                  v-if="mobileStepCurrent"
+                  class="creator-step-carousel__item is-current"
+                  type="button"
+                >
+                  <span class="creator-step-carousel__label">{{ mobileStepCurrent.label }}</span>
+                </button>
+                <button
+                  v-if="mobileStepNext"
+                  class="creator-step-carousel__item is-near"
+                  type="button"
+                  @click="navigateMobileTermStep('next')"
+                >
+                  <span class="creator-step-carousel__label">{{ mobileStepNext.label }}</span>
+                </button>
+              </div>
+            </div>
           </div>
 
           <div v-if="pendingSkillChoice" class="mt-5 rounded-md border border-amber-300 bg-amber-50 p-4">
@@ -2409,7 +2492,7 @@ if (import.meta.client) {
             </div>
           </div>
 
-          <div class="mt-6 flex items-center justify-between gap-3 border-t border-cyan-400/20 pt-4">
+          <div class="mt-6 hidden items-center justify-between gap-3 border-t border-cyan-400/20 pt-4 sm:flex">
             <button
               class="creator-term-nav__button"
               :disabled="activeTermStepIndex === 0"
@@ -3013,6 +3096,117 @@ if (import.meta.client) {
   display: none;
 }
 
+.creator-step-carousel {
+  display: flex;
+  justify-content: center;
+  touch-action: pan-y;
+}
+
+.creator-step-carousel__viewport {
+  width: clamp(10.5rem, 58vw, 13rem);
+  overflow: hidden;
+}
+
+.creator-step-carousel__track {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  will-change: transform;
+}
+
+.creator-step-carousel-shift-move,
+.creator-step-carousel-shift-enter-active,
+.creator-step-carousel-shift-leave-active {
+  transition:
+    transform 240ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 240ms ease;
+}
+
+.creator-step-carousel-shift-enter-from,
+.creator-step-carousel-shift-leave-to {
+  opacity: 0;
+  transform: scale(0.92);
+}
+
+.creator-step-carousel__item {
+  position: relative;
+  display: inline-flex;
+  width: 4.65rem;
+  flex: 0 0 4.65rem;
+  height: 2.45rem;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgb(34 211 238 / 0.24);
+  background: linear-gradient(180deg, rgb(9 33 49 / 0.96), rgb(6 24 38 / 0.98));
+  color: rgb(224 247 255 / 0.94);
+  font-size: 0.69rem;
+  font-weight: 700;
+  text-align: center;
+  transition:
+    transform 260ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 260ms ease,
+    border-color 220ms ease,
+    box-shadow 260ms ease,
+    filter 260ms ease;
+}
+
+.creator-step-carousel__item::before {
+  content: '';
+  position: absolute;
+  inset: 1px;
+  background: linear-gradient(180deg, rgb(8 21 34 / 0.86), rgb(5 14 25 / 0.92));
+  z-index: 0;
+}
+
+.creator-step-carousel__item.is-current {
+  clip-path: polygon(0 0, calc(100% - 0.5rem) 0, 100% 0.5rem, 100% 100%, 0.5rem 100%, 0 calc(100% - 0.5rem));
+  border-color: rgb(103 232 249 / 0.54);
+  box-shadow:
+    inset 0 0 0 1px rgb(103 232 249 / 0.16),
+    0 0 18px rgb(34 211 238 / 0.12);
+  transform: scale(1.18);
+  z-index: 2;
+}
+
+.creator-step-carousel__item.is-current::before {
+  clip-path: polygon(0 0, calc(100% - 0.42rem) 0, 100% 0.42rem, 100% 100%, 0.42rem 100%, 0 calc(100% - 0.42rem));
+  background:
+    linear-gradient(135deg, rgb(66 214 255 / 0.34), rgb(26 122 162 / 0.28) 48%, rgb(14 66 93 / 0.88)),
+    linear-gradient(180deg, rgb(11 59 81 / 0.94), rgb(8 30 48 / 0.98));
+}
+
+.creator-step-carousel__item.is-near {
+  clip-path: polygon(0 0, calc(100% - 0.42rem) 0, 100% 0.42rem, 100% 100%, 0.42rem 100%, 0 calc(100% - 0.42rem));
+  opacity: 0.52;
+  transform: scale(0.74);
+}
+
+.creator-step-carousel__item.is-near::before {
+  clip-path: polygon(0 0, calc(100% - 0.34rem) 0, 100% 0.34rem, 100% 100%, 0.34rem 100%, 0 calc(100% - 0.34rem));
+}
+
+.creator-step-carousel__item.is-far {
+  clip-path: polygon(0 0, calc(100% - 0.42rem) 0, 100% 0.42rem, 100% 100%, 0.42rem 100%, 0 calc(100% - 0.42rem));
+  opacity: 0;
+  transform: scale(0.62);
+  filter: saturate(0.8);
+  pointer-events: none;
+}
+
+.creator-step-carousel__item.is-far::before {
+  clip-path: polygon(0 0, calc(100% - 0.34rem) 0, 100% 0.34rem, 100% 100%, 0.34rem 100%, 0 calc(100% - 0.34rem));
+}
+
+.creator-step-carousel__label {
+  position: relative;
+  z-index: 1;
+  overflow: hidden;
+  max-width: 100%;
+  padding: 0 0.35rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .creator-step-chip {
   position: relative;
   display: inline-flex;
@@ -3140,6 +3334,17 @@ if (import.meta.client) {
 }
 
 @media (max-width: 639px) {
+  .creator-step-carousel__track {
+    gap: 0.2rem;
+  }
+
+  .creator-step-carousel__item {
+    width: 4.35rem;
+    flex-basis: 4.35rem;
+    height: 2.35rem;
+    font-size: 0.63rem;
+  }
+
   .creator-step-chip {
     min-width: 7.35rem;
     height: 2.75rem;
