@@ -3,6 +3,16 @@ import { storeToRefs } from 'pinia'
 import { reactive } from 'vue'
 import { useCharacterCreatorStore } from '~/stores/characterCreator'
 
+const emit = defineEmits<{
+  (event: 'roll-result', payload: {
+    title: string
+    result: string
+    modifier?: number
+    total?: number
+    dice?: number[]
+  }): void
+}>()
+
 const characterCreator = useCharacterCreatorStore()
 const {
   formatDm,
@@ -35,6 +45,49 @@ const {
 const manualRolls = reactive<Record<string, number | null>>({
   psiTest: null,
 })
+
+const emitPsiTestResult = () => {
+  if (!psiTestRoll.value) return
+  emit('roll-result', {
+    title: psiTestRoll.value.label,
+    result: psiScore.value !== null ? `PSI ${psiScore.value}` : 'PSI Test',
+    modifier: psiTestRoll.value.dm,
+    total: psiTestRoll.value.total,
+    dice: psiTestRoll.value.dice,
+  })
+}
+
+const emitPsionicTalentResult = (talentId: string) => {
+  const attempt = [...psionicTalentAttempts.value].reverse().find((entry) => entry.talentId === talentId)
+  if (!attempt) return
+  emit('roll-result', {
+    title: attempt.talentName,
+    result: attempt.success ? 'Learned' : 'Not Learned',
+    modifier: attempt.attemptDm + attempt.psiDm + attempt.learningDm,
+    total: attempt.total,
+    dice: attempt.dice,
+  })
+}
+
+const triggerRollPsiTest = () => {
+  rollPsiTest()
+  emitPsiTestResult()
+}
+
+const triggerManualPsiTest = () => {
+  enterManualPsiTest(manualRolls.psiTest ?? Number.NaN)
+  emitPsiTestResult()
+}
+
+const triggerRollPsionicTalent = (talentId: string) => {
+  rollPsionicTalent(talentId)
+  emitPsionicTalentResult(talentId)
+}
+
+const triggerManualPsionicTalent = (talentId: string) => {
+  enterManualPsionicTalent(talentId, manualRolls[talentId] ?? Number.NaN)
+  emitPsionicTalentResult(talentId)
+}
 </script>
 
 <template>
@@ -65,7 +118,7 @@ const manualRolls = reactive<Record<string, number | null>>({
       <button
         class="h-10 rounded-md bg-zinc-950 px-4 text-sm font-semibold text-white hover:bg-zinc-800"
         type="button"
-        @click="rollPsiTest"
+        @click="triggerRollPsiTest"
       >
         Roll PSI
       </button>
@@ -81,7 +134,7 @@ const manualRolls = reactive<Record<string, number | null>>({
         <button
           class="h-10 rounded-md border border-violet-300 px-3 text-sm font-semibold text-violet-900 hover:border-violet-700"
           type="button"
-          @click="enterManualPsiTest(manualRolls.psiTest ?? Number.NaN)"
+          @click="triggerManualPsiTest"
         >
           Manual
         </button>
@@ -138,7 +191,7 @@ const manualRolls = reactive<Record<string, number | null>>({
             <button
               class="h-9 rounded-md border border-violet-300 bg-white px-3 text-sm font-semibold text-violet-900 hover:border-violet-700"
               type="button"
-              @click="rollPsionicTalent(talent.id)"
+              @click="triggerRollPsionicTalent(talent.id)"
             >
               Roll 2D
             </button>
@@ -154,7 +207,7 @@ const manualRolls = reactive<Record<string, number | null>>({
               <button
                 class="h-9 rounded-md border border-violet-300 bg-white px-3 text-sm font-semibold text-violet-900 hover:border-violet-700"
                 type="button"
-                @click="enterManualPsionicTalent(talent.id, manualRolls[talent.id] ?? Number.NaN)"
+                @click="triggerManualPsionicTalent(talent.id)"
               >
                 Apply
               </button>

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { storeToRefs } from 'pinia'
+import { onBeforeUnmount } from 'vue'
 import CharacterCreatorHeader from '~/components/character/CharacterCreatorHeader.vue'
 import CreationStepPanel from '~/components/character/CreationStepPanel.vue'
 import CreatorTabNavigation from '~/components/character/CreatorTabNavigation.vue'
@@ -81,11 +82,8 @@ const {
   universityLevel0Skill,
   universityLevel1Skill,
   pendingEducationSkillChoices,
-  educationEventExpanded,
   basicTrainingApplied,
   pendingBasicTrainingChoices,
-  careerEventExpanded,
-  careerMishapExpanded,
   careerSkillResult,
   prisonerParoleThreshold,
   prisonerParoleThresholdRoll,
@@ -154,6 +152,8 @@ const {
   musteringCareerOptions,
   selectedMusteringCareerBenefits,
   selectedMusteringCareerSpecificRollsRemaining,
+  activeMusteringRollModifiers,
+  selectedMusteringRollDmTotal,
   annualPensionByCareer,
   annualPensionLabel,
   advancementResult,
@@ -186,6 +186,20 @@ const creationStepPanelMode = computed<'all' | 'stats' | 'skills'>(() => {
   return 'stats'
 })
 const creatorNavigationAnchor = ref<HTMLElement | null>(null)
+const creatorRollModalOpen = ref(false)
+const creatorRollModalRolling = ref(false)
+const creatorRollModalTitle = ref('')
+const creatorRollModalResult = ref('')
+const creatorRollModalModifier = ref(0)
+const creatorRollModalDice = ref<[number, number]>([1, 1])
+const creatorRollModalDiceCount = ref<1 | 2>(2)
+const creatorRollModalTotal = ref(0)
+const creatorRollModalTimer = ref<number | null>(null)
+const creatorRollModalFinishTimer = ref<number | null>(null)
+const eventTextModalOpen = ref(false)
+const eventTextModalTitle = ref('')
+const eventTextModalText = ref('')
+const eventTextModalEffects = ref<string[]>([])
 
 const scrollToCreatorNavigation = async () => {
   if (!import.meta.client) return
@@ -317,6 +331,177 @@ const nextTermStep = () => {
   scrollToCreatorNavigation()
 }
 
+const creatorRandomDie = () => Math.floor(Math.random() * 6) + 1
+const clearCreatorRollModalTimers = () => {
+  if (!import.meta.client) return
+  if (creatorRollModalTimer.value !== null) window.clearInterval(creatorRollModalTimer.value)
+  if (creatorRollModalFinishTimer.value !== null) window.clearTimeout(creatorRollModalFinishTimer.value)
+  creatorRollModalTimer.value = null
+  creatorRollModalFinishTimer.value = null
+}
+
+const closeCreatorRollModal = () => {
+  clearCreatorRollModalTimers()
+  creatorRollModalOpen.value = false
+  creatorRollModalRolling.value = false
+}
+
+const startCreatorRollModal = (title: string, result: string, modifier = 0, total?: number, fixedDice?: number[]) => {
+  clearCreatorRollModalTimers()
+  creatorRollModalTitle.value = title
+  creatorRollModalResult.value = result
+  creatorRollModalModifier.value = modifier
+  creatorRollModalOpen.value = true
+  creatorRollModalRolling.value = true
+  creatorRollModalDiceCount.value = fixedDice && fixedDice.length < 2 ? 1 : (fixedDice?.[1] === 0 ? 1 : 2)
+
+  const updateRoll = () => {
+    const nextDice: [number, number] = [
+      fixedDice?.[0] ?? creatorRandomDie(),
+      fixedDice?.[1] ?? (creatorRollModalDiceCount.value === 2 ? creatorRandomDie() : 0),
+    ]
+    creatorRollModalDice.value = nextDice
+    creatorRollModalTotal.value = typeof total === 'number'
+      ? total
+      : nextDice[0] + (creatorRollModalDiceCount.value === 2 ? nextDice[1] : 0) + modifier
+  }
+
+  updateRoll()
+  if (!import.meta.client) {
+    creatorRollModalRolling.value = false
+    return
+  }
+
+  creatorRollModalTimer.value = window.setInterval(updateRoll, 90)
+  creatorRollModalFinishTimer.value = window.setTimeout(() => {
+    clearCreatorRollModalTimers()
+    updateRoll()
+    creatorRollModalRolling.value = false
+  }, 1100)
+}
+
+const openEventTextModal = (title: string, text?: string, effects: string[] = []) => {
+  eventTextModalTitle.value = title
+  eventTextModalText.value = text?.trim() || 'Full event text has not been entered for this event yet.'
+  eventTextModalEffects.value = effects
+  eventTextModalOpen.value = true
+}
+
+const closeEventTextModal = () => {
+  eventTextModalOpen.value = false
+}
+
+const handleCreatorRollModalPayload = (payload: {
+  title: string
+  result: string
+  modifier?: number
+  total?: number
+  dice?: number[]
+}) => {
+  startCreatorRollModal(payload.title, payload.result, payload.modifier ?? 0, payload.total, payload.dice)
+}
+
+const showRollFromRecord = (roll: { label: string; notes?: string; dm: number; total: number; dice: number[]; finalSuccess?: boolean } | null | undefined, fallbackResult?: string) => {
+  if (!roll) return
+  const result = fallbackResult || roll.notes || (roll.finalSuccess === undefined ? `${roll.total}` : (roll.finalSuccess ? 'Success' : 'Failure'))
+  const dice = roll.dice.length >= 2 ? [roll.dice[0], roll.dice[1]] : [roll.dice[0] ?? creatorRandomDie()]
+  startCreatorRollModal(roll.label, result, roll.dm, roll.total, dice)
+}
+
+const triggerRollCheck = (key: string, label: string, check: Parameters<typeof rollCheck>[2]) => {
+  rollCheck(key, label, check)
+  showRollFromRecord(termRolls.value[key], termRolls.value[key]?.finalSuccess ? 'Success' : 'Failure')
+}
+
+const triggerManualCheck = (key: string, label: string, check: Parameters<typeof rollCheck>[2]) => {
+  enterManualCheck(key, label, check)
+  showRollFromRecord(termRolls.value[key], termRolls.value[key]?.finalSuccess ? 'Success' : 'Failure')
+}
+
+const triggerRollPreCareerEvent = () => {
+  rollPreCareerEvent()
+  showRollFromRecord(termRolls.value.educationEvent, preCareerEvent.value?.name)
+}
+
+const triggerManualPreCareerEvent = () => {
+  enterManualPreCareerEvent()
+  showRollFromRecord(termRolls.value.educationEvent, preCareerEvent.value?.name)
+}
+
+const triggerRollCareerEvent = () => {
+  rollCareerEvent()
+  showRollFromRecord(termRolls.value.careerEvent, careerEvent.value?.name)
+}
+
+const triggerManualCareerEvent = () => {
+  enterManualCareerEvent()
+  showRollFromRecord(termRolls.value.careerEvent, careerEvent.value?.name)
+}
+
+const triggerRollCareerMishap = () => {
+  rollCareerMishap()
+  showRollFromRecord(termRolls.value.careerMishap, careerMishap.value?.name)
+}
+
+const triggerManualCareerMishap = () => {
+  enterManualCareerMishap()
+  showRollFromRecord(termRolls.value.careerMishap, careerMishap.value?.name)
+}
+
+const triggerRollCareerSkillTable = () => {
+  rollCareerSkillTable()
+  showRollFromRecord(termRolls.value.careerSkill, termRolls.value.careerSkill?.notes)
+}
+
+const triggerManualCareerSkillTable = () => {
+  enterManualCareerSkillTable()
+  showRollFromRecord(termRolls.value.careerSkill, termRolls.value.careerSkill?.notes)
+}
+
+const triggerRollAdvancementSkillTable = () => {
+  rollAdvancementSkillTable()
+  showRollFromRecord(termRolls.value.careerAdvancementSkill, termRolls.value.careerAdvancementSkill?.notes)
+}
+
+const triggerManualAdvancementSkillTable = () => {
+  enterManualAdvancementSkillTable()
+  showRollFromRecord(termRolls.value.careerAdvancementSkill, termRolls.value.careerAdvancementSkill?.notes)
+}
+
+const triggerRollPrisonerParoleThreshold = () => {
+  rollPrisonerParoleThreshold()
+  showRollFromRecord(termRolls.value.prisonerParoleThreshold, prisonerParoleThreshold.value !== null ? `Threshold ${prisonerParoleThreshold.value}` : 'Set')
+}
+
+const triggerManualPrisonerParoleThreshold = () => {
+  enterManualPrisonerParoleThreshold()
+  showRollFromRecord(termRolls.value.prisonerParoleThreshold, prisonerParoleThreshold.value !== null ? `Threshold ${prisonerParoleThreshold.value}` : 'Set')
+}
+
+const triggerRollAging = () => {
+  rollAging()
+  showRollFromRecord(termRolls.value.aging, agingEffect.value ?? 'Aging resolved')
+}
+
+const triggerManualAging = () => {
+  enterManualAging()
+  showRollFromRecord(termRolls.value.aging, agingEffect.value ?? 'Aging resolved')
+}
+
+const triggerRollMusteringOutBenefit = () => {
+  rollMusteringOutBenefit()
+  const result = musteringOutResults.value[musteringOutResults.value.length - 1]
+  if (!result) return
+  startCreatorRollModal('Mustering Out', result.cash !== undefined ? `${result.cash.toLocaleString()} Cr` : (result.benefit ?? 'Benefit'), result.dm, result.total, [result.dice[0] ?? creatorRandomDie()])
+}
+
+const triggerManualMusteringOutBenefit = () => {
+  enterManualMusteringOutBenefit(manualRollTotals.value.musteringOut ?? Number.NaN)
+  const result = musteringOutResults.value[musteringOutResults.value.length - 1]
+  if (!result) return
+  startCreatorRollModal('Mustering Out', result.cash !== undefined ? `${result.cash.toLocaleString()} Cr` : (result.benefit ?? 'Benefit'), result.dm, result.total, [result.dice[0] ?? creatorRandomDie()])
+}
+
 watch([currentTermNumber, selectedTermPath], () => {
   activeTermStep.value = 'direction'
 })
@@ -347,6 +532,7 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  clearCreatorRollModalTimers()
   if (!mobileViewportQuery) return
   mobileViewportQuery.removeEventListener('change', handleCreatorViewportChange)
 })
@@ -533,6 +719,22 @@ if (import.meta.client) {
             </button>
           </div>
 
+          <div v-if="pendingSkillChoice" class="mt-5 rounded-md border border-amber-300 bg-amber-50 p-4">
+            <p class="text-sm font-semibold text-amber-950">Pending Skill Choice</p>
+            <p class="mt-1 text-sm text-amber-900">{{ pendingSkillChoice.source }}: {{ pendingSkillChoice.label }}</p>
+            <div class="mt-3 flex flex-wrap gap-2">
+              <button
+                v-for="choice in pendingSkillChoice.options"
+                :key="choice"
+                class="h-9 rounded-md border border-amber-300 bg-white px-3 text-sm font-semibold text-amber-900 hover:border-amber-600"
+                type="button"
+                @click="resolvePendingSkillChoice(choice)"
+              >
+                {{ skillOptionLabel(choice) }}
+              </button>
+            </div>
+          </div>
+
           <div v-if="selectedTermPath === 'career'" class="mt-5">
             <div v-if="educationEntryFailed" class="mb-5 rounded-md border border-amber-300 bg-amber-50 p-4">
               <p class="text-sm font-semibold text-amber-950">Education Entry Failed</p>
@@ -654,14 +856,14 @@ if (import.meta.client) {
                     v-if="!automaticCareerEntryConstraint && !sameCareerContinuationAvailable && !requiredDraftAvailable"
                     class="h-10 rounded-md bg-zinc-950 px-4 text-sm font-semibold text-white hover:bg-zinc-800"
                     type="button"
-                    @click="rollCheck('careerQualification', 'Qualification', selectedCareer.qualification)"
+                    @click="triggerRollCheck('careerQualification', 'Qualification', selectedCareer.qualification)"
                   >
                     Roll 2D
                   </button>
                 </div>
                 <div v-if="gmManualCheckRollEntryEnabled && !automaticCareerEntryConstraint && !sameCareerContinuationAvailable && !requiredDraftAvailable" class="mt-3 flex flex-wrap gap-2">
                   <input v-model.number="manualRollTotals.careerQualification" class="h-10 w-28 rounded-md border border-zinc-300 px-3 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200" placeholder="2D total" type="number">
-                  <button class="h-10 rounded-md border border-zinc-300 px-3 text-sm font-semibold text-zinc-700 hover:border-amber-600" type="button" @click="enterManualCheck('careerQualification', 'Qualification', selectedCareer.qualification)">
+                  <button class="h-10 rounded-md border border-zinc-300 px-3 text-sm font-semibold text-zinc-700 hover:border-amber-600" type="button" @click="triggerManualCheck('careerQualification', 'Qualification', selectedCareer.qualification)">
                     Manual
                   </button>
                 </div>
@@ -729,7 +931,7 @@ if (import.meta.client) {
                     class="h-10 rounded-md bg-zinc-950 px-4 text-sm font-semibold text-white hover:bg-zinc-800 disabled:cursor-not-allowed disabled:bg-zinc-300"
                     :disabled="!prisonerParoleThresholdRequired"
                     type="button"
-                    @click="rollPrisonerParoleThreshold"
+                    @click="triggerRollPrisonerParoleThreshold"
                   >
                     Roll 1D
                   </button>
@@ -746,7 +948,7 @@ if (import.meta.client) {
                   <button
                     class="h-10 rounded-md border border-zinc-300 px-3 text-sm font-semibold text-zinc-700 hover:border-amber-600"
                     type="button"
-                    @click="enterManualPrisonerParoleThreshold"
+                    @click="triggerManualPrisonerParoleThreshold"
                   >
                     Manual
                   </button>
@@ -839,7 +1041,7 @@ if (import.meta.client) {
                     class="h-10 rounded-md bg-zinc-950 px-4 text-sm font-semibold text-white hover:bg-zinc-800 disabled:cursor-not-allowed disabled:bg-zinc-300"
                     :disabled="!!termRolls.careerSkill"
                     type="button"
-                    @click="rollCareerSkillTable"
+                    @click="triggerRollCareerSkillTable"
                   >
                     Roll 1D
                   </button>
@@ -885,7 +1087,7 @@ if (import.meta.client) {
                     class="h-10 rounded-md border border-zinc-300 px-3 text-sm font-semibold text-zinc-700 hover:border-amber-600 disabled:cursor-not-allowed disabled:text-zinc-400"
                     :disabled="!!termRolls.careerSkill"
                     type="button"
-                    @click="enterManualCareerSkillTable"
+                    @click="triggerManualCareerSkillTable"
                   >
                     Manual
                   </button>
@@ -915,13 +1117,13 @@ if (import.meta.client) {
                     <p class="text-sm font-semibold">Survival Roll</p>
                     <p class="text-sm text-zinc-600">{{ checkLabel(selectedAssignment.survival) }}</p>
                   </div>
-                  <button class="h-10 rounded-md bg-zinc-950 px-4 text-sm font-semibold text-white hover:bg-zinc-800" type="button" @click="rollCheck('careerSurvival', 'Survival', selectedAssignment.survival)">
+                  <button class="h-10 rounded-md bg-zinc-950 px-4 text-sm font-semibold text-white hover:bg-zinc-800" type="button" @click="triggerRollCheck('careerSurvival', 'Survival', selectedAssignment.survival)">
                     Roll 2D
                   </button>
                 </div>
                 <div v-if="gmManualCheckRollEntryEnabled" class="mt-3 flex flex-wrap gap-2">
                   <input v-model.number="manualRollTotals.careerSurvival" class="h-10 w-28 rounded-md border border-zinc-300 px-3 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200" placeholder="2D total" type="number">
-                  <button class="h-10 rounded-md border border-zinc-300 px-3 text-sm font-semibold text-zinc-700 hover:border-amber-600" type="button" @click="enterManualCheck('careerSurvival', 'Survival', selectedAssignment.survival)">
+                  <button class="h-10 rounded-md border border-zinc-300 px-3 text-sm font-semibold text-zinc-700 hover:border-amber-600" type="button" @click="triggerManualCheck('careerSurvival', 'Survival', selectedAssignment.survival)">
                     Manual
                   </button>
                 </div>
@@ -945,7 +1147,7 @@ if (import.meta.client) {
                     class="h-10 rounded-md bg-zinc-950 px-4 text-sm font-semibold text-white hover:bg-zinc-800 disabled:cursor-not-allowed disabled:bg-zinc-300"
                     :disabled="!!termRolls.careerMishap"
                     type="button"
-                    @click="rollCareerMishap"
+                    @click="triggerRollCareerMishap"
                   >
                     Roll 1D
                   </button>
@@ -964,7 +1166,7 @@ if (import.meta.client) {
                     class="h-10 rounded-md border border-zinc-300 px-3 text-sm font-semibold text-zinc-700 hover:border-amber-600 disabled:cursor-not-allowed disabled:text-zinc-400"
                     :disabled="!!termRolls.careerMishap"
                     type="button"
-                    @click="enterManualCareerMishap"
+                    @click="triggerManualCareerMishap"
                   >
                     Manual
                   </button>
@@ -975,20 +1177,12 @@ if (import.meta.client) {
                     <button
                       class="text-xs font-semibold text-amber-700 hover:text-amber-900"
                       type="button"
-                      @click="careerMishapExpanded = !careerMishapExpanded"
+                      @click="openEventTextModal(careerMishap.name, careerMishap.text, (careerMishap.effects ?? []).map((effect) => tableEffectLabel(effect)))"
                     >
-                      {{ careerMishapExpanded ? 'Hide text' : 'Show details' }}
+                      View Details
                     </button>
                   </div>
-                  <p v-if="!careerMishapExpanded" class="mt-2 line-clamp-2 text-zinc-600">{{ careerMishap.text }}</p>
-                  <div v-if="careerMishapExpanded" class="mt-3 grid gap-3">
-                    <p class="leading-6 text-zinc-700">{{ careerMishap.text }}</p>
-                    <ul v-if="careerMishap.effects?.length" class="grid gap-1 text-zinc-600">
-                      <li v-for="effect in careerMishap.effects" :key="`${careerMishap.name}-${effect.type}-${tableEffectLabel(effect)}`">
-                        {{ tableEffectLabel(effect) }}
-                      </li>
-                    </ul>
-                  </div>
+                  <p class="mt-2 line-clamp-2 text-zinc-600">{{ careerMishap.text }}</p>
                   <EventResolutionList source-prefix="Career Mishap" />
                 </div>
               </div>
@@ -1003,7 +1197,7 @@ if (import.meta.client) {
                     class="h-10 rounded-md bg-zinc-950 px-4 text-sm font-semibold text-white hover:bg-zinc-800 disabled:cursor-not-allowed disabled:bg-zinc-300"
                     :disabled="!!termRolls.careerEvent"
                     type="button"
-                    @click="rollCareerEvent"
+                    @click="triggerRollCareerEvent"
                   >
                     Roll 2D
                   </button>
@@ -1022,7 +1216,7 @@ if (import.meta.client) {
                     class="h-10 rounded-md border border-zinc-300 px-3 text-sm font-semibold text-zinc-700 hover:border-amber-600 disabled:cursor-not-allowed disabled:text-zinc-400"
                     :disabled="!!termRolls.careerEvent"
                     type="button"
-                    @click="enterManualCareerEvent"
+                    @click="triggerManualCareerEvent"
                   >
                     Manual
                   </button>
@@ -1033,21 +1227,12 @@ if (import.meta.client) {
                     <button
                       class="text-xs font-semibold text-amber-700 hover:text-amber-900"
                       type="button"
-                      @click="careerEventExpanded = !careerEventExpanded"
+                      @click="openEventTextModal(careerEvent.name, careerEvent.text, (careerEvent.effects ?? []).map((effect) => tableEffectLabel(effect)))"
                     >
-                      {{ careerEventExpanded ? 'Hide text' : 'Show details' }}
+                      View Details
                     </button>
                   </div>
-                  <p v-if="!careerEventExpanded && careerEvent.text" class="mt-2 line-clamp-2 text-zinc-600">{{ careerEvent.text }}</p>
-                  <div v-if="careerEventExpanded" class="mt-3 grid gap-3">
-                    <p v-if="careerEvent.text" class="leading-6 text-zinc-700">{{ careerEvent.text }}</p>
-                    <p v-else class="text-zinc-600">Full event text has not been entered for this career event yet.</p>
-                    <ul v-if="careerEvent.effects?.length" class="grid gap-1 text-zinc-600">
-                      <li v-for="effect in careerEvent.effects" :key="`${careerEvent.name}-${effect.type}-${tableEffectLabel(effect)}`">
-                        {{ tableEffectLabel(effect) }}
-                      </li>
-                    </ul>
-                  </div>
+                  <p v-if="careerEvent.text" class="mt-2 line-clamp-2 text-zinc-600">{{ careerEvent.text }}</p>
                   <EventResolutionList source-prefix="Career Event" />
                 </div>
               </div>
@@ -1069,14 +1254,14 @@ if (import.meta.client) {
                     class="h-10 rounded-md bg-zinc-950 px-4 text-sm font-semibold text-white hover:bg-zinc-800 disabled:cursor-not-allowed disabled:bg-zinc-300"
                     :disabled="!!termRolls.careerCommission"
                     type="button"
-                    @click="rollCheck('careerCommission', 'Commission', selectedCareerCommissionCheck)"
+                    @click="triggerRollCheck('careerCommission', 'Commission', selectedCareerCommissionCheck)"
                   >
                     Roll 2D
                   </button>
                 </div>
                 <div v-if="gmManualCheckRollEntryEnabled && careerCommissionAvailable && !automaticCommissionConstraint" class="mt-3 flex flex-wrap gap-2">
                   <input v-model.number="manualRollTotals.careerCommission" class="h-10 w-28 rounded-md border border-zinc-300 px-3 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200" placeholder="2D total" type="number">
-                  <button class="h-10 rounded-md border border-zinc-300 px-3 text-sm font-semibold text-zinc-700 hover:border-amber-600" type="button" @click="enterManualCheck('careerCommission', 'Commission', selectedCareerCommissionCheck)">
+                  <button class="h-10 rounded-md border border-zinc-300 px-3 text-sm font-semibold text-zinc-700 hover:border-amber-600" type="button" @click="triggerManualCheck('careerCommission', 'Commission', selectedCareerCommissionCheck)">
                     Manual
                   </button>
                 </div>
@@ -1105,13 +1290,13 @@ if (import.meta.client) {
                     <p class="text-sm font-semibold">Advancement Roll</p>
                     <p class="text-sm text-zinc-600">{{ checkLabel(selectedAssignment.advancement) }}</p>
                   </div>
-                  <button class="h-10 rounded-md bg-zinc-950 px-4 text-sm font-semibold text-white hover:bg-zinc-800" type="button" @click="rollCheck('careerAdvancement', 'Advancement', selectedAssignment.advancement)">
+                  <button class="h-10 rounded-md bg-zinc-950 px-4 text-sm font-semibold text-white hover:bg-zinc-800" type="button" @click="triggerRollCheck('careerAdvancement', 'Advancement', selectedAssignment.advancement)">
                     Roll 2D
                   </button>
                 </div>
                 <div v-if="gmManualCheckRollEntryEnabled" class="mt-3 flex flex-wrap gap-2">
                   <input v-model.number="manualRollTotals.careerAdvancement" class="h-10 w-28 rounded-md border border-zinc-300 px-3 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200" placeholder="2D total" type="number">
-                  <button class="h-10 rounded-md border border-zinc-300 px-3 text-sm font-semibold text-zinc-700 hover:border-amber-600" type="button" @click="enterManualCheck('careerAdvancement', 'Advancement', selectedAssignment.advancement)">
+                  <button class="h-10 rounded-md border border-zinc-300 px-3 text-sm font-semibold text-zinc-700 hover:border-amber-600" type="button" @click="triggerManualCheck('careerAdvancement', 'Advancement', selectedAssignment.advancement)">
                     Manual
                   </button>
                 </div>
@@ -1143,7 +1328,7 @@ if (import.meta.client) {
                     class="h-10 rounded-md bg-zinc-950 px-4 text-sm font-semibold text-white hover:bg-zinc-800 disabled:cursor-not-allowed disabled:bg-zinc-300"
                     :disabled="!!termRolls.careerAdvancementSkill"
                     type="button"
-                    @click="rollAdvancementSkillTable"
+                    @click="triggerRollAdvancementSkillTable"
                   >
                     Roll 1D
                   </button>
@@ -1189,7 +1374,7 @@ if (import.meta.client) {
                     class="h-10 rounded-md border border-zinc-300 px-3 text-sm font-semibold text-zinc-700 hover:border-amber-600 disabled:cursor-not-allowed disabled:text-zinc-400"
                     :disabled="!!termRolls.careerAdvancementSkill"
                     type="button"
-                    @click="enterManualAdvancementSkillTable"
+                    @click="triggerManualAdvancementSkillTable"
                   >
                     Manual
                   </button>
@@ -1258,7 +1443,7 @@ if (import.meta.client) {
                       <p class="text-sm font-semibold">Entry Roll</p>
                       <p class="text-sm text-zinc-600">{{ checkLabel(selectedEducationEntry) }}</p>
                     </div>
-                    <button class="h-10 rounded-md bg-zinc-950 px-4 text-sm font-semibold text-white hover:bg-zinc-800" type="button" @click="rollCheck('educationEntry', 'Education Entry', selectedEducationEntry)">
+                    <button class="h-10 rounded-md bg-zinc-950 px-4 text-sm font-semibold text-white hover:bg-zinc-800" type="button" @click="triggerRollCheck('educationEntry', 'Education Entry', selectedEducationEntry)">
                       Roll 2D
                     </button>
                   </div>
@@ -1279,7 +1464,7 @@ if (import.meta.client) {
                   </div>
                   <div v-if="gmManualCheckRollEntryEnabled" class="mt-3 flex flex-wrap gap-2">
                     <input v-model.number="manualRollTotals.educationEntry" class="h-10 w-28 rounded-md border border-zinc-300 px-3 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200" placeholder="2D total" type="number">
-                    <button class="h-10 rounded-md border border-zinc-300 px-3 text-sm font-semibold text-zinc-700 hover:border-amber-600" type="button" @click="enterManualCheck('educationEntry', 'Education Entry', selectedEducationEntry)">
+                    <button class="h-10 rounded-md border border-zinc-300 px-3 text-sm font-semibold text-zinc-700 hover:border-amber-600" type="button" @click="triggerManualCheck('educationEntry', 'Education Entry', selectedEducationEntry)">
                       Manual
                     </button>
                   </div>
@@ -1423,7 +1608,7 @@ if (import.meta.client) {
                       class="h-10 rounded-md bg-zinc-950 px-4 text-sm font-semibold text-white hover:bg-zinc-800 disabled:cursor-not-allowed disabled:bg-zinc-300"
                       :disabled="!!termRolls.educationEvent"
                       type="button"
-                      @click="rollPreCareerEvent"
+                      @click="triggerRollPreCareerEvent"
                     >
                       Roll 2D
                     </button>
@@ -1442,7 +1627,7 @@ if (import.meta.client) {
                       class="h-10 rounded-md border border-zinc-300 px-3 text-sm font-semibold text-zinc-700 hover:border-amber-600 disabled:cursor-not-allowed disabled:text-zinc-400"
                       :disabled="!!termRolls.educationEvent"
                       type="button"
-                      @click="enterManualPreCareerEvent"
+                      @click="triggerManualPreCareerEvent"
                     >
                       Manual
                     </button>
@@ -1453,19 +1638,12 @@ if (import.meta.client) {
                       <button
                         class="text-xs font-semibold text-amber-700 hover:text-amber-900"
                         type="button"
-                        @click="educationEventExpanded = !educationEventExpanded"
+                        @click="openEventTextModal(preCareerEvent.name, preCareerEvent.text, (preCareerEvent.effects ?? []).map((effect) => preCareerEventEffectLabel(effect)))"
                       >
-                        {{ educationEventExpanded ? 'Hide text' : 'Show text' }}
+                        View Details
                       </button>
                     </div>
-                    <div v-if="educationEventExpanded" class="mt-3 grid gap-3">
-                      <p v-if="preCareerEvent.text" class="leading-6 text-zinc-700">{{ preCareerEvent.text }}</p>
-                      <ul class="grid gap-1 text-zinc-600">
-                        <li v-for="effect in preCareerEvent.effects" :key="`${preCareerEvent.id}-${effect.type}-${preCareerEventEffectLabel(effect)}`">
-                          {{ preCareerEventEffectLabel(effect) }}
-                        </li>
-                      </ul>
-                    </div>
+                    <p v-if="preCareerEvent.text" class="mt-2 line-clamp-2 text-zinc-600">{{ preCareerEvent.text }}</p>
                     <EventResolutionList source-prefix="Pre-Career Event" />
                   </div>
                 </div>
@@ -1476,13 +1654,13 @@ if (import.meta.client) {
                       <p class="text-sm font-semibold">Graduation Roll</p>
                       <p class="text-sm text-zinc-600">{{ checkLabel(selectedEducation.graduation) }}</p>
                     </div>
-                    <button class="h-10 rounded-md bg-zinc-950 px-4 text-sm font-semibold text-white hover:bg-zinc-800" type="button" @click="rollCheck('educationGraduation', 'Graduation', selectedEducation.graduation)">
+                    <button class="h-10 rounded-md bg-zinc-950 px-4 text-sm font-semibold text-white hover:bg-zinc-800" type="button" @click="triggerRollCheck('educationGraduation', 'Graduation', selectedEducation.graduation)">
                       Roll 2D
                     </button>
                   </div>
                   <div v-if="gmManualCheckRollEntryEnabled" class="mt-3 flex flex-wrap gap-2">
                     <input v-model.number="manualRollTotals.educationGraduation" class="h-10 w-28 rounded-md border border-zinc-300 px-3 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200" placeholder="2D total" type="number">
-                    <button class="h-10 rounded-md border border-zinc-300 px-3 text-sm font-semibold text-zinc-700 hover:border-amber-600" type="button" @click="enterManualCheck('educationGraduation', 'Graduation', selectedEducation.graduation)">
+                    <button class="h-10 rounded-md border border-zinc-300 px-3 text-sm font-semibold text-zinc-700 hover:border-amber-600" type="button" @click="triggerManualCheck('educationGraduation', 'Graduation', selectedEducation.graduation)">
                       Manual
                     </button>
                   </div>
@@ -1512,13 +1690,13 @@ if (import.meta.client) {
                 <p class="text-sm font-semibold text-amber-950">Aging Roll</p>
                 <p class="text-sm text-amber-900">Roll 2D with DM {{ formatDm(-currentTermNumber) }} at the end of term {{ currentTermNumber }}.</p>
               </div>
-              <button class="h-10 rounded-md bg-zinc-950 px-4 text-sm font-semibold text-white hover:bg-zinc-800" type="button" @click="rollAging">
+              <button class="h-10 rounded-md bg-zinc-950 px-4 text-sm font-semibold text-white hover:bg-zinc-800" type="button" @click="triggerRollAging">
                 Roll 2D
               </button>
             </div>
             <div v-if="gmManualAgingRollEntryEnabled" class="mt-3 flex flex-wrap gap-2">
               <input v-model.number="manualRollTotals.aging" class="h-10 w-28 rounded-md border border-amber-300 px-3 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200" placeholder="2D total" type="number">
-              <button class="h-10 rounded-md border border-amber-400 px-3 text-sm font-semibold text-amber-950 hover:border-amber-700" type="button" @click="enterManualAging">
+              <button class="h-10 rounded-md border border-amber-400 px-3 text-sm font-semibold text-amber-950 hover:border-amber-700" type="button" @click="triggerManualAging">
                 Manual
               </button>
             </div>
@@ -1530,7 +1708,7 @@ if (import.meta.client) {
           </div>
 
           <div v-show="activeTermStep === 'complete'">
-            <PsionicsPanel />
+            <PsionicsPanel @roll-result="handleCreatorRollModalPayload" />
 
             <TermActionFooter />
 
@@ -1595,7 +1773,7 @@ if (import.meta.client) {
                       class="h-11 rounded-md bg-zinc-950 px-4 text-sm font-semibold text-white hover:bg-zinc-800 disabled:cursor-not-allowed disabled:bg-zinc-300"
                       :disabled="!canRollMusteringOut"
                       type="button"
-                      @click="rollMusteringOutBenefit"
+                      @click="triggerRollMusteringOutBenefit"
                     >
                       Roll 1D
                     </button>
@@ -1605,7 +1783,7 @@ if (import.meta.client) {
                         class="h-11 rounded-md border border-zinc-300 px-3 text-sm font-semibold text-zinc-700 hover:border-amber-600 disabled:cursor-not-allowed disabled:text-zinc-400"
                         :disabled="!canRollMusteringOut"
                         type="button"
-                        @click="enterManualMusteringOutBenefit(manualRollTotals.musteringOut ?? Number.NaN)"
+                        @click="triggerManualMusteringOutBenefit"
                       >
                         Manual
                       </button>
@@ -1622,11 +1800,31 @@ if (import.meta.client) {
                   {{ flexibleBenefitRollsAvailable }} flexible rolls
                 </span>
                 <span
+                  v-if="selectedMusteringRollDmTotal"
+                  class="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-amber-900"
+                >
+                  Current roll DM {{ formatDm(selectedMusteringRollDmTotal) }}
+                </span>
+                <span
                   v-if="selectedMusteringCareer?.rankBenefitDm"
                   class="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-amber-900"
                 >
                   Rank DM {{ formatDm(selectedMusteringCareer.rankBenefitDm) }} for {{ selectedMusteringCareer.name }}
                 </span>
+              </div>
+
+              <div v-if="activeMusteringRollModifiers.length" class="mt-3 rounded-md border border-amber-200 bg-amber-50 p-4">
+                <p class="text-sm font-semibold text-amber-950">Active Mustering Roll Modifiers</p>
+                <div class="mt-3 grid gap-2">
+                  <div
+                    v-for="modifier in activeMusteringRollModifiers"
+                    :key="modifier.id"
+                    class="rounded-md bg-white px-3 py-2 text-sm text-amber-950"
+                  >
+                    {{ modifier.label }} · DM {{ formatDm(modifier.dm) }}
+                    <span class="text-amber-800/80">({{ modifier.scope === 'one' || modifier.scope === 'next' ? 'consumed on use' : 'persistent' }})</span>
+                  </div>
+                </div>
               </div>
 
               <div v-if="selectedMusteringCareerBenefits.length" class="mt-5 overflow-hidden rounded-md border border-zinc-200">
@@ -1738,6 +1936,93 @@ if (import.meta.client) {
 
     <RerollConfirmDialog />
 
+    <Transition name="creator-roll-fade">
+      <div
+        v-if="creatorRollModalOpen"
+        class="creator-roll-modal fixed inset-0 z-50 flex items-center justify-center bg-zinc-950/60 px-4 py-8 backdrop-blur-sm"
+        role="dialog"
+        aria-modal="true"
+      >
+        <div class="creator-roll-modal__panel w-full max-w-md overflow-hidden">
+          <div class="creator-roll-modal__header">
+            <div>
+              <p class="creator-roll-modal__kicker">Roll Result</p>
+              <h2 class="creator-roll-modal__title">{{ creatorRollModalTitle }}</h2>
+            </div>
+            <button
+              class="creator-roll-modal__close"
+              type="button"
+              aria-label="Close roll modal"
+              @click="closeCreatorRollModal"
+            >
+              Close
+            </button>
+          </div>
+
+          <div class="creator-roll-modal__body">
+            <div class="creator-roll-modal__dice-row">
+              <div class="creator-roll-modal__die" :class="{ 'is-rolling': creatorRollModalRolling }">
+                {{ creatorRollModalDice[0] }}
+              </div>
+              <template v-if="creatorRollModalDiceCount === 2">
+                <div class="creator-roll-modal__plus">+</div>
+                <div class="creator-roll-modal__die" :class="{ 'is-rolling': creatorRollModalRolling }">
+                  {{ creatorRollModalDice[1] }}
+                </div>
+              </template>
+            </div>
+
+            <div class="creator-roll-modal__result-row">
+              <span class="creator-roll-modal__modifier">DM {{ formatDm(creatorRollModalModifier) }}</span>
+              <span class="creator-roll-modal__total">{{ creatorRollModalTotal }}</span>
+            </div>
+
+            <p class="creator-roll-modal__result">{{ creatorRollModalResult }}</p>
+          </div>
+        </div>
+      </div>
+    </Transition>
+
+    <Transition name="creator-roll-fade">
+      <div
+        v-if="eventTextModalOpen"
+        class="creator-roll-modal fixed inset-0 z-50 flex items-center justify-center bg-zinc-950/60 px-4 py-8 backdrop-blur-sm"
+        role="dialog"
+        aria-modal="true"
+        @click.self="closeEventTextModal"
+      >
+        <div class="creator-roll-modal__panel creator-roll-modal__panel--event w-full max-w-2xl overflow-hidden">
+          <div class="creator-roll-modal__header">
+            <div>
+              <p class="creator-roll-modal__kicker">Event Details</p>
+              <h2 class="creator-roll-modal__title">{{ eventTextModalTitle }}</h2>
+            </div>
+            <button
+              class="creator-roll-modal__close"
+              type="button"
+              aria-label="Close event details"
+              @click="closeEventTextModal"
+            >
+              Close
+            </button>
+          </div>
+
+          <div class="creator-roll-modal__body creator-roll-modal__body--event">
+            <p class="creator-roll-modal__event-text">{{ eventTextModalText }}</p>
+            <div v-if="eventTextModalEffects.length" class="creator-roll-modal__effects">
+              <div
+                v-for="effect in eventTextModalEffects"
+                :key="`${eventTextModalTitle}-${effect}`"
+                class="creator-roll-modal__effect"
+              >
+                {{ effect }}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </Transition>
+
     <div
       v-if="restartConfirmOpen"
       class="fixed inset-0 z-50 grid place-items-center bg-zinc-950/60 px-4 py-8"
@@ -1845,14 +2130,200 @@ if (import.meta.client) {
 </template>
 
 <style scoped>
+.creator-roll-fade-enter-active,
+.creator-roll-fade-leave-active,
 .advancement-fade-enter-active,
 .advancement-fade-leave-active {
   transition: opacity 180ms ease, transform 180ms ease;
 }
 
+.creator-roll-fade-enter-from,
+.creator-roll-fade-leave-to,
 .advancement-fade-enter-from,
 .advancement-fade-leave-to {
   opacity: 0;
   transform: translateY(8px) scale(0.98);
+}
+
+.creator-roll-modal__panel {
+  position: relative;
+  border: 1px solid rgb(34 211 238 / 0.35);
+  background:
+    linear-gradient(180deg, rgb(8 20 35 / 0.96), rgb(4 10 20 / 0.98)),
+    linear-gradient(135deg, rgb(251 191 36 / 0.12), transparent 58%);
+  box-shadow:
+    0 0 0 1px rgb(14 116 144 / 0.28),
+    0 24px 64px rgb(0 0 0 / 0.45),
+    inset 0 1px 0 rgb(255 255 255 / 0.04);
+  clip-path: polygon(0 0, calc(100% - 1rem) 0, 100% 1rem, 100% 100%, 1rem 100%, 0 calc(100% - 1rem));
+}
+
+.creator-roll-modal__panel::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(180deg, rgb(250 204 21 / 0.08), transparent 28%),
+    repeating-linear-gradient(
+      180deg,
+      rgb(255 255 255 / 0.02) 0,
+      rgb(255 255 255 / 0.02) 1px,
+      transparent 1px,
+      transparent 6px
+    );
+}
+
+.creator-roll-modal__panel--event {
+  max-height: min(80vh, 48rem);
+}
+
+.creator-roll-modal__header {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  border-bottom: 1px solid rgb(34 211 238 / 0.18);
+  padding: 1.25rem 1.25rem 1rem;
+}
+
+.creator-roll-modal__kicker {
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgb(251 191 36 / 0.88);
+}
+
+.creator-roll-modal__title {
+  margin: 0.35rem 0 0;
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: rgb(236 254 255);
+}
+
+.creator-roll-modal__close {
+  height: 2.25rem;
+  padding: 0 0.85rem;
+  border: 1px solid rgb(34 211 238 / 0.28);
+  background: rgb(8 20 35 / 0.82);
+  color: rgb(207 250 254);
+  font-size: 0.82rem;
+  font-weight: 700;
+  clip-path: polygon(0 0, calc(100% - 0.55rem) 0, 100% 0.55rem, 100% 100%, 0.55rem 100%, 0 calc(100% - 0.55rem));
+  transition: border-color 160ms ease, color 160ms ease, background-color 160ms ease;
+}
+
+.creator-roll-modal__close:hover {
+  border-color: rgb(34 211 238 / 0.5);
+  color: rgb(255 251 235);
+  background: rgb(14 32 52 / 0.96);
+}
+
+.creator-roll-modal__body {
+  position: relative;
+  display: grid;
+  gap: 1.25rem;
+  padding: 1.4rem 1.25rem 1.5rem;
+}
+
+.creator-roll-modal__body--event {
+  overflow-y: auto;
+}
+
+.creator-roll-modal__dice-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.85rem;
+}
+
+.creator-roll-modal__die {
+  display: grid;
+  place-items: center;
+  width: 4.2rem;
+  height: 4.2rem;
+  border: 1px solid rgb(34 211 238 / 0.3);
+  background: linear-gradient(180deg, rgb(13 34 58 / 0.98), rgb(7 18 33 / 0.98));
+  color: rgb(255 249 196);
+  font-size: 1.8rem;
+  font-weight: 800;
+  box-shadow: inset 0 0 0 1px rgb(251 191 36 / 0.08), 0 0 22px rgb(250 204 21 / 0.12);
+  clip-path: polygon(0 0, calc(100% - 0.8rem) 0, 100% 0.8rem, 100% 100%, 0.8rem 100%, 0 calc(100% - 0.8rem));
+}
+
+.creator-roll-modal__die.is-rolling {
+  animation: creator-roll-pulse 140ms linear infinite;
+}
+
+.creator-roll-modal__plus {
+  color: rgb(103 232 249 / 0.85);
+  font-size: 1.4rem;
+  font-weight: 700;
+}
+
+.creator-roll-modal__result-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+}
+
+.creator-roll-modal__modifier {
+  border: 1px solid rgb(251 191 36 / 0.24);
+  background: rgb(251 191 36 / 0.1);
+  color: rgb(253 224 71);
+  padding: 0.35rem 0.7rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  clip-path: polygon(0 0, calc(100% - 0.45rem) 0, 100% 0.45rem, 100% 100%, 0.45rem 100%, 0 calc(100% - 0.45rem));
+}
+
+.creator-roll-modal__total {
+  color: rgb(236 254 255);
+  font-size: 2rem;
+  font-weight: 800;
+}
+
+.creator-roll-modal__result {
+  margin: 0;
+  text-align: center;
+  color: rgb(232 249 252 / 0.92);
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.creator-roll-modal__event-text {
+  margin: 0;
+  color: rgb(232 249 252 / 0.88);
+  line-height: 1.7;
+}
+
+.creator-roll-modal__effects {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.creator-roll-modal__effect {
+  border: 1px solid rgb(34 211 238 / 0.16);
+  background: rgb(11 27 44 / 0.8);
+  color: rgb(207 250 254 / 0.94);
+  padding: 0.7rem 0.85rem;
+  font-size: 0.92rem;
+  clip-path: polygon(0 0, calc(100% - 0.55rem) 0, 100% 0.55rem, 100% 100%, 0.55rem 100%, 0 calc(100% - 0.55rem));
+}
+
+@keyframes creator-roll-pulse {
+  0%,
+  100% {
+    transform: translateY(0);
+    box-shadow: inset 0 0 0 1px rgb(251 191 36 / 0.08), 0 0 18px rgb(250 204 21 / 0.12);
+  }
+  50% {
+    transform: translateY(-1px);
+    box-shadow: inset 0 0 0 1px rgb(251 191 36 / 0.16), 0 0 28px rgb(250 204 21 / 0.22);
+  }
 }
 </style>

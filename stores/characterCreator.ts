@@ -330,6 +330,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
   const selectedCareerSkillTableId = ref('personal-development')
   const selectedAdvancementSkillTableId = ref('personal-development')
   const hasRolledCharacteristics = ref(false)
+  const characteristicRollSequence = ref(0)
   const showRerollConfirm = ref(false)
   const skipCharacteristicRerollConfirm = ref(false)
   const currentTermNumber = ref(1)
@@ -468,6 +469,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     applyAssignedScores()
     selectedBackgroundSkills.value = []
     hasRolledCharacteristics.value = true
+    characteristicRollSequence.value += 1
   }
 
   const autoAssignCharacteristics = () => {
@@ -4676,6 +4678,22 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     return true
   })
 
+  const activeMusteringRollModifiers = computed(() => (
+    selectedMusteringCareer.value
+      ? activeBenefitRollModifiers(selectedMusteringCareer.value.id)
+      : []
+  ))
+
+  const selectedMusteringRollDmTotal = computed(() => {
+    if (!selectedMusteringCareer.value) return 0
+    const rankBenefitDm = rankBenefitBonusByCareer.value[selectedMusteringCareer.value.id]?.benefitDm ?? 0
+    const modifierDm = activeMusteringRollModifiers.value.reduce((sum, modifier) => sum + modifier.dm, 0)
+    const gamblerCashDm = selectedMusteringRollType.value === 'cash' && skillLevel('gambler') >= 0
+      ? Number(creationRulesData.benefits.gamblerCashBenefitDm ?? 1)
+      : 0
+    return rankBenefitDm + modifierDm + gamblerCashDm
+  })
+
   const consumeBenefitRollModifiers = (modifiers: TravellerRollModifier[]) => {
     const consumedIds = modifiers
       .filter((modifier) => modifier.scope === 'one' || modifier.scope === 'next')
@@ -5041,6 +5059,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     selectedCareerSkillTableId,
     selectedAdvancementSkillTableId,
     hasRolledCharacteristics,
+    characteristicRollSequence,
     showRerollConfirm,
     skipCharacteristicRerollConfirm,
     currentTermNumber,
@@ -5312,6 +5331,8 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     musteringCareerOptions,
     selectedMusteringCareer,
     selectedMusteringCareerSpecificRollsRemaining,
+    activeMusteringRollModifiers,
+    selectedMusteringRollDmTotal,
     selectedMusteringCareerBenefits,
     annualPensionByCareer,
     annualPensionCredits,
