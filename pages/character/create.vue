@@ -58,6 +58,7 @@ const {
   enterManualAging,
   rollMusteringOutBenefit,
   enterManualMusteringOutBenefit,
+  resetCreatorState,
   modifierLabel,
   educationBenefitLabel,
   preCareerEventEffectLabel,
@@ -240,6 +241,32 @@ const educationEntryModifierWarningLabel = (modifier: { condition: string; dm: n
 
 const activeEducationEntryModifiers = computed(() => {
   return (selectedEducation.value?.entryModifiers ?? []).filter((modifier) => educationEntryModifierApplies(modifier.condition))
+})
+const selectedEducationDirectionTargets = computed(() => {
+  if (!selectedEducation.value || !selectedEducationEntry.value) return []
+
+  const targets = [
+    {
+      id: 'entry',
+      label: 'Entry',
+      value: checkLabel(selectedEducationEntry.value),
+    },
+    {
+      id: 'graduation',
+      label: 'Graduation',
+      value: checkLabel(selectedEducation.value.graduation),
+    },
+  ]
+
+  if (typeof selectedEducation.value.graduation?.honoursTarget === 'number') {
+    targets.push({
+      id: 'honours',
+      label: 'Honours',
+      value: `${selectedEducation.value.graduation.honoursTarget}+`,
+    })
+  }
+
+  return targets
 })
 
 const termStepTabs = computed(() => {
@@ -600,10 +627,18 @@ const saveAndOpenCreatedTraveller = async () => {
 
 const restartCharacterCreation = () => {
   restartInProgress.value = true
+  restartConfirmOpen.value = false
+  creatorSaveMessage.value = ''
+  clearCreatorRollModalTimers()
+  closeCreatorRollModal()
+  closeEventTextModal()
+  dismissAdvancementResult()
   activeCreatorTab.value = 'creation'
   activeTermStep.value = 'direction'
   clearBuilderDraft(CHARACTER_CREATOR_DRAFT_CACHE_KEY)
-  if (import.meta.client) window.location.reload()
+  resetCreatorState()
+  characterCreatorDraftRestored.value = true
+  restartInProgress.value = false
 }
 
 const requestRestartCharacterCreation = () => {
@@ -640,7 +675,7 @@ if (import.meta.client) {
         <div ref="creatorNavigationAnchor" class="creator-shell-main rounded-lg border border-zinc-300 bg-white shadow-sm min-h-0">
           <CreatorTabNavigation />
 
-          <div class="creator-shell-content p-5">
+          <div :class="['creator-shell-content p-5', creatorRollModalRolling ? 'creator-shell-content--roll-animating' : '']">
             <CreationStepPanel
               v-if="activeCreatorTabIsSetup"
               :allow-background-skill-collapse="!isMobileViewport"
@@ -1464,25 +1499,65 @@ if (import.meta.client) {
               activeTermStep === 'direction' ? 'lg:grid-cols-[18rem_1fr]' : '',
             ]"
           >
-            <label v-show="activeTermStep === 'direction'" class="grid h-fit gap-2">
-              <span class="text-sm font-medium text-zinc-700">Education</span>
-              <select
-                v-model="selectedEducationId"
-                class="h-11 rounded-md border border-zinc-300 bg-white px-3 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200"
+            <div v-show="activeTermStep === 'direction'" class="grid gap-3 lg:col-span-2">
+              <div class="grid h-fit gap-2">
+                <span class="text-sm font-medium text-zinc-700">Education</span>
+                <div class="mx-auto grid w-full max-w-[24rem] gap-3">
+                  <select
+                    v-model="selectedEducationId"
+                    class="h-11 rounded-md border border-zinc-300 bg-white px-3 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200"
+                  >
+                    <option value="">No Education Selected</option>
+                    <option v-for="option in educationOptions" :key="option.id" :value="option.id">
+                      {{ option.name }}
+                    </option>
+                  </select>
+
+                  <div
+                    v-if="selectedEducationDirectionTargets.length"
+                    class="grid gap-2"
+                  >
+                    <div
+                      v-for="target in selectedEducationDirectionTargets.filter((target) => target.id === 'entry')"
+                      :key="target.id"
+                      class="rounded-md border border-cyan-400/20 bg-zinc-950/60 px-3 py-2 shadow-[0_0_0_1px_rgba(34,211,238,0.04)]"
+                    >
+                      <p class="text-[0.65rem] font-semibold uppercase tracking-[0.18em] text-cyan-200/75">
+                        {{ target.label }}
+                      </p>
+                      <p class="mt-1 text-sm font-semibold text-cyan-50">
+                        {{ target.value }}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div
+                v-if="selectedEducationDirectionTargets.length"
+                class="mx-auto grid w-full max-w-[24rem] gap-2"
               >
-                <option value="">No Education Selected</option>
-                <option v-for="option in educationOptions" :key="option.id" :value="option.id">
-                  {{ option.name }}
-                </option>
-              </select>
-            </label>
+                <div
+                  v-for="target in selectedEducationDirectionTargets.filter((target) => target.id !== 'entry')"
+                  :key="target.id"
+                  class="rounded-md border border-cyan-400/20 bg-zinc-950/60 px-3 py-2 shadow-[0_0_0_1px_rgba(34,211,238,0.04)]"
+                >
+                  <p class="text-[0.65rem] font-semibold uppercase tracking-[0.18em] text-cyan-200/75">
+                    {{ target.label }}
+                  </p>
+                  <p class="mt-1 text-sm font-semibold text-cyan-50">
+                    {{ target.value }}
+                  </p>
+                </div>
+              </div>
+            </div>
 
             <div
               v-if="selectedEducation && selectedEducationEntry"
               v-show="activeTermStep !== 'direction'"
               :class="[
                 'grid gap-3',
-                activeTermStep === 'education-entry' ? 'xl:grid-cols-[minmax(0,1.1fr)_minmax(18rem,0.9fr)] xl:items-start' : '',
+                activeTermStep === 'education-entry' ? 'xl:items-start' : '',
               ]"
             >
               <div
@@ -1490,11 +1565,11 @@ if (import.meta.client) {
                 :class="[
                   'grid gap-3',
                   activeTermStep === 'education-entry'
-                    ? 'xl:col-start-2 xl:row-span-2'
+                    ? 'xl:grid-cols-2 xl:items-stretch'
                     : 'sm:grid-cols-2',
                 ]"
               >
-                <div v-show="activeTermStep === 'education-entry'" class="rounded-md border border-zinc-200 p-4">
+                <div v-show="activeTermStep === 'education-entry'" class="flex h-full flex-col rounded-md border border-zinc-200 p-4">
                   <div class="flex flex-wrap items-center justify-between gap-3">
                     <div>
                       <p class="text-sm font-semibold">Entry Roll</p>
@@ -1533,7 +1608,7 @@ if (import.meta.client) {
                     </button>
                   </div>
                 </div>
-                <div class="rounded-md bg-stone-50 p-4">
+                <div class="flex h-full flex-col rounded-md bg-stone-50 p-4">
                   <p class="text-xs font-semibold uppercase tracking-wide text-zinc-500">Graduation</p>
                   <p class="mt-2 text-lg font-semibold">{{ checkLabel(selectedEducation.graduation) }}</p>
                   <p class="mt-1 text-sm text-zinc-600">Honours {{ selectedEducation.graduation.honoursTarget }}+</p>
@@ -1589,29 +1664,43 @@ if (import.meta.client) {
                         </option>
                       </select>
                     </label>
+                    <div class="flex flex-wrap justify-center gap-2 text-center">
+                      <span
+                        v-if="universityLevel0Skill"
+                        class="rounded-full border border-cyan-400/25 bg-cyan-950/40 px-3 py-1 text-xs font-semibold text-cyan-100 shadow-[0_0_0_1px_rgba(34,211,238,0.05)]"
+                      >
+                        Level 0: {{ skillOptionLabel(universityLevel0Skill) }}
+                      </span>
+                      <span
+                        v-if="universityLevel1Skill"
+                        class="rounded-full border border-cyan-400/25 bg-cyan-950/40 px-3 py-1 text-xs font-semibold text-cyan-100 shadow-[0_0_0_1px_rgba(34,211,238,0.05)]"
+                      >
+                        Level 1: {{ skillOptionLabel(universityLevel1Skill) }}
+                      </span>
+                    </div>
                   </div>
-                  <div v-else class="mt-3 flex flex-wrap gap-2">
+                  <div v-else class="mt-3 flex flex-wrap justify-center gap-2 text-center">
                     <span
                       v-for="skill in militaryAcademyServiceSkills"
                       :key="skill"
-                      class="rounded-md bg-zinc-100 px-2 py-1 text-xs text-zinc-700"
+                      class="rounded-full border border-cyan-400/25 bg-cyan-950/40 px-3 py-1 text-xs font-semibold text-cyan-100 shadow-[0_0_0_1px_rgba(34,211,238,0.05)]"
                     >
                       {{ skill }}
                     </span>
                   </div>
                   <button
-                    class="mt-3 h-10 rounded-md bg-zinc-950 px-4 text-sm font-semibold text-white hover:bg-zinc-800 disabled:cursor-not-allowed disabled:bg-zinc-300"
+                    class="mt-3 h-10 rounded-md bg-zinc-950 px-4 text-sm font-semibold text-white hover:bg-zinc-800 disabled:cursor-not-allowed disabled:bg-zinc-300 lg:mx-auto lg:block"
                     :disabled="educationSkillsApplied || (selectedEducation.id === 'university' && (!universityLevel0Skill || !universityLevel1Skill))"
                     type="button"
                     @click="applyEducationSkills"
                   >
                     Apply Skills
                   </button>
-                  <div v-if="pendingEducationSkillChoices.length" class="mt-3 grid gap-2 rounded-md bg-amber-50 p-3 text-sm">
+                  <div v-if="pendingEducationSkillChoices.length" class="mt-3 grid gap-2 rounded-md bg-amber-50 p-3 text-sm text-center">
                     <div
                       v-for="(choiceGroup, index) in pendingEducationSkillChoices"
                       :key="choiceGroup.label"
-                      class="flex flex-wrap items-center justify-between gap-3"
+                      class="flex flex-wrap items-center justify-center gap-3"
                     >
                       <p class="font-medium text-amber-950">
                         {{ choiceGroup.selected ? `${choiceGroup.label}: ${choiceGroup.selected}` : `Choose for ${choiceGroup.label}` }}
@@ -1629,7 +1718,7 @@ if (import.meta.client) {
                       </div>
                     </div>
                   </div>
-                  <p v-if="educationSkillsApplied" class="mt-3 rounded-md bg-stone-50 p-3 text-sm font-semibold text-zinc-700">
+                  <p v-if="educationSkillsApplied" class="mt-3 rounded-md bg-stone-50 p-3 text-center text-sm font-semibold text-zinc-700">
                     Education skills applied to Current Traveller.
                   </p>
                 </div>
@@ -1735,10 +1824,6 @@ if (import.meta.client) {
               </div>
             </div>
 
-            <div v-else class="rounded-md border border-zinc-200 bg-stone-50 p-4">
-              <p class="text-sm font-semibold text-zinc-900">Education data unavailable</p>
-              <p class="mt-2 text-sm leading-6 text-zinc-600">Select a different education path or check the Core data file.</p>
-            </div>
           </div>
 
           <div v-if="agingRequired" v-show="activeTermStep === 'aging'" class="mt-5 rounded-md border border-amber-300 bg-amber-50 p-4">
@@ -2122,7 +2207,7 @@ if (import.meta.client) {
           <p class="hud-kicker text-xs font-semibold uppercase tracking-wide">Restart Character</p>
           <h2 class="mt-2 text-2xl font-semibold">Clear this in-progress character?</h2>
           <p class="mt-2 text-sm leading-6 text-cyan-100/80">
-            This clears the cached character creator draft and reloads the creator from a blank state.
+            This clears the cached character creator draft and resets the creator to a blank state.
           </p>
         </div>
 
@@ -2293,6 +2378,7 @@ if (import.meta.client) {
   height: 1.25rem;
   overflow: visible;
   color: rgb(253 186 116);
+  transform: translate(-0.04rem, -0.04rem);
 }
 
 .creator-shell-footer__restart-icon :deep(svg) {
@@ -2385,10 +2471,10 @@ if (import.meta.client) {
   .creator-shell-footer__restart {
     flex: 0 0 3rem;
     justify-content: center;
-    width: 3rem;
-    min-width: 3rem;
-    height: 3rem;
-    min-height: 3rem;
+    width: 2.75rem;
+    min-width: 2.75rem;
+    height: 2.75rem;
+    min-height: 2.75rem;
     padding: 0;
     font-size: 0.88rem;
   }
@@ -2400,6 +2486,7 @@ if (import.meta.client) {
   .creator-shell-footer__restart-icon {
     width: 1.35rem;
     height: 1.35rem;
+    transform: translate(-0.06rem, -0.06rem);
   }
 
   .creator-shell-footer__nav {
@@ -2534,6 +2621,11 @@ if (import.meta.client) {
   overflow-y: auto;
 }
 
+.creator-shell-content--roll-animating {
+  opacity: 0;
+  pointer-events: none;
+}
+
 .creator-roll-modal__dice-row {
   display: flex;
   align-items: center;
@@ -2545,12 +2637,12 @@ if (import.meta.client) {
 .creator-roll-modal__die {
   display: grid;
   place-items: center;
-  width: 4.2rem;
-  height: 4.2rem;
+  width: 3.3rem;
+  height: 3.3rem;
   border: 1px solid rgb(34 211 238 / 0.3);
   background: linear-gradient(180deg, rgb(13 34 58 / 0.98), rgb(7 18 33 / 0.98));
   color: rgb(165 243 252);
-  font-size: 1.8rem;
+  font-size: 1.45rem;
   font-weight: 800;
   box-shadow: inset 0 0 0 1px rgb(34 211 238 / 0.1), 0 0 22px rgb(34 211 238 / 0.14);
   clip-path: polygon(0 0, calc(100% - 0.8rem) 0, 100% 0.8rem, 100% 100%, 0.8rem 100%, 0 calc(100% - 0.8rem));
@@ -2592,12 +2684,12 @@ if (import.meta.client) {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 3.6rem;
-  height: 3.2rem;
+  width: 4.6rem;
+  height: 4rem;
   border: 1px solid rgb(251 191 36 / 0.28);
   background: linear-gradient(180deg, rgb(118 43 8 / 0.92), rgb(78 27 8 / 0.96));
   color: rgb(255 248 214);
-  font-size: 1.8rem;
+  font-size: 2.35rem;
   font-weight: 800;
   letter-spacing: 0.02em;
   -webkit-text-stroke: 0.7px rgb(92 33 7 / 0.98);
@@ -2626,6 +2718,20 @@ if (import.meta.client) {
   color: rgb(232 249 252 / 0.92);
   font-size: 1rem;
   font-weight: 600;
+}
+
+@media (max-width: 639px) {
+  .creator-roll-modal__die {
+    width: 2.95rem;
+    height: 2.95rem;
+    font-size: 1.28rem;
+  }
+
+  .creator-roll-modal__total-frame {
+    width: 4.2rem;
+    height: 3.7rem;
+    font-size: 2.1rem;
+  }
 }
 
 .creator-roll-modal__event-text {

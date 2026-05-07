@@ -192,6 +192,11 @@ const characterCreatorAgeLabel = computed(() => {
   transition: border-color 140ms ease, color 140ms ease, box-shadow 140ms ease, transform 140ms ease;
 }
 
+.hud-icon-button :deep(svg) {
+  overflow: visible;
+  transform: translate(-0.05rem, -0.05rem);
+}
+
 .hud-icon-button:hover {
   border-color: rgba(251, 191, 36, 0.58);
   color: rgb(254 215 170);

@@ -3994,6 +3994,93 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     currentTermBenefitKept.value = false
   }
 
+  const resetCreatorState = () => {
+    statRolls.value = characteristicOrder.map((_, index) => ({
+      id: `initial-${index}`,
+      value: 7,
+    }))
+
+    characteristicOrder.forEach((id, index) => {
+      assignedRollIds[id] = `initial-${index}`
+      values[id] = 7
+      characteristicAdjustments[id] = 0
+    })
+
+    characterName.value = ''
+    characterHomeworld.value = ''
+    characterSpecies.value = 'Human'
+    characterGender.value = ''
+    selectedBackgroundSkills.value = []
+    backgroundSkillsCollapsed.value = false
+    backgroundSkillsAutoCollapsed.value = false
+    selectedEducationId.value = ''
+    selectedTermPath.value = 'career'
+    selectedCareerId.value = ''
+    selectedAssignmentId.value = ''
+    selectedCareerSkillTableId.value = 'personal-development'
+    selectedAdvancementSkillTableId.value = 'personal-development'
+    hasRolledCharacteristics.value = false
+    characteristicRollSequence.value = 0
+    showRerollConfirm.value = false
+    currentTermNumber.value = 1
+    activeCreatorTab.value = 'creation'
+    setupAutoAdvancedToTermOne.value = false
+    draftUsed.value = false
+    draftRoll.value = null
+    gmOverrideMenuOpen.value = false
+    lifepathComplete.value = false
+    termHistory.value = []
+    careerRanks.value = []
+    advancementResult.value = null
+
+    for (const key of Object.keys(appliedSkillRecords)) delete appliedSkillRecords[key]
+
+    educationSkillsApplied.value = false
+    universityLevel0Skill.value = ''
+    universityLevel1Skill.value = ''
+    pendingEducationSkillChoices.value = []
+    educationEventExpanded.value = false
+    basicTrainingApplied.value = false
+    basicTrainingCareerIds.value = []
+    pendingBasicTrainingChoices.value = []
+    careerEventExpanded.value = false
+    careerMishapExpanded.value = false
+    careerSkillResult.value = null
+    activeEvent.value = null
+    pendingEventResolutions.value = []
+    eventOutcomeLog.value = []
+    associates.value = []
+    narrativeEvents.value = []
+    psionicsPermissionSources.value = []
+    psiScore.value = null
+    psiTestRoll.value = null
+    psionicTalentAttempts.value = []
+    psionicsTrainingCost.value = 0
+    psionicsTestCharged.value = false
+    psionicsTrainingCharged.value = false
+    prisonerParoleThreshold.value = null
+    prisonerParoleThresholdRoll.value = null
+    prisonerReleasedThisTerm.value = false
+    prisonerBenefitRollsLost.value = false
+    currentTermBenefitKept.value = false
+    rollModifiers.value = []
+    benefitRollAdjustments.value = []
+    benefitRollLedger.value = []
+    musteringOutResults.value = []
+    selectedMusteringCareerId.value = ''
+    selectedMusteringRollType.value = 'benefit'
+    startingCredits.value = 0
+    shipShares.value = 0
+    personalBenefits.value = []
+    medicalDebt.value = 0
+    legalDebt.value = 0
+    medicalCareLog.value = []
+    careerConstraints.value = []
+    pendingSkillChoice.value = null
+
+    resetTermRolls()
+  }
+
   const agingEffect = computed(() => {
     const roll = termRolls.aging
     if (!roll) return null
@@ -5312,6 +5399,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     rollCareerMishap,
     enterManualCareerMishap,
     resetTermRolls,
+    resetCreatorState,
     agingEffect,
     rollAging,
     enterManualAging,
