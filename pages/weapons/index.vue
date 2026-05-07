@@ -4,7 +4,28 @@ import type { TravellerArmorRecord, TravellerEquipmentRecord } from '~/types/arm
 import type { CustomWeaponDesign, TravellerWeaponRecord } from '~/types/weapon'
 import { useWeaponsStore } from '~/stores/weapons'
 import { loadBuilderDraft, saveBuilderDraft } from '~/utils/traveller/draftCache'
-import { calculateFieldCatalogueWeapon, cloneWeapon, createBlankCustomWeapon, fieldCatalogueDesign, getFieldCatalogueSelectionWarnings, resolveWeaponFamily, resolveWeaponFamilyIcon } from '~/utils/traveller/weapons'
+import { calculateFieldCatalogueWeapon, cloneWeapon, createBlankCustomWeapon, fieldCatalogueDesign, getFieldCatalogueSelectionWarnings, resolveWeaponFamily, resolveWeaponFamilyIcon, resolveWeaponIconName } from '~/utils/traveller/weapons'
+import weaponSidearmIconUrl from '~/assets/weapon_icon_svgs/weapon_sidearm_icon_24.svg?url'
+import weaponRevolverIconUrl from '~/assets/weapon_icon_svgs/weapon_revolver_icon_24.svg?url'
+import weaponSmgIconUrl from '~/assets/weapon_icon_svgs/weapon_smg_icon_24.svg?url'
+import weaponLongarmIconUrl from '~/assets/weapon_icon_svgs/weapon_longarm_icon_24.svg?url'
+import weaponShotgunIconUrl from '~/assets/weapon_icon_svgs/weapon_shotgun_icon_24.svg?url'
+import weaponSniperIconUrl from '~/assets/weapon_icon_svgs/weapon_sniper_icon_24.svg?url'
+import weaponSupportIconUrl from '~/assets/weapon_icon_svgs/weapon_support_icon_24.svg?url'
+import weaponHeavyIconUrl from '~/assets/weapon_icon_svgs/weapon_heavy_icon_24.svg?url'
+import weaponChaingunIconUrl from '~/assets/weapon_icon_svgs/weapon_chaingun_icon_24.svg?url'
+import weaponLauncherIconUrl from '~/assets/weapon_icon_svgs/weapon_launcher_icon_24.svg?url'
+import weaponLauncherGrenadeIconUrl from '~/assets/weapon_icon_svgs/weapon_launcher_grenade_icon_24.svg?url'
+import weaponGrenadeIconUrl from '~/assets/weapon_icon_svgs/weapon_grenade_icon_24.svg?url'
+import weaponChargeIconUrl from '~/assets/weapon_icon_svgs/weapon_charge_icon_24.svg?url'
+import weaponMineIconUrl from '~/assets/weapon_icon_svgs/weapon_mine_icon_24.svg?url'
+import weaponFlamerIconUrl from '~/assets/weapon_icon_svgs/weapon_flamer_icon_24.svg?url'
+import weaponEnergySidearmIconUrl from '~/assets/weapon_icon_svgs/weapon_energy_sidearm_icon_24.svg?url'
+import weaponEnergyLongarmIconUrl from '~/assets/weapon_icon_svgs/weapon_energy_longarm_icon_24.svg?url'
+import weaponEnergySniperIconUrl from '~/assets/weapon_icon_svgs/weapon_energy_sniper_icon_24.svg?url'
+import weaponGaussSidearmIconUrl from '~/assets/weapon_icon_svgs/weapon_gauss_sidearm_icon_24.svg?url'
+import weaponGaussLongarmIconUrl from '~/assets/weapon_icon_svgs/weapon_gauss_longarm_icon_24.svg?url'
+import weaponEmplacedIconUrl from '~/assets/weapon_icon_svgs/weapon_emplaced_icon_24.svg?url'
 
 type DesignTableItem = {
   id: string
@@ -584,6 +605,33 @@ const builderCostLabel = computed(() => {
 
 const resolvedWeaponFamily = computed(() => resolveWeaponFamily(draft.value))
 const finalWeaponIconName = computed(() => resolveWeaponFamilyIcon(resolvedWeaponFamily.value))
+const resolvedWeaponAssetIconName = computed(() => resolveWeaponIconName(draft.value))
+const weaponAssetIconUrls: Record<string, string> = {
+  'weapon-sidearm': weaponSidearmIconUrl,
+  'weapon-revolver': weaponRevolverIconUrl,
+  'weapon-smg': weaponSmgIconUrl,
+  'weapon-longarm': weaponLongarmIconUrl,
+  'weapon-shotgun': weaponShotgunIconUrl,
+  'weapon-sniper': weaponSniperIconUrl,
+  'weapon-support': weaponSupportIconUrl,
+  'weapon-heavy': weaponHeavyIconUrl,
+  'weapon-chaingun': weaponChaingunIconUrl,
+  'weapon-launcher': weaponLauncherIconUrl,
+  'weapon-launcher-grenade': weaponLauncherGrenadeIconUrl,
+  'weapon-grenade': weaponGrenadeIconUrl,
+  'weapon-charge': weaponChargeIconUrl,
+  'weapon-mine': weaponMineIconUrl,
+  'weapon-flamer': weaponFlamerIconUrl,
+  'weapon-energy-sidearm': weaponEnergySidearmIconUrl,
+  'weapon-energy-longarm': weaponEnergyLongarmIconUrl,
+  'weapon-energy-sniper': weaponEnergySniperIconUrl,
+  'weapon-gauss-sidearm': weaponGaussSidearmIconUrl,
+  'weapon-gauss-longarm': weaponGaussLongarmIconUrl,
+  'weapon-emplaced': weaponEmplacedIconUrl,
+}
+const finalWeaponAssetIconUrl = computed(() => {
+  return weaponAssetIconUrls[resolvedWeaponAssetIconName.value] ?? ''
+})
 
 watch(
   () => draft.value.design.weaponType,
@@ -715,7 +763,7 @@ const buildPersistedWeaponDraft = () => {
   const nextDraft = normalizeDraft(cloneWeapon(draft.value))
   nextDraft.techLevel = buildTechLevel.value ?? nextDraft.design.targetTechLevel ?? nextDraft.techLevel
   nextDraft.family = resolveWeaponFamily(nextDraft)
-  nextDraft.iconName = resolveWeaponFamilyIcon(nextDraft.family)
+  nextDraft.iconName = resolveWeaponIconName(nextDraft)
 
   if (preview.ready) {
     nextDraft.range = preview.range
@@ -1525,7 +1573,13 @@ const toggleExpandedEquipment = (itemId: string) => {
             <section class="weapon-final-card">
               <div class="weapon-final-card__header">
                 <div class="weapon-final-card__icon">
-                  <AppIcon :name="finalWeaponIconName" class="h-16 w-16" />
+                  <img
+                    v-if="finalWeaponAssetIconUrl"
+                    :src="finalWeaponAssetIconUrl"
+                    alt=""
+                    class="weapon-final-card__icon-image"
+                  >
+                  <AppIcon v-else :name="finalWeaponIconName" class="h-16 w-16" />
                 </div>
                 <div class="min-w-0">
                   <p class="weapon-final-card__eyebrow">Completed Weapon Package</p>
@@ -2108,6 +2162,18 @@ const toggleExpandedEquipment = (itemId: string) => {
   color: #fde68a;
   box-shadow: inset 0 0 18px rgba(251, 191, 36, 0.08), 0 0 18px rgba(245, 158, 11, 0.08);
   clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px));
+}
+
+.weapon-final-card__icon-image {
+  width: 3.35rem;
+  height: 3.35rem;
+  object-fit: contain;
+  display: block;
+  filter:
+    brightness(0) saturate(100%)
+    invert(84%) sepia(66%) saturate(948%) hue-rotate(336deg) brightness(104%) contrast(99%)
+    drop-shadow(0 0 10px rgba(251, 191, 36, 0.22))
+    drop-shadow(0 0 18px rgba(245, 158, 11, 0.16));
 }
 
 .weapon-final-card__eyebrow {

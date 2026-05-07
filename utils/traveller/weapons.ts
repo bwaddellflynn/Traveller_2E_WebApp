@@ -284,6 +284,80 @@ export const resolveWeaponFamilyIcon = (family: TravellerWeaponFamily): Travelle
   }
 }
 
+export const resolveWeaponIconName = (weapon: Pick<TravellerWeaponRecord, 'category' | 'scale' | 'name'> & {
+  skill?: string
+  speciality?: string
+  design?: Partial<CustomWeaponDesign['design']>
+}): TravellerWeaponIconName => {
+  const family = resolveWeaponFamily(weapon)
+  const name = weapon.name.toLowerCase()
+  const weaponType = weapon.design?.weaponType ?? ''
+  const receiverType = weapon.design?.receiverType ?? ''
+  const ammunitionType = weapon.design?.ammunitionType ?? ''
+  const barrel = weapon.design?.barrel ?? ''
+  const furniture = weapon.design?.furniture ?? ''
+  const mechanism = weapon.design?.mechanism ?? ''
+  const receiverFeatures = weapon.design?.receiverFeatures ?? []
+
+  const isGauss = ammunitionType.includes('gauss')
+  const isSmoothbore = ammunitionType.includes('smoothbore')
+  const isRocket = ammunitionType === 'rocket'
+  const isSniperProfile = (barrel === 'long' || barrel === 'very-long') && receiverFeatures.includes('accurised')
+  const isAutomatic = ['burst-capable', 'fully-automatic', 'rapid-fire', 'very-rapid-fire'].includes(mechanism)
+  const isSupportMount = furniture === 'support-mount'
+  const isMine = name.includes('mine')
+  const isFlamer = name.includes('flamer') || name.includes('flame')
+
+  if (weapon.category === 'melee') return 'weapon-melee'
+  if (isMine) return 'weapon-mine'
+  if (isFlamer) return 'weapon-flamer'
+
+  if (weaponType === 'grenade') {
+    if (weapon.category === 'explosive') return 'weapon-charge'
+    if (weapon.category === 'heavy' || isSupportMount || receiverType === 'light-support' || receiverType === 'heavy' || name.includes('launcher')) {
+      return 'weapon-launcher-grenade'
+    }
+    return 'weapon-grenade'
+  }
+
+  if (weaponType === 'energy' || weapon.category === 'energy') {
+    if (receiverType === 'handgun') return 'weapon-energy-sidearm'
+    if (isSniperProfile) return 'weapon-energy-sniper'
+    if (isSupportMount) return 'weapon-emplaced'
+    if (receiverType === 'heavy') return 'weapon-heavy'
+    if (receiverType === 'light-support') return 'weapon-support'
+    return 'weapon-energy-longarm'
+  }
+
+  if (weaponType === 'projectile' || weapon.category === 'slug' || weapon.category === 'support' || weapon.category === 'heavy') {
+    if (isRocket) return 'weapon-launcher'
+    if (isSupportMount) return 'weapon-emplaced'
+    if (isGauss) {
+      if (receiverType === 'handgun') return 'weapon-gauss-sidearm'
+      return 'weapon-gauss-longarm'
+    }
+    if (receiverType === 'handgun') {
+      if (mechanism === 'repeater' || name.includes('revolver')) return 'weapon-revolver'
+      return 'weapon-sidearm'
+    }
+    if (receiverType === 'assault' && isAutomatic && (furniture === 'stockless' || furniture === 'folding-stock')) {
+      return 'weapon-smg'
+    }
+    if (isSmoothbore) return 'weapon-shotgun'
+    if (receiverType === 'light-support') {
+      if (mechanism === 'rapid-fire' || mechanism === 'very-rapid-fire' || receiverFeatures.includes('multi-barrel-2') || receiverFeatures.includes('multi-barrel-3')) {
+        return 'weapon-chaingun'
+      }
+      return 'weapon-support'
+    }
+    if (receiverType === 'heavy') return 'weapon-heavy'
+    if (isSniperProfile) return 'weapon-sniper'
+    return 'weapon-longarm'
+  }
+
+  return resolveWeaponFamilyIcon(family)
+}
+
 const applyPercent = (value: number, percent = 0) => value * (1 + percent / 100)
 
 const uniqueTraits = (traits: string[]) => Array.from(new Set(traits.filter(Boolean)))

@@ -20,15 +20,26 @@ export type TravellerWeaponFamily =
 export type TravellerWeaponIconName =
   | 'weapon-melee'
   | 'weapon-sidearm'
+  | 'weapon-revolver'
+  | 'weapon-smg'
   | 'weapon-longarm'
   | 'weapon-shotgun'
+  | 'weapon-sniper'
   | 'weapon-support'
   | 'weapon-heavy'
+  | 'weapon-chaingun'
   | 'weapon-launcher'
+  | 'weapon-launcher-grenade'
   | 'weapon-grenade'
   | 'weapon-charge'
+  | 'weapon-mine'
+  | 'weapon-flamer'
   | 'weapon-energy-sidearm'
   | 'weapon-energy-longarm'
+  | 'weapon-energy-sniper'
+  | 'weapon-gauss-sidearm'
+  | 'weapon-gauss-longarm'
+  | 'weapon-emplaced'
 
 export type TravellerWeaponRecord = {
   id: string

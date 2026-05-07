@@ -1,7 +1,7 @@
 import { computed, ref, watch } from 'vue'
 import { defineStore } from 'pinia'
 import type { CustomWeaponDesign } from '~/types/weapon'
-import { allReferenceWeapons, cloneWeapon, createBlankCustomWeapon, makeWeaponId, resolveWeaponFamily, resolveWeaponFamilyIcon } from '~/utils/traveller/weapons'
+import { allReferenceWeapons, cloneWeapon, createBlankCustomWeapon, makeWeaponId, resolveWeaponFamily, resolveWeaponIconName } from '~/utils/traveller/weapons'
 import { allReferenceArmor, allReferenceEquipment } from '~/utils/traveller/armory'
 import { LOCAL_USER_ID } from '~/utils/traveller/profile'
 
@@ -76,7 +76,7 @@ export const useWeaponsStore = defineStore('weapons', () => {
     const normalized = cloneWeapon({
       ...weapon,
       family: weapon.family ?? resolveWeaponFamily(weapon),
-      iconName: weapon.iconName ?? resolveWeaponFamilyIcon(weapon.family ?? resolveWeaponFamily(weapon)),
+      iconName: weapon.iconName ?? resolveWeaponIconName(weapon),
       userId: weapon.userId || activeUserId.value,
       createdAt: weapon.createdAt || now,
       updatedAt: now,
