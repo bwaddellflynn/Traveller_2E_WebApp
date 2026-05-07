@@ -299,6 +299,7 @@ const activeTermStepIndex = computed(() => Math.max(0, termStepTabs.value.findIn
 const mobileStepCarouselTouchStartX = ref<number | null>(null)
 const mobileStepCarouselTouchStartAt = ref<number | null>(null)
 const mobileStepCarouselSwipeDelta = ref(0)
+const mobileStepCarouselTransition = ref<'forward' | 'backward' | 'none'>('none')
 const mobileStepPrev = computed(() => {
   const count = termStepTabs.value.length
   return count ? termStepTabs.value[(activeTermStepIndex.value - 1 + count) % count] : null
@@ -328,6 +329,7 @@ const unresolvedEducationSkillChoices = computed(() => pendingEducationSkillChoi
 const navigateMobileTermStep = (direction: 'prev' | 'next') => {
   const count = termStepTabs.value.length
   if (!count) return
+  mobileStepCarouselTransition.value = direction === 'next' ? 'forward' : 'backward'
   const nextIndex = direction === 'prev'
     ? (activeTermStepIndex.value - 1 + count) % count
     : (activeTermStepIndex.value + 1) % count
@@ -1278,14 +1280,36 @@ if (import.meta.client) {
                   type="button"
                   @click="navigateMobileTermStep('prev')"
                 >
-                  <span class="creator-step-carousel__label">{{ mobileStepPrev.label }}</span>
+                  <Transition
+                    :name="mobileStepCarouselTransition === 'forward'
+                      ? 'creator-step-carousel-surface-forward'
+                      : mobileStepCarouselTransition === 'backward'
+                        ? 'creator-step-carousel-surface-backward'
+                        : ''"
+                    mode="out-in"
+                  >
+                    <span :key="mobileStepPrev.id" class="creator-step-carousel__surface">
+                      <span class="creator-step-carousel__label">{{ mobileStepPrev.label }}</span>
+                    </span>
+                  </Transition>
                 </button>
                 <button
                   v-if="mobileStepCurrent"
                   class="creator-step-carousel__item is-current"
                   type="button"
                 >
-                  <span class="creator-step-carousel__label">{{ mobileStepCurrent.label }}</span>
+                  <Transition
+                    :name="mobileStepCarouselTransition === 'forward'
+                      ? 'creator-step-carousel-surface-forward'
+                      : mobileStepCarouselTransition === 'backward'
+                        ? 'creator-step-carousel-surface-backward'
+                        : ''"
+                    mode="out-in"
+                  >
+                    <span :key="mobileStepCurrent.id" class="creator-step-carousel__surface">
+                      <span class="creator-step-carousel__label">{{ mobileStepCurrent.label }}</span>
+                    </span>
+                  </Transition>
                 </button>
                 <button
                   v-if="mobileStepNext"
@@ -1293,7 +1317,18 @@ if (import.meta.client) {
                   type="button"
                   @click="navigateMobileTermStep('next')"
                 >
-                  <span class="creator-step-carousel__label">{{ mobileStepNext.label }}</span>
+                  <Transition
+                    :name="mobileStepCarouselTransition === 'forward'
+                      ? 'creator-step-carousel-surface-forward'
+                      : mobileStepCarouselTransition === 'backward'
+                        ? 'creator-step-carousel-surface-backward'
+                        : ''"
+                    mode="out-in"
+                  >
+                    <span :key="mobileStepNext.id" class="creator-step-carousel__surface">
+                      <span class="creator-step-carousel__label">{{ mobileStepNext.label }}</span>
+                    </span>
+                  </Transition>
                 </button>
               </div>
             </div>
@@ -3115,19 +3150,6 @@ if (import.meta.client) {
 }
 
 .creator-step-carousel-shift-move,
-.creator-step-carousel-shift-enter-active,
-.creator-step-carousel-shift-leave-active {
-  transition:
-    transform 240ms cubic-bezier(0.22, 1, 0.36, 1),
-    opacity 240ms ease;
-}
-
-.creator-step-carousel-shift-enter-from,
-.creator-step-carousel-shift-leave-to {
-  opacity: 0;
-  transform: scale(0.92);
-}
-
 .creator-step-carousel__item {
   position: relative;
   display: inline-flex;
@@ -3150,7 +3172,16 @@ if (import.meta.client) {
     filter 260ms ease;
 }
 
-.creator-step-carousel__item::before {
+.creator-step-carousel__surface {
+  position: relative;
+  display: inline-flex;
+  width: 100%;
+  height: 100%;
+  align-items: center;
+  justify-content: center;
+}
+
+.creator-step-carousel__surface::before {
   content: '';
   position: absolute;
   inset: 1px;
@@ -3168,7 +3199,7 @@ if (import.meta.client) {
   z-index: 2;
 }
 
-.creator-step-carousel__item.is-current::before {
+.creator-step-carousel__item.is-current .creator-step-carousel__surface::before {
   clip-path: polygon(0 0, calc(100% - 0.42rem) 0, 100% 0.42rem, 100% 100%, 0.42rem 100%, 0 calc(100% - 0.42rem));
   background:
     linear-gradient(135deg, rgb(66 214 255 / 0.34), rgb(26 122 162 / 0.28) 48%, rgb(14 66 93 / 0.88)),
@@ -3181,8 +3212,43 @@ if (import.meta.client) {
   transform: scale(0.74);
 }
 
-.creator-step-carousel__item.is-near::before {
+.creator-step-carousel__item.is-near .creator-step-carousel__surface::before {
   clip-path: polygon(0 0, calc(100% - 0.34rem) 0, 100% 0.34rem, 100% 100%, 0.34rem 100%, 0 calc(100% - 0.34rem));
+}
+
+.creator-step-carousel-surface-forward-enter-active,
+.creator-step-carousel-surface-forward-leave-active,
+.creator-step-carousel-surface-backward-enter-active,
+.creator-step-carousel-surface-backward-leave-active {
+  transition:
+    transform 220ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 180ms ease;
+}
+
+.creator-step-carousel-surface-forward-leave-active,
+.creator-step-carousel-surface-backward-leave-active {
+  position: absolute;
+  inset: 0;
+}
+
+.creator-step-carousel-surface-forward-enter-from {
+  opacity: 0;
+  transform: translateX(0.75rem);
+}
+
+.creator-step-carousel-surface-forward-leave-to {
+  opacity: 0;
+  transform: translateX(-0.75rem);
+}
+
+.creator-step-carousel-surface-backward-enter-from {
+  opacity: 0;
+  transform: translateX(-0.75rem);
+}
+
+.creator-step-carousel-surface-backward-leave-to {
+  opacity: 0;
+  transform: translateX(0.75rem);
 }
 
 .creator-step-carousel__item.is-far {

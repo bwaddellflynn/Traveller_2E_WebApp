@@ -37,6 +37,7 @@ onBeforeUnmount(() => {
 const mobileTravellerCarouselTouchStartX = ref<number | null>(null)
 const mobileTravellerCarouselTouchStartAt = ref<number | null>(null)
 const mobileTravellerCarouselSwipeDelta = ref(0)
+const currentTravellerCarouselTransition = ref<'forward' | 'backward' | 'none'>('none')
 const currentTravellerPrevTab = computed(() => {
   const count = currentTravellerTabs.length
   return count ? currentTravellerTabs[(currentTravellerTabIndex.value - 1 + count) % count] : null
@@ -49,6 +50,7 @@ const currentTravellerNextTab = computed(() => {
 const navigateTravellerTab = (direction: 'prev' | 'next') => {
   const count = currentTravellerTabs.length
   if (!count) return
+  currentTravellerCarouselTransition.value = direction === 'next' ? 'forward' : 'backward'
   const nextIndex = direction === 'prev'
     ? (currentTravellerTabIndex.value - 1 + count) % count
     : (currentTravellerTabIndex.value + 1) % count
@@ -165,29 +167,59 @@ const currentTravellerAgeLabel = computed(() => {
         <div class="current-traveller-carousel__track">
           <button
             v-if="currentTravellerPrevTab"
-            key="prev"
             class="current-traveller-carousel__item is-near"
             type="button"
             @click="navigateTravellerTab('prev')"
           >
-            <span class="current-traveller-carousel__label">{{ currentTravellerPrevTab.label }}</span>
+            <Transition
+              :name="currentTravellerCarouselTransition === 'forward'
+                ? 'current-traveller-carousel-surface-forward'
+                : currentTravellerCarouselTransition === 'backward'
+                  ? 'current-traveller-carousel-surface-backward'
+                  : ''"
+              mode="out-in"
+            >
+              <span :key="currentTravellerPrevTab.id" class="current-traveller-carousel__surface">
+                <span class="current-traveller-carousel__label">{{ currentTravellerPrevTab.label }}</span>
+              </span>
+            </Transition>
           </button>
           <button
             v-if="currentTravellerActiveTab"
-            key="current"
             class="current-traveller-carousel__item is-current"
             type="button"
           >
-            <span class="current-traveller-carousel__label">{{ currentTravellerActiveTab.label }}</span>
+            <Transition
+              :name="currentTravellerCarouselTransition === 'forward'
+                ? 'current-traveller-carousel-surface-forward'
+                : currentTravellerCarouselTransition === 'backward'
+                  ? 'current-traveller-carousel-surface-backward'
+                  : ''"
+              mode="out-in"
+            >
+              <span :key="currentTravellerActiveTab.id" class="current-traveller-carousel__surface">
+                <span class="current-traveller-carousel__label">{{ currentTravellerActiveTab.label }}</span>
+              </span>
+            </Transition>
           </button>
           <button
             v-if="currentTravellerNextTab"
-            key="next"
             class="current-traveller-carousel__item is-near"
             type="button"
             @click="navigateTravellerTab('next')"
           >
-            <span class="current-traveller-carousel__label">{{ currentTravellerNextTab.label }}</span>
+            <Transition
+              :name="currentTravellerCarouselTransition === 'forward'
+                ? 'current-traveller-carousel-surface-forward'
+                : currentTravellerCarouselTransition === 'backward'
+                  ? 'current-traveller-carousel-surface-backward'
+                  : ''"
+              mode="out-in"
+            >
+              <span :key="currentTravellerNextTab.id" class="current-traveller-carousel__surface">
+                <span class="current-traveller-carousel__label">{{ currentTravellerNextTab.label }}</span>
+              </span>
+            </Transition>
           </button>
         </div>
       </div>
@@ -495,18 +527,39 @@ const currentTravellerAgeLabel = computed(() => {
   will-change: transform;
 }
 
-.current-traveller-carousel-shift-move,
-.current-traveller-carousel-shift-enter-active,
-.current-traveller-carousel-shift-leave-active {
+.current-traveller-carousel-surface-forward-enter-active,
+.current-traveller-carousel-surface-forward-leave-active,
+.current-traveller-carousel-surface-backward-enter-active,
+.current-traveller-carousel-surface-backward-leave-active {
   transition:
-    transform 240ms cubic-bezier(0.22, 1, 0.36, 1),
-    opacity 240ms ease;
+    transform 220ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 180ms ease;
 }
 
-.current-traveller-carousel-shift-enter-from,
-.current-traveller-carousel-shift-leave-to {
+.current-traveller-carousel-surface-forward-leave-active,
+.current-traveller-carousel-surface-backward-leave-active {
+  position: absolute;
+  inset: 0;
+}
+
+.current-traveller-carousel-surface-forward-enter-from {
   opacity: 0;
-  transform: scale(0.92);
+  transform: translateX(0.75rem);
+}
+
+.current-traveller-carousel-surface-forward-leave-to {
+  opacity: 0;
+  transform: translateX(-0.75rem);
+}
+
+.current-traveller-carousel-surface-backward-enter-from {
+  opacity: 0;
+  transform: translateX(-0.75rem);
+}
+
+.current-traveller-carousel-surface-backward-leave-to {
+  opacity: 0;
+  transform: translateX(0.75rem);
 }
 
 .current-traveller-carousel__item {
@@ -517,21 +570,28 @@ const currentTravellerAgeLabel = computed(() => {
   height: 2.45rem;
   align-items: center;
   justify-content: center;
-  border: 1px solid rgb(34 211 238 / 0.24);
-  background: linear-gradient(180deg, rgb(9 33 49 / 0.96), rgb(6 24 38 / 0.98));
+  border: 0;
+  background: transparent;
+  padding: 0;
   color: rgb(224 247 255 / 0.94);
   font-size: 0.72rem;
   font-weight: 700;
   text-align: center;
   transition:
-    transform 260ms cubic-bezier(0.22, 1, 0.36, 1),
     opacity 260ms ease,
-    border-color 220ms ease,
-    box-shadow 260ms ease,
     filter 260ms ease;
 }
 
-.current-traveller-carousel__item::before {
+.current-traveller-carousel__surface {
+  position: relative;
+  display: inline-flex;
+  width: 100%;
+  height: 100%;
+  align-items: center;
+  justify-content: center;
+}
+
+.current-traveller-carousel__surface::before {
   content: '';
   position: absolute;
   inset: 1px;
@@ -549,7 +609,7 @@ const currentTravellerAgeLabel = computed(() => {
   z-index: 2;
 }
 
-.current-traveller-carousel__item.is-current::before {
+.current-traveller-carousel__item.is-current .current-traveller-carousel__surface::before {
   clip-path: polygon(0 0, calc(100% - 0.42rem) 0, 100% 0.42rem, 100% 100%, 0.42rem 100%, 0 calc(100% - 0.42rem));
   background:
     linear-gradient(135deg, rgb(66 214 255 / 0.34), rgb(26 122 162 / 0.28) 48%, rgb(14 66 93 / 0.88)),
@@ -562,7 +622,7 @@ const currentTravellerAgeLabel = computed(() => {
   transform: scale(0.74);
 }
 
-.current-traveller-carousel__item.is-near::before {
+.current-traveller-carousel__item.is-near .current-traveller-carousel__surface::before {
   clip-path: polygon(0 0, calc(100% - 0.34rem) 0, 100% 0.34rem, 100% 100%, 0.34rem 100%, 0 calc(100% - 0.34rem));
 }
 
