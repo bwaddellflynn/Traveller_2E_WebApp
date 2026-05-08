@@ -205,9 +205,10 @@ const triggerEventResolutionAssociateCountRoll = (resolution: {
   id: string
   kind: string
   label: string
+  associateCountRoll?: string
   resolved?: boolean
 }) => {
-  if (resolution.kind !== 'associate_count' || resolution.resolved) return
+  if (resolution.kind !== 'associate' || !resolution.associateCountRoll || resolution.resolved) return
 
   const die = Math.ceil(Math.random() * 6)
   const count = Math.ceil(die / 2)
