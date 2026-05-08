@@ -33,7 +33,7 @@ onMounted(() => {
   <header class="app-top-nav">
     <NuxtLink class="app-top-nav-brand flex items-center gap-3" to="/">
       <span class="hud-glyph grid h-10 w-10 place-items-center rounded-md">
-        <AppIcon name="scout-badge" />
+        <TasLogoIcon class="h-8 w-8" />
       </span>
       <span>
         <span class="block text-sm font-semibold text-cyan-50">ScoutSuite</span>

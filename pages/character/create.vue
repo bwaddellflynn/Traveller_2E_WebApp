@@ -2932,13 +2932,13 @@ if (import.meta.client) {
     <Transition name="creator-roll-fade">
       <div
         v-if="musterOutModalOpen && lifepathComplete"
-        class="fixed inset-0 z-[58] flex items-center justify-center bg-zinc-950/70 px-4 py-8 backdrop-blur-sm"
+        class="fixed inset-0 z-[58] flex items-start justify-center overflow-y-auto bg-zinc-950/70 px-4 pb-6 pt-20 backdrop-blur-sm md:pb-8 md:pt-24"
         role="dialog"
         aria-modal="true"
         @click.self="closeMusterOutModal"
       >
-        <div class="w-full max-w-5xl overflow-hidden rounded-lg border border-cyan-400/25 bg-zinc-950 text-cyan-50 shadow-[0_0_0_1px_rgba(34,211,238,0.06),0_24px_60px_rgba(2,6,23,0.45)]">
-          <div class="flex flex-wrap items-start justify-between gap-4 border-b border-cyan-400/15 bg-[linear-gradient(135deg,rgba(8,47,73,0.44),rgba(2,6,23,0.96))] px-5 py-4">
+        <div class="flex max-h-[calc(100vh-8rem)] w-full max-w-5xl flex-col overflow-hidden rounded-lg border border-cyan-400/25 bg-zinc-950 text-cyan-50 shadow-[0_0_0_1px_rgba(34,211,238,0.06),0_24px_60px_rgba(2,6,23,0.45)] md:max-h-[calc(100vh-9rem)]">
+          <div class="flex flex-wrap items-start justify-between gap-4 border-b border-cyan-400/15 bg-[linear-gradient(135deg,rgba(8,47,73,0.44),rgba(2,6,23,0.96))] px-5 py-3">
             <div>
               <p class="text-xs font-semibold uppercase tracking-[0.18em] text-cyan-200/70">Mustering Out</p>
               <h2 class="mt-2 text-2xl font-semibold">Finalize this traveller</h2>
@@ -2957,7 +2957,7 @@ if (import.meta.client) {
             </button>
           </div>
 
-          <div class="max-h-[calc(100vh-8rem)] overflow-y-auto px-5 py-5">
+          <div class="min-h-0 flex-1 overflow-y-auto px-5 py-4">
             <p v-if="creatorSaveMessage" class="rounded-md border border-emerald-300/30 bg-emerald-500/10 px-3 py-2 text-sm font-semibold text-emerald-100">
               {{ creatorSaveMessage }}
             </p>
@@ -3134,6 +3134,9 @@ if (import.meta.client) {
                 type="button"
                 @click="saveAndOpenCreatedTraveller"
               >
+                <span class="muster-out-save-cta__icon -ml-4 mr-7 inline-flex h-10 w-10 items-center justify-center">
+                  <TasLogoIcon class="muster-out-save-cta__logo" />
+                </span>
                 Save Traveller and Open Character Sheet
               </button>
             </div>
@@ -4332,6 +4335,24 @@ if (import.meta.client) {
   animation: muster-out-cta-sweep 1.4s ease-out infinite;
 }
 
+.muster-out-save-cta__icon {
+  flex: 0 0 auto;
+}
+
+.muster-out-save-cta__logo {
+  width: 2.95rem;
+  height: 2.95rem;
+  flex: 0 0 auto;
+  transition: transform 260ms ease;
+  transform-origin: center;
+  transform-style: preserve-3d;
+  will-change: transform;
+}
+
+.muster-out-save-cta:hover .muster-out-save-cta__logo {
+  animation: muster-out-cta-icon-roll 950ms linear infinite;
+}
+
 @keyframes creator-roll-pulse {
   0%,
   100% {
@@ -4394,6 +4415,18 @@ if (import.meta.client) {
   100% {
     transform: translateX(120%);
     opacity: 0;
+  }
+}
+
+@keyframes muster-out-cta-icon-roll {
+  0% {
+    transform: perspective(900px) rotateY(0deg) scale(1);
+  }
+  50% {
+    transform: perspective(900px) rotateY(180deg) scale(1.04);
+  }
+  100% {
+    transform: perspective(900px) rotateY(360deg) scale(1);
   }
 }
 </style>

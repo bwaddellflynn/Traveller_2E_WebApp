@@ -485,7 +485,7 @@ const selectSpeciesCategory = (categoryId: SpeciesCategory) => {
             </p>
           </div>
           <span class="hud-glyph grid h-10 w-10 shrink-0 place-items-center rounded-md">
-            <AppIcon name="scout-badge" />
+            <TasLogoIcon class="h-9 w-9" />
           </span>
         </div>
 
