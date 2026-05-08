@@ -5,6 +5,7 @@ import skillsData from '~/data/traveller2e/core/skills.json'
 import speciesData from '~/data/traveller2e/core/species.json'
 import careersData from '~/data/traveller2e/core/careers-summary.json'
 import creationRulesData from '~/data/traveller2e/core/character-creation-rules.json'
+import educationTablesData from '~/data/traveller2e/core/education-tables.json'
 import agingData from '~/data/traveller2e/core/aging-and-injuries.json'
 import careerTablesData from '~/data/traveller2e/core/career-tables.json'
 import careerRanksData from '~/data/traveller2e/core/career-ranks.json'
@@ -680,6 +681,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     }
   }))
   const preCareerEducation = creationRulesData.preCareerEducation
+  const preCareerEducationTables = (educationTablesData as { options?: Array<Record<string, any>> }).options ?? []
   const educationOptions = computed<EducationOption[]>(() => [
     {
       id: 'university',
@@ -710,6 +712,10 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     if (!selectedEducationOption.value) return null
     return preCareerEducation.find((option) => option.id === selectedEducationOption.value.type) ?? null
   })
+  const selectedEducationTableOption = computed(() => {
+    if (!selectedEducationId.value) return null
+    return preCareerEducationTables.find((option) => option.id === selectedEducationId.value) ?? null
+  })
   const educationGraduationHonours = computed(() => {
     const graduation = termRolls.educationGraduation
     const honoursTarget = selectedEducation.value?.graduation?.honoursTarget
@@ -718,6 +724,39 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
   })
   const selectedEducationVariant = computed(() => selectedEducationOption.value?.variant)
   const selectedEducationName = computed(() => selectedEducationOption.value?.name ?? 'Education')
+  const educationFailedGraduationBenefit = computed(() => {
+    const graduation = termRolls.educationGraduation
+    if (!selectedEducationTableOption.value || !graduation || graduation.finalSuccess) return null
+
+    const benefits = selectedEducationTableOption.value.failedGraduationBenefits as Array<Record<string, any>> | undefined
+    if (!benefits?.length) return null
+
+    return benefits.find((benefit) => {
+      if (benefit.type !== 'may_enter_same_military_career') return false
+      if (benefit.condition === 'graduation_roll_total > 2') return graduation.total > 2
+      return true
+    }) ?? null
+  })
+  const educationFailedGraduationCareerId = computed(() => {
+    const benefit = educationFailedGraduationBenefit.value
+    return typeof benefit?.careerId === 'string' ? benefit.careerId : null
+  })
+  const educationFailedGraduationCareerName = computed(() => {
+    if (!educationFailedGraduationCareerId.value) return null
+    return careersData.careers.find((career) => career.id === educationFailedGraduationCareerId.value)?.name
+      ?? educationFailedGraduationCareerId.value
+  })
+  const educationGraduationFailureNotes = computed(() => {
+    const graduation = termRolls.educationGraduation
+    if (!graduation || graduation.finalSuccess) return [] as string[]
+
+    const notes = ['You did not graduate and gain no graduation benefits from this education term.']
+    if (educationFailedGraduationCareerName.value) {
+      notes.push(`You may still enter the ${educationFailedGraduationCareerName.value} career next term, but you do not gain academy commission benefits from this failed graduation.`)
+    }
+
+    return notes
+  })
   const educationSkillOptions = computed(() => selectedEducation.value?.skillOptions ?? [])
   const selectedEducationEntry = computed(() => {
     if (!selectedEducation.value) return null
@@ -1008,6 +1047,24 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     basicTrainingApplied.value = false
     pendingBasicTrainingChoices.value = []
   })
+
+  watch(
+    () => [
+      activeCreatorTab.value,
+      currentTermTabId.value,
+      automaticCommissionConstraint.value?.id ?? '',
+      activeTermNumber.value,
+      termRolls.careerSurvival?.finalSuccess ? 'success' : termRolls.careerSurvival ? 'resolved' : 'pending',
+      termRolls.careerEvent?.total ?? -1,
+      termRolls.careerCommission?.finalSuccess ? 'done' : 'pending',
+      pendingEventResolutions.value.some((resolution) => !resolution.resolved) ? 'blocked' : 'clear',
+    ],
+    () => {
+      if (activeCreatorTab.value !== currentTermTabId.value) return
+      applyAutomaticCommissionResult()
+    },
+    { immediate: true },
+  )
 
   watch([currentTermNumber, forcedCareerConstraint], () => {
     const constraint = forcedCareerConstraint.value
@@ -1541,6 +1598,27 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     return state
   }
 
+  const applyAutomaticCommissionResult = () => {
+    if (!automaticCommissionConstraint.value || termRolls.careerCommission) return
+    if (selectedTermPath.value !== 'career' || !selectedCareerIsMilitary.value || !termRolls.careerSurvival?.finalSuccess || !termRolls.careerEvent) return
+    if (pendingEventResolutions.value.some((resolution) => !resolution.resolved)) return
+
+    termRolls.careerCommission = {
+      label: 'Commission',
+      dice: [],
+      dm: 0,
+      total: 0,
+      target: 0,
+      effect: 0,
+      success: true,
+      finalSuccess: true,
+      source: 'automatic',
+      notes: automaticCommissionConstraint.value.label,
+    }
+
+    applyCareerCommission(automaticCommissionConstraint.value.label)
+  }
+
   const isPsionicTalentId = (skillId: string) => psionicTalents.some((talent) => talent.id === skillId)
   const psionicTalentIdFromLabel = (label: string) => {
     const skill = skillFromLabel(label)
@@ -1818,6 +1896,38 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
         }
       }
     }
+  }
+
+  const applyEducationFailedGraduationBenefits = () => {
+    const graduation = termRolls.educationGraduation
+    if (!graduation || graduation.finalSuccess || !educationFailedGraduationBenefit.value || !educationFailedGraduationCareerId.value) return
+
+    const source = `${selectedEducationName.value} Failed Graduation`
+    const alreadyExists = careerConstraints.value.some((constraint) =>
+      constraint.effectType === 'automatic_career_entry'
+      && constraint.appliesTermNumber === currentTermNumber.value + 1
+      && constraint.careerId === educationFailedGraduationCareerId.value
+      && constraint.source === source)
+
+    if (!alreadyExists) {
+      careerConstraints.value = [
+        ...careerConstraints.value,
+        {
+          id: makeEventOutcomeId('education-failed-career-entry'),
+          source,
+          label: `May enter ${educationFailedGraduationCareerName.value ?? educationFailedGraduationCareerId.value} after failed graduation`,
+          effectType: 'automatic_career_entry',
+          appliesTermNumber: currentTermNumber.value + 1,
+          careerId: educationFailedGraduationCareerId.value,
+        },
+      ]
+    }
+
+    recordEventOutcome(
+      source,
+      { type: 'automatic_career_entry' },
+      `May enter ${educationFailedGraduationCareerName.value ?? educationFailedGraduationCareerId.value} next term despite failing graduation`,
+    )
   }
 
   const currentTravellerSkills = computed<CharacterSkill[]>(() => {
@@ -4646,6 +4756,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
         details.push(termRolls.educationGraduation.finalSuccess
           ? educationGraduationHonours.value ? 'Graduated with honours' : 'Graduated successfully'
           : 'Did not graduate')
+        details.push(...educationGraduationFailureNotes.value)
       }
       if (educationSkillsApplied.value) details.push('Education skills applied')
       if (termRolls.aging) details.push(`Aging: ${rollSummary(termRolls.aging)} - ${agingEffect.value ?? 'No aging effect'}`)
@@ -4677,7 +4788,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
       if (eventRoll) details.push(eventRoll)
     }
     details.push(...eventHistoryDetails(careerEvent.value, 'Event'))
-    if (automaticCommissionConstraint.value) details.push('Commissioned automatically')
+    if (automaticCommissionConstraint.value && !termRolls.careerCommission) details.push('Commissioned automatically')
     if (termRolls.careerCommission) {
       const commissionRoll = termRollDetail(termRolls.careerCommission)
       if (commissionRoll) details.push(commissionRoll)
@@ -4831,7 +4942,10 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     if (!canCompleteTerm.value) return
 
     const rolls = Object.values(termRolls).filter((roll): roll is RollResult => Boolean(roll))
-    if (selectedTermPath.value === 'education') applyEducationGraduationBenefits()
+    if (selectedTermPath.value === 'education') {
+      applyEducationGraduationBenefits()
+      applyEducationFailedGraduationBenefits()
+    }
     if (selectedTermPath.value === 'career' && automaticCommissionConstraint.value) applyCareerCommission(automaticCommissionConstraint.value.label)
     if (selectedTermPath.value === 'career' && termRolls.careerCommission?.finalSuccess) applyCareerCommission('Commission Roll')
     applyGenericMishapEjection()
@@ -4886,7 +5000,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     }
 
     const summary = selectedTermPath.value === 'education'
-      ? `${selectedEducationName.value}${termRolls.educationGraduation?.finalSuccess ? educationGraduationHonours.value ? ' honours graduate' : ' graduate' : ' incomplete'}`
+      ? `${selectedEducationName.value}${termRolls.educationGraduation?.finalSuccess ? educationGraduationHonours.value ? ' honours graduate' : ' graduate' : ' did not graduate'}`
       : `${selectedCareer.value.name} - ${selectedAssignment.value.name}${termRolls.careerSurvival?.finalSuccess ? '' : ' mishap'}`
     const details = [
       ...buildTermHistoryDetails(advancement),
@@ -5623,6 +5737,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     careerCommissionAvailable,
     automaticCommissionConstraint,
     educationGraduationHonours,
+    educationGraduationFailureNotes,
     basicTrainingRequired,
     basicTrainingAvailable,
     basicTrainingMode,

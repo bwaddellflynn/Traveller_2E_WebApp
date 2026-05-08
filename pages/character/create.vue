@@ -108,6 +108,7 @@ const {
   selectedEducation,
   educationSkillOptions,
   educationGraduationHonours,
+  educationGraduationFailureNotes,
   selectedEducationEntry,
   preCareerEvent,
   militaryAcademyServiceSkills,
@@ -1858,12 +1859,9 @@ if (import.meta.client) {
                     Manual
                   </button>
                 </div>
-                <div v-if="automaticCommissionConstraint" class="mt-3 rounded-md bg-emerald-50 p-3 text-sm text-emerald-950">
-                  <p class="font-semibold">Automatic commission will apply when the term is completed.</p>
-                </div>
                 <div v-if="termRolls.careerCommission" class="mt-3 rounded-md bg-stone-50 p-3 text-sm">
                   <p class="font-semibold">{{ rollSummary(termRolls.careerCommission) }} · {{ termRolls.careerCommission.finalSuccess ? 'Commissioned' : 'No commission' }}</p>
-                  <p v-if="termRolls.careerCommission.finalSuccess" class="mt-1 text-zinc-600">Commission succeeds into officer rank 1. No advancement roll is made this term.</p>
+                  <p v-if="termRolls.careerCommission.finalSuccess" class="mt-1 text-zinc-600">Commission succeeds into officer rank 1 during this commission step. No advancement roll is made this term.</p>
                   <button v-if="gmOutcomeOverridesEnabled" class="mt-2 text-xs font-semibold text-amber-700 hover:text-amber-900" type="button" @click="toggleRollOverride('careerCommission')">
                     {{ termRolls.careerCommission.overridden ? 'Remove override' : 'Override outcome' }}
                   </button>
@@ -2314,6 +2312,15 @@ if (import.meta.client) {
                       {{ termRolls.educationGraduation.finalSuccess ? educationGraduationHonours ? 'Graduated with Honours' : 'Graduated' : 'Did not graduate' }}
                     </p>
                     <p v-if="termRolls.educationGraduation.notes" class="mt-1 text-zinc-600">{{ termRolls.educationGraduation.notes }}</p>
+                    <div v-if="educationGraduationFailureNotes.length && !termRolls.educationGraduation.finalSuccess" class="mt-3 grid gap-2 rounded-md border border-amber-200 bg-amber-50 p-3 text-amber-950">
+                      <p
+                        v-for="note in educationGraduationFailureNotes"
+                        :key="note"
+                        class="text-sm"
+                      >
+                        {{ note }}
+                      </p>
+                    </div>
                     <button v-if="gmOutcomeOverridesEnabled" class="mt-2 text-xs font-semibold text-amber-700 hover:text-amber-900" type="button" @click="toggleRollOverride('educationGraduation')">
                       {{ termRolls.educationGraduation.overridden ? 'Remove override' : 'Override outcome' }}
                     </button>
