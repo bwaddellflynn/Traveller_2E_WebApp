@@ -301,6 +301,16 @@ type AdvancementResult = {
   bonus?: string
   track: Array<CareerRankRow & { achieved: boolean, current: boolean }>
 }
+type CommissionResult = {
+  success: boolean
+  careerName: string
+  previousRank: number
+  newRank: number
+  previousTitle: string
+  newTitle: string
+  bonus?: string
+  track: Array<CareerRankRow & { achieved: boolean, current: boolean }>
+}
 export const useCharacterCreatorStore = defineStore('characterCreator', () => {
   const creatorProfileSeed = createBlankTravellerProfile('lifepath')
   const characteristicOrder = characteristicsData.characteristics.map((item) => item.id as CharacteristicId)
@@ -370,6 +380,9 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
   const termHistory = ref<TermHistoryEntry[]>([])
   const careerRanks = ref<CareerRankState[]>([])
   const advancementResult = ref<AdvancementResult | null>(null)
+  const advancementResultOpen = ref(false)
+  const commissionResult = ref<CommissionResult | null>(null)
+  const commissionResultOpen = ref(false)
   const appliedSkillRecords = reactive<Record<string, CharacterSkill>>({})
   const educationSkillsApplied = ref(false)
   const universityLevel0Skill = ref('')
@@ -1039,10 +1052,16 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
   const basicTrainingOptions = computed(() => basicTrainingEntries.value.flatMap((entry) => splitChoiceExpression(entry) ?? [entry]))
   const basicTrainingLabel = computed(() => `${skillTableLabel(basicTrainingTableId.value)} at level 0`)
 
-  watch(selectedCareerId, () => {
+  watch(selectedCareerId, (nextCareerId, previousCareerId) => {
     selectedAssignmentId.value = selectedCareer.value.assignments[0]?.id ?? ''
     basicTrainingApplied.value = false
     pendingBasicTrainingChoices.value = []
+
+    if (nextCareerId !== previousCareerId && previousCareerId) {
+      termRolls.careerQualification = null
+      manualRollTotals.careerQualification = null
+      resetCareerProgressAfterQualification()
+    }
   })
 
   watch(
@@ -1511,10 +1530,50 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
 
   const previewCareerAdvancement = () => {
     advancementResult.value = advancementPreview(termRolls.careerAdvancement)
+    advancementResultOpen.value = Boolean(advancementResult.value)
   }
 
   const dismissAdvancementResult = () => {
-    advancementResult.value = null
+    advancementResultOpen.value = false
+  }
+
+  const commissionPreview = (roll?: RollResult | null): CommissionResult | null => {
+    if (!roll || selectedTermPath.value !== 'career' || !selectedCareerIsMilitary.value) return null
+    const rows = resolveCareerRankRows(selectedCareerId.value, 'officer')
+    const state = findCareerRankState(selectedCareerId.value, 'officer')
+      ?? makeDefaultCareerRankState(selectedCareerId.value, 'officer')
+    const officerRank = rows.find((row) => row.rank === 1) ?? rows[0]
+    if (!officerRank) return null
+
+    const success = Boolean(roll.finalSuccess && state.rank < officerRank.rank)
+    const newRank = success ? officerRank.rank : state.rank
+    const previousRow = rows.find((row) => row.rank === state.rank)
+    const nextRow = rows.find((row) => row.rank === newRank)
+
+    const result: CommissionResult = {
+      success,
+      careerName: selectedCareer.value.name,
+      previousRank: state.rank,
+      newRank,
+      previousTitle: rankTitle(previousRow, state.rank),
+      newTitle: rankTitle(nextRow, newRank),
+      track: rows.map((row) => ({
+        ...row,
+        achieved: row.rank <= newRank,
+        current: row.rank === newRank,
+      })),
+    }
+    if (success && officerRank.bonus) result.bonus = officerRank.bonus
+    return result
+  }
+
+  const previewCareerCommission = () => {
+    commissionResult.value = commissionPreview(termRolls.careerCommission)
+    commissionResultOpen.value = Boolean(commissionResult.value)
+  }
+
+  const dismissCommissionResult = () => {
+    commissionResultOpen.value = false
   }
 
   const applyCareerRankBonus = (bonus: string | undefined) => {
@@ -2047,6 +2106,10 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     activeEvent.value = null
     careerEventExpanded.value = false
     careerMishapExpanded.value = false
+    commissionResult.value = null
+    commissionResultOpen.value = false
+    advancementResult.value = null
+    advancementResultOpen.value = false
     prisonerParoleThreshold.value = null
     prisonerParoleThresholdRoll.value = null
   }
@@ -3412,6 +3475,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     consumeRollModifiers(matchingModifiers, label)
 
     if (key === 'educationEntry') handleEducationEntryOutcome()
+    if (key === 'careerCommission') previewCareerCommission()
     if (key === 'careerAdvancement') previewCareerAdvancement()
   }
 
@@ -3474,6 +3538,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     roll.finalSuccess = roll.overridden ? !roll.success : roll.success
 
     if (key === 'educationEntry') handleEducationEntryOutcome()
+    if (key === 'careerCommission') previewCareerCommission()
     if (key === 'careerAdvancement') previewCareerAdvancement()
   }
 
@@ -4430,6 +4495,10 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     pendingEducationSkillChoices.value = []
     currentTermLearnedSkillIds.value = []
     educationEventExpanded.value = false
+    commissionResult.value = null
+    commissionResultOpen.value = false
+    advancementResult.value = null
+    advancementResultOpen.value = false
     careerSkillResult.value = null
     pendingSkillChoice.value = null
     activeEvent.value = null
@@ -4697,13 +4766,12 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
 
     if (termRolls.careerSurvival?.finalSuccess) {
       if (!termRolls.careerEvent) blockers.push('Roll the career event.')
-      if (
-        termRolls.careerEvent
-        && !pendingEventResolutions.value.some((resolution) => !resolution.resolved)
-        && !automaticCommissionConstraint.value
-        && !termRolls.careerCommission?.finalSuccess
-        && !termRolls.careerAdvancement
-      ) blockers.push('Resolve advancement.')
+      if (termRolls.careerEvent && !pendingEventResolutions.value.some((resolution) => !resolution.resolved)) {
+        if (careerCommissionAvailable.value && !automaticCommissionConstraint.value && !termRolls.careerCommission) {
+          blockers.push('Resolve commission.')
+        }
+        if (!termRolls.careerAdvancement) blockers.push('Resolve advancement.')
+      }
       if (termRolls.careerAdvancement?.finalSuccess && !termRolls.careerAdvancementSkill) blockers.push('Roll the advancement skill.')
     }
 
@@ -5620,6 +5688,9 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     careerRanks,
     creatorHistoryNotes,
     advancementResult,
+    advancementResultOpen,
+    commissionResult,
+    commissionResultOpen,
     appliedSkillRecords,
     educationSkillsApplied,
     universityLevel0Skill,
@@ -5759,6 +5830,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     careerTermsCompleted,
     sameCareerContinuationAvailable,
     selectedCareerIsMilitary,
+    currentCareerOfficerRank,
     currentCareerIsOfficer,
     selectedCareerCommissionCheck,
     careerCommissionAvailable,
@@ -5817,6 +5889,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     enterManualDraftFallback,
     rollSummary,
     dismissAdvancementResult,
+    dismissCommissionResult,
     rollPrisonerParoleThreshold,
     enterManualPrisonerParoleThreshold,
     makeCareerSkillRoll,

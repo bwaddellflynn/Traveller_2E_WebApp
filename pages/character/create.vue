@@ -45,6 +45,7 @@ const {
   enterManualDraftFallback,
   rollSummary,
   dismissAdvancementResult,
+  dismissCommissionResult,
   rollPrisonerParoleThreshold,
   enterManualPrisonerParoleThreshold,
   rollCareerSkillTable,
@@ -141,6 +142,7 @@ const {
   availableCareerSkillTables,
   selectedCareerSkillEntries,
   careerTermsCompleted,
+  currentCareerOfficerRank,
   selectedAdvancementSkillEntries,
   basicTrainingRequired,
   basicTrainingAvailable,
@@ -169,6 +171,9 @@ const {
   annualPensionByCareer,
   annualPensionLabel,
   advancementResult,
+  advancementResultOpen,
+  commissionResult,
+  commissionResultOpen,
   characterProfile,
   psionicsPermissionSources,
   psionicsTestingAvailable,
@@ -452,6 +457,7 @@ const restoreCreatorStateSnapshot = (snapshot: Record<string, unknown> | null) =
   closeCreatorRollModal()
   closeEventTextModal()
   dismissAdvancementResult()
+  dismissCommissionResult()
   characterCreator.$patch((state) => {
     Object.assign(state as any, JSON.parse(JSON.stringify(snapshot)))
   })
@@ -738,9 +744,6 @@ const activeStepPrimaryAction = computed<CreatorStepActionDefinition | null>(() 
   }
 
   if (activeTermStep.value === 'advancement') {
-    if (termRolls.value.careerCommission && !automaticCommissionConstraint.value && canRerollCreatorAction('roll-commission')) {
-      return makeRerollAction('roll-commission', 'Roll commission again and overwrite later advancement state from this term.')
-    }
     if (
       careerCommissionAvailable.value
       && !automaticCommissionConstraint.value
@@ -755,14 +758,6 @@ const activeStepPrimaryAction = computed<CreatorStepActionDefinition | null>(() 
     if (
       termRolls.value.careerSurvival?.finalSuccess
       && (automaticCommissionConstraint.value || termRolls.value.careerCommission?.finalSuccess || !careerCommissionAvailable.value)
-      && termRolls.value.careerAdvancement
-      && canRerollCreatorAction('roll-advancement')
-    ) {
-      return makeRerollAction('roll-advancement', 'Roll advancement again and overwrite later rank outcomes from this term.')
-    }
-    if (
-      termRolls.value.careerSurvival?.finalSuccess
-      && (automaticCommissionConstraint.value || termRolls.value.careerCommission?.finalSuccess || !careerCommissionAvailable.value)
       && !termRolls.value.careerAdvancement
     ) {
       return {
@@ -773,13 +768,6 @@ const activeStepPrimaryAction = computed<CreatorStepActionDefinition | null>(() 
     }
     if (
       termRolls.value.careerAdvancement?.finalSuccess
-      && termRolls.value.careerAdvancementSkill
-      && canRerollCreatorAction('roll-advancement-skill')
-    ) {
-      return makeRerollAction('roll-advancement-skill', 'Roll the advancement skill table again and overwrite the extra skill result.')
-    }
-    if (
-      termRolls.value.careerAdvancement?.finalSuccess
       && !termRolls.value.careerAdvancementSkill
     ) {
       return {
@@ -787,6 +775,20 @@ const activeStepPrimaryAction = computed<CreatorStepActionDefinition | null>(() 
         label: 'Roll 1D',
         helper: 'Roll the advancement skill table.',
       }
+    }
+    if (termRolls.value.careerAdvancement?.finalSuccess && termRolls.value.careerAdvancementSkill && canRerollCreatorAction('roll-advancement-skill')) {
+      return makeRerollAction('roll-advancement-skill', 'Roll the advancement skill table again and overwrite the extra skill result.')
+    }
+    if (
+      termRolls.value.careerSurvival?.finalSuccess
+      && (automaticCommissionConstraint.value || termRolls.value.careerCommission?.finalSuccess || !careerCommissionAvailable.value)
+      && termRolls.value.careerAdvancement
+      && canRerollCreatorAction('roll-advancement')
+    ) {
+      return makeRerollAction('roll-advancement', 'Roll advancement again and overwrite later rank outcomes from this term.')
+    }
+    if (termRolls.value.careerCommission && !automaticCommissionConstraint.value && canRerollCreatorAction('roll-commission')) {
+      return makeRerollAction('roll-commission', 'Roll commission again and overwrite later advancement state from this term.')
     }
     return null
   }
@@ -1341,6 +1343,7 @@ const restartCharacterCreation = () => {
   closeCreatorRollModal()
   closeEventTextModal()
   dismissAdvancementResult()
+  dismissCommissionResult()
   creatorRerollSnapshots.value = {}
   psiTestRerollSnapshot.value = null
   activeCreatorTab.value = 'creation'
@@ -1605,6 +1608,14 @@ if (import.meta.client) {
               <p class="mt-1 text-sm text-amber-900">
                 Pre-career education failed. Select a career to continue this term as a forced career attempt.
               </p>
+              <button
+                v-if="canRerollCreatorAction('roll-education-entry')"
+                class="mt-3 h-9 rounded-md border border-amber-300 bg-white px-3 text-sm font-semibold text-amber-900 hover:border-amber-600"
+                type="button"
+                @click="executeCreatorStepAction(makeRerollAction('roll-education-entry', 'Roll education entry again and reset later education or career progress from this term.'))"
+              >
+                Re-roll Education Entry
+              </button>
             </div>
 
             <div v-show="activeTermStep === 'direction'" class="grid min-w-0 gap-4 2xl:grid-cols-2">
@@ -2129,10 +2140,28 @@ if (import.meta.client) {
                 </div>
                 <div v-if="termRolls.careerCommission" class="mt-3 rounded-md bg-stone-50 p-3 text-sm">
                   <p class="font-semibold">{{ rollSummary(termRolls.careerCommission) }} · {{ termRolls.careerCommission.finalSuccess ? 'Commissioned' : 'No commission' }}</p>
-                  <p v-if="termRolls.careerCommission.finalSuccess" class="mt-1 text-zinc-600">Commission succeeds into officer rank 1 during this commission step. No advancement roll is made this term.</p>
+                  <p v-if="termRolls.careerCommission.finalSuccess" class="mt-1 text-zinc-600">
+                    Commission succeeds into officer rank 1 during this commission step.
+                    <span v-if="currentCareerOfficerRank?.title"> Current rank: {{ currentCareerOfficerRank.title }}.</span>
+                    Advancement still follows this term.
+                  </p>
                   <button v-if="gmOutcomeOverridesEnabled" class="mt-2 text-xs font-semibold text-amber-700 hover:text-amber-900" type="button" @click="toggleRollOverride('careerCommission')">
                     {{ termRolls.careerCommission.overridden ? 'Remove override' : 'Override outcome' }}
                   </button>
+                </div>
+                <div v-if="termRolls.careerCommission && commissionResult" class="mt-3 rounded-md border border-amber-300 bg-amber-50 px-3 py-3 text-sm text-amber-950">
+                  <p class="font-semibold">{{ commissionResult.success ? 'Commission Result' : 'Commission Failed' }}</p>
+                  <p class="mt-1">
+                    <template v-if="commissionResult.success">
+                      Rank updated from {{ commissionResult.previousTitle }} to {{ commissionResult.newTitle }}.
+                    </template>
+                    <template v-else>
+                      Remains at {{ commissionResult.previousTitle }}.
+                    </template>
+                  </p>
+                  <p v-if="commissionResult.bonus" class="mt-2 text-xs font-semibold text-amber-900">
+                    Rank bonus: {{ commissionResult.bonus }}
+                  </p>
                 </div>
               </div>
 
@@ -2140,7 +2169,7 @@ if (import.meta.client) {
                 v-if="(
                   (termRolls.careerSurvival?.finalSuccess && termRolls.careerEvent)
                   || (selectedCareerId === 'prisoner' && termRolls.careerSurvival && (!termRolls.careerSurvival.finalSuccess ? termRolls.careerMishap : termRolls.careerEvent))
-                ) && !pendingEventResolutions.some((resolution) => !resolution.resolved) && !termRolls.careerCommission?.finalSuccess && !automaticCommissionConstraint"
+                ) && !pendingEventResolutions.some((resolution) => !resolution.resolved)"
                 v-show="activeTermStep === 'advancement'"
                 class="rounded-md border border-zinc-200 p-3 sm:p-4"
               >
@@ -2171,6 +2200,20 @@ if (import.meta.client) {
                   <button v-if="gmOutcomeOverridesEnabled" class="mt-2 text-xs font-semibold text-amber-700 hover:text-amber-900" type="button" @click="toggleRollOverride('careerAdvancement')">
                     {{ termRolls.careerAdvancement.overridden ? 'Remove override' : 'Override outcome' }}
                   </button>
+                </div>
+                <div v-if="termRolls.careerAdvancement && advancementResult" class="mt-3 rounded-md border border-amber-300 bg-amber-50 px-3 py-3 text-sm text-amber-950">
+                  <p class="font-semibold">{{ advancementResult.success ? 'Advancement Result' : 'Advancement Failed' }}</p>
+                  <p class="mt-1">
+                    <template v-if="advancementResult.success">
+                      Rank updated from {{ advancementResult.previousTitle }} to {{ advancementResult.newTitle }}.
+                    </template>
+                    <template v-else>
+                      Remains at {{ advancementResult.previousTitle }}.
+                    </template>
+                  </p>
+                  <p v-if="advancementResult.bonus" class="mt-2 text-xs font-semibold text-amber-900">
+                    Rank bonus: {{ advancementResult.bonus }}
+                  </p>
                 </div>
               </div>
 
@@ -2263,6 +2306,14 @@ if (import.meta.client) {
               <p class="mt-1 text-sm text-amber-900">
                 This term now continues as a forced career attempt. The failed education entry roll remains in this term’s history.
               </p>
+              <button
+                v-if="canRerollCreatorAction('roll-education-entry')"
+                class="mt-3 h-9 rounded-md border border-amber-300 bg-white px-3 text-sm font-semibold text-amber-900 hover:border-amber-600"
+                type="button"
+                @click="executeCreatorStepAction(makeRerollAction('roll-education-entry', 'Roll education entry again and reset later education or career progress from this term.'))"
+              >
+                Re-roll Education Entry
+              </button>
             </div>
 
             <div v-show="activeTermStep === 'direction'" class="grid gap-3 lg:col-span-2">
@@ -3023,8 +3074,69 @@ if (import.meta.client) {
 
     <Transition name="advancement-fade">
       <div
-        v-if="advancementResult"
-        class="fixed inset-0 z-40 grid place-items-center bg-zinc-950/45 px-4 py-8"
+        v-if="commissionResultOpen && commissionResult && !creatorRollModalOpen"
+        class="fixed inset-0 z-[55] grid place-items-center bg-zinc-950/45 px-4 py-8"
+        role="dialog"
+        aria-modal="true"
+      >
+        <div class="w-full max-w-xl rounded-lg border border-zinc-200 bg-white p-5 shadow-2xl">
+          <div class="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <p class="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                {{ commissionResult.careerName }}
+              </p>
+              <h2 class="mt-1 text-2xl font-semibold text-zinc-950">
+                {{ commissionResult.success ? 'Commission Earned' : 'No Commission' }}
+              </h2>
+              <p class="mt-2 text-sm text-zinc-600">
+                <template v-if="commissionResult.success">
+                  Rank updated from {{ commissionResult.previousTitle }} to {{ commissionResult.newTitle }}.
+                </template>
+                <template v-else>
+                  Remains at {{ commissionResult.previousTitle }}.
+                </template>
+              </p>
+            </div>
+            <button
+              class="h-10 rounded-md border border-zinc-300 px-3 text-sm font-semibold text-zinc-700 hover:border-amber-600"
+              type="button"
+              @click="dismissCommissionResult"
+            >
+              Close
+            </button>
+          </div>
+
+          <div class="mt-5 overflow-hidden rounded-md border border-zinc-200">
+            <div
+              v-for="rank in commissionResult.track"
+              :key="rank.rank"
+              :class="[
+                'flex items-center justify-between gap-3 border-t border-zinc-200 px-3 py-2 first:border-t-0',
+                rank.current
+                  ? 'bg-amber-50 text-amber-950'
+                  : rank.achieved
+                    ? 'bg-stone-50 text-zinc-700'
+                    : 'bg-white text-zinc-400'
+              ]"
+            >
+              <div>
+                <p class="text-sm font-semibold">Rank {{ rank.rank }} · {{ rank.title ?? `Rank ${rank.rank}` }}</p>
+                <p v-if="rank.bonus" class="text-xs">Bonus: {{ rank.bonus }}</p>
+              </div>
+            </div>
+          </div>
+
+          <p v-if="commissionResult.bonus" class="mt-4 rounded-md bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-950">
+            Rank bonus queued: {{ commissionResult.bonus }}
+          </p>
+        </div>
+      </div>
+    </Transition>
+
+    <Transition name="advancement-fade">
+      <div
+        v-if="advancementResultOpen && advancementResult && !creatorRollModalOpen"
+        class="fixed inset-0 z-[55] grid place-items-center bg-zinc-950/45 px-4 py-8"
         role="dialog"
         aria-modal="true"
       >
