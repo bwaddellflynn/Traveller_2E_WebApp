@@ -97,7 +97,7 @@ type TermHistoryEntry = {
   rolls: RollResult[]
 }
 type CreatorTab = 'creation' | 'setup-stats' | 'setup-skills' | `term-${number}`
-type GmOverrideOptionId = 'manualCheckRollEntry' | 'manualTableRollEntry' | 'manualAgingRollEntry' | 'manualBenefitRollEntry' | 'manualPsionicsRollEntry' | 'outcomeOverrides' | 'characteristicAdjustments'
+type GmOverrideOptionId = 'manualCheckRollEntry' | 'manualTableRollEntry' | 'manualAgingRollEntry' | 'manualBenefitRollEntry' | 'manualPsionicsRollEntry' | 'outcomeOverrides' | 'characteristicAdjustments' | 'enableRerolls'
 type EventResolutionKind = 'manual' | 'skill_choice' | 'skill_table_roll' | 'benefit_wager' | 'table_roll' | 'check' | 'choice' | 'associate' | 'associate_injury' | 'narrative' | 'characteristic_adjustment' | 'medical_care' | 'prison_lawyer'
 type EventChoiceOption = {
   id: string
@@ -364,6 +364,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     manualPsionicsRollEntry: false,
     outcomeOverrides: false,
     characteristicAdjustments: false,
+    enableRerolls: false,
   })
   const lifepathComplete = ref(false)
   const termHistory = ref<TermHistoryEntry[]>([])
@@ -383,6 +384,9 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
   const careerMishapExpanded = ref(false)
   const careerSkillResult = ref<string | null>(null)
   const activeEvent = ref<TravellerEvent | null>(null)
+  const preCareerEvent = ref<TravellerEvent | null>(null)
+  const careerEvent = ref<TravellerEvent | null>(null)
+  const careerMishap = ref<TravellerEvent | null>(null)
   const pendingEventResolutions = ref<PendingEventResolution[]>([])
   const eventOutcomeLog = ref<EventOutcomeLogEntry[]>([])
   const associates = ref<TravellerAssociate[]>([])
@@ -446,9 +450,15 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     draft: null,
     prisonerParoleThreshold: null,
     aging: null,
+    psiTest: null,
+    musteringOut: null,
   })
 
-  const roll2D = () => Math.ceil(Math.random() * 6) + Math.ceil(Math.random() * 6)
+  const roll2DPair = () => [Math.ceil(Math.random() * 6), Math.ceil(Math.random() * 6)] as const
+  const roll2D = () => {
+    const [firstDie, secondDie] = roll2DPair()
+    return firstDie + secondDie
+  }
 
   const diceModifier = (score: number) => {
     const row = characteristicsData.diceModifiers.find((modifier) => {
@@ -671,6 +681,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
   const gmManualPsionicsRollEntryEnabled = computed(() => gmOverrideOptions.manualPsionicsRollEntry)
   const gmOutcomeOverridesEnabled = computed(() => gmOverrideOptions.outcomeOverrides)
   const gmCharacteristicAdjustmentsEnabled = computed(() => gmOverrideOptions.characteristicAdjustments)
+  const gmRerollsEnabled = computed(() => gmOverrideOptions.enableRerolls)
   const prisonerCareerSelected = computed(() => selectedTermPath.value === 'career' && selectedCareerId.value === 'prisoner')
   const prisonerParoleThresholdRequired = computed(() => prisonerCareerSelected.value && prisonerParoleThreshold.value === null)
   const backgroundSkillOptions = computed(() => skillsData.backgroundSkills.choices.map((skillId) => {
@@ -765,11 +776,6 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     }
 
     return selectedEducation.value.entry
-  })
-  const preCareerEvent = computed(() => {
-    const roll = termRolls.educationEvent
-    if (!roll) return null
-    return getEducationEvent(roll.total)
   })
   const militaryAcademyCareerId = computed(() => selectedEducationVariant.value === 'marine' ? 'marine' : selectedEducationVariant.value === 'navy' ? 'navy' : 'army')
   const militaryAcademyServiceSkills = computed(() => {
@@ -903,16 +909,6 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
   })
   const activeQualificationRollModifiers = computed(() => activeRollModifiersFor('careerQualification'))
   const activeQualificationRollModifierTotal = computed(() => activeQualificationRollModifiers.value.reduce((sum, modifier) => sum + modifier.dm, 0))
-  const careerEvent = computed(() => {
-    const roll = termRolls.careerEvent
-    if (!roll) return null
-    return getCareerEvent(selectedCareerId.value, roll.total)
-  })
-  const careerMishap = computed(() => {
-    const roll = termRolls.careerMishap
-    if (!roll) return null
-    return getCareerMishap(selectedCareerId.value, roll.total)
-  })
   const currentCareerSkillTables = computed<Record<string, any>>(() => currentCareerTableData.value?.skillTables ?? {})
   const tableEntries = (table: string[] | { entries?: string[] }) => Array.isArray(table) ? table : table.entries ?? []
   const splitChoiceExpression = (result: string) => {
@@ -2010,6 +2006,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     if (!entry.finalSuccess) {
       termRolls.educationEvent = null
       termRolls.educationGraduation = null
+      preCareerEvent.value = null
       manualRollTotals.educationEvent = null
       manualRollTotals.educationGraduation = null
       selectedTermPath.value = 'career'
@@ -2027,6 +2024,8 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     termRolls.careerSurvival = null
     termRolls.careerMishap = null
     termRolls.careerEvent = null
+    careerMishap.value = null
+    careerEvent.value = null
     termRolls.careerCommission = null
     termRolls.careerAdvancement = null
     termRolls.careerAdvancementSkill = null
@@ -2589,8 +2588,8 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     )
   }
 
-  const rollEventResolutionAssociateCount = (resolutionId: string) => {
-    resolveAssociateCountRoll(resolutionId, Math.ceil(Math.random() * 6 / 2), 'rolled')
+  const rollEventResolutionAssociateCount = (resolutionId: string, die: number = Math.ceil(Math.random() * 6)) => {
+    resolveAssociateCountRoll(resolutionId, Math.ceil(die / 2), 'rolled')
   }
 
   const enterManualEventResolutionAssociateCount = (resolutionId: string, count: number) => {
@@ -3210,6 +3209,8 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
         ? effect.tableId
         : typeof effect.subtable === 'string'
           ? effect.subtable
+        : effect.type === 'roll_mishap'
+          ? 'mishaps'
         : effect.type === 'injury'
           ? 'injury'
           : ''
@@ -3285,6 +3286,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     const event = getEducationEvent(total)
     if (!event) return
 
+    preCareerEvent.value = event
     termRolls.educationEvent = {
       label: 'Pre-Career Event',
       dice,
@@ -3734,11 +3736,11 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     if (branchEffects.length) applyResolvedEffects(branchEffects, resolution.source)
   }
 
-  const rollEventResolutionCheck = (resolutionId: string) => {
+  const rollEventResolutionCheck = (resolutionId: string, diceTotal = Math.ceil(Math.random() * 6) + Math.ceil(Math.random() * 6)) => {
     const resolution = pendingEventResolutions.value.find((item) => item.id === resolutionId)
     if (!resolution || resolution.kind !== 'check') return
 
-    resolveEventCheck(resolution, Math.ceil(Math.random() * 6) + Math.ceil(Math.random() * 6), 'rolled')
+    resolveEventCheck(resolution, diceTotal, 'rolled')
   }
 
   const enterManualEventResolutionCheck = (resolutionId: string, total: number) => {
@@ -3922,11 +3924,11 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     recordEventOutcome(resolution.source, resolution.effect, `${resolution.label}: ${die} = ${result}`, 'manual')
   }
 
-  const rollEventResolutionSkillTable = (resolutionId: string) => {
+  const rollEventResolutionSkillTable = (resolutionId: string, die: number = Math.ceil(Math.random() * 6)) => {
     const resolution = pendingEventResolutions.value.find((item) => item.id === resolutionId)
     if (!resolution || resolution.kind !== 'skill_table_roll') return
 
-    resolveEventSkillTableRoll(resolution, Math.ceil(Math.random() * 6), 'rolled')
+    resolveEventSkillTableRoll(resolution, die, 'rolled')
   }
 
   const enterManualEventResolutionSkillTable = (resolutionId: string, die: number) => {
@@ -3984,12 +3986,17 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     recordEventOutcome(resolution.source, resolution.effect, `${resolution.label}: ${selected}`, 'manual')
   }
 
-  const rollEventResolutionBenefitWager = (resolutionId: string, skill: string, wagered: number) => {
+  const rollEventResolutionBenefitWager = (
+    resolutionId: string,
+    skill: string,
+    wagered: number,
+    diceTotal: number = Math.ceil(Math.random() * 6) + Math.ceil(Math.random() * 6),
+  ) => {
     resolveEventBenefitWager(
       resolutionId,
       skill,
       wagered,
-      Math.ceil(Math.random() * 6) + Math.ceil(Math.random() * 6),
+      diceTotal,
       'rolled',
     )
   }
@@ -4025,7 +4032,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     psionicsTrainingCharged.value = true
   }
 
-  const resolvePsiTest = (diceTotal: number, source: 'rolled' | 'manual') => {
+  const resolvePsiTest = (diceTotal: number, source: 'rolled' | 'manual', dice: number[] = [diceTotal]) => {
     if (!psionicsTestingAvailable.value || psiTested.value) return
     if (Number.isNaN(diceTotal) || diceTotal < 2 || diceTotal > 12) return
 
@@ -4034,7 +4041,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     psiScore.value = score
     psiTestRoll.value = {
       label: 'PSI Test',
-      dice: [diceTotal],
+      dice,
       dm: -psiTermsServed.value,
       total: score,
       target: 1,
@@ -4048,7 +4055,8 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
   }
 
   const rollPsiTest = () => {
-    resolvePsiTest(roll2D(), 'rolled')
+    const dice = roll2DPair()
+    resolvePsiTest(dice[0] + dice[1], 'rolled', [...dice])
   }
 
   const enterManualPsiTest = (total: number) => {
@@ -4059,7 +4067,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     return psiDm.value + talent.learningDm - psionicTalentChecksAttempted.value
   }
 
-  const resolvePsionicTalentAttempt = (talentId: string, diceTotal: number, source: 'rolled' | 'manual') => {
+  const resolvePsionicTalentAttempt = (talentId: string, diceTotal: number, source: 'rolled' | 'manual', dice: number[] = [diceTotal]) => {
     if (!psionicsTrainingAvailable.value) return
     if (Number.isNaN(diceTotal) || diceTotal < 2 || diceTotal > 12) return
     const talent = psionicTalents.find((item) => item.id === talentId)
@@ -4078,7 +4086,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
         id: makeEventOutcomeId('psionic-talent'),
         talentId: talent.id,
         talentName: talent.name,
-        dice: [diceTotal],
+        dice,
         psiDm: psiDm.value,
         learningDm: talent.learningDm,
         attemptDm,
@@ -4118,21 +4126,24 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
   }
 
   const rollPsionicTalent = (talentId: string) => {
-    resolvePsionicTalentAttempt(talentId, roll2D(), 'rolled')
+    const dice = roll2DPair()
+    resolvePsionicTalentAttempt(talentId, dice[0] + dice[1], 'rolled', [...dice])
   }
 
   const enterManualPsionicTalent = (talentId: string, total: number) => {
     resolvePsionicTalentAttempt(talentId, total, 'manual')
   }
 
-  const rollEventResolutionTable = (resolutionId: string) => {
+  const rollEventResolutionTable = (resolutionId: string, total?: number) => {
     const resolution = pendingEventResolutions.value.find((item) => item.id === resolutionId)
     if (!resolution || resolution.kind !== 'table_roll' || !resolution.tableId) return
 
-    const total = resolution.diceCount === 2
-      ? Math.ceil(Math.random() * 6) + Math.ceil(Math.random() * 6)
-      : Math.ceil(Math.random() * 6)
-    resolveEventTableRoll(resolution, total, 'rolled')
+    const rolledTotal = total ?? (
+      resolution.diceCount === 2
+        ? Math.ceil(Math.random() * 6) + Math.ceil(Math.random() * 6)
+        : Math.ceil(Math.random() * 6)
+    )
+    resolveEventTableRoll(resolution, rolledTotal, 'rolled')
   }
 
   const enterManualEventResolutionTable = (resolutionId: string, total: number) => {
@@ -4287,12 +4298,17 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     recordEventOutcome(resolution.source, resolution.effect, `${resolution.label}: ${selected}`, 'manual')
   }
 
-  const rollEventResolutionPrisonLawyer = (resolutionId: string, advocateLevel: number) => {
+  const rollEventResolutionPrisonLawyer = (
+    resolutionId: string,
+    advocateLevel: number,
+    total: number = Math.ceil(Math.random() * 6) + Math.ceil(Math.random() * 6),
+    reductionDie: number = Math.ceil(Math.random() * 6),
+  ) => {
     resolveEventPrisonLawyer(
       resolutionId,
       advocateLevel,
-      Math.ceil(Math.random() * 6) + Math.ceil(Math.random() * 6),
-      Math.ceil(Math.random() * 6),
+      total,
+      reductionDie,
       'rolled',
     )
   }
@@ -4339,6 +4355,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     const event = getCareerEvent(selectedCareerId.value, total)
     if (!event) return
 
+    careerEvent.value = event
     termRolls.careerEvent = {
       label: 'Career Event',
       dice,
@@ -4370,6 +4387,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     const mishap = getCareerMishap(selectedCareerId.value, die)
     if (!mishap) return
 
+    careerMishap.value = mishap
     termRolls.careerMishap = {
       label: 'Career Mishap',
       dice: [die],
@@ -4411,6 +4429,9 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     careerSkillResult.value = null
     pendingSkillChoice.value = null
     activeEvent.value = null
+    preCareerEvent.value = null
+    careerEvent.value = null
+    careerMishap.value = null
     pendingEventResolutions.value = []
     careerEventExpanded.value = false
     careerMishapExpanded.value = false
@@ -5687,6 +5708,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     gmManualPsionicsRollEntryEnabled,
     gmOutcomeOverridesEnabled,
     gmCharacteristicAdjustmentsEnabled,
+    gmRerollsEnabled,
     prisonerCareerSelected,
     prisonerParoleThresholdRequired,
     backgroundSkillOptions,

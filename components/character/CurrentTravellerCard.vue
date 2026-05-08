@@ -326,7 +326,7 @@ const currentTravellerSkillGroups = computed(() => {
     <div v-if="psiScore !== null || learnedPsionicTalents.length" v-show="currentTravellerTab === 'profile'" class="mt-5 border-t border-white/15 pt-5">
       <div class="flex items-center justify-between gap-3">
         <p class="text-sm font-semibold text-zinc-200">Psionics</p>
-        <span v-if="psiScore !== null" class="rounded-md bg-white/10 px-2 py-1 text-xs text-zinc-300">
+        <span v-if="psiScore !== null" class="rounded-md border border-white/15 bg-white/10 px-2 py-1 text-xs text-zinc-300">
           PSI {{ psiScore }} · DM {{ formatDm(psiDm) }}
         </span>
       </div>
@@ -394,7 +394,10 @@ const currentTravellerSkillGroups = computed(() => {
               :key="`${group.baseId}-${speciality.id}`"
               class="current-traveller-skills__speciality"
             >
-              <span class="current-traveller-skills__speciality-name">{{ speciality.name }}</span>
+              <span class="current-traveller-skills__speciality-name">
+                <span class="current-traveller-skills__speciality-bullet" aria-hidden="true"></span>
+                {{ speciality.name }}
+              </span>
               <span class="current-traveller-skills__speciality-rank">{{ speciality.level }}</span>
             </div>
           </div>
@@ -802,13 +805,30 @@ const currentTravellerSkillGroups = computed(() => {
 .current-traveller-skills__specialities {
   display: grid;
   gap: 0.35rem;
-  padding-top: 0.2rem;
+  margin-left: 0.75rem;
+  padding-top: 0.3rem;
+  padding-left: 0.9rem;
   border-top: 1px solid rgb(255 255 255 / 0.08);
+  border-left: 1px solid rgb(34 211 238 / 0.22);
+  box-shadow: inset 8px 0 10px -10px rgb(34 211 238 / 0.18);
 }
 
 .current-traveller-skills__speciality-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
   font-size: 0.82rem;
   color: rgb(203 213 225 / 0.96);
+}
+
+.current-traveller-skills__speciality-bullet {
+  display: inline-flex;
+  width: 0.35rem;
+  height: 0.35rem;
+  flex: 0 0 0.35rem;
+  border-radius: 999px;
+  background: rgb(103 232 249 / 0.72);
+  box-shadow: 0 0 8px rgb(34 211 238 / 0.28);
 }
 
 .current-traveller-skills__rank,

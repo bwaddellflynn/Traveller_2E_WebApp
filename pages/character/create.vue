@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { storeToRefs } from 'pinia'
-import { onBeforeUnmount } from 'vue'
+import { nextTick, onBeforeUnmount } from 'vue'
 import CharacterCreatorHeader from '~/components/character/CharacterCreatorHeader.vue'
 import CreationStepPanel from '~/components/character/CreationStepPanel.vue'
+import CreatorResolvedEventCard from '~/components/character/CreatorResolvedEventCard.vue'
 import CreatorTabNavigation from '~/components/character/CreatorTabNavigation.vue'
 import CurrentTravellerCard from '~/components/character/CurrentTravellerCard.vue'
 import EventResolutionList from '~/components/character/EventResolutionList.vue'
@@ -56,6 +57,8 @@ const {
   enterManualCareerMishap,
   rollAging,
   enterManualAging,
+  rollPsiTest,
+  enterManualPsiTest,
   rollMusteringOutBenefit,
   enterManualMusteringOutBenefit,
   resetCreatorState,
@@ -76,7 +79,9 @@ const {
   gmManualTableRollEntryEnabled,
   gmManualAgingRollEntryEnabled,
   gmManualBenefitRollEntryEnabled,
+  gmManualPsionicsRollEntryEnabled,
   gmOutcomeOverridesEnabled,
+  gmRerollsEnabled,
   currentTermNumber,
   activeCreatorTab,
   lifepathComplete,
@@ -147,6 +152,7 @@ const {
   musteringOutResults,
   selectedMusteringCareerId,
   selectedMusteringRollType,
+  selectedMusteringCareer,
   startingCredits,
   shipShares,
   personalBenefits,
@@ -164,6 +170,12 @@ const {
   annualPensionLabel,
   advancementResult,
   characterProfile,
+  psionicsPermissionSources,
+  psionicsTestingAvailable,
+  psiTermsServed,
+  psiTested,
+  psiScore,
+  psiTestRoll,
   values,
 } = storeToRefs(characterCreator)
 
@@ -270,6 +282,13 @@ const selectedEducationDirectionTargets = computed(() => {
 
   return targets
 })
+const selectedAssignmentSkillPreview = computed(() => {
+  const table = availableCareerSkillTables.value.find((entry) => entry.id === selectedAssignmentId.value)
+  return (table?.entries ?? []).slice(0, 6).map((entry, index) => ({
+    roll: index + 1,
+    label: entry,
+  }))
+})
 
 const termStepTabs = computed(() => {
   if (selectedTermPath.value === 'education') {
@@ -320,13 +339,13 @@ const creatorShellTabs = computed(() => {
 const activeCreatorShellIndex = computed(() => creatorShellTabs.value.findIndex((tab) => tab === activeCreatorTab.value))
 const activeCreatorTabIsTerm = computed(() => activeCreatorTab.value.startsWith('term-'))
 const canFooterNavigatePrev = computed(() => {
-  if (isMobileViewport.value && activeCreatorTabIsTerm.value) {
+  if (activeCreatorTabIsTerm.value) {
     return activeTermStepIndex.value > 0 || activeCreatorShellIndex.value > 0
   }
   return activeCreatorShellIndex.value > 0
 })
 const canFooterNavigateNext = computed(() => {
-  if (isMobileViewport.value && activeCreatorTabIsTerm.value) {
+  if (activeCreatorTabIsTerm.value) {
     return activeTermStepIndex.value < termStepTabs.value.length - 1 || activeCreatorShellIndex.value < creatorShellTabs.value.length - 1
   }
   return activeCreatorShellIndex.value > -1 && activeCreatorShellIndex.value < creatorShellTabs.value.length - 1
@@ -406,7 +425,58 @@ type CreatorStepActionDefinition = {
   key: CreatorStepActionKey
   label: string
   helper: string
+  rerollOf?: CreatorStepActionKey
 }
+
+const rerollableCreatorStepActionKeys = new Set<CreatorStepActionKey>([
+  'roll-draft',
+  'roll-qualification',
+  'roll-parole-threshold',
+  'roll-career-skill',
+  'roll-survival',
+  'roll-mishap',
+  'roll-event',
+  'roll-commission',
+  'roll-advancement',
+  'roll-advancement-skill',
+  'roll-education-entry',
+  'roll-pre-career-event',
+  'roll-education-graduation',
+  'roll-aging',
+])
+const creatorRerollSnapshots = ref<Partial<Record<CreatorStepActionKey, Record<string, unknown>>>>({})
+const psiTestRerollSnapshot = ref<Record<string, unknown> | null>(null)
+const captureCreatorStateSnapshot = () => JSON.parse(JSON.stringify(characterCreator.$state)) as Record<string, unknown>
+const restoreCreatorStateSnapshot = (snapshot: Record<string, unknown> | null) => {
+  if (!snapshot) return false
+  closeCreatorRollModal()
+  closeEventTextModal()
+  dismissAdvancementResult()
+  characterCreator.$patch((state) => {
+    Object.assign(state as any, JSON.parse(JSON.stringify(snapshot)))
+  })
+  if (mobileViewportQuery) syncCreatorViewportMode(mobileViewportQuery.matches)
+  return true
+}
+const canRerollCreatorAction = (key: CreatorStepActionKey) => {
+  return gmRerollsEnabled.value && Boolean(creatorRerollSnapshots.value[key])
+}
+const captureCreatorRerollSnapshot = (key: CreatorStepActionKey) => {
+  if (!rerollableCreatorStepActionKeys.has(key)) return
+  creatorRerollSnapshots.value = {
+    ...creatorRerollSnapshots.value,
+    [key]: captureCreatorStateSnapshot(),
+  }
+}
+const restoreCreatorRerollSnapshot = (key: CreatorStepActionKey) => {
+  return restoreCreatorStateSnapshot(creatorRerollSnapshots.value[key] ?? null)
+}
+const makeRerollAction = (key: CreatorStepActionKey, helper: string): CreatorStepActionDefinition => ({
+  key,
+  label: 'Re-roll',
+  helper,
+  rerollOf: key,
+})
 
 const activeTermStepComplete = computed(() => {
   if (activeTermStep.value === 'complete') return false
@@ -463,6 +533,9 @@ const activeTermStepComplete = computed(() => {
 })
 const activeStepPrimaryAction = computed<CreatorStepActionDefinition | null>(() => {
   if (selectedTermPath.value === 'education') {
+    if (activeTermStep.value === 'education-entry' && termRolls.value.educationEntry && canRerollCreatorAction('roll-education-entry')) {
+      return makeRerollAction('roll-education-entry', 'Roll education entry again and reset later education or career progress from this term.')
+    }
     if (activeTermStep.value === 'education-entry' && !termRolls.value.educationEntry && selectedEducationEntry.value) {
       return {
         key: 'roll-education-entry',
@@ -488,6 +561,15 @@ const activeStepPrimaryAction = computed<CreatorStepActionDefinition | null>(() 
       activeTermStep.value === 'education-event'
       && termRolls.value.educationEntry?.finalSuccess
       && educationSkillsApplied.value
+      && termRolls.value.educationEvent
+      && canRerollCreatorAction('roll-pre-career-event')
+    ) {
+      return makeRerollAction('roll-pre-career-event', 'Roll the pre-career event again and overwrite its outcomes for this term.')
+    }
+    if (
+      activeTermStep.value === 'education-event'
+      && termRolls.value.educationEntry?.finalSuccess
+      && educationSkillsApplied.value
       && !termRolls.value.educationEvent
     ) {
       return {
@@ -501,6 +583,15 @@ const activeStepPrimaryAction = computed<CreatorStepActionDefinition | null>(() 
       activeTermStep.value === 'education-graduation'
       && termRolls.value.educationEntry?.finalSuccess
       && termRolls.value.educationEvent
+      && termRolls.value.educationGraduation
+      && canRerollCreatorAction('roll-education-graduation')
+    ) {
+      return makeRerollAction('roll-education-graduation', 'Roll graduation again and overwrite graduation outcomes for this term.')
+    }
+    if (
+      activeTermStep.value === 'education-graduation'
+      && termRolls.value.educationEntry?.finalSuccess
+      && termRolls.value.educationEvent
       && !termRolls.value.educationGraduation
     ) {
       return {
@@ -510,6 +601,9 @@ const activeStepPrimaryAction = computed<CreatorStepActionDefinition | null>(() 
       }
     }
 
+    if (activeTermStep.value === 'aging' && termRolls.value.aging && canRerollCreatorAction('roll-aging')) {
+      return makeRerollAction('roll-aging', 'Roll aging again and overwrite the aging outcome for this term.')
+    }
     if (activeTermStep.value === 'aging' && !termRolls.value.aging) {
       return {
         key: 'roll-aging',
@@ -523,6 +617,9 @@ const activeStepPrimaryAction = computed<CreatorStepActionDefinition | null>(() 
 
   if (activeTermStep.value === 'qualification') {
     if (requiredDraftAvailable.value) {
+      if (termRolls.value.draft && canRerollCreatorAction('roll-draft')) {
+        return makeRerollAction('roll-draft', 'Roll the draft result again and overwrite the fallback career for this term.')
+      }
       return {
         key: 'roll-draft',
         label: 'Roll Draft',
@@ -548,11 +645,17 @@ const activeStepPrimaryAction = computed<CreatorStepActionDefinition | null>(() 
       && termRolls.value.careerQualification?.finalSuccess
       && prisonerParoleThresholdRequired.value
     ) {
+      if (termRolls.value.prisonerParoleThreshold && canRerollCreatorAction('roll-parole-threshold')) {
+        return makeRerollAction('roll-parole-threshold', 'Roll the parole threshold again and overwrite the current Prisoner term setup.')
+      }
       return {
         key: 'roll-parole-threshold',
         label: 'Roll 1D',
         helper: 'Set the parole threshold for this Prisoner term.',
       }
+    }
+    if (termRolls.value.careerQualification && canRerollCreatorAction('roll-qualification')) {
+      return makeRerollAction('roll-qualification', 'Roll qualification again and reset later career progress from this term.')
     }
     if (
       !automaticCareerEntryConstraint.value
@@ -580,6 +683,14 @@ const activeStepPrimaryAction = computed<CreatorStepActionDefinition | null>(() 
     if (
       termRolls.value.careerQualification?.finalSuccess
       && (!basicTrainingRequired.value || basicTrainingApplied.value)
+      && termRolls.value.careerSkill
+      && canRerollCreatorAction('roll-career-skill')
+    ) {
+      return makeRerollAction('roll-career-skill', 'Roll the career skill table again and overwrite this term’s skill result.')
+    }
+    if (
+      termRolls.value.careerQualification?.finalSuccess
+      && (!basicTrainingRequired.value || basicTrainingApplied.value)
       && !termRolls.value.careerSkill
     ) {
       return {
@@ -591,6 +702,9 @@ const activeStepPrimaryAction = computed<CreatorStepActionDefinition | null>(() 
     return null
   }
 
+  if (activeTermStep.value === 'survival' && termRolls.value.careerSurvival && canRerollCreatorAction('roll-survival')) {
+    return makeRerollAction('roll-survival', 'Roll survival again and overwrite later term outcomes from this point.')
+  }
   if (activeTermStep.value === 'survival' && termRolls.value.careerSkill && !pendingSkillChoice.value && !termRolls.value.careerSurvival) {
     return {
       key: 'roll-survival',
@@ -600,12 +714,18 @@ const activeStepPrimaryAction = computed<CreatorStepActionDefinition | null>(() 
   }
 
   if (activeTermStep.value === 'event') {
+    if (termRolls.value.careerSurvival?.finalSuccess === false && termRolls.value.careerMishap && canRerollCreatorAction('roll-mishap')) {
+      return makeRerollAction('roll-mishap', 'Roll the mishap table again and overwrite this term’s mishap outcomes.')
+    }
     if (termRolls.value.careerSurvival?.finalSuccess === false && !termRolls.value.careerMishap) {
       return {
         key: 'roll-mishap',
         label: 'Roll 2D',
         helper: 'Resolve the mishap for this failed term.',
       }
+    }
+    if (termRolls.value.careerSurvival?.finalSuccess && termRolls.value.careerEvent && canRerollCreatorAction('roll-event')) {
+      return makeRerollAction('roll-event', 'Roll the career event again and overwrite this term’s event outcomes.')
     }
     if (termRolls.value.careerSurvival?.finalSuccess && !termRolls.value.careerEvent) {
       return {
@@ -618,6 +738,9 @@ const activeStepPrimaryAction = computed<CreatorStepActionDefinition | null>(() 
   }
 
   if (activeTermStep.value === 'advancement') {
+    if (termRolls.value.careerCommission && !automaticCommissionConstraint.value && canRerollCreatorAction('roll-commission')) {
+      return makeRerollAction('roll-commission', 'Roll commission again and overwrite later advancement state from this term.')
+    }
     if (
       careerCommissionAvailable.value
       && !automaticCommissionConstraint.value
@@ -632,6 +755,14 @@ const activeStepPrimaryAction = computed<CreatorStepActionDefinition | null>(() 
     if (
       termRolls.value.careerSurvival?.finalSuccess
       && (automaticCommissionConstraint.value || termRolls.value.careerCommission?.finalSuccess || !careerCommissionAvailable.value)
+      && termRolls.value.careerAdvancement
+      && canRerollCreatorAction('roll-advancement')
+    ) {
+      return makeRerollAction('roll-advancement', 'Roll advancement again and overwrite later rank outcomes from this term.')
+    }
+    if (
+      termRolls.value.careerSurvival?.finalSuccess
+      && (automaticCommissionConstraint.value || termRolls.value.careerCommission?.finalSuccess || !careerCommissionAvailable.value)
       && !termRolls.value.careerAdvancement
     ) {
       return {
@@ -639,6 +770,13 @@ const activeStepPrimaryAction = computed<CreatorStepActionDefinition | null>(() 
         label: 'Roll 2D',
         helper: 'Resolve advancement for this term.',
       }
+    }
+    if (
+      termRolls.value.careerAdvancement?.finalSuccess
+      && termRolls.value.careerAdvancementSkill
+      && canRerollCreatorAction('roll-advancement-skill')
+    ) {
+      return makeRerollAction('roll-advancement-skill', 'Roll the advancement skill table again and overwrite the extra skill result.')
     }
     if (
       termRolls.value.careerAdvancement?.finalSuccess
@@ -653,6 +791,9 @@ const activeStepPrimaryAction = computed<CreatorStepActionDefinition | null>(() 
     return null
   }
 
+  if (activeTermStep.value === 'aging' && termRolls.value.aging && canRerollCreatorAction('roll-aging')) {
+    return makeRerollAction('roll-aging', 'Roll aging again and overwrite the aging outcome for this term.')
+  }
   if (activeTermStep.value === 'aging' && !termRolls.value.aging) {
     return {
       key: 'roll-aging',
@@ -754,10 +895,12 @@ const activeStepSecondaryAction = computed<CreatorStepActionDefinition | null>((
 
   return secondary
 })
-const executeCreatorStepAction = (key: CreatorStepActionKey) => {
+const executeCreatorStepActionByKey = (key: CreatorStepActionKey, reroll = false) => {
+  if (!reroll) captureCreatorRerollSnapshot(key)
+
   switch (key) {
     case 'roll-draft':
-      rollDraftFallback()
+      triggerRollDraftFallback()
       return
     case 'enter-drifter':
       chooseDrifterFallback()
@@ -848,6 +991,17 @@ const executeCreatorStepAction = (key: CreatorStepActionKey) => {
       return
   }
 }
+const executeCreatorStepAction = async (action: CreatorStepActionDefinition) => {
+  const key = action.rerollOf ?? action.key
+  if (action.rerollOf) {
+    if (!restoreCreatorRerollSnapshot(action.rerollOf)) return
+    await nextTick()
+    executeCreatorStepActionByKey(key, true)
+    return
+  }
+
+  executeCreatorStepActionByKey(key)
+}
 const previousTermStep = () => {
   activeTermStep.value = termStepTabs.value[Math.max(0, activeTermStepIndex.value - 1)]?.id ?? 'direction'
   scrollToCreatorNavigation()
@@ -915,8 +1069,13 @@ const closeCreatorRollModal = () => {
   creatorRollModalRolling.value = false
 }
 
-const startCreatorRollModal = (title: string, result: string, modifier = 0, total?: number, fixedDice?: number[]) => {
+const startCreatorRollModal = async (title: string, result: string, modifier = 0, total?: number, fixedDice?: number[]) => {
   clearCreatorRollModalTimers()
+  if (creatorRollModalOpen.value) {
+    creatorRollModalOpen.value = false
+    creatorRollModalRolling.value = false
+    await nextTick()
+  }
   creatorRollModalTitle.value = title
   creatorRollModalResult.value = result
   creatorRollModalModifier.value = modifier
@@ -976,14 +1135,31 @@ const handleCreatorRollModalPayload = (payload: {
   total?: number
   dice?: number[]
 }) => {
-  startCreatorRollModal(payload.title, payload.result, payload.modifier ?? 0, payload.total, payload.dice)
+  void startCreatorRollModal(payload.title, payload.result, payload.modifier ?? 0, payload.total, payload.dice)
 }
 
 const showRollFromRecord = (roll: { label: string; notes?: string; dm: number; total: number; dice: number[]; finalSuccess?: boolean } | null | undefined, fallbackResult?: string) => {
   if (!roll) return
   const result = fallbackResult || roll.notes || (roll.finalSuccess === undefined ? `${roll.total}` : (roll.finalSuccess ? 'Success' : 'Failure'))
   const dice = roll.dice.length >= 2 ? [roll.dice[0], roll.dice[1]] : [roll.dice[0] ?? creatorRandomDie()]
-  startCreatorRollModal(roll.label, result, roll.dm, roll.total, dice)
+  void startCreatorRollModal(roll.label, result, roll.dm, roll.total, dice)
+}
+
+const triggerRollPsiTest = () => {
+  psiTestRerollSnapshot.value = captureCreatorStateSnapshot()
+  rollPsiTest()
+  showRollFromRecord(psiTestRoll.value, psiScore.value !== null ? `PSI ${psiScore.value}` : 'PSI Test')
+}
+
+const rerollPsiTest = async () => {
+  if (!restoreCreatorStateSnapshot(psiTestRerollSnapshot.value)) return
+  await nextTick()
+  triggerRollPsiTest()
+}
+
+const triggerManualPsiTest = () => {
+  enterManualPsiTest(manualRollTotals.value.psiTest ?? Number.NaN)
+  showRollFromRecord(psiTestRoll.value, psiScore.value !== null ? `PSI ${psiScore.value}` : 'PSI Test')
 }
 
 const triggerRollCheck = (key: string, label: string, check: Parameters<typeof rollCheck>[2]) => {
@@ -999,6 +1175,16 @@ const triggerManualCheck = (key: string, label: string, check: Parameters<typeof
 const triggerRollPreCareerEvent = () => {
   rollPreCareerEvent()
   showRollFromRecord(termRolls.value.educationEvent, preCareerEvent.value?.name)
+}
+
+const triggerRollDraftFallback = () => {
+  rollDraftFallback()
+  showRollFromRecord(termRolls.value.draft, termRolls.value.draft?.notes)
+}
+
+const triggerManualDraftFallback = () => {
+  enterManualDraftFallback()
+  showRollFromRecord(termRolls.value.draft, termRolls.value.draft?.notes)
 }
 
 const triggerManualPreCareerEvent = () => {
@@ -1102,11 +1288,16 @@ onMounted(() => {
   )
 
   if (cachedDraft) {
-    characterCreator.$patch(cachedDraft as Partial<typeof characterCreator.$state>)
+    characterCreator.$patch((state) => {
+      Object.assign(state as any, JSON.parse(JSON.stringify(cachedDraft)))
+    })
     characterCreator.characteristicRollSequence = 0
     if (mobileViewportQuery) syncCreatorViewportMode(mobileViewportQuery.matches)
     creatorSaveMessage.value = 'Restored cached character creation draft.'
   }
+
+  creatorRerollSnapshots.value = {}
+  psiTestRerollSnapshot.value = null
 
   characterCreatorDraftRestored.value = true
 })
@@ -1150,6 +1341,8 @@ const restartCharacterCreation = () => {
   closeCreatorRollModal()
   closeEventTextModal()
   dismissAdvancementResult()
+  creatorRerollSnapshots.value = {}
+  psiTestRerollSnapshot.value = null
   activeCreatorTab.value = 'creation'
   activeTermStep.value = 'direction'
   clearBuilderDraft(CHARACTER_CREATOR_DRAFT_CACHE_KEY)
@@ -1245,10 +1438,10 @@ if (import.meta.client) {
               </div>
             </div>
 
-        <div v-else class="rounded-lg border border-zinc-300 bg-white p-3 sm:p-5 shadow-sm">
-          <div class="flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <h2 class="text-xl font-semibold">Term Direction</h2>
+            <div v-else class="rounded-lg border border-zinc-300 bg-white p-3 sm:p-5 shadow-sm">
+              <div class="flex flex-wrap items-start justify-between gap-4">
+                <div>
+                  <h2 class="text-xl font-semibold">Term Direction</h2>
               <p class="mt-1 text-sm text-zinc-600">Choose whether this term starts with career entry or pre-career education.</p>
             </div>
             <span class="rounded-md bg-stone-100 px-3 py-2 text-sm font-semibold text-zinc-700">
@@ -1442,13 +1635,86 @@ if (import.meta.client) {
               </label>
             </div>
 
-            <div v-if="careerConstraintMessages.length" v-show="activeTermStep === 'direction'" class="mt-4 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950">
-              <p class="font-semibold">Career requirement</p>
-              <ul class="mt-2 list-disc space-y-1 pl-5">
-                <li v-for="message in careerConstraintMessages" :key="message">
-                  {{ message }}
-                </li>
-              </ul>
+            <div
+              v-if="selectedAssignmentId && selectedAssignmentSkillPreview.length"
+              v-show="activeTermStep === 'direction'"
+              class="mt-4 rounded-md border border-cyan-400/20 bg-[linear-gradient(180deg,rgba(8,20,35,0.94),rgba(4,10,20,0.96)),linear-gradient(135deg,rgba(34,211,238,0.08),transparent_42%),radial-gradient(circle_at_0_0,rgba(34,211,238,0.12),transparent_8rem)] p-3 shadow-[0_0_0_1px_rgba(34,211,238,0.05),0_14px_28px_rgba(2,6,23,0.18)] sm:p-4"
+            >
+              <div class="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+                <div
+                  v-for="entry in selectedAssignmentSkillPreview"
+                  :key="`${selectedAssignmentId}-${entry.roll}`"
+                  class="rounded-md border border-cyan-400/20 bg-zinc-950/55 px-3 py-2 shadow-[inset_0_0_0_1px_rgba(34,211,238,0.04)]"
+                >
+                  <div class="flex items-center gap-3">
+                    <span class="inline-flex min-w-[2rem] items-center justify-center rounded-md border border-amber-300/35 bg-[linear-gradient(180deg,rgba(118,43,8,0.92),rgba(78,27,8,0.96))] px-2 py-1 text-sm font-extrabold text-amber-100 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.04),0_0_14px_rgba(245,158,11,0.16)] [text-shadow:0_1px_0_rgba(92,33,7,0.95),0_0_1px_rgba(255,251,235,0.92),0_0_6px_rgba(252,211,77,0.32)]">
+                      {{ entry.roll }}
+                    </span>
+                    <p class="min-w-0 text-sm font-semibold text-cyan-50">{{ entry.label }}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div
+              v-if="careerConstraintMessages.length"
+              v-show="activeTermStep === 'direction'"
+              class="mt-4 rounded-md border border-amber-300/55 bg-[linear-gradient(180deg,rgba(82,43,12,0.94),rgba(56,28,8,0.97)),radial-gradient(circle_at_0_0,rgba(245,158,11,0.12),transparent_10rem)] p-3 text-sm text-amber-50 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.04),0_14px_28px_rgba(2,6,23,0.18)] sm:p-4"
+            >
+              <div class="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <p class="text-xs font-extrabold uppercase tracking-[0.18em] text-amber-200/90">Career Requirement</p>
+                  <ul class="mt-2 list-disc space-y-1 pl-5 text-amber-50/95">
+                    <li v-for="message in careerConstraintMessages" :key="message">
+                      {{ message }}
+                    </li>
+                  </ul>
+                </div>
+                <div
+                  v-if="psionicsTestingAvailable && !psiTested"
+                  class="grid min-w-[14rem] gap-2 rounded-md border border-violet-300/35 bg-zinc-950/35 p-3"
+                >
+                  <p class="text-xs font-semibold uppercase tracking-wide text-violet-200">PSI Test Available</p>
+                  <p class="text-sm text-violet-50/90">
+                    Roll 2D {{ formatDm(-psiTermsServed) }} to test PSI and unlock Psion entry.
+                  </p>
+                  <div v-if="psionicsPermissionSources.length" class="flex flex-wrap gap-2">
+                    <span
+                      v-for="source in psionicsPermissionSources"
+                      :key="`direction-psi-${source}`"
+                      class="rounded-md border border-violet-300/25 bg-white/10 px-2 py-1 text-[0.7rem] font-semibold text-violet-100"
+                    >
+                      {{ source }}
+                    </span>
+                  </div>
+                  <div class="flex flex-wrap items-center gap-2">
+                    <button
+                      class="h-10 rounded-md border border-violet-300/40 bg-[linear-gradient(180deg,rgba(44,25,94,0.92),rgba(29,17,63,0.96))] px-4 text-sm font-semibold text-violet-50 shadow-[0_0_18px_rgba(168,85,247,0.14)] hover:border-violet-200/55"
+                      type="button"
+                      @click="gmRerollsEnabled && psiTested && psiTestRerollSnapshot ? rerollPsiTest() : triggerRollPsiTest()"
+                    >
+                      {{ gmRerollsEnabled && psiTested && psiTestRerollSnapshot ? 'Re-roll PSI 2D' : 'Roll PSI 2D' }}
+                    </button>
+                    <template v-if="gmManualPsionicsRollEntryEnabled">
+                      <input
+                        v-model.number="manualRollTotals.psiTest"
+                        class="h-10 w-28 rounded-md border border-violet-300/35 bg-white px-3 text-violet-950 outline-none focus:border-violet-600 focus:ring-2 focus:ring-violet-200"
+                        max="12"
+                        min="2"
+                        placeholder="2D total"
+                        type="number"
+                      >
+                      <button
+                        class="h-10 rounded-md border border-violet-300/35 bg-white px-3 text-sm font-semibold text-violet-900 hover:border-violet-700"
+                        type="button"
+                        @click="triggerManualPsiTest"
+                      >
+                        Manual
+                      </button>
+                    </template>
+                  </div>
+                </div>
+              </div>
             </div>
 
             <div v-if="selectedCareerId" v-show="activeTermStep === 'direction'" class="mt-5 grid gap-3 sm:grid-cols-3">
@@ -1564,7 +1830,7 @@ if (import.meta.client) {
                       <button
                         class="h-10 rounded-md border border-amber-300 bg-white px-3 text-sm font-semibold text-amber-900 hover:border-amber-600"
                         type="button"
-                        @click="enterManualDraftFallback"
+                        @click="triggerManualDraftFallback"
                       >
                         Manual
                       </button>
@@ -1801,6 +2067,7 @@ if (import.meta.client) {
                   :text="careerMishap.text"
                   source-prefix="Career Mishap"
                   @details="openEventTextModal(careerMishap.name, careerMishap.text, (careerMishap.effects ?? []).map((effect) => tableEffectLabel(effect)))"
+                  @show-roll="handleCreatorRollModalPayload"
                 />
               </div>
 
@@ -1837,6 +2104,7 @@ if (import.meta.client) {
                   :text="careerEvent.text"
                   source-prefix="Career Event"
                   @details="openEventTextModal(careerEvent.name, careerEvent.text, (careerEvent.effects ?? []).map((effect) => tableEffectLabel(effect)))"
+                  @show-roll="handleCreatorRollModalPayload"
                 />
               </div>
 
@@ -2289,8 +2557,8 @@ if (import.meta.client) {
                     :text="preCareerEvent.text"
                     source-prefix="Pre-Career Event"
                     @details="openEventTextModal(preCareerEvent.name, preCareerEvent.text, (preCareerEvent.effects ?? []).map((effect) => preCareerEventEffectLabel(effect)))"
+                    @show-roll="handleCreatorRollModalPayload"
                   />
-                  <EventResolutionList source-prefix="Pre-Career Event" />
                 </div>
 
                 <div v-if="termRolls.educationEntry?.finalSuccess && termRolls.educationEvent" v-show="activeTermStep === 'education-graduation'" class="rounded-md border border-zinc-200 p-3 sm:p-4">
@@ -2347,7 +2615,7 @@ if (import.meta.client) {
             <div v-if="termRolls.aging" class="mt-3 rounded-md bg-white p-3 text-sm">
               <p class="font-semibold">{{ rollSummary(termRolls.aging) }} · {{ agingEffect }}</p>
               <p class="mt-1 text-zinc-600">Resolve any characteristic reductions below.</p>
-              <EventResolutionList source-prefix="Aging" />
+              <EventResolutionList source-prefix="Aging" @show-roll="handleCreatorRollModalPayload" />
             </div>
           </div>
 
@@ -2553,7 +2821,7 @@ if (import.meta.client) {
                 v-if="activeStepSecondaryAction"
                 class="creator-step-action-rail__button creator-step-action-rail__button--secondary"
                 type="button"
-                @click="executeCreatorStepAction(activeStepSecondaryAction.key)"
+                @click="executeCreatorStepAction(activeStepSecondaryAction)"
               >
                 {{ activeStepSecondaryAction.label }}
               </button>
@@ -2561,7 +2829,7 @@ if (import.meta.client) {
                 v-if="activeStepPrimaryAction"
                 class="creator-step-action-rail__button creator-step-action-rail__button--primary"
                 type="button"
-                @click="executeCreatorStepAction(activeStepPrimaryAction.key)"
+                @click="executeCreatorStepAction(activeStepPrimaryAction)"
               >
                 {{ activeStepPrimaryAction.label }}
               </button>

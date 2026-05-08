@@ -212,6 +212,18 @@ onBeforeUnmount(() => {
               <span class="block text-xs text-zinc-500">Adjust setup characteristic values directly.</span>
             </span>
           </label>
+          <label class="flex items-start gap-2 rounded-md px-2 py-1 hover:bg-amber-50">
+            <input
+              class="mt-1 accent-amber-700"
+              type="checkbox"
+              :checked="gmOverrideOptions.enableRerolls"
+              @change="toggleGmOverrideOption('enableRerolls')"
+            >
+            <span>
+              <span class="block font-medium text-zinc-800">Enable rerolls</span>
+              <span class="block text-xs text-zinc-500">Turn completed creator roll actions into re-roll actions for testing.</span>
+            </span>
+          </label>
         </div>
         <div class="mt-3 border-t border-amber-100 pt-3">
           <p class="text-xs font-semibold uppercase tracking-wide text-zinc-500">Apply override</p>
@@ -228,7 +240,7 @@ onBeforeUnmount(() => {
               type="button"
               @click="grantPsionicsTestingOverride"
             >
-              Enable psionics testing
+              Enable PSI test
             </button>
           </div>
         </div>

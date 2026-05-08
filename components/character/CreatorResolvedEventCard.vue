@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import CreatorDetailsButton from '~/components/character/CreatorDetailsButton.vue'
+import EventResolutionList from '~/components/character/EventResolutionList.vue'
+
 const props = defineProps<{
   summary: string
   eventName: string
@@ -8,6 +11,13 @@ const props = defineProps<{
 
 defineEmits<{
   (event: 'details'): void
+  (event: 'show-roll', payload: {
+    title: string
+    result: string
+    modifier?: number
+    total?: number
+    dice?: number[]
+  }): void
 }>()
 </script>
 
@@ -18,6 +28,6 @@ defineEmits<{
       <CreatorDetailsButton @click="$emit('details')" />
     </div>
     <p v-if="props.text" class="mt-2 line-clamp-2 text-zinc-600">{{ props.text }}</p>
-    <EventResolutionList :source-prefix="props.sourcePrefix" />
+    <EventResolutionList :source-prefix="props.sourcePrefix" @show-roll="$emit('show-roll', $event)" />
   </div>
 </template>

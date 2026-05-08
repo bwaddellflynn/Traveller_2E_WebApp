@@ -1063,33 +1063,38 @@ watch(
                       </div>
                     </div>
 
-                    <div
-                      v-for="speciality in selectedSheetSpecialities(group.definition)"
-                      :key="`${group.definition.id}:${speciality.specialityId}`"
-                      class="sheet-skill-entry sheet-skill-entry--speciality"
-                    >
-                      <label class="sheet-skill-toggle">
-                        <input
-                          :checked="specialitySkillChecked(group.definition, speciality.specialityId)"
-                          type="checkbox"
-                          @change="toggleSpecialitySkill(group.definition, speciality.specialityName)"
-                        >
-                      </label>
-                      <button
-                        class="sheet-skill-roll-button"
-                        type="button"
-                        @click="openSheetSkillDefinitionRoll(group.definition, speciality.specialityName, specialitySkillDisplayLevel(group.definition, speciality.specialityId))"
+                    <div v-if="selectedSheetSpecialities(group.definition).length" class="sheet-skill-specialities">
+                      <div
+                        v-for="speciality in selectedSheetSpecialities(group.definition)"
+                        :key="`${group.definition.id}:${speciality.specialityId}`"
+                        class="sheet-skill-entry sheet-skill-entry--speciality"
                       >
-                        {{ speciality.specialityName }}
-                      </button>
-                      <div class="sheet-skill-rank">
-                        <button class="sheet-skill-rank__button" type="button" @click="changeSpecialitySkillLevel(group.definition, speciality.specialityName, -1)">
-                          <AppIcon class="sheet-skill-rank__icon sheet-skill-rank__icon--down" name="arrow" />
+                        <label class="sheet-skill-toggle">
+                          <input
+                            :checked="specialitySkillChecked(group.definition, speciality.specialityId)"
+                            type="checkbox"
+                            @change="toggleSpecialitySkill(group.definition, speciality.specialityName)"
+                          >
+                        </label>
+                        <button
+                          class="sheet-skill-roll-button sheet-skill-roll-button--speciality"
+                          type="button"
+                          @click="openSheetSkillDefinitionRoll(group.definition, speciality.specialityName, specialitySkillDisplayLevel(group.definition, speciality.specialityId))"
+                        >
+                          <span class="sheet-skill-speciality-label">
+                            <span class="sheet-skill-speciality-bullet" aria-hidden="true"></span>
+                            {{ speciality.specialityName }}
+                          </span>
                         </button>
-                        <span class="sheet-skill-rank__value">{{ specialitySkillDisplayLevel(group.definition, speciality.specialityId) ?? '0' }}</span>
-                        <button class="sheet-skill-rank__button" type="button" @click="changeSpecialitySkillLevel(group.definition, speciality.specialityName, 1)">
-                          <AppIcon class="sheet-skill-rank__icon sheet-skill-rank__icon--up" name="arrow" />
-                        </button>
+                        <div class="sheet-skill-rank">
+                          <button class="sheet-skill-rank__button" type="button" @click="changeSpecialitySkillLevel(group.definition, speciality.specialityName, -1)">
+                            <AppIcon class="sheet-skill-rank__icon sheet-skill-rank__icon--down" name="arrow" />
+                          </button>
+                          <span class="sheet-skill-rank__value">{{ specialitySkillDisplayLevel(group.definition, speciality.specialityId) ?? '0' }}</span>
+                          <button class="sheet-skill-rank__button" type="button" @click="changeSpecialitySkillLevel(group.definition, speciality.specialityName, 1)">
+                            <AppIcon class="sheet-skill-rank__icon sheet-skill-rank__icon--up" name="arrow" />
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </section>
@@ -1720,33 +1725,38 @@ watch(
                       </div>
                     </div>
 
-                    <div
-                      v-for="speciality in selectedSheetSpecialities(group.definition)"
-                      :key="`${group.definition.id}:${speciality.specialityId}`"
-                      class="sheet-skill-entry sheet-skill-entry--speciality"
-                    >
-                      <label class="sheet-skill-toggle">
-                        <input
-                          :checked="specialitySkillChecked(group.definition, speciality.specialityId)"
-                          type="checkbox"
-                          @change="toggleSpecialitySkill(group.definition, speciality.specialityName)"
-                        >
-                      </label>
-                      <button
-                        class="sheet-skill-roll-button"
-                        type="button"
-                        @click="openSheetSkillDefinitionRoll(group.definition, speciality.specialityName, specialitySkillDisplayLevel(group.definition, speciality.specialityId))"
+                    <div v-if="selectedSheetSpecialities(group.definition).length" class="sheet-skill-specialities">
+                      <div
+                        v-for="speciality in selectedSheetSpecialities(group.definition)"
+                        :key="`${group.definition.id}:${speciality.specialityId}`"
+                        class="sheet-skill-entry sheet-skill-entry--speciality"
                       >
-                        {{ speciality.specialityName }}
-                      </button>
-                      <div class="sheet-skill-rank">
-                        <button class="sheet-skill-rank__button" type="button" @click="changeSpecialitySkillLevel(group.definition, speciality.specialityName, -1)">
-                          <AppIcon class="sheet-skill-rank__icon sheet-skill-rank__icon--down" name="arrow" />
+                        <label class="sheet-skill-toggle">
+                          <input
+                            :checked="specialitySkillChecked(group.definition, speciality.specialityId)"
+                            type="checkbox"
+                            @change="toggleSpecialitySkill(group.definition, speciality.specialityName)"
+                          >
+                        </label>
+                        <button
+                          class="sheet-skill-roll-button sheet-skill-roll-button--speciality"
+                          type="button"
+                          @click="openSheetSkillDefinitionRoll(group.definition, speciality.specialityName, specialitySkillDisplayLevel(group.definition, speciality.specialityId))"
+                        >
+                          <span class="sheet-skill-speciality-label">
+                            <span class="sheet-skill-speciality-bullet" aria-hidden="true"></span>
+                            {{ speciality.specialityName }}
+                          </span>
                         </button>
-                        <span class="sheet-skill-rank__value">{{ specialitySkillDisplayLevel(group.definition, speciality.specialityId) ?? '0' }}</span>
-                        <button class="sheet-skill-rank__button" type="button" @click="changeSpecialitySkillLevel(group.definition, speciality.specialityName, 1)">
-                          <AppIcon class="sheet-skill-rank__icon sheet-skill-rank__icon--up" name="arrow" />
-                        </button>
+                        <div class="sheet-skill-rank">
+                          <button class="sheet-skill-rank__button" type="button" @click="changeSpecialitySkillLevel(group.definition, speciality.specialityName, -1)">
+                            <AppIcon class="sheet-skill-rank__icon sheet-skill-rank__icon--down" name="arrow" />
+                          </button>
+                          <span class="sheet-skill-rank__value">{{ specialitySkillDisplayLevel(group.definition, speciality.specialityId) ?? '0' }}</span>
+                          <button class="sheet-skill-rank__button" type="button" @click="changeSpecialitySkillLevel(group.definition, speciality.specialityName, 1)">
+                            <AppIcon class="sheet-skill-rank__icon sheet-skill-rank__icon--up" name="arrow" />
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </section>
@@ -3021,8 +3031,18 @@ watch(
   padding-bottom: 0.04rem;
 }
 
+.sheet-skill-specialities {
+  display: grid;
+  gap: 0.28rem;
+  margin-left: 0.75rem;
+  padding-top: 0.28rem;
+  padding-left: 0.9rem;
+  border-left: 1px solid rgb(34 211 238 / 0.22);
+  box-shadow: inset 8px 0 10px -10px rgb(34 211 238 / 0.18);
+}
+
 .sheet-skill-entry--speciality {
-  padding-left: 0.45rem;
+  padding-left: 0;
 }
 
 .sheet-skill-toggle {
@@ -3060,6 +3080,27 @@ watch(
   color: #cffafe;
   text-shadow: 0 0 12px rgba(34, 211, 238, 0.18);
   outline: none;
+}
+
+.sheet-skill-roll-button--speciality {
+  padding-left: 0;
+}
+
+.sheet-skill-speciality-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.42rem;
+  min-width: 0;
+}
+
+.sheet-skill-speciality-bullet {
+  display: inline-flex;
+  width: 0.35rem;
+  height: 0.35rem;
+  flex: 0 0 0.35rem;
+  border-radius: 999px;
+  background: rgb(103 232 249 / 0.72);
+  box-shadow: 0 0 8px rgb(34 211 238 / 0.28);
 }
 
 .sheet-skill-rank {

@@ -44,6 +44,37 @@ const findTravellerSkillDefinition = (value: string) => {
     ?? definitions.find((definition) => definition.id === normalized)
 }
 
+const inferTravellerSkillWithSpeciality = (value: string) => {
+  const trimmed = value.trim()
+  for (const definition of definitions) {
+    if (!definition.specialities?.length && !definition.requiresSpeciality) continue
+    const prefix = `${definition.name} `
+    if (!trimmed.toLowerCase().startsWith(prefix.toLowerCase())) continue
+
+    const rawSpeciality = trimmed.slice(prefix.length).trim()
+    if (!rawSpeciality) continue
+
+    const specialityId = normalizeSpecialitySlug(definition, rawSpeciality)
+    const matchedSpeciality = definition.specialities?.find((speciality) => slugifyTravellerSkill(speciality) === specialityId)
+    if (!matchedSpeciality && specialityId !== 'any' && !definition.requiresSpeciality) continue
+
+    const specialityName = specialityId === 'any'
+      ? 'any'
+      : formatTravellerSkillSpeciality(definition.id, rawSpeciality)
+
+    return {
+      id: `${definition.id}:${specialityId}`,
+      name: `${definition.name} (${specialityName})`,
+      baseId: definition.id,
+      baseName: definition.name,
+      specialityId,
+      specialityName,
+    }
+  }
+
+  return null
+}
+
 export const travellerSkillHasSpecialities = (skillId: string) => {
   const definition = getTravellerSkillDefinition(skillId)
   return Boolean(definition?.specialities?.length || definition?.requiresSpeciality)
@@ -135,6 +166,9 @@ export const parseTravellerSkill = (value: string): ParsedTravellerSkill => {
       specialityName,
     }
   }
+
+  const inferredSpeciality = inferTravellerSkillWithSpeciality(trimmed)
+  if (inferredSpeciality) return inferredSpeciality
 
   return {
     id: baseId,

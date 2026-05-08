@@ -7,6 +7,16 @@ const props = defineProps<{
   sourcePrefix?: string
 }>()
 
+const emit = defineEmits<{
+  (event: 'show-roll', payload: {
+    title: string
+    result: string
+    modifier?: number
+    total?: number
+    dice?: number[]
+  }): void
+}>()
+
 const characterCreator = useCharacterCreatorStore()
 const {
   resolveEventChoice,
@@ -121,6 +131,148 @@ const associateInjuryForm = (
   }
 
   return associateInjuryForms[resolution.id]
+}
+
+const triggerEventResolutionCheckRoll = (resolution: {
+  id: string
+  kind: string
+  check?: { label: string; target: number; dm: number }
+  resolved?: boolean
+}) => {
+  if (resolution.kind !== 'check' || !resolution.check || resolution.resolved) return
+
+  const firstDie = Math.ceil(Math.random() * 6)
+  const secondDie = Math.ceil(Math.random() * 6)
+  const diceTotal = firstDie + secondDie
+  const finalTotal = diceTotal + resolution.check.dm
+  const succeeded = finalTotal >= resolution.check.target
+
+  emit('show-roll', {
+    title: resolution.check.label,
+    result: succeeded ? 'Success' : 'Failure',
+    modifier: resolution.check.dm,
+    total: finalTotal,
+    dice: [firstDie, secondDie],
+  })
+
+  rollEventResolutionCheck(resolution.id, diceTotal)
+}
+
+const triggerEventResolutionTableRoll = (resolution: {
+  id: string
+  kind: string
+  label: string
+  diceCount?: 1 | 2
+  resolved?: boolean
+}) => {
+  if (resolution.kind !== 'table_roll' || resolution.resolved) return
+
+  const firstDie = Math.ceil(Math.random() * 6)
+  const secondDie = resolution.diceCount === 2 ? Math.ceil(Math.random() * 6) : 0
+  const total = firstDie + secondDie
+
+  emit('show-roll', {
+    title: resolution.label,
+    result: `Rolled ${total}`,
+    total,
+    dice: resolution.diceCount === 2 ? [firstDie, secondDie] : [firstDie],
+  })
+
+  rollEventResolutionTable(resolution.id, total)
+}
+
+const triggerEventResolutionSkillTableRoll = (resolution: {
+  id: string
+  kind: string
+  label: string
+  resolved?: boolean
+}) => {
+  if (resolution.kind !== 'skill_table_roll' || resolution.resolved) return
+
+  const die = Math.ceil(Math.random() * 6)
+
+  emit('show-roll', {
+    title: resolution.label,
+    result: `Rolled ${die}`,
+    total: die,
+    dice: [die],
+  })
+
+  rollEventResolutionSkillTable(resolution.id, die)
+}
+
+const triggerEventResolutionAssociateCountRoll = (resolution: {
+  id: string
+  kind: string
+  label: string
+  resolved?: boolean
+}) => {
+  if (resolution.kind !== 'associate_count' || resolution.resolved) return
+
+  const die = Math.ceil(Math.random() * 6)
+  const count = Math.ceil(die / 2)
+
+  emit('show-roll', {
+    title: resolution.label,
+    result: `${count} ${count === 1 ? 'associate' : 'associates'}`,
+    total: count,
+    dice: [die],
+  })
+
+  rollEventResolutionAssociateCount(resolution.id, die)
+}
+
+const triggerEventResolutionBenefitWagerRoll = (resolution: {
+  id: string
+  kind: string
+  resolved?: boolean
+  wagerChecks?: Array<{ skill: string; label: string; dm: number; target: number }>
+}) => {
+  if (resolution.kind !== 'benefit_wager' || resolution.resolved) return
+
+  const skill = benefitWagerForm(resolution).skill
+  const wagered = benefitWagerForm(resolution).wagered ?? Number.NaN
+  const check = resolution.wagerChecks?.find((item) => item.skill === skill) ?? resolution.wagerChecks?.[0]
+  if (!check || Number.isNaN(wagered) || wagered < 1) return
+
+  const firstDie = Math.ceil(Math.random() * 6)
+  const secondDie = Math.ceil(Math.random() * 6)
+  const diceTotal = firstDie + secondDie
+  const finalTotal = diceTotal + check.dm
+  const succeeded = finalTotal >= check.target
+
+  emit('show-roll', {
+    title: check.label,
+    result: succeeded ? 'Success' : 'Failure',
+    modifier: check.dm,
+    total: finalTotal,
+    dice: [firstDie, secondDie],
+  })
+
+  rollEventResolutionBenefitWager(resolution.id, skill, wagered, diceTotal)
+}
+
+const triggerEventResolutionPrisonLawyerRoll = (resolution: {
+  id: string
+  kind: string
+  resolved?: boolean
+}) => {
+  if (resolution.kind !== 'prison_lawyer' || resolution.resolved) return
+
+  const advocateLevel = prisonLawyerForm(resolution).advocateLevel
+  const firstDie = Math.ceil(Math.random() * 6)
+  const secondDie = Math.ceil(Math.random() * 6)
+  const reductionDie = Math.ceil(Math.random() * 6)
+  const diceTotal = firstDie + secondDie
+
+  emit('show-roll', {
+    title: `Advocate ${advocateLevel}`,
+    result: `Sentence -${reductionDie} term${reductionDie === 1 ? '' : 's'}`,
+    total: diceTotal,
+    dice: [firstDie, secondDie],
+  })
+
+  rollEventResolutionPrisonLawyer(resolution.id, advocateLevel, diceTotal, reductionDie)
 }
 </script>
 
@@ -268,13 +420,13 @@ const associateInjuryForm = (
 
       <div v-if="resolution.kind === 'associate' && !resolution.resolved" class="mt-3 grid gap-2">
         <div v-if="resolution.associateCountRoll === 'D3'" class="flex flex-wrap items-center gap-2">
-          <button
-            class="h-9 rounded-md border border-amber-300 bg-white px-3 text-sm font-semibold text-amber-900 hover:border-amber-600"
-            type="button"
-            @click="rollEventResolutionAssociateCount(resolution.id)"
-          >
-            Roll D3
-          </button>
+        <button
+          class="h-9 rounded-md border border-amber-300 bg-white px-3 text-sm font-semibold text-amber-900 hover:border-amber-600"
+          type="button"
+          @click="triggerEventResolutionAssociateCountRoll(resolution)"
+        >
+          Roll D3
+        </button>
           <template v-if="gmManualTableRollEntryEnabled">
             <input
               v-model.number="manualAssociateCounts[resolution.id]"
@@ -411,7 +563,7 @@ const associateInjuryForm = (
         <button
           class="h-9 rounded-md border border-amber-300 bg-white px-3 text-sm font-semibold text-amber-900 hover:border-amber-600"
           type="button"
-          @click="rollEventResolutionCheck(resolution.id)"
+          @click="triggerEventResolutionCheckRoll(resolution)"
         >
           Roll 2D
         </button>
@@ -437,7 +589,7 @@ const associateInjuryForm = (
         <button
           class="h-9 rounded-md border border-amber-300 bg-white px-3 text-sm font-semibold text-amber-900 hover:border-amber-600"
           type="button"
-          @click="rollEventResolutionTable(resolution.id)"
+          @click="triggerEventResolutionTableRoll(resolution)"
         >
           Roll {{ resolution.diceCount }}D
         </button>
@@ -463,7 +615,7 @@ const associateInjuryForm = (
         <button
           class="h-9 rounded-md border border-amber-300 bg-white px-3 text-sm font-semibold text-amber-900 hover:border-amber-600"
           type="button"
-          @click="rollEventResolutionSkillTable(resolution.id)"
+          @click="triggerEventResolutionSkillTableRoll(resolution)"
         >
           Roll 1D
         </button>
@@ -513,7 +665,7 @@ const associateInjuryForm = (
           <button
             class="h-9 rounded-md border border-amber-300 bg-white px-3 text-sm font-semibold text-amber-900 hover:border-amber-600"
             type="button"
-            @click="rollEventResolutionBenefitWager(resolution.id, benefitWagerForm(resolution).skill, benefitWagerForm(resolution).wagered ?? Number.NaN)"
+            @click="triggerEventResolutionBenefitWagerRoll(resolution)"
           >
             Roll 2D
           </button>
@@ -565,7 +717,7 @@ const associateInjuryForm = (
           <button
             class="h-9 rounded-md border border-amber-300 bg-white px-3 text-sm font-semibold text-amber-900 hover:border-amber-600"
             type="button"
-            @click="rollEventResolutionPrisonLawyer(resolution.id, prisonLawyerForm(resolution).advocateLevel)"
+            @click="triggerEventResolutionPrisonLawyerRoll(resolution)"
           >
             Roll Lawyer
           </button>
