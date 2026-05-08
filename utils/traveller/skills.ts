@@ -130,6 +130,23 @@ export const buildTravellerSkill = (
 
 export const parseTravellerSkill = (value: string): ParsedTravellerSkill => {
   const trimmed = value.trim()
+  const colonSpecialityMatch = trimmed.match(/^([^:]+):(.+)$/)
+  if (colonSpecialityMatch) {
+    const definition = findTravellerSkillDefinition(colonSpecialityMatch[1])
+    const baseId = definition?.id ?? slugifyTravellerSkill(colonSpecialityMatch[1])
+    const baseName = definition?.name ?? titleCaseTravellerSkill(colonSpecialityMatch[1])
+    const specialityId = normalizeSpecialitySlug(definition, colonSpecialityMatch[2])
+    const specialityName = specialityId === 'any' ? 'any' : formatTravellerSkillSpeciality(baseId, colonSpecialityMatch[2])
+    return {
+      id: `${baseId}:${specialityId}`,
+      name: `${baseName} (${specialityName})`,
+      baseId,
+      baseName,
+      specialityId,
+      specialityName,
+    }
+  }
+
   const slashSpecialityMatch = trimmed.match(/^(.+?)\/(.+)$/)
   if (slashSpecialityMatch) {
     const definition = findTravellerSkillDefinition(slashSpecialityMatch[1])

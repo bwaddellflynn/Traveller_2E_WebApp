@@ -107,6 +107,9 @@ const customSpecialitySkillIds = new Set(['language', 'profession', 'science'])
 const customSpecialityDrafts = reactive<Record<string, string>>({})
 const activeSkillPickerId = ref<string | null>(null)
 const skillNameCollator = new Intl.Collator('en', { sensitivity: 'base' })
+const logSheetSpecialityDebug = (...args: unknown[]) => {
+  console.debug('[SheetSpeciality]', ...args)
+}
 
 const loadSheetFromRoute = () => {
   const id = activeSheetRouteId.value
@@ -178,7 +181,21 @@ const selectedSheetSpecialities = (definition: SkillDefinition) => {
     ...speciality,
     isCustom: true,
   }))
-  return [...selectedDefined, ...selectedCustom]
+  const selected = [...selectedDefined, ...selectedCustom]
+  logSheetSpecialityDebug('selectedSheetSpecialities', {
+    definitionId: definition.id,
+    selected,
+    normalized: normalizedSheetSkills.value
+      .filter((skill) => skill.baseId === definition.id)
+      .map((skill) => ({
+        id: skill.record.id,
+        name: skill.record.name,
+        level: skill.record.level,
+        specialityId: skill.specialityId,
+        specialityName: skill.specialityName,
+      })),
+  })
+  return selected
 }
 const availableSheetSpecialities = (definition: SkillDefinition) => (definition.specialities ?? [])
   .filter((speciality) => !specialitySkillChecked(definition, speciality))
@@ -190,11 +207,23 @@ const buildSheetSkillLabel = (definition: SkillDefinition, specialityName?: stri
 const ensureSheetSkill = (definition: SkillDefinition, level: number, specialityName?: string) => {
   const specialityId = specialityName ? slugifyTravellerSkill(specialityName) : undefined
   const existingIndex = findSheetSkillIndex(definition.id, specialityId)
+  logSheetSpecialityDebug('ensureSheetSkill:start', {
+    definitionId: definition.id,
+    definitionName: definition.name,
+    level,
+    specialityName,
+    specialityId,
+    existingIndex,
+  })
   if (existingIndex >= 0) {
     const existing = draft.value.skills[existingIndex]
     draft.value.skills[existingIndex] = buildTravellerSkill(definition.id, level, specialityName, {
       sources: existing.sources ?? ['Manual Sheet'],
       notes: existing.notes ?? '',
+    })
+    logSheetSpecialityDebug('ensureSheetSkill:update', {
+      definitionId: definition.id,
+      updatedSkill: draft.value.skills[existingIndex],
     })
     return
   }
@@ -203,10 +232,15 @@ const ensureSheetSkill = (definition: SkillDefinition, level: number, speciality
     sources: ['Manual Sheet'],
     notes: '',
   }))
+  logSheetSpecialityDebug('ensureSheetSkill:create', {
+    definitionId: definition.id,
+    createdSkill: draft.value.skills[draft.value.skills.length - 1],
+  })
 }
 
 const removeSheetSkill = (baseId: string, specialityId?: string) => {
   const index = findSheetSkillIndex(baseId, specialityId)
+  logSheetSpecialityDebug('removeSheetSkill', { baseId, specialityId, index })
   if (index >= 0) draft.value.skills.splice(index, 1)
 }
 
@@ -254,6 +288,11 @@ const changeBaseSkillLevel = (definition: SkillDefinition, delta: number) => {
 }
 
 const toggleSpecialitySkill = (definition: SkillDefinition, speciality: string) => {
+  logSheetSpecialityDebug('toggleSpecialitySkill', {
+    definitionId: definition.id,
+    speciality,
+    existing: specialitySkillEntry(definition, speciality)?.record ?? null,
+  })
   const existing = specialitySkillEntry(definition, speciality)
   if (existing) {
     removeSheetSkill(definition.id, specialitySlug(speciality))
@@ -265,6 +304,12 @@ const toggleSpecialitySkill = (definition: SkillDefinition, speciality: string) 
 }
 
 const changeSpecialitySkillLevel = (definition: SkillDefinition, speciality: string, delta: number) => {
+  logSheetSpecialityDebug('changeSpecialitySkillLevel', {
+    definitionId: definition.id,
+    speciality,
+    delta,
+    currentLevel: specialitySkillDisplayLevel(definition, speciality),
+  })
   const existing = specialitySkillEntry(definition, speciality)
   const currentLevel = existing?.record.level ?? 0
   const minimumLevel = sheetSkillMode(definition) === 'shared-zero' ? 1 : 0
@@ -284,6 +329,10 @@ const changeSpecialitySkillLevel = (definition: SkillDefinition, speciality: str
 
 const addCustomSpecialitySkill = (definition: SkillDefinition) => {
   const raw = customSpecialityDrafts[definition.id]?.trim()
+  logSheetSpecialityDebug('addCustomSpecialitySkill', {
+    definitionId: definition.id,
+    raw,
+  })
   if (!raw) return
   const specialityId = specialitySlug(raw)
   if (!specialityId) return
@@ -298,6 +347,12 @@ const addCustomSpecialitySkill = (definition: SkillDefinition) => {
 }
 
 const addSheetSpeciality = (definition: SkillDefinition, speciality: string) => {
+  logSheetSpecialityDebug('addSheetSpeciality', {
+    definitionId: definition.id,
+    speciality,
+    mode: sheetSkillMode(definition),
+    existing: specialitySkillEntry(definition, speciality)?.record ?? null,
+  })
   const initialLevel = sheetSkillMode(definition) === 'shared-zero' ? 1 : 0
   ensureSheetSkill(definition, initialLevel, specialityDisplayName(definition, speciality))
   activeSkillPickerId.value = null
@@ -664,7 +719,7 @@ const confirmDeleteSheet = async () => {
   if (isUnsavedManualDraftRoute.value) clearDraftPointer(MANUAL_TRAVELLER_ACTIVE_DRAFT_POINTER_KEY)
   await travellers.deleteProfile(draft.value.id)
   sheetDeleteConfirmOpen.value = false
-  await router.push('/')
+  await router.push('/character/sheet')
 }
 
 const downloadJson = (payload: unknown, filename: string) => {
