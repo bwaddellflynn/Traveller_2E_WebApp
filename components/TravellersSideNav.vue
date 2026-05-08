@@ -115,12 +115,12 @@ const confirmDeleteProfile = async (profileId: string) => {
           </button>
           <button
             aria-label="Delete Traveller"
-            class="traveller-nav-delete hud-link h-8 w-8"
+            class="traveller-nav-delete hud-link h-5 w-5"
             title="Delete Traveller"
             type="button"
             @click.stop="requestDeleteProfile(profile.id)"
           >
-            <AppIcon name="trash" />
+            <AppIcon name="close" />
           </button>
           <div
             v-if="pendingDeleteProfileId === profile.id"
@@ -169,8 +169,8 @@ const confirmDeleteProfile = async (profileId: string) => {
 
 .traveller-nav-delete {
   position: absolute;
-  top: 0.55rem;
-  right: 0.55rem;
+  top: 0.4rem;
+  right: 0.4rem;
   opacity: 0;
   pointer-events: none;
   color: rgba(248, 113, 113, 0.92);
@@ -178,6 +178,15 @@ const confirmDeleteProfile = async (profileId: string) => {
   background: rgba(38, 10, 14, 0.78);
   transition: opacity 160ms ease, transform 160ms ease, background-color 160ms ease;
   transform: translateY(-2px);
+  padding: 0;
+  min-width: 1.25rem;
+  min-height: 1.25rem;
+  border-radius: 0.2rem;
+}
+
+.traveller-nav-delete :deep(svg) {
+  width: 0.6rem;
+  height: 0.6rem;
 }
 
 .traveller-nav-entry:hover .traveller-nav-delete,

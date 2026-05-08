@@ -13,7 +13,7 @@ const {
 const currentTravellerTab = ref('profile')
 const currentTravellerTabs = [
   { id: 'profile', label: 'Stats & Skills' },
-  { id: 'direction', label: 'Direction' },
+  { id: 'contacts', label: 'Contacts' },
   { id: 'events', label: 'Events' },
   { id: 'benefits', label: 'Benefits' },
   { id: 'history', label: 'Term History' },
@@ -120,6 +120,7 @@ const currentTravellerAgeLabel = computed(() => {
   if (['creation', 'setup-stats', 'setup-skills'].includes(activeCreatorTab.value)) return 'Age 18'
   return `Age ${currentAge.value}-${endOfTermAge.value}`
 })
+const learnedPsionicTalentIdSet = computed(() => new Set(learnedPsionicTalents.value.map((talent) => talent.id)))
 const currentTravellerSkillGroups = computed(() => {
   const groups = new Map<string, {
     baseId: string
@@ -153,6 +154,7 @@ const currentTravellerSkillGroups = computed(() => {
   return [...groups.values()]
     .map((group) => ({
       ...group,
+      isPsionic: learnedPsionicTalentIdSet.value.has(group.baseId),
       showBase: typeof group.baseLevel === 'number'
         || (group.specialities.length > 0
           && travellerSkillHasSpecialities(group.baseId)
@@ -291,6 +293,17 @@ const currentTravellerSkillGroups = computed(() => {
         <p class="mt-1 text-xl font-semibold">{{ item.value }}</p>
         <p class="text-xs text-zinc-400">DM {{ formatDm(item.dm) }}</p>
       </div>
+      <div v-if="psiScore !== null" class="col-span-3 rounded-md border border-fuchsia-300/25 bg-[linear-gradient(135deg,rgba(88,28,135,0.24),rgba(30,41,59,0.72)_34%,rgba(8,47,73,0.7)_67%,rgba(49,46,129,0.24))] p-3 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.04),0_0_18px_rgba(168,85,247,0.12)]">
+        <div class="flex items-center justify-between gap-3">
+          <div>
+            <p class="text-xs text-fuchsia-100/70">PSI</p>
+            <p class="mt-1 text-xl font-semibold text-fuchsia-50">{{ psiScore }}</p>
+          </div>
+          <span class="rounded-md border border-fuchsia-300/25 bg-zinc-950/55 px-3 py-2 text-sm font-semibold text-fuchsia-100">
+            DM {{ formatDm(psiDm) }}
+          </span>
+        </div>
+      </div>
     </div>
 
     <div v-if="prisonerParoleThreshold !== null || prisonerBenefitRollsLost" v-show="currentTravellerTab === 'profile'" class="mt-5 border-t border-white/15 pt-5">
@@ -323,28 +336,7 @@ const currentTravellerSkillGroups = computed(() => {
       </div>
     </div>
 
-    <div v-if="psiScore !== null || learnedPsionicTalents.length" v-show="currentTravellerTab === 'profile'" class="mt-5 border-t border-white/15 pt-5">
-      <div class="flex items-center justify-between gap-3">
-        <p class="text-sm font-semibold text-zinc-200">Psionics</p>
-        <span v-if="psiScore !== null" class="rounded-md border border-white/15 bg-white/10 px-2 py-1 text-xs text-zinc-300">
-          PSI {{ psiScore }} · DM {{ formatDm(psiDm) }}
-        </span>
-      </div>
-      <div v-if="learnedPsionicTalents.length" class="mt-3 flex flex-wrap gap-2">
-        <span
-          v-for="talent in learnedPsionicTalents"
-          :key="talent.id"
-          class="rounded-md bg-white/10 px-3 py-2 text-sm font-semibold text-amber-300"
-        >
-          {{ talent.name }} 0
-        </span>
-      </div>
-      <p v-if="psionicsTrainingCost" class="mt-2 text-xs text-zinc-400">
-        Testing/training cost: {{ psionicsTrainingCost.toLocaleString() }} Cr
-      </p>
-    </div>
-
-    <div v-if="associates.length" v-show="currentTravellerTab === 'profile'" class="mt-5 border-t border-white/15 pt-5">
+    <div v-if="associates.length" v-show="currentTravellerTab === 'contacts'" class="mt-5 border-t border-white/15 pt-5">
       <div class="flex items-center justify-between gap-3">
         <p class="text-sm font-semibold text-zinc-200">Associates</p>
         <span class="rounded-md bg-white/10 px-2 py-1 text-xs text-zinc-300">
@@ -380,7 +372,10 @@ const currentTravellerSkillGroups = computed(() => {
         <div
           v-for="group in currentTravellerSkillGroups"
           :key="group.baseId"
-          class="current-traveller-skills__group"
+          :class="[
+            'current-traveller-skills__group',
+            group.isPsionic ? 'current-traveller-skills__group--psionic' : '',
+          ]"
         >
           <div v-if="group.showBase" class="current-traveller-skills__base">
             <p class="current-traveller-skills__name">{{ group.baseName }}</p>
@@ -405,15 +400,16 @@ const currentTravellerSkillGroups = computed(() => {
       <span v-else class="mt-3 block text-sm text-zinc-400">No skills assigned</span>
     </div>
 
-    <div v-show="currentTravellerTab === 'direction'" class="mt-5 border-t border-white/15 pt-5">
-      <p class="text-sm font-semibold text-zinc-200">Term {{ currentTermNumber }} Direction</p>
-      <template v-if="selectedTermPath === 'career'">
-        <p class="mt-2 text-lg font-semibold">{{ selectedCareer?.name ?? 'No Career Selected' }}</p>
-        <p class="text-sm text-zinc-400">{{ selectedAssignment?.name ?? 'No Assignment Selected' }}</p>
+    <div v-show="currentTravellerTab === 'contacts'" class="mt-5 border-t border-white/15 pt-5">
+      <template v-if="associates.length">
+        <p class="text-sm font-semibold text-zinc-200">Contacts Network</p>
+        <p class="mt-2 text-sm text-zinc-400">
+          Allies, family, contacts, rivals, enemies, and other notable relationships recorded during creation.
+        </p>
       </template>
       <template v-else>
-        <p class="mt-2 text-lg font-semibold">{{ selectedEducationOption?.name ?? 'No Education Selected' }}</p>
-        <p v-if="selectedEducationEntry" class="text-sm text-zinc-400">Entry {{ checkLabel(selectedEducationEntry) }}</p>
+        <p class="text-sm font-semibold text-zinc-200">Contacts Network</p>
+        <p class="mt-2 text-sm text-zinc-400">No contacts recorded yet.</p>
       </template>
     </div>
 
@@ -803,6 +799,28 @@ const currentTravellerSkillGroups = computed(() => {
     );
 }
 
+.current-traveller-skills__group--psionic {
+  border-color: rgb(192 132 252 / 0.28);
+  background:
+    linear-gradient(135deg, rgb(91 33 182 / 0.22), rgb(15 23 42 / 0.9) 34%, rgb(8 47 73 / 0.82) 68%, rgb(79 70 229 / 0.2)),
+    linear-gradient(180deg, rgb(15 23 42 / 0.94), rgb(2 6 23 / 0.98));
+  box-shadow:
+    inset 0 0 0 1px rgb(255 255 255 / 0.04),
+    0 0 18px rgb(168 85 247 / 0.12);
+}
+
+.current-traveller-skills__group--psionic::before {
+  background:
+    linear-gradient(90deg, rgb(244 114 182 / 0.08), rgb(103 232 249 / 0.06) 42%, rgb(196 181 253 / 0.08)),
+    repeating-linear-gradient(
+      180deg,
+      rgb(255 255 255 / 0.012) 0,
+      rgb(255 255 255 / 0.012) 1px,
+      transparent 1px,
+      transparent 7px
+    );
+}
+
 .current-traveller-skills__base,
 .current-traveller-skills__speciality {
   display: grid;
@@ -815,7 +833,7 @@ const currentTravellerSkillGroups = computed(() => {
 .current-traveller-skills__speciality-name {
   min-width: 0;
   margin: 0;
-  color: rgb(253 186 116);
+  color: rgb(224 247 255 / 0.94);
 }
 
 .current-traveller-skills__name {
@@ -835,11 +853,17 @@ const currentTravellerSkillGroups = computed(() => {
   box-shadow: inset 8px 0 12px -12px rgb(245 158 11 / 0.18);
 }
 
+.current-traveller-skills__group--psionic .current-traveller-skills__specialities {
+  border-top-color: rgb(192 132 252 / 0.16);
+  border-left-color: rgb(103 232 249 / 0.18);
+  box-shadow: inset 8px 0 12px -12px rgb(103 232 249 / 0.16);
+}
+
 .current-traveller-skills__speciality-name {
   display: inline-flex;
   align-items: center;
   font-size: 0.81rem;
-  color: rgb(253 186 116);
+  color: rgb(224 247 255 / 0.94);
 }
 
 .current-traveller-skills__rank,
@@ -866,5 +890,25 @@ const currentTravellerSkillGroups = computed(() => {
 .current-traveller-skills__speciality-rank {
   min-width: 2.1rem;
   font-size: 0.78rem;
+}
+
+.current-traveller-skills__group--psionic .current-traveller-skills__name,
+.current-traveller-skills__group--psionic .current-traveller-skills__speciality-name {
+  color: rgb(224 231 255);
+  text-shadow:
+    0 0 8px rgb(168 85 247 / 0.14),
+    0 0 16px rgb(34 211 238 / 0.08);
+}
+
+.current-traveller-skills__group--psionic .current-traveller-skills__rank,
+.current-traveller-skills__group--psionic .current-traveller-skills__speciality-rank {
+  border-color: rgb(192 132 252 / 0.3);
+  background: linear-gradient(180deg, rgb(91 33 182 / 0.82), rgb(30 41 59 / 0.96));
+  box-shadow:
+    inset 0 0 0 1px rgb(255 255 255 / 0.05),
+    0 0 14px rgb(168 85 247 / 0.12);
+  text-shadow:
+    0 0 6px rgb(196 181 253 / 0.22),
+    0 0 12px rgb(34 211 238 / 0.12);
 }
 </style>

@@ -1303,7 +1303,12 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     const skill = getSkillDefinition(skillId)
     return (skill?.specialities ?? []).map((speciality) => `${skillId}/${speciality}`)
   }
-  const skillNeedsSpecialityAtLevel = (skillId: string, _targetLevel: number) => skillSpecialityMode(skillId) === 'independent'
+  const skillNeedsSpecialityAtLevel = (skillId: string, targetLevel: number) => {
+    const mode = skillSpecialityMode(skillId)
+    if (mode === 'independent') return true
+    if (mode === 'shared-zero') return targetLevel > 0
+    return false
+  }
 
   const skillName = (skillId?: string | null) => {
     if (!skillId) return 'Skill'
@@ -1642,6 +1647,17 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
   const applyCareerRankBonus = (bonus: string | undefined) => {
     if (!bonus) return
     if (applyCharacteristicIncrease(bonus)) return
+    const anyTalentMatch = bonus.match(/^Any Talent skill\s+(\d+)$/i)
+    if (anyTalentMatch) {
+      pendingSkillChoice.value = {
+        label: bonus,
+        source: 'Career rank',
+        options: psionicTalents.map((talent) => talent.id),
+        level: Number(anyTalentMatch[1]),
+        mode: 'grant',
+      }
+      return
+    }
     if (/\bor\b|whichever|any/i.test(bonus)) {
       recordEventOutcome('Career Rank', { type: 'narrative_event' }, `Resolve rank bonus manually: ${bonus}`, 'pending')
       return
@@ -1751,27 +1767,23 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
   const applyTrainingResult = (result: string, source: string) => {
     if (selectedCareerId.value === 'psion' && selectedCareerSkillTableId.value === 'service-skills') {
       if (/^any talent$/i.test(result.trim())) {
-        const learnedTalentIds = psionicTalents
-          .map((talent) => talent.id)
-          .filter((talentId) => learnedPsionicTalentIds.value.has(talentId))
-        if (learnedTalentIds.length) {
-          pendingSkillChoice.value = {
-            label: result,
-            source,
-            options: learnedTalentIds,
-            increase: true,
-          }
-        } else {
-          recordEventOutcome('Psion Service Skills', { type: 'psionic_talent_prompt' }, 'Attempt to learn any talent in Psionics panel', 'manual')
+        pendingSkillChoice.value = {
+          label: result,
+          source,
+          options: psionicTalents.map((talent) => talent.id),
         }
         return false
       }
     }
 
     const talentId = selectedCareerId.value === 'psion' ? psionicTalentIdFromLabel(result) : ''
-    if (talentId && !learnedPsionicTalentIds.value.has(talentId)) {
-      recordEventOutcome('Psion Training', { type: 'psionic_talent_prompt', talentId }, `Attempt to learn ${skillOptionLabel(talentId)} in Psionics panel`, 'manual')
-      return false
+    if (talentId) {
+      if (learnedPsionicTalentIds.value.has(talentId)) {
+        increaseSkill(talentId, source)
+      } else {
+        setSkillMinimum(talentId, 0, source)
+      }
+      return true
     }
 
     const choice = splitChoiceResult(result)
@@ -1830,12 +1842,6 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
   }
 
   const applyBasicTrainingEntry = (entry: string) => {
-    const talentId = selectedCareerId.value === 'psion' ? psionicTalentIdFromLabel(entry) : ''
-    if (talentId && !learnedPsionicTalentIds.value.has(talentId)) {
-      recordEventOutcome('Psion Basic Training', { type: 'psionic_talent_prompt', talentId }, `Attempt to learn ${skillOptionLabel(talentId)} in Psionics panel`, 'manual')
-      return
-    }
-
     setSkillMinimum(entry, 0, 'Basic Training')
   }
 
@@ -2578,7 +2584,16 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     level?: number,
     increase = false,
   ) => {
-    if (!options.length) {
+    const resolvedLevel = typeof level === 'number' ? level : (increase ? 1 : 0)
+    const normalizedOptions = options.flatMap((option) => {
+      const parsed = skillFromLabel(option)
+      if (parsed.specialityId) return [option]
+      if (!skillNeedsSpecialityAtLevel(parsed.baseId, resolvedLevel)) return [option]
+      const specialityOptions = skillSpecialityOptions(parsed.baseId)
+      return specialityOptions.length ? specialityOptions : [option]
+    })
+
+    if (!normalizedOptions.length) {
       addManualEventResolution(effect, source, `${label} manually.`)
       return
     }
@@ -2588,7 +2603,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
       label,
       source,
       effect,
-      options,
+      options: normalizedOptions,
       level,
       increase,
     })

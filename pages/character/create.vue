@@ -21,6 +21,7 @@ const characterCreator = useCharacterCreatorStore()
 const travellers = useTravellersStore()
 const router = useRouter()
 const creatorSaveMessage = ref('')
+const musterOutModalOpen = ref(false)
 const activeTermStep = ref('direction')
 const characterCreatorDraftRestored = ref(false)
 const restartConfirmOpen = ref(false)
@@ -344,6 +345,7 @@ const creatorShellTabs = computed(() => {
 })
 const activeCreatorShellIndex = computed(() => creatorShellTabs.value.findIndex((tab) => tab === activeCreatorTab.value))
 const activeCreatorTabIsTerm = computed(() => activeCreatorTab.value.startsWith('term-'))
+const musteringOutStarted = computed(() => musteringOutResults.value.length > 0)
 const canFooterNavigatePrev = computed(() => {
   if (activeCreatorTabIsTerm.value) {
     return activeTermStepIndex.value > 0 || activeCreatorShellIndex.value > 0
@@ -396,6 +398,7 @@ const handleMobileStepCarouselTouchEnd = () => {
   mobileStepCarouselSwipeDelta.value = 0
 }
 type CreatorStepActionKey =
+  | 'open-muster-out'
   | 'roll-draft'
   | 'enter-drifter'
   | 'roll-qualification'
@@ -539,6 +542,14 @@ const activeTermStepComplete = computed(() => {
   return false
 })
 const activeStepPrimaryAction = computed<CreatorStepActionDefinition | null>(() => {
+  if (activeTermStep.value === 'complete' && lifepathComplete.value && !musteringOutStarted.value) {
+    return {
+      key: 'open-muster-out',
+      label: 'Open Muster Out',
+      helper: 'Resolve mustering out and then save to the character sheet.',
+    }
+  }
+
   if (selectedTermPath.value === 'education') {
     if (activeTermStep.value === 'education-entry' && termRolls.value.educationEntry && canRerollCreatorAction('roll-education-entry')) {
       return makeRerollAction('roll-education-entry', 'Roll education entry again and reset later education or career progress from this term.')
@@ -902,6 +913,9 @@ const executeCreatorStepActionByKey = (key: CreatorStepActionKey, reroll = false
   if (!reroll) captureCreatorRerollSnapshot(key)
 
   switch (key) {
+    case 'open-muster-out':
+      openMusterOutModal()
+      return
     case 'roll-draft':
       triggerRollDraftFallback()
       return
@@ -1336,6 +1350,14 @@ const saveAndOpenCreatedTraveller = async () => {
   await router.push(`/character/sheet?id=${saved.id}`)
 }
 
+const openMusterOutModal = () => {
+  musterOutModalOpen.value = true
+}
+
+const closeMusterOutModal = () => {
+  musterOutModalOpen.value = false
+}
+
 const restartCharacterCreation = () => {
   restartInProgress.value = true
   restartConfirmOpen.value = false
@@ -1583,7 +1605,8 @@ if (import.meta.client) {
             </div>
           </div>
 
-          <div v-if="pendingSkillChoice?.mode === 'background'" class="mt-5 rounded-md border border-amber-300 bg-amber-50 p-4">
+          <div class="relative creator-term-stage mt-5">
+          <div v-if="pendingSkillChoice?.mode === 'background'" class="rounded-md border border-amber-300 bg-amber-50 p-4">
             <p class="text-sm font-semibold text-amber-950">Pending Skill Choice</p>
             <p class="mt-1 text-sm text-amber-900">{{ pendingSkillChoice.source }}: {{ pendingSkillChoice.label }}</p>
             <div class="mt-3 flex flex-wrap gap-2">
@@ -2034,6 +2057,16 @@ if (import.meta.client) {
                 </div>
               </div>
 
+              <div
+                v-if="activeTermStep === 'event' && !termRolls.careerSurvival"
+                class="rounded-md border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950"
+              >
+                <p class="font-semibold">Event Pending</p>
+                <p class="mt-1">
+                  Resolve Survival first. This step will show a career event on success or a mishap on failure.
+                </p>
+              </div>
+
               <div v-if="termRolls.careerSurvival && !termRolls.careerSurvival.finalSuccess" v-show="activeTermStep === 'event'" class="rounded-md border border-zinc-200 p-3 sm:p-4">
                 <div class="flex flex-wrap items-center gap-3">
                   <div>
@@ -2106,6 +2139,27 @@ if (import.meta.client) {
                   @details="openEventTextModal(careerEvent.name, careerEvent.text, (careerEvent.effects ?? []).map((effect) => tableEffectLabel(effect)))"
                   @show-roll="handleCreatorRollModalPayload"
                 />
+              </div>
+
+              <div
+                v-if="activeTermStep === 'advancement' && !termRolls.careerSurvival"
+                class="rounded-md border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950"
+              >
+                <p class="font-semibold">Rank Pending</p>
+                <p class="mt-1">
+                  Resolve Survival first. Rank handling opens after the career event is complete.
+                </p>
+              </div>
+
+              <div
+                v-else-if="activeTermStep === 'advancement' && termRolls.careerSurvival?.finalSuccess && !termRolls.careerEvent"
+                class="rounded-md border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950"
+              >
+                <p class="font-semibold">Rank Pending</p>
+                <p class="mt-1">
+                  Resolve the career event first.
+                  <span v-if="!selectedCareerIsMilitary"> This career has no commission roll; advancement will appear after the event.</span>
+                </p>
               </div>
 
               <div
@@ -2262,7 +2316,7 @@ if (import.meta.client) {
 
                 <div v-if="termRolls.careerAdvancementSkill" class="mt-3 rounded-md bg-stone-50 p-3 text-sm">
                   <p class="font-semibold">{{ rollSummary(termRolls.careerAdvancementSkill) }} · {{ termRolls.careerAdvancementSkill.notes }}</p>
-                  <p class="mt-1 text-zinc-600">Applied to Current Traveller.</p>
+                  <p v-if="!pendingSkillChoice || pendingSkillChoice.mode === 'background'" class="mt-1 text-zinc-600">Applied to Current Traveller.</p>
                 </div>
               </div>
             </div>
@@ -2670,195 +2724,19 @@ if (import.meta.client) {
           </div>
 
           <div v-show="activeTermStep === 'complete'">
-            <PsionicsPanel @roll-result="handleCreatorRollModalPayload" />
+            <PsionicsPanel :roll-modal-open="creatorRollModalOpen" @roll-result="handleCreatorRollModalPayload" />
 
             <TermActionFooter />
 
-            <div v-if="lifepathComplete" class="mt-5 rounded-lg border border-zinc-300 bg-white p-5">
-              <div class="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <h2 class="text-xl font-semibold">Mustering Out</h2>
-                  <p class="mt-1 text-sm text-zinc-600">
-                    Resolve remaining benefit rolls. Cash rolls used: {{ cashRollsUsed }}/{{ cashRollLimit }}.
-                  </p>
-                </div>
-                <div class="flex flex-wrap items-center gap-2">
-                  <span class="rounded-md bg-stone-100 px-3 py-2 text-sm font-semibold text-zinc-700">
-                    {{ remainingBenefitRolls }} rolls remaining
-                  </span>
-                  <button
-                    class="rounded-md bg-amber-500 px-3 py-2 text-sm font-semibold text-zinc-950 hover:bg-amber-400"
-                    type="button"
-                    @click="saveCreatedTraveller"
-                  >
-                    Save Sheet
-                  </button>
-                  <button
-                    class="rounded-md border border-zinc-300 px-3 py-2 text-sm font-semibold text-zinc-700 hover:border-amber-600"
-                    type="button"
-                    @click="saveAndOpenCreatedTraveller"
-                  >
-                    Open Sheet
-                  </button>
-                </div>
-              </div>
-              <p v-if="creatorSaveMessage" class="mt-3 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-900">
-                {{ creatorSaveMessage }}
-              </p>
-
-              <div class="mt-5 grid gap-4 md:grid-cols-3">
-                <label class="grid gap-2">
-                  <span class="text-sm font-medium text-zinc-700">Career</span>
-                  <select
-                    v-model="selectedMusteringCareerId"
-                    class="h-11 rounded-md border border-zinc-300 bg-white px-3 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200"
-                  >
-                    <option v-for="career in musteringCareerOptions" :key="career.id" :value="career.id">
-                      {{ career.name }} ({{ career.rolls }} career{{ flexibleBenefitRollsAvailable ? ` + ${flexibleBenefitRollsAvailable} flexible` : '' }})
-                    </option>
-                  </select>
-                </label>
-                <label class="grid gap-2">
-                  <span class="text-sm font-medium text-zinc-700">Roll Type</span>
-                  <select
-                    v-model="selectedMusteringRollType"
-                    class="h-11 rounded-md border border-zinc-300 bg-white px-3 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200"
-                  >
-                    <option value="benefit">Benefit</option>
-                    <option :disabled="cashRollsUsed >= cashRollLimit" value="cash">Cash</option>
-                  </select>
-                </label>
-                <div class="grid gap-2">
-                  <span class="text-sm font-medium text-zinc-700">Roll</span>
-                  <div class="flex gap-2">
-                    <button
-                      class="h-11 rounded-md bg-zinc-950 px-4 text-sm font-semibold text-white hover:bg-zinc-800 disabled:cursor-not-allowed disabled:bg-zinc-300"
-                      :disabled="!canRollMusteringOut"
-                      type="button"
-                      @click="triggerRollMusteringOutBenefit"
-                    >
-                      Roll 1D
-                    </button>
-                    <template v-if="gmManualBenefitRollEntryEnabled">
-                      <input v-model.number="manualRollTotals.musteringOut" class="h-11 w-24 rounded-md border border-zinc-300 px-3 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200" max="6" min="1" placeholder="1D" type="number">
-                      <button
-                        class="h-11 rounded-md border border-zinc-300 px-3 text-sm font-semibold text-zinc-700 hover:border-amber-600 disabled:cursor-not-allowed disabled:text-zinc-400"
-                        :disabled="!canRollMusteringOut"
-                        type="button"
-                        @click="triggerManualMusteringOutBenefit"
-                      >
-                        Manual
-                      </button>
-                    </template>
-                  </div>
-                </div>
-              </div>
-
-              <div class="mt-3 flex flex-wrap gap-2 text-xs text-zinc-600">
-                <span class="rounded-md border border-zinc-200 bg-stone-50 px-3 py-2">
-                  {{ selectedMusteringCareerSpecificRollsRemaining }} career-specific rolls
-                </span>
-                <span class="rounded-md border border-zinc-200 bg-stone-50 px-3 py-2">
-                  {{ flexibleBenefitRollsAvailable }} flexible rolls
-                </span>
-                <span
-                  v-if="selectedMusteringRollDmTotal"
-                  class="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-amber-900"
-                >
-                  Current roll DM {{ formatDm(selectedMusteringRollDmTotal) }}
-                </span>
-                <span
-                  v-if="selectedMusteringCareer?.rankBenefitDm"
-                  class="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-amber-900"
-                >
-                  Rank DM {{ formatDm(selectedMusteringCareer.rankBenefitDm) }} for {{ selectedMusteringCareer.name }}
-                </span>
-              </div>
-
-              <div v-if="activeMusteringRollModifiers.length" class="mt-3 rounded-md border border-amber-200 bg-amber-50 p-4">
-                <p class="text-sm font-semibold text-amber-950">Active Mustering Roll Modifiers</p>
-                <div class="mt-3 grid gap-2">
-                  <div
-                    v-for="modifier in activeMusteringRollModifiers"
-                    :key="modifier.id"
-                    class="rounded-md bg-white px-3 py-2 text-sm text-amber-950"
-                  >
-                    {{ modifier.label }} · DM {{ formatDm(modifier.dm) }}
-                    <span class="text-amber-800/80">({{ modifier.scope === 'one' || modifier.scope === 'next' ? 'consumed on use' : 'persistent' }})</span>
-                  </div>
-                </div>
-              </div>
-
-              <div v-if="selectedMusteringCareerBenefits.length" class="mt-5 overflow-hidden rounded-md border border-zinc-200">
-                <table class="w-full text-left text-sm">
-                  <thead class="bg-stone-100 text-xs uppercase tracking-wide text-zinc-500">
-                    <tr>
-                      <th class="px-3 py-2">Roll</th>
-                      <th class="px-3 py-2">Cash</th>
-                      <th class="px-3 py-2">Benefit</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr v-for="row in selectedMusteringCareerBenefits" :key="row.roll" class="border-t border-zinc-200">
-                      <td class="px-3 py-2 font-semibold">{{ row.roll }}</td>
-                      <td class="px-3 py-2">{{ row.cash.toLocaleString() }} Cr</td>
-                      <td class="px-3 py-2">{{ row.benefit }}</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-
-              <div class="mt-5 grid gap-4 lg:grid-cols-3">
-                <div class="rounded-md bg-stone-50 p-4">
-                  <p class="text-xs font-semibold uppercase tracking-wide text-zinc-500">Credits</p>
-                  <p class="mt-2 text-2xl font-semibold">{{ startingCredits.toLocaleString() }} Cr</p>
-                </div>
-                <div class="rounded-md bg-stone-50 p-4">
-                  <p class="text-xs font-semibold uppercase tracking-wide text-zinc-500">Annual Pension</p>
-                  <p class="mt-2 text-2xl font-semibold">{{ annualPensionLabel || 'None' }}</p>
-                </div>
-                <div class="rounded-md bg-stone-50 p-4">
-                  <p class="text-xs font-semibold uppercase tracking-wide text-zinc-500">Ship Shares</p>
-                  <p class="mt-2 text-2xl font-semibold">{{ shipShares }}</p>
-                </div>
-                <div class="rounded-md bg-stone-50 p-4 lg:col-span-3">
-                  <p class="text-sm font-semibold text-zinc-900">Results</p>
-                  <div v-if="musteringOutResults.length" class="mt-3 grid gap-2">
-                    <div v-for="result in musteringOutResults" :key="result.id" class="rounded-md bg-white px-3 py-2 text-sm">
-                      <p class="font-semibold">{{ result.careerName }} · {{ result.rollType }} · {{ result.dice.join(' + ') }} {{ formatDm(result.dm) }} = {{ result.total }}</p>
-                      <p class="text-zinc-600">
-                        {{ result.cash !== undefined ? `${result.cash.toLocaleString()} Cr` : result.benefit }}
-                        · {{ result.spentPool === 'career' ? 'career roll' : 'flexible roll' }}
-                      </p>
-                    </div>
-                  </div>
-                  <p v-else class="mt-3 text-sm text-zinc-600">No mustering-out rolls resolved.</p>
-                </div>
-              </div>
-
-              <div v-if="annualPensionByCareer.length" class="mt-5 rounded-md border border-zinc-200 p-3 sm:p-4">
-                <p class="text-sm font-semibold text-zinc-900">Pensions</p>
-                <div class="mt-3 grid gap-2">
-                  <div v-for="pension in annualPensionByCareer" :key="pension.careerId" class="rounded-md bg-stone-50 px-3 py-2 text-sm text-zinc-700">
-                    {{ pension.careerName }} · {{ pension.terms }} terms · {{ pension.credits.toLocaleString() }} Cr/year
-                  </div>
-                </div>
-              </div>
-
-              <div v-if="personalBenefits.length" class="mt-5 rounded-md border border-zinc-200 p-3 sm:p-4">
-                <p class="text-sm font-semibold text-zinc-900">Personal Benefits</p>
-                <div class="mt-3 flex flex-wrap gap-2">
-                  <span v-for="benefit in personalBenefits" :key="benefit" class="rounded-md bg-stone-100 px-3 py-2 text-sm text-zinc-700">
-                    {{ benefit }}
-                  </span>
-                </div>
-              </div>
-            </div>
+            <p v-if="lifepathComplete && creatorSaveMessage" class="mt-5 rounded-md border border-emerald-300/30 bg-emerald-500/10 px-3 py-2 text-sm font-semibold text-emerald-100">
+              {{ creatorSaveMessage }}
+            </p>
           </div>
 
+          <div class="mt-6">
           <div
             v-if="activeStepPrimaryAction || activeStepSecondaryAction"
-            class="creator-step-action-rail mt-6"
+            class="creator-step-action-rail"
           >
             <div class="creator-step-action-rail__copy">
               <p class="creator-step-action-rail__label">Current Step Action</p>
@@ -2884,6 +2762,29 @@ if (import.meta.client) {
                 {{ activeStepPrimaryAction.label }}
               </button>
             </div>
+          </div>
+          </div>
+
+          <div
+            v-if="musteringOutStarted && !musterOutModalOpen"
+            class="creator-term-stage__overlay absolute inset-0 z-20 grid place-items-center rounded-lg"
+          >
+            <div class="mx-4 w-full max-w-lg rounded-lg border border-cyan-400/25 bg-[linear-gradient(180deg,rgba(8,21,34,0.98),rgba(5,14,25,0.98)),linear-gradient(135deg,rgba(34,211,238,0.08),rgba(245,158,11,0.06))] p-5 text-center text-cyan-50 shadow-[0_0_0_1px_rgba(34,211,238,0.05),0_20px_40px_rgba(2,6,23,0.4)]">
+              <p class="text-xs font-semibold uppercase tracking-[0.18em] text-cyan-200/70">Muster Out In Progress</p>
+              <h2 class="mt-2 text-2xl font-semibold">Return to Muster Out</h2>
+              <p class="mt-2 text-sm leading-6 text-cyan-100/75">
+                You can still move between term steps to review the build, but character creation is now in its final muster-out phase.
+              </p>
+              <button
+                class="mt-4 h-11 rounded-md border border-cyan-300/30 bg-cyan-400/10 px-4 text-sm font-semibold text-cyan-50 hover:border-cyan-300 hover:bg-cyan-400/15"
+                title="Mustering out has started. Return to the muster-out flow to finish benefit rolls and save this traveller."
+                type="button"
+                @click="openMusterOutModal"
+              >
+                Return to Muster Out
+              </button>
+            </div>
+          </div>
           </div>
 
         </div>
@@ -3028,6 +2929,219 @@ if (import.meta.client) {
       </div>
     </Transition>
 
+    <Transition name="creator-roll-fade">
+      <div
+        v-if="musterOutModalOpen && lifepathComplete"
+        class="fixed inset-0 z-[58] flex items-center justify-center bg-zinc-950/70 px-4 py-8 backdrop-blur-sm"
+        role="dialog"
+        aria-modal="true"
+        @click.self="closeMusterOutModal"
+      >
+        <div class="w-full max-w-5xl overflow-hidden rounded-lg border border-cyan-400/25 bg-zinc-950 text-cyan-50 shadow-[0_0_0_1px_rgba(34,211,238,0.06),0_24px_60px_rgba(2,6,23,0.45)]">
+          <div class="flex flex-wrap items-start justify-between gap-4 border-b border-cyan-400/15 bg-[linear-gradient(135deg,rgba(8,47,73,0.44),rgba(2,6,23,0.96))] px-5 py-4">
+            <div>
+              <p class="text-xs font-semibold uppercase tracking-[0.18em] text-cyan-200/70">Mustering Out</p>
+              <h2 class="mt-2 text-2xl font-semibold">Finalize this traveller</h2>
+              <p class="mt-2 text-sm text-cyan-100/75">
+                Resolve remaining benefit rolls, review the ledger, then save and open the character sheet.
+              </p>
+            </div>
+            <button
+              class="creator-roll-modal__close"
+              type="button"
+              aria-label="Close Muster Out"
+              @click="closeMusterOutModal"
+            >
+              <AppIcon name="close" />
+              <span class="creator-roll-modal__close-label">Close</span>
+            </button>
+          </div>
+
+          <div class="max-h-[calc(100vh-8rem)] overflow-y-auto px-5 py-5">
+            <p v-if="creatorSaveMessage" class="rounded-md border border-emerald-300/30 bg-emerald-500/10 px-3 py-2 text-sm font-semibold text-emerald-100">
+              {{ creatorSaveMessage }}
+            </p>
+
+            <div class="mt-5 grid gap-4 md:grid-cols-3">
+              <label class="grid gap-2">
+                <span class="text-sm font-medium text-cyan-100/85">Career</span>
+                <select
+                  v-model="selectedMusteringCareerId"
+                  class="h-11 rounded-md border border-cyan-400/20 bg-zinc-900 px-3 text-cyan-50 outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/30"
+                >
+                  <option v-for="career in musteringCareerOptions" :key="career.id" :value="career.id">
+                    {{ career.name }} ({{ career.rolls }} career{{ flexibleBenefitRollsAvailable ? ` + ${flexibleBenefitRollsAvailable} flexible` : '' }})
+                  </option>
+                </select>
+              </label>
+              <label class="grid gap-2">
+                <span class="text-sm font-medium text-cyan-100/85">Roll Type</span>
+                <select
+                  v-model="selectedMusteringRollType"
+                  class="h-11 rounded-md border border-cyan-400/20 bg-zinc-900 px-3 text-cyan-50 outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/30"
+                >
+                  <option value="benefit">Benefit</option>
+                  <option :disabled="cashRollsUsed >= cashRollLimit" value="cash">Cash</option>
+                </select>
+              </label>
+              <div class="grid gap-2">
+                <span class="text-sm font-medium text-cyan-100/85">Roll</span>
+                <div class="flex flex-wrap gap-2">
+                  <button
+                    class="h-11 rounded-md border border-cyan-300/25 bg-cyan-400/10 px-4 text-sm font-semibold text-cyan-50 hover:border-cyan-300 hover:bg-cyan-400/15 disabled:cursor-not-allowed disabled:border-zinc-700 disabled:bg-zinc-900 disabled:text-zinc-500"
+                    :disabled="!canRollMusteringOut"
+                    type="button"
+                    @click="triggerRollMusteringOutBenefit"
+                  >
+                    Roll 1D
+                  </button>
+                  <template v-if="gmManualBenefitRollEntryEnabled">
+                    <input v-model.number="manualRollTotals.musteringOut" class="h-11 w-24 rounded-md border border-cyan-400/20 bg-zinc-900 px-3 text-cyan-50 outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/30" max="6" min="1" placeholder="1D" type="number">
+                    <button
+                      class="h-11 rounded-md border border-cyan-400/20 px-3 text-sm font-semibold text-cyan-100 hover:border-cyan-300 disabled:cursor-not-allowed disabled:text-zinc-500"
+                      :disabled="!canRollMusteringOut"
+                      type="button"
+                      @click="triggerManualMusteringOutBenefit"
+                    >
+                      Manual
+                    </button>
+                  </template>
+                </div>
+              </div>
+            </div>
+
+            <div class="mt-4 flex flex-wrap gap-2 text-xs">
+              <span class="rounded-md border border-cyan-400/20 bg-zinc-900 px-3 py-2 text-cyan-100/85">
+                {{ selectedMusteringCareerSpecificRollsRemaining }} career-specific rolls
+              </span>
+              <span class="rounded-md border border-cyan-400/20 bg-zinc-900 px-3 py-2 text-cyan-100/85">
+                {{ flexibleBenefitRollsAvailable }} flexible rolls
+              </span>
+              <span
+                v-if="selectedMusteringRollDmTotal"
+                class="rounded-md border border-amber-300/30 bg-amber-500/10 px-3 py-2 font-semibold text-amber-100"
+              >
+                Current roll DM {{ formatDm(selectedMusteringRollDmTotal) }}
+              </span>
+              <span
+                v-if="selectedMusteringCareer?.rankBenefitDm"
+                class="rounded-md border border-amber-300/30 bg-amber-500/10 px-3 py-2 font-semibold text-amber-100"
+              >
+                Rank DM {{ formatDm(selectedMusteringCareer.rankBenefitDm) }} for {{ selectedMusteringCareer.name }}
+              </span>
+            </div>
+
+            <div v-if="activeMusteringRollModifiers.length" class="mt-4 rounded-lg border border-amber-300/25 bg-amber-500/10 p-4">
+              <p class="text-sm font-semibold text-amber-100">Active Mustering Roll Modifiers</p>
+              <div class="mt-3 grid gap-2">
+                <div
+                  v-for="modifier in activeMusteringRollModifiers"
+                  :key="modifier.id"
+                  class="rounded-md border border-amber-300/20 bg-zinc-950/45 px-3 py-2 text-sm text-amber-50"
+                >
+                  {{ modifier.label }} · DM {{ formatDm(modifier.dm) }}
+                  <span class="text-amber-100/70">({{ modifier.scope === 'one' || modifier.scope === 'next' ? 'consumed on use' : 'persistent' }})</span>
+                </div>
+              </div>
+            </div>
+
+            <div v-if="selectedMusteringCareerBenefits.length" class="mt-5 overflow-hidden rounded-lg border border-cyan-400/20">
+              <table class="w-full text-left text-sm">
+                <thead class="bg-zinc-900 text-xs uppercase tracking-[0.18em] text-cyan-200/65">
+                  <tr>
+                    <th class="px-3 py-3">Roll</th>
+                    <th class="px-3 py-3">Cash</th>
+                    <th class="px-3 py-3">Benefit</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="row in selectedMusteringCareerBenefits" :key="row.roll" class="border-t border-cyan-400/10 bg-zinc-950/55">
+                    <td class="px-3 py-2 font-semibold text-cyan-50">{{ row.roll }}</td>
+                    <td class="px-3 py-2 text-cyan-100/80">{{ row.cash.toLocaleString() }} Cr</td>
+                    <td class="px-3 py-2 text-cyan-100/80">{{ row.benefit }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div class="mt-5 grid gap-4 lg:grid-cols-3">
+              <div class="rounded-lg border border-cyan-400/15 bg-zinc-900/75 p-4">
+                <p class="text-xs font-semibold uppercase tracking-[0.18em] text-cyan-200/65">Credits</p>
+                <p class="mt-2 text-2xl font-semibold text-cyan-50">{{ startingCredits.toLocaleString() }} Cr</p>
+              </div>
+              <div class="rounded-lg border border-cyan-400/15 bg-zinc-900/75 p-4">
+                <p class="text-xs font-semibold uppercase tracking-[0.18em] text-cyan-200/65">Annual Pension</p>
+                <p class="mt-2 text-2xl font-semibold text-cyan-50">{{ annualPensionLabel || 'None' }}</p>
+              </div>
+              <div class="rounded-lg border border-cyan-400/15 bg-zinc-900/75 p-4">
+                <p class="text-xs font-semibold uppercase tracking-[0.18em] text-cyan-200/65">Ship Shares</p>
+                <p class="mt-2 text-2xl font-semibold text-cyan-50">{{ shipShares }}</p>
+              </div>
+            </div>
+
+            <div class="mt-5 overflow-hidden rounded-lg border border-cyan-400/20 bg-zinc-950/65">
+              <div class="flex items-center justify-between gap-3 border-b border-cyan-400/10 bg-zinc-900/80 px-4 py-3">
+                <div>
+                  <p class="text-sm font-semibold text-cyan-50">Benefits Ledger</p>
+                  <p class="mt-1 text-xs text-cyan-100/65">Resolved mustering-out results in roll order.</p>
+                </div>
+                <span class="rounded-md border border-cyan-400/20 bg-zinc-950 px-2 py-1 text-xs font-semibold text-cyan-100/80">
+                  {{ musteringOutResults.length }} entries
+                </span>
+              </div>
+              <div v-if="musteringOutResults.length" class="divide-y divide-cyan-400/10">
+                <div
+                  v-for="result in musteringOutResults"
+                  :key="result.id"
+                  class="grid gap-2 px-4 py-3 text-sm lg:grid-cols-[minmax(0,1.4fr)_9rem_8rem_8rem_minmax(0,1fr)] lg:items-center"
+                >
+                  <div class="min-w-0">
+                    <p class="font-semibold text-cyan-50">{{ result.careerName }}</p>
+                    <p class="mt-1 text-xs uppercase tracking-[0.14em] text-cyan-200/60">{{ result.spentPool === 'career' ? 'Career Roll' : 'Flexible Roll' }}</p>
+                  </div>
+                  <div class="font-mono text-cyan-100/80">
+                    {{ result.dice.join(' + ') }} {{ formatDm(result.dm) }}
+                  </div>
+                  <div class="font-semibold text-amber-100">
+                    {{ result.total }}
+                  </div>
+                  <div class="uppercase tracking-[0.14em] text-cyan-200/60">
+                    {{ result.rollType }}
+                  </div>
+                  <div class="text-cyan-100/85 lg:text-right">
+                    {{ result.cash !== undefined ? `${result.cash.toLocaleString()} Cr` : result.benefit }}
+                  </div>
+                </div>
+              </div>
+              <p v-else class="px-4 py-4 text-sm text-cyan-100/65">No mustering-out rolls resolved.</p>
+            </div>
+
+            <div v-if="annualPensionByCareer.length" class="mt-5 rounded-lg border border-cyan-400/15 bg-zinc-900/75 p-4">
+              <p class="text-sm font-semibold text-cyan-50">Pensions</p>
+              <div class="mt-3 grid gap-2">
+                <div v-for="pension in annualPensionByCareer" :key="pension.careerId" class="rounded-md border border-cyan-400/10 bg-zinc-950/55 px-3 py-2 text-sm text-cyan-100/85">
+                  {{ pension.careerName }} · {{ pension.terms }} terms · {{ pension.credits.toLocaleString() }} Cr/year
+                </div>
+              </div>
+            </div>
+
+            <div class="mt-6 border-t border-cyan-400/15 pt-5">
+              <p class="text-sm text-cyan-100/70">
+                Mustering out is complete when you are satisfied with the ledger above. This saves the traveller and opens the character sheet.
+              </p>
+              <button
+                class="muster-out-save-cta mt-4 flex w-full items-center justify-center rounded-lg border border-cyan-300/65 bg-[linear-gradient(180deg,rgba(124,48,10,0.98),rgba(90,31,8,0.98))] px-6 py-5 text-lg font-semibold text-amber-50 shadow-[0_0_0_1px_rgba(255,255,255,0.08),0_10px_22px_rgba(120,53,15,0.18)] transition-[transform,box-shadow,filter] duration-150 hover:-translate-y-0.5 lg:mx-auto lg:w-1/2"
+                type="button"
+                @click="saveAndOpenCreatedTraveller"
+              >
+                Save Traveller and Open Character Sheet
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </Transition>
+
     <div
       v-if="restartConfirmOpen"
       class="fixed inset-0 z-50 grid place-items-center bg-zinc-950/60 px-4 py-8"
@@ -3078,20 +3192,20 @@ if (import.meta.client) {
         role="dialog"
         aria-modal="true"
       >
-        <div class="w-full max-w-lg rounded-lg border border-amber-300 bg-zinc-950 p-5 text-cyan-50 shadow-2xl">
+        <div class="w-full max-w-lg lg:min-w-[24rem] lg:w-fit lg:max-w-[calc(100vw-4rem)] rounded-lg border border-amber-300 bg-amber-50 p-5 text-amber-950 shadow-2xl">
           <div>
-            <p class="hud-kicker text-xs font-semibold uppercase tracking-wide">Skill Choice</p>
+            <p class="text-sm font-semibold text-amber-950">Pending Skill Choice</p>
             <h2 class="mt-2 text-2xl font-semibold">{{ pendingSkillChoice.label }}</h2>
-            <p class="mt-2 text-sm leading-6 text-cyan-100/80">
+            <p class="mt-2 text-sm leading-6 text-amber-900">
               {{ pendingSkillChoice.source }}
             </p>
           </div>
 
-          <div class="mt-5 flex flex-wrap gap-2">
+          <div class="mt-5 grid gap-2 lg:[grid-template-columns:repeat(4,max-content)] lg:justify-start">
             <button
               v-for="choice in pendingSkillChoice.options"
               :key="choice"
-              class="h-10 rounded-md border border-amber-300 bg-amber-400 px-4 text-sm font-semibold text-zinc-950 hover:bg-amber-300"
+              class="h-10 rounded-md border border-amber-300 bg-white px-4 text-sm font-semibold text-amber-900 hover:border-amber-600"
               type="button"
               @click="resolvePendingSkillChoice(choice)"
             >
@@ -3949,6 +4063,16 @@ if (import.meta.client) {
   clip-path: polygon(0 0, calc(100% - 0.9rem) 0, 100% 0.9rem, 100% 100%, 0.9rem 100%, 0 calc(100% - 0.9rem));
 }
 
+.creator-term-stage {
+  min-height: 34rem;
+}
+
+.creator-term-stage__overlay {
+  background:
+    linear-gradient(180deg, rgb(6 16 29 / 0.84), rgb(4 12 23 / 0.9)),
+    linear-gradient(135deg, rgb(34 211 238 / 0.06), rgb(245 158 11 / 0.05));
+}
+
 .creator-step-action-rail__copy {
   min-width: 0;
 }
@@ -4001,6 +4125,10 @@ if (import.meta.client) {
 }
 
 @media (max-width: 639px) {
+  .creator-term-stage {
+    min-height: 30rem;
+  }
+
   .creator-step-action-rail {
     padding: 0.7rem 0.75rem;
   }
@@ -4171,6 +4299,39 @@ if (import.meta.client) {
   clip-path: polygon(0 0, calc(100% - 0.55rem) 0, 100% 0.55rem, 100% 100%, 0.55rem 100%, 0 calc(100% - 0.55rem));
 }
 
+.muster-out-save-cta {
+  position: relative;
+  overflow: hidden;
+  text-shadow:
+    0 0 6px rgb(255 251 235 / 0.18),
+    0 0 12px rgb(252 211 77 / 0.18);
+}
+
+.muster-out-save-cta::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgb(255 251 235 / 0.06) 26%,
+    rgb(255 251 235 / 0.24) 50%,
+    rgb(255 251 235 / 0.06) 74%,
+    transparent 100%
+  );
+  transform: translateX(-120%);
+  opacity: 0;
+}
+
+.muster-out-save-cta:hover {
+  animation: muster-out-cta-glow 1.1s ease-in-out infinite;
+}
+
+.muster-out-save-cta:hover::after {
+  animation: muster-out-cta-sweep 1.4s ease-out infinite;
+}
+
 @keyframes creator-roll-pulse {
   0%,
   100% {
@@ -4197,6 +4358,42 @@ if (import.meta.client) {
     filter:
       drop-shadow(0 0 8px rgb(252 211 77 / 0.32))
       drop-shadow(0 0 18px rgb(245 158 11 / 0.26));
+  }
+}
+
+@keyframes muster-out-cta-glow {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 1px rgb(255 255 255 / 0.08),
+      0 0 22px rgb(251 191 36 / 0.22),
+      0 10px 22px rgb(120 53 15 / 0.18);
+    filter: brightness(1);
+  }
+  50% {
+    box-shadow:
+      0 0 0 1px rgb(255 255 255 / 0.14),
+      0 0 34px rgb(251 191 36 / 0.34),
+      0 0 52px rgb(249 115 22 / 0.2),
+      0 14px 28px rgb(120 53 15 / 0.24);
+    filter: brightness(1.08);
+  }
+}
+
+@keyframes muster-out-cta-sweep {
+  0% {
+    transform: translateX(-120%);
+    opacity: 0;
+  }
+  18% {
+    opacity: 1;
+  }
+  55% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(120%);
+    opacity: 0;
   }
 }
 </style>
