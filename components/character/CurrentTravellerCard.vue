@@ -189,6 +189,9 @@ const currentTravellerAgeLabel = computed(() => {
             class="current-traveller-carousel__item is-current"
             type="button"
           >
+            <span class="current-traveller-carousel__marker current-traveller-carousel__marker--left" aria-hidden="true">
+              <AppIcon name="arrow" />
+            </span>
             <Transition
               :name="currentTravellerCarouselTransition === 'forward'
                 ? 'current-traveller-carousel-surface-forward'
@@ -201,6 +204,9 @@ const currentTravellerAgeLabel = computed(() => {
                 <span class="current-traveller-carousel__label">{{ currentTravellerActiveTab.label }}</span>
               </span>
             </Transition>
+            <span class="current-traveller-carousel__marker current-traveller-carousel__marker--right" aria-hidden="true">
+              <AppIcon name="arrow" />
+            </span>
           </button>
           <button
             v-if="currentTravellerNextTab"
@@ -607,6 +613,42 @@ const currentTravellerAgeLabel = computed(() => {
     0 0 18px rgb(34 211 238 / 0.12);
   transform: scale(1.18);
   z-index: 2;
+  overflow: visible;
+}
+
+.current-traveller-carousel__marker {
+  position: absolute;
+  top: 50%;
+  color: rgb(165 243 252 / 0.96);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.035rem;
+  height: 1.035rem;
+  pointer-events: none;
+  z-index: 4;
+  filter:
+    drop-shadow(0 0 4px rgb(103 232 249 / 0.52))
+    drop-shadow(0 0 10px rgb(34 211 238 / 0.42));
+}
+
+.current-traveller-carousel__marker--left {
+  left: -0.92rem;
+  transform: translate(0, -50%);
+}
+
+.current-traveller-carousel__marker--left :deep(svg) {
+  transform: rotate(180deg);
+}
+
+.current-traveller-carousel__marker--right {
+  right: -0.92rem;
+  transform: translate(0, -50%);
+}
+
+.current-traveller-carousel__marker :deep(svg) {
+  width: 100%;
+  height: 100%;
 }
 
 .current-traveller-carousel__item.is-current .current-traveller-carousel__surface::before {

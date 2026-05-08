@@ -1198,7 +1198,7 @@ if (import.meta.client) {
               :mode="creationStepPanelMode"
             />
 
-            <div v-else-if="activeCreatorTab !== currentTermTabId" class="rounded-lg border border-zinc-300 bg-white p-5 shadow-sm">
+            <div v-else-if="activeCreatorTab !== currentTermTabId" class="rounded-lg border border-zinc-300 bg-white p-3 sm:p-5 shadow-sm">
               <div v-if="activeTermHistoryEntry">
                 <div class="flex flex-wrap items-start justify-between gap-4">
                   <div>
@@ -1244,7 +1244,7 @@ if (import.meta.client) {
               </div>
             </div>
 
-        <div v-else class="rounded-lg border border-zinc-300 bg-white p-5 shadow-sm">
+        <div v-else class="rounded-lg border border-zinc-300 bg-white p-3 sm:p-5 shadow-sm">
           <div class="flex flex-wrap items-start justify-between gap-4">
             <div>
               <h2 class="text-xl font-semibold">Term Direction</h2>
@@ -1339,6 +1339,9 @@ if (import.meta.client) {
                   class="creator-step-carousel__item is-current"
                   type="button"
                 >
+                  <span class="creator-step-carousel__marker creator-step-carousel__marker--left" aria-hidden="true">
+                    <AppIcon name="arrow" />
+                  </span>
                   <Transition
                     :name="mobileStepCarouselTransition === 'forward'
                       ? 'creator-step-carousel-surface-forward'
@@ -1351,6 +1354,9 @@ if (import.meta.client) {
                       <span class="creator-step-carousel__label">{{ mobileStepCurrent.label }}</span>
                     </span>
                   </Transition>
+                  <span class="creator-step-carousel__marker creator-step-carousel__marker--right" aria-hidden="true">
+                    <AppIcon name="arrow" />
+                  </span>
                 </button>
                 <button
                   v-if="mobileStepNext"
@@ -1491,7 +1497,7 @@ if (import.meta.client) {
                 </div>
               </div>
 
-              <div v-show="activeTermStep === 'qualification'" class="rounded-md border border-zinc-200 p-4">
+              <div v-show="activeTermStep === 'qualification'" class="rounded-md border border-zinc-200 p-3 sm:p-4">
                 <div class="flex flex-wrap items-center gap-3">
                   <div>
                     <p class="text-sm font-semibold">Qualification Roll</p>
@@ -1568,7 +1574,7 @@ if (import.meta.client) {
                 </div>
               </div>
 
-              <div v-if="selectedCareerId === 'prisoner' && termRolls.careerQualification?.finalSuccess" v-show="activeTermStep === 'qualification'" class="rounded-md border border-zinc-200 p-4">
+              <div v-if="selectedCareerId === 'prisoner' && termRolls.careerQualification?.finalSuccess" v-show="activeTermStep === 'qualification'" class="rounded-md border border-zinc-200 p-3 sm:p-4">
                 <div class="flex flex-wrap items-center gap-3">
                   <div>
                     <p class="text-sm font-semibold">Parole Threshold</p>
@@ -1600,7 +1606,7 @@ if (import.meta.client) {
                 </div>
               </div>
 
-              <div v-if="basicTrainingAvailable" v-show="activeTermStep === 'training'" class="rounded-md border border-zinc-200 p-4">
+              <div v-if="basicTrainingAvailable" v-show="activeTermStep === 'training'" class="rounded-md border border-zinc-200 p-3 sm:p-4">
                 <div class="flex flex-wrap items-start gap-3">
                   <div>
                     <p class="text-sm font-semibold">Basic Training</p>
@@ -1662,7 +1668,7 @@ if (import.meta.client) {
                 </p>
               </div>
 
-              <div v-if="termRolls.careerQualification?.finalSuccess && (!basicTrainingRequired || basicTrainingApplied)" v-show="activeTermStep === 'training'" class="rounded-md border border-zinc-200 p-4">
+              <div v-if="termRolls.careerQualification?.finalSuccess && (!basicTrainingRequired || basicTrainingApplied)" v-show="activeTermStep === 'training'" class="rounded-md border border-zinc-200 p-3 sm:p-4">
                 <div class="flex flex-wrap items-start gap-3">
                   <div>
                     <p class="text-sm font-semibold">Skill Training</p>
@@ -1734,7 +1740,7 @@ if (import.meta.client) {
                 </div>
               </div>
 
-              <div v-if="termRolls.careerSkill && !pendingSkillChoice" v-show="activeTermStep === 'survival'" class="rounded-md border border-zinc-200 p-4">
+              <div v-if="termRolls.careerSkill && !pendingSkillChoice" v-show="activeTermStep === 'survival'" class="rounded-md border border-zinc-200 p-3 sm:p-4">
                 <div class="flex flex-wrap items-center gap-3">
                   <div>
                     <p class="text-sm font-semibold">Survival Roll</p>
@@ -1757,7 +1763,7 @@ if (import.meta.client) {
                 </div>
               </div>
 
-              <div v-if="termRolls.careerSurvival && !termRolls.careerSurvival.finalSuccess" v-show="activeTermStep === 'event'" class="rounded-md border border-zinc-200 p-4">
+              <div v-if="termRolls.careerSurvival && !termRolls.careerSurvival.finalSuccess" v-show="activeTermStep === 'event'" class="rounded-md border border-zinc-200 p-3 sm:p-4">
                 <div class="flex flex-wrap items-center gap-3">
                   <div>
                     <p class="text-sm font-semibold">Career Mishap</p>
@@ -1783,23 +1789,17 @@ if (import.meta.client) {
                     Manual
                   </button>
                 </div>
-                <div v-if="termRolls.careerMishap && careerMishap" class="mt-3 rounded-md bg-stone-50 p-3 text-sm">
-                  <div class="flex flex-wrap items-center justify-between gap-3">
-                    <p class="font-semibold">{{ rollSummary(termRolls.careerMishap) }} · {{ careerMishap.name }}</p>
-                    <button
-                      class="text-xs font-semibold text-amber-700 hover:text-amber-900"
-                      type="button"
-                      @click="openEventTextModal(careerMishap.name, careerMishap.text, (careerMishap.effects ?? []).map((effect) => tableEffectLabel(effect)))"
-                    >
-                      View Details
-                    </button>
-                  </div>
-                  <p class="mt-2 line-clamp-2 text-zinc-600">{{ careerMishap.text }}</p>
-                  <EventResolutionList source-prefix="Career Mishap" />
-                </div>
+                <CreatorResolvedEventCard
+                  v-if="termRolls.careerMishap && careerMishap"
+                  :summary="rollSummary(termRolls.careerMishap)"
+                  :event-name="careerMishap.name"
+                  :text="careerMishap.text"
+                  source-prefix="Career Mishap"
+                  @details="openEventTextModal(careerMishap.name, careerMishap.text, (careerMishap.effects ?? []).map((effect) => tableEffectLabel(effect)))"
+                />
               </div>
 
-              <div v-if="termRolls.careerSurvival?.finalSuccess" v-show="activeTermStep === 'event'" class="rounded-md border border-zinc-200 p-4">
+              <div v-if="termRolls.careerSurvival?.finalSuccess" v-show="activeTermStep === 'event'" class="rounded-md border border-zinc-200 p-3 sm:p-4">
                 <div class="flex flex-wrap items-center gap-3">
                   <div>
                     <p class="text-sm font-semibold">Career Event</p>
@@ -1825,26 +1825,20 @@ if (import.meta.client) {
                     Manual
                   </button>
                 </div>
-                <div v-if="termRolls.careerEvent && careerEvent" class="mt-3 rounded-md bg-stone-50 p-3 text-sm">
-                  <div class="flex flex-wrap items-center justify-between gap-3">
-                    <p class="font-semibold">{{ rollSummary(termRolls.careerEvent) }} · {{ careerEvent.name }}</p>
-                    <button
-                      class="text-xs font-semibold text-amber-700 hover:text-amber-900"
-                      type="button"
-                      @click="openEventTextModal(careerEvent.name, careerEvent.text, (careerEvent.effects ?? []).map((effect) => tableEffectLabel(effect)))"
-                    >
-                      View Details
-                    </button>
-                  </div>
-                  <p v-if="careerEvent.text" class="mt-2 line-clamp-2 text-zinc-600">{{ careerEvent.text }}</p>
-                  <EventResolutionList source-prefix="Career Event" />
-                </div>
+                <CreatorResolvedEventCard
+                  v-if="termRolls.careerEvent && careerEvent"
+                  :summary="rollSummary(termRolls.careerEvent)"
+                  :event-name="careerEvent.name"
+                  :text="careerEvent.text"
+                  source-prefix="Career Event"
+                  @details="openEventTextModal(careerEvent.name, careerEvent.text, (careerEvent.effects ?? []).map((effect) => tableEffectLabel(effect)))"
+                />
               </div>
 
               <div
                 v-if="termRolls.careerSurvival?.finalSuccess && termRolls.careerEvent && !pendingEventResolutions.some((resolution) => !resolution.resolved) && selectedCareerCommissionCheck && (careerCommissionAvailable || termRolls.careerCommission || automaticCommissionConstraint)"
                 v-show="activeTermStep === 'advancement'"
-                class="rounded-md border border-zinc-200 p-4"
+                class="rounded-md border border-zinc-200 p-3 sm:p-4"
               >
                 <div class="flex flex-wrap items-center gap-3">
                   <div>
@@ -1878,7 +1872,7 @@ if (import.meta.client) {
                   || (selectedCareerId === 'prisoner' && termRolls.careerSurvival && (!termRolls.careerSurvival.finalSuccess ? termRolls.careerMishap : termRolls.careerEvent))
                 ) && !pendingEventResolutions.some((resolution) => !resolution.resolved) && !termRolls.careerCommission?.finalSuccess && !automaticCommissionConstraint"
                 v-show="activeTermStep === 'advancement'"
-                class="rounded-md border border-zinc-200 p-4"
+                class="rounded-md border border-zinc-200 p-3 sm:p-4"
               >
                 <div class="flex flex-wrap items-center gap-3">
                   <div>
@@ -1910,7 +1904,7 @@ if (import.meta.client) {
                 </div>
               </div>
 
-              <div v-if="termRolls.careerAdvancement?.finalSuccess" v-show="activeTermStep === 'advancement'" class="rounded-md border border-zinc-200 p-4">
+              <div v-if="termRolls.careerAdvancement?.finalSuccess" v-show="activeTermStep === 'advancement'" class="rounded-md border border-zinc-200 p-3 sm:p-4">
                 <div class="flex flex-wrap items-start gap-3">
                   <div>
                     <p class="text-sm font-semibold">Advancement Skill Roll</p>
@@ -2066,7 +2060,7 @@ if (import.meta.client) {
                   'xl:grid-cols-2 xl:items-stretch',
                 ]"
               >
-                <div v-show="activeTermStep === 'education-entry'" class="flex h-full flex-col rounded-md border border-zinc-200 p-4">
+                <div v-show="activeTermStep === 'education-entry'" class="flex h-full flex-col rounded-md border border-zinc-200 p-3 sm:p-4">
                   <div class="flex flex-wrap items-center gap-3">
                     <div>
                       <p class="text-sm font-semibold">Entry Roll</p>
@@ -2123,7 +2117,7 @@ if (import.meta.client) {
                 v-show="activeTermStep === 'education-skills'"
                 class="grid gap-3 xl:col-start-1 xl:row-start-2"
               >
-                <div class="rounded-md border border-zinc-200 p-4">
+                <div class="rounded-md border border-zinc-200 p-3 sm:p-4">
                   <p class="text-sm font-semibold text-zinc-900">Skills</p>
                   <p v-if="selectedEducation.id === 'university'" class="mt-2 text-sm leading-6 text-zinc-600">
                     Choose one listed skill at level 0 and one listed skill at level 1.
@@ -2260,7 +2254,7 @@ if (import.meta.client) {
                   activeTermStep === 'education-entry' ? 'xl:col-start-1 xl:row-start-1' : '',
                 ]"
               >
-                <div v-if="termRolls.educationEntry?.finalSuccess && educationSkillsApplied" v-show="activeTermStep === 'education-event'" class="rounded-md border border-zinc-200 p-4">
+                <div v-if="termRolls.educationEntry?.finalSuccess && educationSkillsApplied" v-show="activeTermStep === 'education-event'" class="rounded-md border border-zinc-200 p-3 sm:p-4">
                   <div class="flex flex-wrap items-center gap-3">
                     <div>
                       <p class="text-sm font-semibold">Pre-Career Event</p>
@@ -2286,23 +2280,17 @@ if (import.meta.client) {
                       Manual
                     </button>
                   </div>
-                  <div v-if="termRolls.educationEvent && preCareerEvent" class="mt-3 rounded-md bg-stone-50 p-3 text-sm">
-                    <div class="flex flex-wrap items-center justify-between gap-3">
-                      <p class="font-semibold">{{ rollSummary(termRolls.educationEvent) }} · {{ preCareerEvent.name }}</p>
-                      <button
-                        class="creator-event-details-link"
-                        type="button"
-                        @click="openEventTextModal(preCareerEvent.name, preCareerEvent.text, (preCareerEvent.effects ?? []).map((effect) => preCareerEventEffectLabel(effect)))"
-                      >
-                        View Details
-                      </button>
-                    </div>
-                    <p v-if="preCareerEvent.text" class="mt-2 line-clamp-2 text-zinc-600">{{ preCareerEvent.text }}</p>
-                    <EventResolutionList source-prefix="Pre-Career Event" />
-                  </div>
+                  <CreatorResolvedEventCard
+                    v-if="termRolls.educationEvent && preCareerEvent"
+                    :summary="rollSummary(termRolls.educationEvent)"
+                    :event-name="preCareerEvent.name"
+                    :text="preCareerEvent.text"
+                    source-prefix="Pre-Career Event"
+                    @details="openEventTextModal(preCareerEvent.name, preCareerEvent.text, (preCareerEvent.effects ?? []).map((effect) => preCareerEventEffectLabel(effect)))"
+                  />
                 </div>
 
-                <div v-if="termRolls.educationEntry?.finalSuccess && termRolls.educationEvent" v-show="activeTermStep === 'education-graduation'" class="rounded-md border border-zinc-200 p-4">
+                <div v-if="termRolls.educationEntry?.finalSuccess && termRolls.educationEvent" v-show="activeTermStep === 'education-graduation'" class="rounded-md border border-zinc-200 p-3 sm:p-4">
                   <div class="flex flex-wrap items-center gap-3">
                     <div>
                       <p class="text-sm font-semibold">Graduation Roll</p>
@@ -2518,7 +2506,7 @@ if (import.meta.client) {
                 </div>
               </div>
 
-              <div v-if="annualPensionByCareer.length" class="mt-5 rounded-md border border-zinc-200 p-4">
+              <div v-if="annualPensionByCareer.length" class="mt-5 rounded-md border border-zinc-200 p-3 sm:p-4">
                 <p class="text-sm font-semibold text-zinc-900">Pensions</p>
                 <div class="mt-3 grid gap-2">
                   <div v-for="pension in annualPensionByCareer" :key="pension.careerId" class="rounded-md bg-stone-50 px-3 py-2 text-sm text-zinc-700">
@@ -2527,7 +2515,7 @@ if (import.meta.client) {
                 </div>
               </div>
 
-              <div v-if="personalBenefits.length" class="mt-5 rounded-md border border-zinc-200 p-4">
+              <div v-if="personalBenefits.length" class="mt-5 rounded-md border border-zinc-200 p-3 sm:p-4">
                 <p class="text-sm font-semibold text-zinc-900">Personal Benefits</p>
                 <div class="mt-3 flex flex-wrap gap-2">
                   <span v-for="benefit in personalBenefits" :key="benefit" class="rounded-md bg-stone-100 px-3 py-2 text-sm text-zinc-700">
@@ -2991,6 +2979,7 @@ if (import.meta.client) {
 @media (max-width: 639px) {
   .creator-shell-layout {
     min-height: auto;
+    gap: 1rem;
   }
 
   .creator-shell-footer {
@@ -3250,6 +3239,42 @@ if (import.meta.client) {
     0 0 18px rgb(34 211 238 / 0.12);
   transform: scale(1.18);
   z-index: 2;
+  overflow: visible;
+}
+
+.creator-step-carousel__marker {
+  position: absolute;
+  top: 50%;
+  color: rgb(165 243 252 / 0.96);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.035rem;
+  height: 1.035rem;
+  pointer-events: none;
+  z-index: 4;
+  filter:
+    drop-shadow(0 0 4px rgb(103 232 249 / 0.52))
+    drop-shadow(0 0 10px rgb(34 211 238 / 0.42));
+}
+
+.creator-step-carousel__marker--left {
+  left: -0.92rem;
+  transform: translate(0, -50%);
+}
+
+.creator-step-carousel__marker--left :deep(svg) {
+  transform: rotate(180deg);
+}
+
+.creator-step-carousel__marker--right {
+  right: -0.92rem;
+  transform: translate(0, -50%);
+}
+
+.creator-step-carousel__marker :deep(svg) {
+  width: 100%;
+  height: 100%;
 }
 
 .creator-step-carousel__item.is-current .creator-step-carousel__surface::before {
@@ -3555,7 +3580,7 @@ if (import.meta.client) {
 
 @media (max-width: 639px) {
   .creator-step-action-rail {
-    padding: 0.8rem 0.85rem;
+    padding: 0.7rem 0.75rem;
   }
 
   .creator-step-action-rail__copy,
@@ -3708,25 +3733,6 @@ if (import.meta.client) {
   margin: 0;
   color: rgb(232 249 252 / 0.88);
   line-height: 1.7;
-}
-
-.creator-event-details-link {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0.2rem 0.4rem;
-  border: 0;
-  background: transparent;
-  color: rgb(251 191 36 / 0.92);
-  font-size: 0.75rem;
-  font-weight: 700;
-  line-height: 1.2;
-  white-space: nowrap;
-  clip-path: none;
-}
-
-.creator-event-details-link:hover {
-  color: rgb(253 224 71);
 }
 
 .creator-roll-modal__effects {
