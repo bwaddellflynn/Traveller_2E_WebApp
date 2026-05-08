@@ -112,6 +112,7 @@ const {
   termTabs,
   educationOptions,
   selectedEducation,
+  selectedEducationTableOption,
   educationSkillOptions,
   educationGraduationHonours,
   educationGraduationFailureNotes,
@@ -1582,7 +1583,7 @@ if (import.meta.client) {
             </div>
           </div>
 
-          <div v-if="pendingSkillChoice" class="mt-5 rounded-md border border-amber-300 bg-amber-50 p-4">
+          <div v-if="pendingSkillChoice?.mode === 'background'" class="mt-5 rounded-md border border-amber-300 bg-amber-50 p-4">
             <p class="text-sm font-semibold text-amber-950">Pending Skill Choice</p>
             <p class="mt-1 text-sm text-amber-900">{{ pendingSkillChoice.source }}: {{ pendingSkillChoice.label }}</p>
             <div class="mt-3 flex flex-wrap gap-2">
@@ -2006,19 +2007,7 @@ if (import.meta.client) {
 
                 <div v-if="termRolls.careerSkill" class="mt-3 rounded-md bg-stone-50 p-3 text-sm">
                   <p class="font-semibold">{{ rollSummary(termRolls.careerSkill) }} · {{ termRolls.careerSkill.notes }}</p>
-                  <p v-if="pendingSkillChoice" class="mt-1 text-zinc-600">{{ pendingSkillChoice.source }}: {{ pendingSkillChoice.label }}</p>
-                  <div v-if="pendingSkillChoice" class="mt-3 flex flex-wrap gap-2">
-                    <button
-                      v-for="choice in pendingSkillChoice.options"
-                      :key="choice"
-                      class="h-9 rounded-md border border-amber-300 bg-white px-3 text-sm font-semibold text-amber-900 hover:border-amber-600"
-                      type="button"
-                      @click="resolvePendingSkillChoice(choice)"
-                    >
-                      {{ skillOptionLabel(choice) }}
-                    </button>
-                  </div>
-                  <p v-else-if="careerSkillResult" class="mt-1 text-zinc-600">Applied to Current Traveller.</p>
+                  <p v-if="careerSkillResult" class="mt-1 text-zinc-600">Applied to Current Traveller.</p>
                 </div>
               </div>
 
@@ -2273,19 +2262,7 @@ if (import.meta.client) {
 
                 <div v-if="termRolls.careerAdvancementSkill" class="mt-3 rounded-md bg-stone-50 p-3 text-sm">
                   <p class="font-semibold">{{ rollSummary(termRolls.careerAdvancementSkill) }} · {{ termRolls.careerAdvancementSkill.notes }}</p>
-                  <p v-if="pendingSkillChoice" class="mt-1 text-zinc-600">{{ pendingSkillChoice.source }}: {{ pendingSkillChoice.label }}</p>
-                  <div v-if="pendingSkillChoice" class="mt-3 flex flex-wrap gap-2">
-                    <button
-                      v-for="choice in pendingSkillChoice.options"
-                      :key="choice"
-                      class="h-9 rounded-md border border-amber-300 bg-white px-3 text-sm font-semibold text-amber-900 hover:border-amber-600"
-                      type="button"
-                      @click="resolvePendingSkillChoice(choice)"
-                    >
-                      {{ skillOptionLabel(choice) }}
-                    </button>
-                  </div>
-                  <p v-else class="mt-1 text-zinc-600">Applied to Current Traveller.</p>
+                  <p class="mt-1 text-zinc-600">Applied to Current Traveller.</p>
                 </div>
               </div>
             </div>
@@ -2558,11 +2535,33 @@ if (import.meta.client) {
                     <p class="text-sm font-semibold text-zinc-900">Graduation Benefits</p>
                     <div class="mt-3 grid gap-2 md:grid-cols-2">
                       <div
-                        v-for="benefit in selectedEducation.graduationBenefits"
+                        v-for="benefit in (selectedEducationTableOption?.graduationBenefits ?? selectedEducation.graduationBenefits)"
                         :key="benefit.type"
                         class="rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-700"
                       >
                         {{ educationBenefitLabel(benefit) }}
+                      </div>
+                    </div>
+                    <div v-if="pendingEducationSkillChoices.length" class="mt-3 grid gap-2 rounded-md bg-amber-50 p-3 text-sm text-center">
+                      <div
+                        v-for="(choiceGroup, index) in pendingEducationSkillChoices"
+                        :key="`graduation-${choiceGroup.label}-${index}`"
+                        class="flex flex-wrap items-center justify-center gap-3"
+                      >
+                        <p class="font-medium text-amber-950">
+                          {{ choiceGroup.selected ? `${choiceGroup.label}: ${choiceGroup.selected}` : `Choose for ${choiceGroup.label}` }}
+                        </p>
+                        <div v-if="!choiceGroup.selected" class="flex flex-wrap gap-2">
+                          <button
+                            v-for="choice in choiceGroup.options"
+                            :key="choice"
+                            class="h-9 rounded-md border border-amber-300 bg-white px-3 text-sm font-semibold text-amber-900 hover:border-amber-600"
+                            type="button"
+                            @click="resolveEducationSkillChoice(index, choice)"
+                          >
+                            {{ choice }}
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -3071,6 +3070,37 @@ if (import.meta.client) {
         </div>
       </div>
     </div>
+
+    <Transition name="advancement-fade">
+      <div
+        v-if="pendingSkillChoice && pendingSkillChoice.mode !== 'background' && !creatorRollModalOpen"
+        class="fixed inset-0 z-[56] grid place-items-center bg-zinc-950/45 px-4 py-8"
+        role="dialog"
+        aria-modal="true"
+      >
+        <div class="w-full max-w-lg rounded-lg border border-amber-300 bg-zinc-950 p-5 text-cyan-50 shadow-2xl">
+          <div>
+            <p class="hud-kicker text-xs font-semibold uppercase tracking-wide">Skill Choice</p>
+            <h2 class="mt-2 text-2xl font-semibold">{{ pendingSkillChoice.label }}</h2>
+            <p class="mt-2 text-sm leading-6 text-cyan-100/80">
+              {{ pendingSkillChoice.source }}
+            </p>
+          </div>
+
+          <div class="mt-5 flex flex-wrap gap-2">
+            <button
+              v-for="choice in pendingSkillChoice.options"
+              :key="choice"
+              class="h-10 rounded-md border border-amber-300 bg-amber-400 px-4 text-sm font-semibold text-zinc-950 hover:bg-amber-300"
+              type="button"
+              @click="resolvePendingSkillChoice(choice)"
+            >
+              {{ skillOptionLabel(choice) }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </Transition>
 
     <Transition name="advancement-fade">
       <div

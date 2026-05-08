@@ -395,7 +395,6 @@ const currentTravellerSkillGroups = computed(() => {
               class="current-traveller-skills__speciality"
             >
               <span class="current-traveller-skills__speciality-name">
-                <span class="current-traveller-skills__speciality-bullet" aria-hidden="true"></span>
                 {{ speciality.name }}
               </span>
               <span class="current-traveller-skills__speciality-rank">{{ speciality.level }}</span>
@@ -767,19 +766,41 @@ const currentTravellerSkillGroups = computed(() => {
 
 .current-traveller-skills {
   display: grid;
-  gap: 0.6rem;
+  gap: 0.7rem;
   max-height: 18.5rem;
   overflow-y: auto;
-  padding-right: 0.2rem;
+  padding-right: 0.25rem;
 }
 
 .current-traveller-skills__group {
+  position: relative;
   display: grid;
-  gap: 0.45rem;
-  border: 1px solid rgb(255 255 255 / 0.12);
-  background: linear-gradient(180deg, rgb(255 255 255 / 0.08), rgb(255 255 255 / 0.04));
-  padding: 0.7rem 0.8rem;
-  clip-path: polygon(0 0, calc(100% - 0.5rem) 0, 100% 0.5rem, 100% 100%, 0.5rem 100%, 0 calc(100% - 0.5rem));
+  gap: 0.5rem;
+  border: 1px solid rgb(251 191 36 / 0.22);
+  background:
+    linear-gradient(180deg, rgb(94 36 8 / 0.26), rgb(70 23 8 / 0.34)),
+    linear-gradient(180deg, rgb(15 23 42 / 0.92), rgb(2 6 23 / 0.96));
+  box-shadow:
+    inset 0 0 0 1px rgb(255 255 255 / 0.03),
+    0 0 18px rgb(245 158 11 / 0.12);
+  padding: 0.8rem 0.9rem;
+  clip-path: polygon(0 0, calc(100% - 0.7rem) 0, 100% 0.7rem, 100% 100%, 0.7rem 100%, 0 calc(100% - 0.7rem));
+}
+
+.current-traveller-skills__group::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(180deg, rgb(251 191 36 / 0.06), transparent 34%),
+    repeating-linear-gradient(
+      180deg,
+      rgb(255 255 255 / 0.012) 0,
+      rgb(255 255 255 / 0.012) 1px,
+      transparent 1px,
+      transparent 7px
+    );
 }
 
 .current-traveller-skills__base,
@@ -794,58 +815,56 @@ const currentTravellerSkillGroups = computed(() => {
 .current-traveller-skills__speciality-name {
   min-width: 0;
   margin: 0;
-  color: rgb(244 250 255 / 0.96);
+  color: rgb(253 186 116);
 }
 
 .current-traveller-skills__name {
-  font-size: 0.95rem;
+  font-size: 0.96rem;
   font-weight: 700;
+  letter-spacing: 0.01em;
 }
 
 .current-traveller-skills__specialities {
   display: grid;
-  gap: 0.35rem;
-  margin-left: 0.75rem;
-  padding-top: 0.3rem;
-  padding-left: 0.9rem;
-  border-top: 1px solid rgb(255 255 255 / 0.08);
-  border-left: 1px solid rgb(34 211 238 / 0.22);
-  box-shadow: inset 8px 0 10px -10px rgb(34 211 238 / 0.18);
+  gap: 0.4rem;
+  margin-left: 0.85rem;
+  padding-top: 0.4rem;
+  padding-left: 0.95rem;
+  border-top: 1px solid rgb(251 191 36 / 0.12);
+  border-left: 1px solid rgb(251 191 36 / 0.2);
+  box-shadow: inset 8px 0 12px -12px rgb(245 158 11 / 0.18);
 }
 
 .current-traveller-skills__speciality-name {
   display: inline-flex;
   align-items: center;
-  gap: 0.45rem;
-  font-size: 0.82rem;
-  color: rgb(203 213 225 / 0.96);
-}
-
-.current-traveller-skills__speciality-bullet {
-  display: inline-flex;
-  width: 0.35rem;
-  height: 0.35rem;
-  flex: 0 0 0.35rem;
-  border-radius: 999px;
-  background: rgb(103 232 249 / 0.72);
-  box-shadow: 0 0 8px rgb(34 211 238 / 0.28);
+  font-size: 0.81rem;
+  color: rgb(253 186 116);
 }
 
 .current-traveller-skills__rank,
 .current-traveller-skills__speciality-rank {
   display: inline-flex;
-  min-width: 2rem;
+  min-width: 2.1rem;
+  height: 1.55rem;
+  align-items: center;
   justify-content: center;
-  border: 1px solid rgb(34 211 238 / 0.22);
-  background: rgb(2 6 23 / 0.84);
+  border: 1px solid rgb(251 191 36 / 0.28);
+  background: linear-gradient(180deg, rgb(118 43 8 / 0.88), rgb(70 23 8 / 0.94));
   padding: 0.15rem 0.45rem;
-  color: rgb(252 211 77 / 0.96);
+  color: rgb(255 248 220 / 0.98);
   font-size: 0.78rem;
   font-weight: 700;
+  box-shadow:
+    inset 0 0 0 1px rgb(255 255 255 / 0.04),
+    0 0 14px rgb(245 158 11 / 0.12);
+  text-shadow:
+    0 0 6px rgb(252 211 77 / 0.18),
+    0 0 12px rgb(245 158 11 / 0.12);
 }
 
 .current-traveller-skills__speciality-rank {
-  min-width: 1.8rem;
-  font-size: 0.74rem;
+  min-width: 2.1rem;
+  font-size: 0.78rem;
 }
 </style>

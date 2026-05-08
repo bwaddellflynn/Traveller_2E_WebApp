@@ -432,7 +432,15 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
   const totalDebt = computed(() => medicalDebt.value + legalDebt.value + psionicsTrainingCost.value)
   const medicalCareLog = ref<MedicalCareEntry[]>([])
   const careerConstraints = ref<CareerConstraint[]>([])
-  const pendingSkillChoice = ref<{ label: string; source: string; options: string[]; level?: number; increase?: boolean } | null>(null)
+  const pendingSkillChoice = ref<{
+    label: string
+    source: string
+    options: string[]
+    level?: number
+    increase?: boolean
+    mode?: 'grant' | 'background'
+    baseSkillId?: string
+  } | null>(null)
   const termRolls = reactive<Record<string, RollResult | null>>({
     educationEntry: null,
     educationEvent: null,
@@ -1179,19 +1187,67 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     selectedBackgroundSkills.value = []
   })
 
+  const normalizeBackgroundSkillSelections = (skillIds: string[]) => {
+    const normalized: string[] = []
+
+    for (const skillId of skillIds) {
+      const parsed = skillFromLabel(skillId)
+      const normalizedId = skillSpecialityMode(parsed.baseId) === 'shared-zero'
+        ? parsed.baseId
+        : skillId
+
+      if (!normalized.includes(normalizedId)) normalized.push(normalizedId)
+    }
+
+    return normalized.slice(0, backgroundSkillLimit.value)
+  }
+
+  watch(selectedBackgroundSkills, (skillIds) => {
+    const normalized = normalizeBackgroundSkillSelections(skillIds)
+    if (
+      normalized.length === skillIds.length
+      && normalized.every((skillId, index) => skillId === skillIds[index])
+    ) return
+    selectedBackgroundSkills.value = normalized
+  }, { deep: true, immediate: true })
+
+  const backgroundSkillSelection = (skillId: string) => selectedBackgroundSkills.value.find((selectedSkillId) =>
+    skillFromLabel(selectedSkillId).baseId === skillId)
+  const backgroundSkillSelected = (skillId: string) => Boolean(backgroundSkillSelection(skillId))
+
   const toggleBackgroundSkill = (skillId: string) => {
-    if (selectedBackgroundSkills.value.includes(skillId)) {
-      selectedBackgroundSkills.value = selectedBackgroundSkills.value.filter((id) => id !== skillId)
+    const existingSelection = backgroundSkillSelection(skillId)
+    if (existingSelection) {
+      selectedBackgroundSkills.value = selectedBackgroundSkills.value.filter((selectedSkillId) =>
+        skillFromLabel(selectedSkillId).baseId !== skillId)
+      if (pendingSkillChoice.value?.mode === 'background' && pendingSkillChoice.value.baseSkillId === skillId) {
+        pendingSkillChoice.value = null
+      }
       return
     }
 
-    if (selectedBackgroundSkills.value.length < backgroundSkillLimit.value) {
-      selectedBackgroundSkills.value = [...selectedBackgroundSkills.value, skillId]
+    if (selectedBackgroundSkills.value.length >= backgroundSkillLimit.value) return
+
+    if (skillSpecialityMode(skillId) === 'independent') {
+      const options = skillSpecialityOptions(skillId)
+      if (options.length) {
+        pendingSkillChoice.value = {
+          label: `${skillName(skillId)} specialty`,
+          source: 'Background',
+          options,
+          level: 0,
+          mode: 'background',
+          baseSkillId: skillId,
+        }
+        return
+      }
     }
+
+    selectedBackgroundSkills.value = [...selectedBackgroundSkills.value, skillId]
   }
 
   const canSelectBackgroundSkill = (skillId: string) => {
-    return selectedBackgroundSkills.value.includes(skillId) || selectedBackgroundSkills.value.length < backgroundSkillLimit.value
+    return backgroundSkillSelected(skillId) || selectedBackgroundSkills.value.length < backgroundSkillLimit.value
   }
 
   const toggleBackgroundSkillsCollapsed = () => {
@@ -1247,7 +1303,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     const skill = getSkillDefinition(skillId)
     return (skill?.specialities ?? []).map((speciality) => `${skillId}/${speciality}`)
   }
-  const skillNeedsSpecialityAtLevel = (skillId: string, targetLevel: number) => skillHasSpecialities(skillId) && targetLevel >= 1
+  const skillNeedsSpecialityAtLevel = (skillId: string, _targetLevel: number) => skillSpecialityMode(skillId) === 'independent'
 
   const skillName = (skillId?: string | null) => {
     if (!skillId) return 'Skill'
@@ -1267,7 +1323,12 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     if (typeof exactLevel === 'number') return exactLevel
 
     const baseLevel = appliedSkillRecords[skill.baseId]?.level
-    const backgroundLevel = selectedBackgroundSkills.value.includes(skill.baseId) ? 0 : undefined
+    const backgroundSelections = selectedBackgroundSkills.value.map((selectedSkillId) => skillFromLabel(selectedSkillId))
+    const backgroundBaseSelections = backgroundSelections.filter((selectedSkill) => selectedSkill.baseId === skill.baseId)
+    const exactBackgroundSelection = backgroundSelections.find((selectedSkill) => selectedSkill.id === skill.id)
+    const backgroundLevel = exactBackgroundSelection
+      ? 0
+      : (!skill.specialityId && backgroundBaseSelections.some((selectedSkill) => !selectedSkill.specialityId) ? 0 : undefined)
     const specialityLevels = Object.values(appliedSkillRecords)
       .filter((record) => record.id.startsWith(`${skill.baseId}:`))
       .map((record) => record.level)
@@ -1357,6 +1418,8 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
       options,
       level,
       increase,
+      mode: 'grant',
+      baseSkillId,
     }
     return true
   }
@@ -1744,6 +1807,16 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     if (!pending) return
 
     pendingSkillChoice.value = null
+    if (pending.mode === 'background') {
+      if (selectedBackgroundSkills.value.length >= backgroundSkillLimit.value) return
+      if (pending.baseSkillId) {
+        selectedBackgroundSkills.value = selectedBackgroundSkills.value.filter((selectedSkillId) =>
+          skillFromLabel(selectedSkillId).baseId !== pending.baseSkillId)
+      }
+      selectedBackgroundSkills.value = [...selectedBackgroundSkills.value, choice]
+      return
+    }
+
     careerSkillResult.value = choice
     if (typeof pending.level === 'number') {
       setSkillMinimum(choice, pending.level, pending.source)
@@ -1891,13 +1964,15 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
 
   const applyEducationGraduationBenefits = () => {
     const graduation = termRolls.educationGraduation
-    if (!selectedEducation.value || !graduation?.finalSuccess) return
+    const graduationBenefits = (selectedEducationTableOption.value?.graduationBenefits as Array<Record<string, any>> | undefined)
+      ?? selectedEducation.value?.graduationBenefits
+    if (!selectedEducation.value || !graduation?.finalSuccess || !graduationBenefits?.length) return
 
     const source = educationGraduationHonours.value
       ? `${selectedEducationName.value} Honours`
       : `${selectedEducationName.value} Graduation`
 
-    for (const benefit of selectedEducation.value.graduationBenefits ?? []) {
+    for (const benefit of graduationBenefits) {
       if (benefit.type === 'characteristic_increase' && benefit.characteristic) {
         characteristicAdjustments[benefit.characteristic as CharacteristicId] += Number(benefit.amount ?? 1)
         applyAssignedScores()
@@ -1910,13 +1985,30 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
         recordEventOutcome(source, { type: 'characteristic_increase' }, `${benefit.characteristic.toUpperCase()} +${benefit.amount ?? 1}`)
       }
 
-      if (benefit.type === 'increase_chosen_pre_career_skills') {
+      if (benefit.type === 'increase_chosen_pre_career_skills' || benefit.type === 'increase_chosen_education_skills') {
         if (universityLevel0Skill.value) increaseSkill(universityLevel0Skill.value, source)
         if (universityLevel1Skill.value) increaseSkill(universityLevel1Skill.value, source)
       }
 
       if (benefit.type === 'qualification_dm') {
         addEducationQualificationModifier(Number(educationGraduationHonours.value ? benefit.honoursDm ?? benefit.dm ?? 0 : benefit.dm ?? 0), source)
+      }
+
+      if (benefit.type === 'same_military_career_service_skill_choices') {
+        const count = Number(benefit.count ?? 3)
+        const level = Number(benefit.level ?? 1)
+        const options = militaryAcademyServiceSkills.value
+        if (options.length) {
+          pendingEducationSkillChoices.value = [
+            ...pendingEducationSkillChoices.value,
+            ...Array.from({ length: count }, (_, index) => ({
+              label: `Graduation service skill ${index + 1}`,
+              level,
+              options,
+            })),
+          ]
+          educationSkillsApplied.value = pendingEducationSkillChoices.value.every((item) => item.selected)
+        }
       }
 
       if (benefit.type === 'automatic_entry_same_military_career' && selectedEducationVariant.value) {
@@ -1990,12 +2082,12 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     const skills = new Map<string, CharacterSkill>()
 
     for (const skillId of selectedBackgroundSkills.value) {
-      skills.set(skillId, {
-        id: skillId,
-        name: skillName(skillId),
-        level: 0,
+      const parsed = skillFromLabel(skillId)
+      const normalizedBackgroundSkill = buildTravellerSkill(parsed.baseId, 0, parsed.specialityName, {
         sources: ['Background'],
+        notes: '',
       })
+      skills.set(normalizedBackgroundSkill.id, normalizedBackgroundSkill)
     }
 
     for (const skill of Object.values(appliedSkillRecords)) {
@@ -5792,6 +5884,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     educationOptions,
     selectedEducationOption,
     selectedEducation,
+    selectedEducationTableOption,
     selectedEducationVariant,
     educationSkillOptions,
     selectedEducationEntry,
@@ -5845,6 +5938,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     basicTrainingOptions,
     basicTrainingLabel,
     toggleBackgroundSkill,
+    backgroundSkillSelected,
     canSelectBackgroundSkill,
     toggleBackgroundSkillsCollapsed,
     toggleGmOverrideControls,
