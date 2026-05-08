@@ -389,6 +389,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
   const careerMishap = ref<TravellerEvent | null>(null)
   const pendingEventResolutions = ref<PendingEventResolution[]>([])
   const eventOutcomeLog = ref<EventOutcomeLogEntry[]>([])
+  const eventOutcomeSequence = ref(0)
   const associates = ref<TravellerAssociate[]>([])
   const narrativeEvents = ref<TravellerNarrativeEvent[]>([])
   const creatorEventEquipment = ref<CreatorEquipmentEntry[]>([])
@@ -2067,7 +2068,10 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     return id
   }
 
-  const makeEventOutcomeId = (prefix = 'event-outcome') => `${prefix}-${Date.now()}-${eventOutcomeLog.value.length}`
+  const makeEventOutcomeId = (prefix = 'event-outcome') => {
+    eventOutcomeSequence.value += 1
+    return `${prefix}-${Date.now()}-${eventOutcomeSequence.value}`
+  }
 
   const recordEventOutcome = (
     source: string,
@@ -4496,6 +4500,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     activeEvent.value = null
     pendingEventResolutions.value = []
     eventOutcomeLog.value = []
+    eventOutcomeSequence.value = 0
     associates.value = []
     narrativeEvents.value = []
     creatorEventEquipment.value = []
