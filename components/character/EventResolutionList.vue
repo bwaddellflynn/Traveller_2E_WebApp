@@ -14,6 +14,7 @@ const {
   resolveEventMedicalCare,
   resolveEventOutcomeChoice,
   resolveManualEventResolution,
+  setEventResolutionCheckSkill,
   rollEventResolutionCheck,
   enterManualEventResolutionCheck,
   rollEventResolutionSkillTable,
@@ -29,6 +30,7 @@ const {
   enterManualEventResolutionAssociateCount,
   eventResolutionSelectedLabel,
   resolveEventAssociate,
+  resolveEventAssociateInjury,
   resolveEventNarrative,
   associateTypeLabel,
   skillOptionLabel,
@@ -57,6 +59,7 @@ const manualCharacteristicAmounts = reactive<Record<string, number | null>>({})
 const medicalRestorePoints = reactive<Record<string, number | null>>({})
 const associateForms = reactive<Record<string, { type: string; name: string; notes: string }>>({})
 const manualAssociateCounts = reactive<Record<string, number | null>>({})
+const associateInjuryForms = reactive<Record<string, { targetId: string; name: string; firstRoll: number | null; secondRoll: number | null }>>({})
 
 const eventChoiceButtonLabel = (option: { label: string; buttonLabel?: string }) => {
   if (option.buttonLabel) return option.buttonLabel
@@ -103,6 +106,21 @@ const prisonLawyerForm = (resolution: { id: string }) => {
   }
 
   return prisonLawyerForms[resolution.id]
+}
+
+const associateInjuryForm = (
+  resolution: { id: string; injuryTargetOptions?: Array<{ id: string; type: string; name: string }> },
+) => {
+  if (!associateInjuryForms[resolution.id]) {
+    associateInjuryForms[resolution.id] = {
+      targetId: resolution.injuryTargetOptions?.[0]?.id ?? 'family',
+      name: '',
+      firstRoll: null,
+      secondRoll: null,
+    }
+  }
+
+  return associateInjuryForms[resolution.id]
 }
 </script>
 
@@ -316,7 +334,80 @@ const prisonLawyerForm = (resolution: { id: string }) => {
         </template>
       </div>
 
+      <div v-if="resolution.kind === 'associate_injury' && !resolution.resolved" class="mt-3 grid gap-2">
+        <div class="flex flex-wrap gap-2">
+          <button
+            v-for="target in resolution.injuryTargetOptions"
+            :key="target.id"
+            :class="[
+              'h-9 rounded-md border px-3 text-sm font-semibold',
+              associateInjuryForm(resolution).targetId === target.id
+                ? 'border-amber-700 bg-amber-700 text-white'
+                : 'border-amber-300 bg-white text-amber-900 hover:border-amber-600'
+            ]"
+            type="button"
+            @click="associateInjuryForm(resolution).targetId = target.id"
+          >
+            {{ target.name }}
+          </button>
+        </div>
+        <input
+          v-if="associateInjuryForm(resolution).targetId === 'family'"
+          v-model="associateInjuryForm(resolution).name"
+          class="h-9 rounded-md border border-amber-300 bg-white px-2 text-sm text-amber-950"
+          placeholder="Family member name"
+          type="text"
+        >
+        <div v-if="gmManualTableRollEntryEnabled" class="flex flex-wrap items-center gap-2">
+          <input
+            v-model.number="associateInjuryForm(resolution).firstRoll"
+            class="h-9 w-20 rounded-md border border-amber-300 bg-white px-2 text-sm text-amber-950"
+            max="6"
+            min="1"
+            placeholder="1D"
+            type="number"
+          >
+          <input
+            v-model.number="associateInjuryForm(resolution).secondRoll"
+            class="h-9 w-20 rounded-md border border-amber-300 bg-white px-2 text-sm text-amber-950"
+            max="6"
+            min="1"
+            placeholder="1D"
+            type="number"
+          >
+        </div>
+        <button
+          class="h-9 w-fit rounded-md border border-amber-300 bg-white px-3 text-sm font-semibold text-amber-900 hover:border-amber-600"
+          type="button"
+          @click="resolveEventAssociateInjury(
+            resolution.id,
+            associateInjuryForm(resolution).targetId,
+            associateInjuryForm(resolution).name,
+            associateInjuryForm(resolution).firstRoll ?? undefined,
+            associateInjuryForm(resolution).secondRoll ?? undefined,
+          )"
+        >
+          Roll Injury Twice
+        </button>
+      </div>
+
       <div v-if="resolution.kind === 'check' && !resolution.resolved" class="mt-3 flex flex-wrap items-center gap-2">
+        <div v-if="resolution.checkSkillOptions?.length" class="flex w-full flex-wrap gap-2">
+          <button
+            v-for="skillId in resolution.checkSkillOptions"
+            :key="`${resolution.id}-${skillId}`"
+            :class="[
+              'h-9 rounded-md border px-3 text-sm font-semibold',
+              resolution.checkSkillId === skillId
+                ? 'border-amber-700 bg-amber-700 text-white'
+                : 'border-amber-300 bg-white text-amber-900 hover:border-amber-600'
+            ]"
+            type="button"
+            @click="setEventResolutionCheckSkill(resolution.id, skillId)"
+          >
+            {{ skillOptionLabel(skillId) }}
+          </button>
+        </div>
         <button
           class="h-9 rounded-md border border-amber-300 bg-white px-3 text-sm font-semibold text-amber-900 hover:border-amber-600"
           type="button"

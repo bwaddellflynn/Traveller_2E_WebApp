@@ -866,8 +866,8 @@ const navigateCreatorShell = (direction: -1 | 1) => {
   }
   scrollToCreatorNavigation()
 }
-const navigateMobileFooter = async (direction: -1 | 1) => {
-  if (!isMobileViewport.value || !activeCreatorTabIsTerm.value) {
+const navigateFooter = async (direction: -1 | 1) => {
+  if (!activeCreatorTabIsTerm.value) {
     navigateCreatorShell(direction)
     return
   }
@@ -2292,6 +2292,7 @@ if (import.meta.client) {
                     source-prefix="Pre-Career Event"
                     @details="openEventTextModal(preCareerEvent.name, preCareerEvent.text, (preCareerEvent.effects ?? []).map((effect) => preCareerEventEffectLabel(effect)))"
                   />
+                  <EventResolutionList source-prefix="Pre-Career Event" />
                 </div>
 
                 <div v-if="termRolls.educationEntry?.finalSuccess && termRolls.educationEvent" v-show="activeTermStep === 'education-graduation'" class="rounded-md border border-zinc-200 p-3 sm:p-4">
@@ -2560,29 +2561,6 @@ if (import.meta.client) {
             </div>
           </div>
 
-          <div class="mt-6 hidden items-center justify-between gap-3 border-t border-cyan-400/20 pt-4 sm:flex">
-            <button
-              class="creator-term-nav__button"
-              :disabled="activeTermStepIndex === 0"
-              aria-label="Previous step"
-              title="Previous step"
-              type="button"
-              @click="previousTermStep"
-            >
-              <AppIcon class="creator-term-nav__icon creator-term-nav__icon--left" name="arrow" />
-            </button>
-            <button
-              class="creator-term-nav__button"
-              :disabled="activeTermStepIndex === termStepTabs.length - 1"
-              aria-label="Next step"
-              title="Next step"
-              type="button"
-              @click="nextTermStep"
-            >
-              <AppIcon class="creator-term-nav__icon creator-term-nav__icon--right" name="arrow" />
-            </button>
-          </div>
-
         </div>
         <div class="creator-shell-footer rounded-lg border border-cyan-400/20 bg-zinc-950/55 p-3 shadow-[0_0_0_1px_rgba(34,211,238,0.05),0_18px_32px_rgba(2,6,23,0.28)]">
           <button
@@ -2604,7 +2582,7 @@ if (import.meta.client) {
               aria-label="Previous"
               title="Previous"
               type="button"
-              @click="navigateMobileFooter(-1)"
+              @click="navigateFooter(-1)"
             >
               Prev
             </button>
@@ -2614,7 +2592,7 @@ if (import.meta.client) {
               aria-label="Next"
               title="Next"
               type="button"
-              @click="navigateMobileFooter(1)"
+              @click="navigateFooter(1)"
             >
               Next
             </button>
@@ -2624,7 +2602,9 @@ if (import.meta.client) {
         </div>
       </section>
 
-      <CurrentTravellerCard />
+      <section class="current-traveller-shell">
+        <CurrentTravellerCard />
+      </section>
     </div>
 
     <RerollConfirmDialog />
@@ -2965,6 +2945,18 @@ if (import.meta.client) {
 .creator-term-nav__button:disabled {
   cursor: not-allowed;
   opacity: 0.38;
+}
+
+.current-traveller-shell {
+  display: flex;
+  min-height: 0;
+  align-self: stretch;
+  align-items: stretch;
+}
+
+.current-traveller-shell :deep(.current-traveller-card) {
+  width: 100%;
+  height: 100%;
 }
 
 .creator-term-nav__icon {

@@ -346,6 +346,7 @@ onBeforeUnmount(() => {
         class="fixed inset-0 z-[200] flex items-center justify-center bg-zinc-950/72 px-3 py-4 backdrop-blur-sm sm:px-4 sm:py-8"
         role="dialog"
         aria-modal="true"
+        @click.self="closeCharacteristicRollModal"
       >
         <div class="characteristic-roll-modal w-full max-w-2xl overflow-hidden">
           <div class="characteristic-roll-modal__header">

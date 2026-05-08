@@ -97,7 +97,7 @@ type TermHistoryEntry = {
 }
 type CreatorTab = 'creation' | 'setup-stats' | 'setup-skills' | `term-${number}`
 type GmOverrideOptionId = 'manualCheckRollEntry' | 'manualTableRollEntry' | 'manualAgingRollEntry' | 'manualBenefitRollEntry' | 'manualPsionicsRollEntry' | 'outcomeOverrides' | 'characteristicAdjustments'
-type EventResolutionKind = 'manual' | 'skill_choice' | 'skill_table_roll' | 'benefit_wager' | 'table_roll' | 'check' | 'choice' | 'associate' | 'narrative' | 'characteristic_adjustment' | 'medical_care' | 'prison_lawyer'
+type EventResolutionKind = 'manual' | 'skill_choice' | 'skill_table_roll' | 'benefit_wager' | 'table_roll' | 'check' | 'choice' | 'associate' | 'associate_injury' | 'narrative' | 'characteristic_adjustment' | 'medical_care' | 'prison_lawyer'
 type EventChoiceOption = {
   id: string
   label: string
@@ -117,6 +117,13 @@ type PendingEventResolution = {
   associateCountRoll?: 'D3' | string
   associateContext?: string
   associateTags?: string[]
+  injuryTargetOptions?: Array<{
+    id: string
+    type: string
+    name: string
+    existingAssociateId?: string
+    tags?: string[]
+  }>
   characteristicOptions?: CharacteristicId[]
   characteristicAmount?: number | string
   medicalCharacteristic?: CharacteristicId
@@ -139,6 +146,8 @@ type PendingEventResolution = {
     target: number
     dm: number
   }
+  checkSkillOptions?: string[]
+  checkSkillId?: string
   level?: number
   increase?: boolean
   resolved?: boolean
@@ -160,6 +169,11 @@ type TravellerNarrativeEvent = {
   title: string
   category?: string
   text?: string
+  notes?: string
+}
+type CreatorEquipmentEntry = {
+  id: string
+  name: string
   notes?: string
 }
 type PsionicTalent = {
@@ -359,6 +373,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
   const universityLevel0Skill = ref('')
   const universityLevel1Skill = ref('')
   const pendingEducationSkillChoices = ref<Array<{ label: string; level: number; options: string[]; selected?: string }>>([])
+  const currentTermLearnedSkillIds = ref<string[]>([])
   const educationEventExpanded = ref(false)
   const basicTrainingApplied = ref(false)
   const basicTrainingCareerIds = ref<string[]>([])
@@ -371,6 +386,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
   const eventOutcomeLog = ref<EventOutcomeLogEntry[]>([])
   const associates = ref<TravellerAssociate[]>([])
   const narrativeEvents = ref<TravellerNarrativeEvent[]>([])
+  const creatorEventEquipment = ref<CreatorEquipmentEntry[]>([])
   const psionicsPermissionSources = ref<string[]>([])
   const psiScore = ref<number | null>(null)
   const psiTestRoll = ref<RollResult | null>(null)
@@ -1037,6 +1053,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     universityLevel0Skill.value = ''
     universityLevel1Skill.value = ''
     pendingEducationSkillChoices.value = []
+    currentTermLearnedSkillIds.value = []
     educationEventExpanded.value = false
   })
 
@@ -1277,6 +1294,18 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     }
   }
 
+  const recordCurrentTermLearnedSkill = (label: string) => {
+    const skillId = skillFromLabel(label).id
+    if (!currentTermLearnedSkillIds.value.includes(skillId)) {
+      currentTermLearnedSkillIds.value = [...currentTermLearnedSkillIds.value, skillId]
+    }
+  }
+
+  const currentTermLearnedSkillOptions = computed(() => currentTermLearnedSkillIds.value.filter((skillId) => {
+    const skill = currentTravellerSkills.value.find((entry) => entry.id === skillId)
+    return Boolean(skill)
+  }))
+
   const setSkillMinimum = (label: string, level: number, source: string) => {
     const skill = skillFromLabel(label)
     if (!skill.specialityId && skillNeedsSpecialityAtLevel(skill.baseId, level)) {
@@ -1287,6 +1316,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     if (existing) {
       existing.level = Math.max(existing.level, level)
       addSkillSource(existing, source)
+      recordCurrentTermLearnedSkill(skill.id)
       return
     }
 
@@ -1296,6 +1326,8 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
       level,
       sources: [source],
     }
+    recordCurrentTermLearnedSkill(skill.id)
+    return
   }
 
   const increaseSkill = (label: string, source: string) => {
@@ -1308,6 +1340,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     if (existing) {
       existing.level += 1
       addSkillSource(existing, source)
+      recordCurrentTermLearnedSkill(skill.id)
       return
     }
 
@@ -1317,6 +1350,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
       level: 1,
       sources: [source],
     }
+    recordCurrentTermLearnedSkill(skill.id)
   }
 
   const changePsiScore = (amount: number) => {
@@ -2016,19 +2050,53 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     return 0
   }
 
+  const knownTermSkillCheckLabel = (skillId: string, target: number) => {
+    const characteristic = defaultSkillCharacteristicLabel(skillId)
+    return `${skillOptionLabel(skillId)}${characteristic ? ` + ${characteristic}` : ''} ${target}+`
+  }
+
   const addCheckResolution = (effect: TravellerEventEffect, source: string, label = tableEffectLabel(effect)) => {
+    const checkSkillOptions = effect.type === 'check_known_term_skill'
+      ? [...currentTermLearnedSkillOptions.value]
+      : undefined
+    if (effect.type === 'check_known_term_skill' && !checkSkillOptions?.length) {
+      addManualEventResolution(effect, source, `${label} manually.`)
+      return
+    }
+    const target = eventCheckTarget(effect)
+    const initialSkillId = checkSkillOptions?.[0]
     addPendingEventResolution({
       kind: 'check',
       label,
       source,
       effect,
+      checkSkillOptions,
+      checkSkillId: initialSkillId,
       check: {
-        label: eventCheckLabel(effect),
-        target: eventCheckTarget(effect),
-        dm: eventCheckDm(effect),
+        label: initialSkillId ? knownTermSkillCheckLabel(initialSkillId, target) : eventCheckLabel(effect),
+        target,
+        dm: initialSkillId ? skillCheckDm(initialSkillId) : eventCheckDm(effect),
       },
     })
     recordEventOutcome(source, effect, label, 'pending')
+  }
+
+  const setEventResolutionCheckSkill = (resolutionId: string, skillId: string) => {
+    const resolution = pendingEventResolutions.value.find((item) => item.id === resolutionId)
+    if (!resolution || resolution.kind !== 'check' || !resolution.checkSkillOptions?.includes(skillId)) return
+
+    pendingEventResolutions.value = pendingEventResolutions.value.map((item) => {
+      if (item.id !== resolutionId || !item.check) return item
+      return {
+        ...item,
+        checkSkillId: skillId,
+        check: {
+          ...item.check,
+          label: knownTermSkillCheckLabel(skillId, item.check.target),
+          dm: skillCheckDm(skillId),
+        },
+      }
+    })
   }
 
   const normalizeEffectInput = (effect: unknown): TravellerEventEffect | null => {
@@ -2039,6 +2107,31 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
   const normalizeBranchEffects = (effects?: unknown) => Array.isArray(effects)
     ? effects.map((effect) => normalizeEffectInput(effect)).filter((effect): effect is TravellerEventEffect => Boolean(effect))
     : []
+
+  const appendNarrativeEvent = (source: string, title: string, category?: string, text?: string, notes?: string) => {
+    narrativeEvents.value = [
+      ...narrativeEvents.value,
+      {
+        id: makeEventOutcomeId('narrative'),
+        source,
+        title,
+        category,
+        text,
+        notes,
+      },
+    ]
+  }
+
+  const addCreatorEquipmentEntry = (name: string, notes?: string) => {
+    creatorEventEquipment.value = [
+      ...creatorEventEquipment.value,
+      {
+        id: makeEventOutcomeId('creator-equipment'),
+        name,
+        notes,
+      },
+    ]
+  }
 
   const eventChoiceOptionLabel = (effect: TravellerEventEffect, index = 0) => {
     if (effect.label && typeof effect.label === 'string') return effect.label
@@ -2431,6 +2524,57 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     }, source, label)
   }
 
+  const addItemGainResolution = (effect: TravellerEventEffect, event: TravellerEvent, source: string, label = tableEffectLabel(effect)) => {
+    const itemName = event.name || String(effect.itemType ?? 'Item')
+    const itemType = String(effect.itemType ?? '').toLowerCase()
+    const categories = itemType === 'ancient-technology'
+      ? ['Person', 'Plot', 'Mystery']
+      : ['Person', 'Plot']
+
+    addChoiceResolution({
+      type: 'choice',
+      options: categories.map((category) => ({
+        label: category,
+        effects: [
+          {
+            type: 'record_item',
+            itemName,
+            itemCategory: category,
+          },
+        ],
+      })),
+    }, source, label)
+  }
+
+  const addAssociateOrFamilyInjuryResolution = (effect: TravellerEventEffect, source: string, label = tableEffectLabel(effect)) => {
+    const injuryTargetOptions = [
+      ...associates.value
+        .filter((associate) => ['ally', 'contact', 'family'].includes(associate.type) || associate.tags?.includes('family'))
+        .map((associate) => ({
+          id: associate.id,
+          type: associate.type,
+          name: associate.name,
+          existingAssociateId: associate.id,
+          tags: associate.tags,
+        })),
+      {
+        id: 'family',
+        type: 'family',
+        name: 'Family Member',
+        tags: ['family'],
+      },
+    ]
+
+    addPendingEventResolution({
+      kind: 'associate_injury',
+      label,
+      source,
+      effect,
+      injuryTargetOptions,
+    })
+    recordEventOutcome(source, effect, label, 'pending')
+  }
+
   const addNarrativeEventResolution = (effect: TravellerEventEffect, source: string, event: TravellerEvent, label = tableEffectLabel(effect)) => {
     addPendingEventResolution({
       kind: 'narrative',
@@ -2578,6 +2722,11 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
       return
     }
 
+    if (effect.type === 'associate_or_family_injury') {
+      addAssociateOrFamilyInjuryResolution(effect, source)
+      return
+    }
+
     if (effect.type === 'convert_associate' && effect.associateId && effect.toType) {
       const label = tableEffectLabel(effect)
       let converted = false
@@ -2608,6 +2757,11 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
       return
     }
 
+    if (effect.type === 'gain_item') {
+      addItemGainResolution(effect, event, source)
+      return
+    }
+
     if (effect.type === 'skill_table_roll') {
       addSkillTableRollResolution(effect, source)
       return
@@ -2620,6 +2774,15 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
 
     if (effect.type === 'narrative_event') {
       addNarrativeEventResolution(effect, source, event)
+      return
+    }
+
+    if (effect.type === 'record_item') {
+      addCreatorEquipmentEntry(
+        String(effect.itemName ?? event.name ?? 'Item'),
+        typeof effect.itemCategory === 'string' ? effect.itemCategory : undefined,
+      )
+      recordEventOutcome(source, effect, `${String(effect.itemName ?? event.name ?? 'Item')}: ${String(effect.itemCategory ?? 'Item')}`)
       return
     }
 
@@ -2681,6 +2844,12 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
 
     if (effect.type === 'prison_lawyer') {
       addPrisonLawyerResolution(effect, source)
+      return
+    }
+
+    if (effect.type === 'debt_favour') {
+      appendNarrativeEvent(source, 'Favour Owed', 'obligation', 'You owe that patron a favour.', event.name)
+      recordEventOutcome(source, effect, 'Owes a patron a favour')
       return
     }
 
@@ -2761,6 +2930,11 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
       const amount = typeof effect.amount === 'number' ? effect.amount : 1
       for (let count = 0; count < amount; count += 1) increaseSkill(String(effect.skillId), source)
       recordEventOutcome(source, effect)
+      return
+    }
+
+    if (effect.type === 'increase_checked_skill') {
+      addManualEventResolution(effect, source, `${tableEffectLabel(effect)} manually.`)
       return
     }
 
@@ -3417,11 +3591,25 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
 
   const resolveEventCheck = (resolution: PendingEventResolution, diceTotal: number, source: 'rolled' | 'manual') => {
     if (resolution.kind !== 'check' || !resolution.check || resolution.resolved) return
+    if (resolution.checkSkillOptions?.length && !resolution.checkSkillId) return
 
-    const finalTotal = diceTotal + resolution.check.dm
+    const skillCheckId = resolution.checkSkillId
+    const finalDm = skillCheckId ? skillCheckDm(skillCheckId) : resolution.check.dm
+    const finalTotal = diceTotal + finalDm
     const succeeded = finalTotal >= resolution.check.target
-    const selected = `${diceTotal} ${formatDm(resolution.check.dm)} = ${finalTotal} (${succeeded ? 'success' : 'failure'}, ${source})`
-    const branchEffects = checkBranchEffects(resolution.effect, diceTotal, finalTotal)
+    const selectedPrefix = skillCheckId ? `${skillOptionLabel(skillCheckId)}: ` : ''
+    const selected = `${selectedPrefix}${diceTotal} ${formatDm(finalDm)} = ${finalTotal} (${succeeded ? 'success' : 'failure'}, ${source})`
+    const branchEffects = checkBranchEffects(resolution.effect, diceTotal, finalTotal).map((effect) => {
+      if (effect.type === 'increase_checked_skill' && skillCheckId) {
+        return normalizeTravellerEventEffect({
+          ...effect,
+          type: 'increase_skill',
+          skillId: skillCheckId,
+          amount: typeof effect.amount === 'number' ? effect.amount : 1,
+        })
+      }
+      return effect
+    })
 
     pendingEventResolutions.value = pendingEventResolutions.value.map((item) => {
       if (item.id !== resolution.id) return item
@@ -3470,6 +3658,15 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     applyResolvedEffects(option.effects, resolution.source)
   }
 
+  const injuryResultLabel = (roll: number) => {
+    const row = agingData.injury.table.find((entry) => entry.roll === roll)
+    if (!row?.id) return `Injury ${roll}`
+    return row.id
+      .split('-')
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+      .join(' ')
+  }
+
   const resolveEventAssociate = (resolutionId: string, associateType: string, name: string, notes = '') => {
     const resolution = pendingEventResolutions.value.find((item) => item.id === resolutionId)
     if (!resolution || resolution.kind !== 'associate' || resolution.resolved) return
@@ -3502,6 +3699,59 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
       }
     })
     recordEventOutcome(resolution.source, resolution.effect, `Gained ${type}: ${associateName}`, 'manual')
+  }
+
+  const resolveEventAssociateInjury = (resolutionId: string, targetId: string, name = '', firstRoll?: number, secondRoll?: number) => {
+    const resolution = pendingEventResolutions.value.find((item) => item.id === resolutionId)
+    if (!resolution || resolution.kind !== 'associate_injury' || resolution.resolved) return
+
+    const target = resolution.injuryTargetOptions?.find((option) => option.id === targetId)
+    if (!target) return
+
+    const rollA = typeof firstRoll === 'number' ? firstRoll : Math.ceil(Math.random() * 6)
+    const rollB = typeof secondRoll === 'number' ? secondRoll : Math.ceil(Math.random() * 6)
+    if (!Number.isFinite(rollA) || !Number.isFinite(rollB) || rollA < 1 || rollA > 6 || rollB < 1 || rollB > 6) return
+
+    const kept = Math.min(rollA, rollB)
+    const injuryLabel = injuryResultLabel(kept)
+    const trimmedName = name.trim()
+    const targetName = target.existingAssociateId
+      ? target.name
+      : trimmedName || 'Family Member'
+    const note = `Injury from ${resolution.source}: rolled ${rollA} and ${rollB}, kept ${kept} (${injuryLabel})`
+
+    if (target.existingAssociateId) {
+      associates.value = associates.value.map((associate) => {
+        if (associate.id !== target.existingAssociateId) return associate
+        return {
+          ...associate,
+          notes: [associate.notes, note].filter(Boolean).join(' | '),
+        }
+      })
+    } else {
+      associates.value = [
+        ...associates.value,
+        {
+          id: makeEventOutcomeId('associate'),
+          source: resolution.source,
+          type: target.type,
+          name: targetName,
+          notes: note,
+          tags: target.tags,
+        },
+      ]
+    }
+
+    pendingEventResolutions.value = pendingEventResolutions.value.map((item) => {
+      if (item.id !== resolutionId) return item
+      return {
+        ...item,
+        resolved: true,
+        selected: `${targetName}: ${injuryLabel}`,
+        details: `Rolled ${rollA} and ${rollB}; kept ${kept}.`,
+      }
+    })
+    recordEventOutcome(resolution.source, resolution.effect, `${resolution.label}: ${targetName} injured (${injuryLabel})`, 'manual')
   }
 
   const resolveEventNarrative = (resolutionId: string, notes = '') => {
@@ -4046,6 +4296,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     universityLevel0Skill.value = ''
     universityLevel1Skill.value = ''
     pendingEducationSkillChoices.value = []
+    currentTermLearnedSkillIds.value = []
     educationEventExpanded.value = false
     careerSkillResult.value = null
     pendingSkillChoice.value = null
@@ -4116,6 +4367,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     eventOutcomeLog.value = []
     associates.value = []
     narrativeEvents.value = []
+    creatorEventEquipment.value = []
     psionicsPermissionSources.value = []
     psiScore.value = null
     psiTestRoll.value = null
@@ -5161,6 +5413,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
       enemies: groupedAssociates.enemies.map((associate) => ({ ...associate, tags: associate.tags ? [...associate.tags] : undefined })),
       other: groupedAssociates.other.map((associate) => ({ ...associate, tags: associate.tags ? [...associate.tags] : undefined })),
     }
+    profile.equipment = creatorEventEquipment.value.map((item) => ({ ...item }))
     profile.psionics = {
       permissionSources: [...psionicsPermissionSources.value],
       psiScore: psiScore.value,
@@ -5244,6 +5497,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     eventOutcomeLog,
     associates,
     narrativeEvents,
+    creatorEventEquipment,
     psionicsPermissionSources,
     psiScore,
     psiTestRoll,
@@ -5431,6 +5685,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     applyEventEffect,
     applyTravellerEventEffects,
     applyCareerTableEffects,
+    setEventResolutionCheckSkill,
     rollEventResolutionCheck,
     enterManualEventResolutionCheck,
     rollEventResolutionSkillTable,
@@ -5453,6 +5708,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     resolveEventMedicalCare,
     resolveEventOutcomeChoice,
     resolveEventAssociate,
+    resolveEventAssociateInjury,
     rollEventResolutionAssociateCount,
     enterManualEventResolutionAssociateCount,
     resolveEventNarrative,

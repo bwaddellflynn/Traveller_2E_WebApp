@@ -2,6 +2,7 @@
 import { storeToRefs } from 'pinia'
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useCharacterCreatorStore } from '~/stores/characterCreator'
+import { parseTravellerSkill, travellerSkillHasSpecialities, travellerSkillMode } from '~/utils/traveller/skills'
 
 const characterCreator = useCharacterCreatorStore()
 const {
@@ -119,10 +120,59 @@ const currentTravellerAgeLabel = computed(() => {
   if (['creation', 'setup-stats', 'setup-skills'].includes(activeCreatorTab.value)) return 'Age 18'
   return `Age ${currentAge.value}-${endOfTermAge.value}`
 })
+const currentTravellerSkillGroups = computed(() => {
+  const groups = new Map<string, {
+    baseId: string
+    baseName: string
+    baseLevel?: number
+    specialities: Array<{ id: string; name: string; level: number }>
+  }>()
+
+  for (const skill of currentTravellerSkills.value) {
+    const parsed = parseTravellerSkill(skill.id || skill.name)
+    const existing = groups.get(parsed.baseId) ?? {
+      baseId: parsed.baseId,
+      baseName: parsed.baseName,
+      baseLevel: undefined,
+      specialities: [],
+    }
+
+    if (parsed.specialityId) {
+      existing.specialities.push({
+        id: parsed.specialityId,
+        name: parsed.specialityName ?? parsed.name,
+        level: skill.level,
+      })
+    } else {
+      existing.baseLevel = skill.level
+    }
+
+    groups.set(parsed.baseId, existing)
+  }
+
+  return [...groups.values()]
+    .map((group) => ({
+      ...group,
+      showBase: typeof group.baseLevel === 'number'
+        || (group.specialities.length > 0
+          && travellerSkillHasSpecialities(group.baseId)
+          && travellerSkillMode(group.baseId) === 'shared-zero'),
+      displayBaseLevel: typeof group.baseLevel === 'number'
+        ? group.baseLevel
+        : (group.specialities.length > 0
+          && travellerSkillHasSpecialities(group.baseId)
+          && travellerSkillMode(group.baseId) === 'shared-zero'
+            ? 0
+            : null),
+      specialities: [...group.specialities].sort((left, right) => left.name.localeCompare(right.name)),
+    }))
+    .filter((group) => group.showBase || group.specialities.length > 0)
+    .sort((left, right) => left.baseName.localeCompare(right.baseName))
+})
 </script>
 
 <template>
-  <aside class="current-traveller-card h-fit rounded-lg border border-zinc-300 bg-zinc-950 p-5 text-white shadow-sm lg:sticky lg:top-6">
+  <aside class="current-traveller-card rounded-lg border border-zinc-300 bg-zinc-950 p-5 text-white shadow-sm lg:sticky lg:top-0">
     <p class="text-sm font-semibold uppercase tracking-wide text-amber-300">Current Traveller</p>
     <div class="mt-2 flex flex-wrap items-center justify-between gap-3">
       <h2 class="text-2xl font-semibold">{{ characterName || 'Unnamed Traveller' }}</h2>
@@ -326,19 +376,28 @@ const currentTravellerAgeLabel = computed(() => {
           {{ currentTravellerSkills.length }}
         </span>
       </div>
-      <div v-if="currentTravellerSkills.length" class="mt-3 grid gap-2">
+      <div v-if="currentTravellerSkillGroups.length" class="current-traveller-skills mt-3">
         <div
-          v-for="skill in currentTravellerSkills"
-          :key="skill.id"
-          class="grid grid-cols-[1fr_auto] gap-3 rounded-md bg-white/10 px-3 py-2"
+          v-for="group in currentTravellerSkillGroups"
+          :key="group.baseId"
+          class="current-traveller-skills__group"
         >
-          <div>
-            <p class="text-sm font-semibold text-zinc-100">{{ skill.name }}</p>
-            <p class="text-xs text-zinc-400">{{ skill.sources.join(', ') }}</p>
+          <div v-if="group.showBase" class="current-traveller-skills__base">
+            <p class="current-traveller-skills__name">{{ group.baseName }}</p>
+            <span class="current-traveller-skills__rank">
+              {{ group.displayBaseLevel }}
+            </span>
           </div>
-          <span class="self-center rounded-md bg-zinc-950 px-2 py-1 text-sm font-semibold text-amber-300">
-            {{ skill.level }}
-          </span>
+          <div v-if="group.specialities.length" class="current-traveller-skills__specialities">
+            <div
+              v-for="speciality in group.specialities"
+              :key="`${group.baseId}-${speciality.id}`"
+              class="current-traveller-skills__speciality"
+            >
+              <span class="current-traveller-skills__speciality-name">{{ speciality.name }}</span>
+              <span class="current-traveller-skills__speciality-rank">{{ speciality.level }}</span>
+            </div>
+          </div>
         </div>
       </div>
       <span v-else class="mt-3 block text-sm text-zinc-400">No skills assigned</span>
@@ -701,5 +760,72 @@ const currentTravellerAgeLabel = computed(() => {
   padding: 0 0.35rem;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.current-traveller-skills {
+  display: grid;
+  gap: 0.6rem;
+  max-height: 18.5rem;
+  overflow-y: auto;
+  padding-right: 0.2rem;
+}
+
+.current-traveller-skills__group {
+  display: grid;
+  gap: 0.45rem;
+  border: 1px solid rgb(255 255 255 / 0.12);
+  background: linear-gradient(180deg, rgb(255 255 255 / 0.08), rgb(255 255 255 / 0.04));
+  padding: 0.7rem 0.8rem;
+  clip-path: polygon(0 0, calc(100% - 0.5rem) 0, 100% 0.5rem, 100% 100%, 0.5rem 100%, 0 calc(100% - 0.5rem));
+}
+
+.current-traveller-skills__base,
+.current-traveller-skills__speciality {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.current-traveller-skills__name,
+.current-traveller-skills__speciality-name {
+  min-width: 0;
+  margin: 0;
+  color: rgb(244 250 255 / 0.96);
+}
+
+.current-traveller-skills__name {
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.current-traveller-skills__specialities {
+  display: grid;
+  gap: 0.35rem;
+  padding-top: 0.2rem;
+  border-top: 1px solid rgb(255 255 255 / 0.08);
+}
+
+.current-traveller-skills__speciality-name {
+  font-size: 0.82rem;
+  color: rgb(203 213 225 / 0.96);
+}
+
+.current-traveller-skills__rank,
+.current-traveller-skills__speciality-rank {
+  display: inline-flex;
+  min-width: 2rem;
+  justify-content: center;
+  border: 1px solid rgb(34 211 238 / 0.22);
+  background: rgb(2 6 23 / 0.84);
+  padding: 0.15rem 0.45rem;
+  color: rgb(252 211 77 / 0.96);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.current-traveller-skills__speciality-rank {
+  min-width: 1.8rem;
+  font-size: 0.74rem;
 }
 </style>
