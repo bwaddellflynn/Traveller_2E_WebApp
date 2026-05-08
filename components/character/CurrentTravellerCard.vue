@@ -184,30 +184,34 @@ const currentTravellerAgeLabel = computed(() => {
               </span>
             </Transition>
           </button>
-          <button
+          <div
             v-if="currentTravellerActiveTab"
-            class="current-traveller-carousel__item is-current"
-            type="button"
+            class="current-traveller-carousel__current-wrap"
           >
             <span class="current-traveller-carousel__marker current-traveller-carousel__marker--left" aria-hidden="true">
               <AppIcon name="arrow" />
             </span>
-            <Transition
-              :name="currentTravellerCarouselTransition === 'forward'
-                ? 'current-traveller-carousel-surface-forward'
-                : currentTravellerCarouselTransition === 'backward'
-                  ? 'current-traveller-carousel-surface-backward'
-                  : ''"
-              mode="out-in"
+            <button
+              class="current-traveller-carousel__item is-current"
+              type="button"
             >
-              <span :key="currentTravellerActiveTab.id" class="current-traveller-carousel__surface">
-                <span class="current-traveller-carousel__label">{{ currentTravellerActiveTab.label }}</span>
-              </span>
-            </Transition>
+              <Transition
+                :name="currentTravellerCarouselTransition === 'forward'
+                  ? 'current-traveller-carousel-surface-forward'
+                  : currentTravellerCarouselTransition === 'backward'
+                    ? 'current-traveller-carousel-surface-backward'
+                    : ''"
+                mode="out-in"
+              >
+                <span :key="currentTravellerActiveTab.id" class="current-traveller-carousel__surface">
+                  <span class="current-traveller-carousel__label">{{ currentTravellerActiveTab.label }}</span>
+                </span>
+              </Transition>
+            </button>
             <span class="current-traveller-carousel__marker current-traveller-carousel__marker--right" aria-hidden="true">
               <AppIcon name="arrow" />
             </span>
-          </button>
+          </div>
           <button
             v-if="currentTravellerNextTab"
             class="current-traveller-carousel__item is-near"
@@ -533,6 +537,16 @@ const currentTravellerAgeLabel = computed(() => {
   will-change: transform;
 }
 
+.current-traveller-carousel__current-wrap {
+  position: relative;
+  display: inline-flex;
+  flex: 0 0 4.65rem;
+  width: 4.65rem;
+  height: 2.45rem;
+  align-items: center;
+  justify-content: center;
+}
+
 .current-traveller-carousel-surface-forward-enter-active,
 .current-traveller-carousel-surface-forward-leave-active,
 .current-traveller-carousel-surface-backward-enter-active,
@@ -613,7 +627,6 @@ const currentTravellerAgeLabel = computed(() => {
     0 0 18px rgb(34 211 238 / 0.12);
   transform: scale(1.18);
   z-index: 2;
-  overflow: visible;
 }
 
 .current-traveller-carousel__marker {
@@ -633,7 +646,7 @@ const currentTravellerAgeLabel = computed(() => {
 }
 
 .current-traveller-carousel__marker--left {
-  left: -0.92rem;
+  left: -2.63rem;
   transform: translate(0, -50%);
 }
 
@@ -642,7 +655,7 @@ const currentTravellerAgeLabel = computed(() => {
 }
 
 .current-traveller-carousel__marker--right {
-  right: -0.92rem;
+  right: -2.63rem;
   transform: translate(0, -50%);
 }
 

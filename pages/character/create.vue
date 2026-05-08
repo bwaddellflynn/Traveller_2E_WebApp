@@ -1334,30 +1334,34 @@ if (import.meta.client) {
                     </span>
                   </Transition>
                 </button>
-                <button
+                <div
                   v-if="mobileStepCurrent"
-                  class="creator-step-carousel__item is-current"
-                  type="button"
+                  class="creator-step-carousel__current-wrap"
                 >
                   <span class="creator-step-carousel__marker creator-step-carousel__marker--left" aria-hidden="true">
                     <AppIcon name="arrow" />
                   </span>
-                  <Transition
-                    :name="mobileStepCarouselTransition === 'forward'
-                      ? 'creator-step-carousel-surface-forward'
-                      : mobileStepCarouselTransition === 'backward'
-                        ? 'creator-step-carousel-surface-backward'
-                        : ''"
-                    mode="out-in"
+                  <button
+                    class="creator-step-carousel__item is-current"
+                    type="button"
                   >
-                    <span :key="mobileStepCurrent.id" class="creator-step-carousel__surface">
-                      <span class="creator-step-carousel__label">{{ mobileStepCurrent.label }}</span>
-                    </span>
-                  </Transition>
+                    <Transition
+                      :name="mobileStepCarouselTransition === 'forward'
+                        ? 'creator-step-carousel-surface-forward'
+                        : mobileStepCarouselTransition === 'backward'
+                          ? 'creator-step-carousel-surface-backward'
+                          : ''"
+                      mode="out-in"
+                    >
+                      <span :key="mobileStepCurrent.id" class="creator-step-carousel__surface">
+                        <span class="creator-step-carousel__label">{{ mobileStepCurrent.label }}</span>
+                      </span>
+                    </Transition>
+                  </button>
                   <span class="creator-step-carousel__marker creator-step-carousel__marker--right" aria-hidden="true">
                     <AppIcon name="arrow" />
                   </span>
-                </button>
+                </div>
                 <button
                   v-if="mobileStepNext"
                   class="creator-step-carousel__item is-near"
@@ -3191,6 +3195,16 @@ if (import.meta.client) {
   will-change: transform;
 }
 
+.creator-step-carousel__current-wrap {
+  position: relative;
+  display: inline-flex;
+  flex: 0 0 4.65rem;
+  width: 4.65rem;
+  height: 2.45rem;
+  align-items: center;
+  justify-content: center;
+}
+
 .creator-step-carousel-shift-move,
 .creator-step-carousel__item {
   position: relative;
@@ -3239,7 +3253,6 @@ if (import.meta.client) {
     0 0 18px rgb(34 211 238 / 0.12);
   transform: scale(1.18);
   z-index: 2;
-  overflow: visible;
 }
 
 .creator-step-carousel__marker {
@@ -3259,7 +3272,7 @@ if (import.meta.client) {
 }
 
 .creator-step-carousel__marker--left {
-  left: -0.92rem;
+  left: -2.63rem;
   transform: translate(0, -50%);
 }
 
@@ -3268,7 +3281,7 @@ if (import.meta.client) {
 }
 
 .creator-step-carousel__marker--right {
-  right: -0.92rem;
+  right: -2.63rem;
   transform: translate(0, -50%);
 }
 
