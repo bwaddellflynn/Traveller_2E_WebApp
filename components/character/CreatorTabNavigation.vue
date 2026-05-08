@@ -51,8 +51,8 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="flex items-start gap-2 border-b border-zinc-200 p-3">
-    <div class="creator-tab-strip no-scrollbar min-w-0 flex-1 overflow-x-auto">
-      <div class="flex min-w-max items-center gap-2 pr-1">
+    <div class="creator-tab-strip no-scrollbar min-w-0 flex-1 overflow-x-visible lg:overflow-x-auto">
+      <div class="flex flex-wrap items-center gap-2 pr-1 lg:min-w-max lg:flex-nowrap">
         <button
           :class="[
             'hidden h-10 shrink-0 items-center justify-center rounded-md px-3 text-center text-sm font-semibold sm:inline-flex',

@@ -59,6 +59,7 @@ const {
   rollMusteringOutBenefit,
   enterManualMusteringOutBenefit,
   resetCreatorState,
+  selectTermTab,
   modifierLabel,
   educationBenefitLabel,
   preCareerEventEffectLabel,
@@ -316,10 +317,17 @@ const creatorShellTabs = computed(() => {
     : (['creation', ...termIds] as const)
 })
 const activeCreatorShellIndex = computed(() => creatorShellTabs.value.findIndex((tab) => tab === activeCreatorTab.value))
+const activeCreatorTabIsTerm = computed(() => activeCreatorTab.value.startsWith('term-'))
 const canFooterNavigatePrev = computed(() => {
+  if (isMobileViewport.value && activeCreatorTabIsTerm.value) {
+    return activeTermStepIndex.value > 0 || activeCreatorShellIndex.value > 0
+  }
   return activeCreatorShellIndex.value > 0
 })
 const canFooterNavigateNext = computed(() => {
+  if (isMobileViewport.value && activeCreatorTabIsTerm.value) {
+    return activeTermStepIndex.value < termStepTabs.value.length - 1 || activeCreatorShellIndex.value < creatorShellTabs.value.length - 1
+  }
   return activeCreatorShellIndex.value > -1 && activeCreatorShellIndex.value < creatorShellTabs.value.length - 1
 })
 const folderTabPosition = (index: number, count: number) => count <= 1 ? 0 : index / (count - 1)
@@ -858,6 +866,38 @@ const navigateCreatorShell = (direction: -1 | 1) => {
   }
   scrollToCreatorNavigation()
 }
+const navigateMobileFooter = async (direction: -1 | 1) => {
+  if (!isMobileViewport.value || !activeCreatorTabIsTerm.value) {
+    navigateCreatorShell(direction)
+    return
+  }
+
+  if (direction === -1 && activeTermStepIndex.value > 0) {
+    previousTermStep()
+    return
+  }
+
+  if (direction === 1 && activeTermStepIndex.value < termStepTabs.value.length - 1) {
+    nextTermStep()
+    return
+  }
+
+  const nextIndex = activeCreatorShellIndex.value + direction
+  const nextTab = creatorShellTabs.value[nextIndex]
+  if (!nextTab) return
+
+  if (nextTab.startsWith('term-')) {
+    selectTermTab(Number(nextTab.replace('term-', '')))
+    await nextTick()
+    activeTermStep.value = direction === -1
+      ? (termStepTabs.value[termStepTabs.value.length - 1]?.id ?? 'direction')
+      : (termStepTabs.value[0]?.id ?? 'direction')
+  } else {
+    activeCreatorTab.value = nextTab
+  }
+
+  scrollToCreatorNavigation()
+}
 
 const creatorRandomDie = () => Math.floor(Math.random() * 6) + 1
 const clearCreatorRollModalTimers = () => {
@@ -1063,6 +1103,7 @@ onMounted(() => {
   if (cachedDraft) {
     characterCreator.$patch(cachedDraft as Partial<typeof characterCreator.$state>)
     characterCreator.characteristicRollSequence = 0
+    if (mobileViewportQuery) syncCreatorViewportMode(mobileViewportQuery.matches)
     creatorSaveMessage.value = 'Restored cached character creation draft.'
   }
 
@@ -2249,7 +2290,7 @@ if (import.meta.client) {
                     <div class="flex flex-wrap items-center justify-between gap-3">
                       <p class="font-semibold">{{ rollSummary(termRolls.educationEvent) }} · {{ preCareerEvent.name }}</p>
                       <button
-                        class="text-xs font-semibold text-amber-700 hover:text-amber-900"
+                        class="creator-event-details-link"
                         type="button"
                         @click="openEventTextModal(preCareerEvent.name, preCareerEvent.text, (preCareerEvent.effects ?? []).map((effect) => preCareerEventEffectLabel(effect)))"
                       >
@@ -2571,7 +2612,7 @@ if (import.meta.client) {
               aria-label="Previous"
               title="Previous"
               type="button"
-              @click="navigateCreatorShell(-1)"
+              @click="navigateMobileFooter(-1)"
             >
               Prev
             </button>
@@ -2581,7 +2622,7 @@ if (import.meta.client) {
               aria-label="Next"
               title="Next"
               type="button"
-              @click="navigateCreatorShell(1)"
+              @click="navigateMobileFooter(1)"
             >
               Next
             </button>
@@ -2602,6 +2643,7 @@ if (import.meta.client) {
         class="creator-roll-modal fixed inset-0 z-50 flex items-center justify-center bg-zinc-950/60 px-4 py-8 backdrop-blur-sm"
         role="dialog"
         aria-modal="true"
+        @click.self="closeCreatorRollModal"
       >
         <div class="creator-roll-modal__panel w-full max-w-md overflow-hidden">
           <div class="creator-roll-modal__header">
@@ -2617,7 +2659,8 @@ if (import.meta.client) {
                 aria-label="Close roll modal"
                 @click="closeCreatorRollModal"
               >
-                Close
+                <AppIcon name="close" />
+                <span class="creator-roll-modal__close-label">Close</span>
               </button>
             </div>
           </div>
@@ -2667,7 +2710,8 @@ if (import.meta.client) {
               aria-label="Close event details"
               @click="closeEventTextModal"
             >
-              Close
+              <AppIcon name="close" />
+              <span class="creator-roll-modal__close-label">Close</span>
             </button>
           </div>
 
@@ -3064,6 +3108,7 @@ if (import.meta.client) {
 .creator-roll-modal__header-actions {
   display: flex;
   align-items: center;
+  flex-wrap: nowrap;
   gap: 0.65rem;
 }
 
@@ -3084,6 +3129,10 @@ if (import.meta.client) {
 }
 
 .creator-roll-modal__close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
   height: 2.25rem;
   padding: 0 0.85rem;
   border: 1px solid rgb(34 211 238 / 0.28);
@@ -3099,6 +3148,10 @@ if (import.meta.client) {
   border-color: rgb(34 211 238 / 0.5);
   color: rgb(255 251 235);
   background: rgb(14 32 52 / 0.96);
+}
+
+.creator-roll-modal__close-label {
+  white-space: nowrap;
 }
 
 .creator-roll-modal__body {
@@ -3560,12 +3613,16 @@ if (import.meta.client) {
 }
 
 .creator-roll-modal__modifier {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   border: 1px solid rgb(251 191 36 / 0.24);
   background: rgb(251 191 36 / 0.1);
   color: rgb(253 186 55);
   padding: 0.35rem 0.7rem;
   font-size: 0.82rem;
   font-weight: 700;
+  white-space: nowrap;
   clip-path: polygon(0 0, calc(100% - 0.45rem) 0, 100% 0.45rem, 100% 100%, 0.45rem 100%, 0 calc(100% - 0.45rem));
 }
 
@@ -3615,6 +3672,19 @@ if (import.meta.client) {
 }
 
 @media (max-width: 639px) {
+  .creator-roll-modal__header {
+    align-items: center;
+  }
+
+  .creator-roll-modal__close {
+    width: 2.25rem;
+    padding: 0;
+  }
+
+  .creator-roll-modal__close-label {
+    display: none;
+  }
+
   .creator-roll-modal__die {
     width: 2.95rem;
     height: 2.95rem;
@@ -3625,6 +3695,12 @@ if (import.meta.client) {
     width: 4.2rem;
     height: 3.7rem;
     font-size: 2.1rem;
+    -webkit-text-stroke: 0;
+    text-shadow:
+      0 1px 0 rgb(92 33 7 / 0.95),
+      0 0 1px rgb(255 251 235 / 0.94),
+      0 0 4px rgb(252 211 77 / 0.34),
+      0 0 10px rgb(245 158 11 / 0.22);
   }
 }
 
@@ -3632,6 +3708,25 @@ if (import.meta.client) {
   margin: 0;
   color: rgb(232 249 252 / 0.88);
   line-height: 1.7;
+}
+
+.creator-event-details-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.2rem 0.4rem;
+  border: 0;
+  background: transparent;
+  color: rgb(251 191 36 / 0.92);
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1.2;
+  white-space: nowrap;
+  clip-path: none;
+}
+
+.creator-event-details-link:hover {
+  color: rgb(253 224 71);
 }
 
 .creator-roll-modal__effects {

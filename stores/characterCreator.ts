@@ -1159,7 +1159,8 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
   }
   const skillNeedsSpecialityAtLevel = (skillId: string, targetLevel: number) => skillHasSpecialities(skillId) && targetLevel >= 1
 
-  const skillName = (skillId: string) => {
+  const skillName = (skillId?: string | null) => {
+    if (!skillId) return 'Skill'
     if (skillId.includes(':') || skillId.includes('/')) return skillOptionLabel(skillId)
     const skill = getSkillDefinition(skillId)
     return skill?.name ?? skillId
