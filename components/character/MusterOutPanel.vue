@@ -76,6 +76,29 @@ const unresolvedMusteringOutSkillChoice = computed(() => {
 })
 
 const saveDisabled = computed(() => unresolvedMusteringOutResolutions.value || unresolvedMusteringOutSkillChoice.value)
+const voucherBenefitTypes = new Set([
+  'weapon',
+  'gun',
+  'blade',
+  'armour',
+  'scientific equipment',
+  'cybernetic implant',
+  'combat implant',
+  'personal vehicle',
+  "ship's boat",
+  'scout ship',
+  'lab ship',
+  'free trader',
+  'yacht',
+])
+
+const musteringResultDisplay = (result: { cash?: number; benefit?: string; resolvedSelections?: string[] }) => {
+  if (typeof result.cash === 'number') return `${result.cash.toLocaleString()} Cr`
+  if (result.resolvedSelections?.length) return result.resolvedSelections.join(' · ')
+  const benefit = result.benefit?.trim() ?? ''
+  if (voucherBenefitTypes.has(benefit.toLowerCase())) return `${benefit} Voucher`
+  return benefit
+}
 
 const emitMusteringResultRoll = () => {
   const result = musteringOutResults.value[musteringOutResults.value.length - 1]
@@ -293,11 +316,7 @@ const triggerManualMusteringOutBenefit = () => {
             {{ result.rollType }}
           </div>
           <div class="text-cyan-100/85 lg:text-right">
-            {{
-              result.cash !== undefined
-                ? `${result.cash.toLocaleString()} Cr`
-                : (result.resolvedSelections?.length ? result.resolvedSelections.join(' · ') : result.benefit)
-            }}
+            {{ musteringResultDisplay(result) }}
           </div>
         </div>
       </div>

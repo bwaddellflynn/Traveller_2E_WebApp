@@ -174,7 +174,7 @@ const currentTravellerSkillGroups = computed(() => {
 </script>
 
 <template>
-  <aside class="current-traveller-card rounded-lg border border-zinc-300 bg-zinc-950 p-5 text-white shadow-sm lg:sticky lg:top-0">
+  <aside class="current-traveller-card flex h-full min-h-0 flex-col rounded-lg border border-zinc-300 bg-zinc-950 p-5 text-white shadow-sm lg:sticky lg:top-0">
     <p class="text-sm font-semibold uppercase tracking-wide text-amber-300">Current Traveller</p>
     <div class="mt-2 flex flex-wrap items-center justify-between gap-3">
       <h2 class="text-2xl font-semibold">{{ characterName || 'Unnamed Traveller' }}</h2>
@@ -361,7 +361,7 @@ const currentTravellerSkillGroups = computed(() => {
       </div>
     </div>
 
-    <div v-show="currentTravellerTab === 'profile'" class="mt-5 border-t border-white/15 pt-5">
+    <div v-show="currentTravellerTab === 'profile'" class="mt-5 flex min-h-0 flex-1 flex-col overflow-hidden border-t border-white/15 pt-5">
       <div class="flex items-center justify-between gap-3">
         <p class="text-sm font-semibold text-zinc-200">Skills</p>
         <span class="rounded-md bg-white/10 px-2 py-1 text-xs text-zinc-300">
@@ -762,8 +762,10 @@ const currentTravellerSkillGroups = computed(() => {
 
 .current-traveller-skills {
   display: grid;
+  flex: 1;
   gap: 0.7rem;
-  max-height: 18.5rem;
+  min-height: 0;
+  overflow-x: hidden;
   overflow-y: auto;
   padding-right: 0.25rem;
 }

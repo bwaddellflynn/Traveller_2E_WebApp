@@ -1617,8 +1617,8 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     const officerRank = rows.find((row) => row.rank === 1) ?? rows[0]
     if (!officerRank) return null
 
-    const success = Boolean(roll.finalSuccess && state.rank < officerRank.rank)
-    const newRank = success ? officerRank.rank : state.rank
+    const success = Boolean(roll.finalSuccess)
+    const newRank = success ? Math.max(state.rank, officerRank.rank) : state.rank
     const previousRow = rows.find((row) => row.rank === state.rank)
     const nextRow = rows.find((row) => row.rank === newRank)
 
@@ -1635,7 +1635,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
         current: row.rank === newRank,
       })),
     }
-    if (success && officerRank.bonus) result.bonus = officerRank.bonus
+    if (success && newRank > state.rank && officerRank.bonus) result.bonus = officerRank.bonus
     return result
   }
 
@@ -5163,8 +5163,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     if (selectedCareerId.value === 'prisoner') return prisonerReleasedThisTerm.value || Boolean(termRolls.careerAdvancement)
     if (!termRolls.careerSurvival.finalSuccess) return true
     if (!termRolls.careerEvent) return false
-    if (automaticCommissionConstraint.value) return true
-    if (termRolls.careerCommission?.finalSuccess) return true
+    if (careerCommissionAvailable.value && !automaticCommissionConstraint.value && !termRolls.careerCommission) return false
     if (!termRolls.careerAdvancement) return false
     if (termRolls.careerAdvancement.finalSuccess && !termRolls.careerAdvancementSkill) return false
     return true

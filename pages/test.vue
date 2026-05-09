@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { storeToRefs } from 'pinia'
-import { onMounted } from 'vue'
+import { nextTick, onMounted } from 'vue'
 import MusterOutPanel from '~/components/character/MusterOutPanel.vue'
 import MusterOutRollModal from '~/components/character/MusterOutRollModal.vue'
 import { useAuthStore } from '~/stores/auth'
@@ -40,7 +40,7 @@ const loadTestMusterOutState = () => {
   closeRollModal()
 }
 
-const handleMusterOutRoll = (payload: {
+const handleMusterOutRoll = async (payload: {
   title: string
   resultId: string
   careerName: string
@@ -52,6 +52,9 @@ const handleMusterOutRoll = (payload: {
   result: string
   options: Array<{ roll: number; cash: number; benefit: string }>
 }) => {
+  rollModalOpen.value = false
+  rollModalPayload.value = null
+  await nextTick()
   rollModalPayload.value = payload
   rollModalOpen.value = true
 }

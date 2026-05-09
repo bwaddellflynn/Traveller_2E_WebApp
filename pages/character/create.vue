@@ -527,7 +527,7 @@ const activeTermStepComplete = computed(() => {
   if (activeTermStep.value === 'advancement') {
     if (!termRolls.value.careerSurvival?.finalSuccess) return true
     if (selectedCareerId.value === 'prisoner') return prisonerReleasedThisTerm.value || Boolean(termRolls.value.careerAdvancement)
-    if (automaticCommissionConstraint.value || termRolls.value.careerCommission?.finalSuccess) return true
+    if (careerCommissionAvailable.value && !automaticCommissionConstraint.value && !termRolls.value.careerCommission) return false
     return Boolean(
       termRolls.value.careerAdvancement
       && (!termRolls.value.careerAdvancement.finalSuccess || termRolls.value.careerAdvancementSkill),
@@ -764,7 +764,7 @@ const activeStepPrimaryAction = computed<CreatorStepActionDefinition | null>(() 
     }
     if (
       termRolls.value.careerSurvival?.finalSuccess
-      && (automaticCommissionConstraint.value || termRolls.value.careerCommission?.finalSuccess || !careerCommissionAvailable.value)
+      && (automaticCommissionConstraint.value || !!termRolls.value.careerCommission || !careerCommissionAvailable.value)
       && !termRolls.value.careerAdvancement
     ) {
       return {
@@ -788,7 +788,7 @@ const activeStepPrimaryAction = computed<CreatorStepActionDefinition | null>(() 
     }
     if (
       termRolls.value.careerSurvival?.finalSuccess
-      && (automaticCommissionConstraint.value || termRolls.value.careerCommission?.finalSuccess || !careerCommissionAvailable.value)
+      && (automaticCommissionConstraint.value || !!termRolls.value.careerCommission || !careerCommissionAvailable.value)
       && termRolls.value.careerAdvancement
       && canRerollCreatorAction('roll-advancement')
     ) {
@@ -903,6 +903,20 @@ const activeStepSecondaryAction = computed<CreatorStepActionDefinition | null>((
   if (secondary.key === 'manual-aging' && !gmManualAgingRollEntryEnabled.value) return null
 
   return secondary
+})
+const showActiveStepNextAction = computed(() => {
+  if (gmRerollsEnabled.value) return false
+  if (!activeCreatorTabIsTerm.value) return false
+  if (activeTermStep.value === 'complete') return false
+  if (activeStepPrimaryAction.value) return false
+  if (!activeTermStepComplete.value) return false
+  return canFooterNavigateNext.value
+})
+const activeStepActionHelper = computed(() => {
+  if (activeStepPrimaryAction.value?.helper) return activeStepPrimaryAction.value.helper
+  if (activeStepSecondaryAction.value?.helper) return activeStepSecondaryAction.value.helper
+  if (showActiveStepNextAction.value) return 'This step is resolved. Continue to the next step.'
+  return ''
 })
 const executeCreatorStepActionByKey = (key: CreatorStepActionKey, reroll = false) => {
   if (!reroll) captureCreatorRerollSnapshot(key)
@@ -1154,7 +1168,7 @@ const handleCreatorRollModalPayload = (payload: {
   void startCreatorRollModal(payload.title, payload.result, payload.modifier ?? 0, payload.total, payload.dice)
 }
 
-const handleMusterOutRollModalPayload = (payload: {
+const handleMusterOutRollModalPayload = async (payload: {
   title: string
   resultId: string
   careerName: string
@@ -1166,6 +1180,9 @@ const handleMusterOutRollModalPayload = (payload: {
   result: string
   options: Array<{ roll: number; cash: number; benefit: string }>
 }) => {
+  musterOutRollModalOpen.value = false
+  musterOutRollModalPayload.value = null
+  await nextTick()
   musterOutRollModalPayload.value = payload
   musterOutRollModalOpen.value = true
 }
@@ -2198,7 +2215,12 @@ if (import.meta.client) {
                   <p class="font-semibold">{{ commissionResult.success ? 'Commission Result' : 'Commission Failed' }}</p>
                   <p class="mt-1">
                     <template v-if="commissionResult.success">
-                      Rank updated from {{ commissionResult.previousTitle }} to {{ commissionResult.newTitle }}.
+                      <template v-if="commissionResult.newRank !== commissionResult.previousRank">
+                        Rank updated from {{ commissionResult.previousTitle }} to {{ commissionResult.newTitle }}.
+                      </template>
+                      <template v-else>
+                        Commission confirmed at {{ commissionResult.newTitle }}.
+                      </template>
                     </template>
                     <template v-else>
                       Remains at {{ commissionResult.previousTitle }}.
@@ -2737,13 +2759,13 @@ if (import.meta.client) {
 
           <div class="mt-6">
           <div
-            v-if="activeStepPrimaryAction || activeStepSecondaryAction"
+            v-if="activeStepPrimaryAction || activeStepSecondaryAction || showActiveStepNextAction"
             class="creator-step-action-rail"
           >
             <div class="creator-step-action-rail__copy">
               <p class="creator-step-action-rail__label">Current Step Action</p>
               <p class="creator-step-action-rail__helper">
-                {{ activeStepPrimaryAction?.helper ?? activeStepSecondaryAction?.helper }}
+                {{ activeStepActionHelper }}
               </p>
             </div>
             <div class="creator-step-action-rail__actions">
@@ -2762,6 +2784,14 @@ if (import.meta.client) {
                 @click="executeCreatorStepAction(activeStepPrimaryAction)"
               >
                 {{ activeStepPrimaryAction.label }}
+              </button>
+              <button
+                v-else-if="showActiveStepNextAction"
+                class="creator-step-action-rail__button creator-step-action-rail__button--primary"
+                type="button"
+                @click="navigateFooter(1)"
+              >
+                Next
               </button>
             </div>
           </div>
@@ -3055,6 +3085,7 @@ if (import.meta.client) {
         class="fixed inset-0 z-[55] grid place-items-center bg-zinc-950/45 px-4 py-8"
         role="dialog"
         aria-modal="true"
+        @click.self="dismissCommissionResult"
       >
         <div class="w-full max-w-xl rounded-lg border border-zinc-200 bg-white p-5 shadow-2xl">
           <div class="flex flex-wrap items-start justify-between gap-4">
@@ -3067,7 +3098,12 @@ if (import.meta.client) {
               </h2>
               <p class="mt-2 text-sm text-zinc-600">
                 <template v-if="commissionResult.success">
-                  Rank updated from {{ commissionResult.previousTitle }} to {{ commissionResult.newTitle }}.
+                  <template v-if="commissionResult.newRank !== commissionResult.previousRank">
+                    Rank updated from {{ commissionResult.previousTitle }} to {{ commissionResult.newTitle }}.
+                  </template>
+                  <template v-else>
+                    Commission confirmed at {{ commissionResult.newTitle }}.
+                  </template>
                 </template>
                 <template v-else>
                   Remains at {{ commissionResult.previousTitle }}.
@@ -3116,6 +3152,7 @@ if (import.meta.client) {
         class="fixed inset-0 z-[55] grid place-items-center bg-zinc-950/45 px-4 py-8"
         role="dialog"
         aria-modal="true"
+        @click.self="dismissAdvancementResult"
       >
         <div class="w-full max-w-xl rounded-lg border border-zinc-200 bg-white p-5 shadow-2xl">
           <div class="flex flex-wrap items-start justify-between gap-4">
