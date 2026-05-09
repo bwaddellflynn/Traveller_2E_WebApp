@@ -1,6 +1,6 @@
 <script setup lang="ts">
 const props = defineProps<{
-  name: 'user' | 'portrait' | 'briefcase' | 'wrench' | 'car' | 'bot' | 'rocket' | 'ship' | 'scout-badge' | 'dice' | 'arrow' | 'check' | 'lock' | 'plus' | 'sliders' | 'sort-asc' | 'sort-desc' | 'warning' | 'close' | 'restart' | 'import' | 'export' | 'copy' | 'trash' | 'save' | 'fullscreen-enter' | 'fullscreen-exit' | 'weapon-melee' | 'weapon-sidearm' | 'weapon-longarm' | 'weapon-shotgun' | 'weapon-support' | 'weapon-heavy' | 'weapon-launcher' | 'weapon-grenade' | 'weapon-charge' | 'weapon-energy-sidearm' | 'weapon-energy-longarm'
+  name: 'user' | 'portrait' | 'briefcase' | 'wrench' | 'car' | 'bot' | 'rocket' | 'ship' | 'scout-badge' | 'dice' | 'arrow' | 'check' | 'lock' | 'plus' | 'sliders' | 'sort-asc' | 'sort-desc' | 'warning' | 'close' | 'restart' | 'import' | 'export' | 'copy' | 'trash' | 'save' | 'fullscreen-enter' | 'fullscreen-exit' | 'credits' | 'airlock' | 'weapon-melee' | 'weapon-sidearm' | 'weapon-longarm' | 'weapon-shotgun' | 'weapon-support' | 'weapon-heavy' | 'weapon-launcher' | 'weapon-grenade' | 'weapon-charge' | 'weapon-energy-sidearm' | 'weapon-energy-longarm'
 }>()
 
 const paths = {
@@ -188,6 +188,19 @@ const paths = {
     'M20 4l-5 5',
     'M4 20l5-5',
     'M20 20l-5-5',
+  ],
+  credits: [
+    'M12 4c-4.4 0-8 1.8-8 4s3.6 4 8 4 8-1.8 8-4-3.6-4-8-4Z',
+    'M4 12v4c0 2.2 3.6 4 8 4s8-1.8 8-4v-4',
+    'M9.5 9.5c.4.7 1.3 1.2 2.5 1.2 1.4 0 2.5-.7 2.5-1.7s-.9-1.4-2.5-1.7c-1.6-.3-2.5-.8-2.5-1.8S10.6 4 12 4c1.2 0 2 .4 2.5 1.1',
+    'M12 3v8',
+  ],
+  airlock: [
+    'M7 4h8l3 3v10l-3 3H7l-3-3V7Z',
+    'M11 4v16',
+    'M11 12h7',
+    'M8.5 12h.01',
+    'M14 9l3 3-3 3',
   ],
   'weapon-melee': [
     'M5 20l7-14 3 3-7 14H5Z',

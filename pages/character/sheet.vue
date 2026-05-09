@@ -675,6 +675,22 @@ const selectMobileSheetSection = (sectionId: MobileSheetSectionId) => {
   sheetDeleteConfirmOpen.value = false
 }
 
+const formatCreditDisplay = (value: number | string | null | undefined) => {
+  const numericValue = typeof value === 'number'
+    ? value
+    : Number(String(value ?? '').replace(/,/g, ''))
+  if (!Number.isFinite(numericValue)) return ''
+  return Math.trunc(numericValue).toLocaleString()
+}
+
+const handleCreditInput = (event: Event) => {
+  const target = event.target as HTMLInputElement | null
+  const rawValue = target?.value ?? ''
+  const digitsOnly = rawValue.replace(/[^\d-]/g, '')
+  const parsed = Number(digitsOnly)
+  draft.value.finances.cashOnHand = Number.isFinite(parsed) ? parsed : 0
+}
+
 const saveSheet = async () => {
   manualSheetDraftCachePaused.value = true
   clearBuilderDraft(activeManualSheetDraftCacheKey.value)
@@ -1358,8 +1374,8 @@ watch(
                 <header class="sheet-panel-title sheet-panel-title--compact">Finances</header>
                 <div class="sheet-finance-grid">
                   <label class="sheet-line-field sheet-line-field--stacked sheet-line-field--emphasis">
-                    <span>Cash:</span>
-                    <input v-model.number="draft.finances.cashOnHand" class="sheet-line-input" type="number">
+                    <span class="sheet-line-field__credits-label">Credits: <GalacticCreditsIcon class="sheet-line-field__credits-symbol" /></span>
+                    <input :value="formatCreditDisplay(draft.finances.cashOnHand)" class="sheet-line-input" inputmode="numeric" type="text" @input="handleCreditInput">
                   </label>
                   <label class="sheet-line-field sheet-line-field--stacked sheet-line-field--emphasis">
                     <span>Monthly Cash Flow:</span>
@@ -1845,8 +1861,8 @@ watch(
               <header class="sheet-panel-title sheet-panel-title--compact">Finances</header>
               <div class="sheet-finance-grid">
                 <label class="sheet-line-field sheet-line-field--stacked sheet-line-field--emphasis">
-                  <span>Cash:</span>
-                  <input v-model.number="draft.finances.cashOnHand" class="sheet-line-input" type="number">
+                  <span class="sheet-line-field__credits-label">Credits: <GalacticCreditsIcon class="sheet-line-field__credits-symbol" /></span>
+                  <input :value="formatCreditDisplay(draft.finances.cashOnHand)" class="sheet-line-input" inputmode="numeric" type="text" @input="handleCreditInput">
                 </label>
                 <label class="sheet-line-field sheet-line-field--stacked sheet-line-field--emphasis">
                   <span>Monthly Cash Flow:</span>
@@ -2689,6 +2705,24 @@ watch(
   line-height: 1.1;
   text-transform: uppercase;
   letter-spacing: 0.02em;
+}
+
+.sheet-line-field__credits-label {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.28rem;
+}
+
+.sheet-line-field__credits-symbol {
+  width: 1.02rem;
+  height: 1.02rem;
+  flex: 0 0 auto;
+  align-self: center;
+  color: #fbbf24;
+  transform: translateY(-0.08rem);
+  filter:
+    drop-shadow(0 0 6px rgb(251 191 36 / 0.22))
+    drop-shadow(0 0 14px rgb(234 179 8 / 0.16));
 }
 
 .sheet-line-field--training {

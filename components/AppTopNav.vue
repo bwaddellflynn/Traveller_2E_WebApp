@@ -8,11 +8,6 @@ const route = useRoute()
 const authStore = useAuthStore()
 const travellersStore = useTravellersStore()
 const { isAuthenticated, isSysAdmin, profileDisplayName } = storeToRefs(authStore)
-const { activeProfile } = storeToRefs(travellersStore)
-
-const formatCredits = (credits: number) => credits >= 1000000
-  ? `MCr${(credits / 1000000).toLocaleString()}`
-  : `Cr${credits.toLocaleString()}`
 
 const logout = () => {
   authStore.logout()
@@ -94,16 +89,6 @@ onMounted(() => {
       </div>
 
       <div v-else class="app-top-nav-auth">
-        <div v-if="activeProfile" class="app-top-nav-active-traveller">
-          <NuxtLink class="hud-link app-top-nav-active-traveller__link flex h-10 items-center gap-2 px-3 text-sm font-semibold" :to="`/character/sheet?id=${activeProfile.id}`" title="Open selected Traveller">
-            <AppIcon name="credits" />
-            <span class="truncate">{{ activeProfile.identity.name || 'Traveller' }}</span>
-            <span class="app-top-nav-active-traveller__credits">{{ formatCredits(activeProfile.finances.cashOnHand) }}</span>
-          </NuxtLink>
-          <button class="hud-link app-top-nav-active-traveller__clear h-10 w-10" type="button" title="Clear selected Traveller" aria-label="Clear selected Traveller" @click="travellersStore.clearActiveProfile()">
-            <AppIcon name="close" />
-          </button>
-        </div>
         <NuxtLink class="hud-link flex h-10 items-center gap-2 px-3 text-sm font-semibold" title="Profile" to="/profile">
           <AppIcon name="user" />
           {{ profileDisplayName }}

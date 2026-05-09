@@ -2,15 +2,18 @@
 import { storeToRefs } from 'pinia'
 import type { TravellerProfile } from '~/types/traveller'
 import { useTravellersStore } from '~/stores/travellers'
+import { loadBuilderDraft } from '~/utils/traveller/draftCache'
 import { makeProfileId } from '~/utils/traveller/profile'
-import { loadActiveManualTravellerDraftId } from '~/utils/traveller/manualDraft'
+import { loadActiveManualTravellerDraftId, MANUAL_TRAVELLER_DRAFT_CACHE_VERSION, manualTravellerDraftCacheKey } from '~/utils/traveller/manualDraft'
 
 const travellers = useTravellersStore()
-const { userProfiles, activeProfileId } = storeToRefs(travellers)
+const { userProfiles, activeProfileId, activeProfile } = storeToRefs(travellers)
 const mobileProfilesExpanded = ref(false)
 const route = useRoute()
 const router = useRouter()
 const pendingDeleteProfileId = ref<string | null>(null)
+const activeSheetRouteId = computed(() => typeof route.query.id === 'string' ? route.query.id : '')
+const activeSheetDraftId = computed(() => typeof route.query.draft === 'string' ? route.query.draft : '')
 
 onMounted(async () => {
   await travellers.loadProfiles()
@@ -39,6 +42,35 @@ const openTraveller = async (profileId: string) => {
   await router.push(`/character/sheet?id=${profileId}`)
 }
 
+const clearActiveTraveller = async () => {
+  await travellers.clearActiveProfile()
+}
+
+const formatCredits = (credits: number) => credits.toLocaleString()
+
+const activeSheetDraftProfile = computed(() => {
+  if (route.path !== '/character/sheet') return null
+  const cacheId = activeSheetRouteId.value || activeSheetDraftId.value
+  if (!cacheId) return null
+  return loadBuilderDraft<TravellerProfile>(
+    manualTravellerDraftCacheKey(cacheId),
+    MANUAL_TRAVELLER_DRAFT_CACHE_VERSION,
+  )
+})
+
+const displayedCredits = computed(() => {
+  if (
+    activeProfile.value
+    && activeSheetRouteId.value
+    && activeProfile.value.id === activeSheetRouteId.value
+    && activeSheetDraftProfile.value
+  ) {
+    return Number(activeSheetDraftProfile.value.finances.cashOnHand) || 0
+  }
+
+  return Number(activeProfile.value?.finances.cashOnHand) || 0
+})
+
 const requestDeleteProfile = (profileId: string) => {
   pendingDeleteProfileId.value = profileId
 }
@@ -62,27 +94,45 @@ const confirmDeleteProfile = async (profileId: string) => {
       <div>
         <h2 class="text-xl font-semibold">Travellers</h2>
       </div>
-      <div class="flex items-center gap-2">
-        <button
-          class="travellers-mobile-toggle hud-link h-10 w-10"
-          :aria-expanded="mobileProfilesExpanded"
-          aria-label="Toggle Traveller profiles"
-          title="Toggle Traveller profiles"
-          type="button"
-          @click="mobileProfilesExpanded = !mobileProfilesExpanded"
-        >
-          <span class="travellers-mobile-toggle__chevron" aria-hidden="true" />
-        </button>
-        <button
-          aria-label="Create a manually entered Traveller"
-          class="travellers-manual-create-link hud-link h-10 w-10"
-          title="Create a manually entered Traveller"
-          type="button"
-          @click="openNewManualTraveller"
-        >
-          <AppIcon name="plus" />
-        </button>
+      <button
+        class="travellers-mobile-toggle hud-link h-10 w-10"
+        :aria-expanded="mobileProfilesExpanded"
+        aria-label="Toggle Traveller profiles"
+        title="Toggle Traveller profiles"
+        type="button"
+        @click="mobileProfilesExpanded = !mobileProfilesExpanded"
+      >
+        <span class="travellers-mobile-toggle__chevron" aria-hidden="true" />
+      </button>
+    </div>
+
+    <div class="travellers-utility-row px-4 pb-4">
+      <div
+        v-if="activeProfile"
+        class="travellers-credits-chip"
+        :title="`${activeProfile.identity.name || 'Traveller'} credits`"
+      >
+        <span class="travellers-credits-chip__value">{{ formatCredits(displayedCredits) }}</span>
+        <GalacticCreditsIcon class="travellers-credits-chip__symbol" />
       </div>
+      <button
+        aria-label="Leave Current Traveller"
+        class="travellers-utility-button travellers-utility-button--leave hud-link h-10 w-10"
+        title="Leave Current Traveller"
+        type="button"
+        @click="clearActiveTraveller"
+      >
+        <AppIcon class="travellers-utility-button__leave-icon" name="export" />
+      </button>
+      <button
+        aria-label="Create a manually entered Traveller"
+        class="travellers-utility-button hud-link h-10 w-10"
+        title="Create a manually entered Traveller"
+        type="button"
+        @click="openNewManualTraveller"
+      >
+        <AppIcon name="plus" />
+      </button>
     </div>
 
     <div class="travellers-mobile-collapsible">
@@ -136,21 +186,90 @@ const confirmDeleteProfile = async (profileId: string) => {
           <AppIcon name="user" />
           New Traveller
         </NuxtLink>
-        <button
-          aria-label="Create a manually entered Traveller"
-          class="travellers-mobile-manual-create-link hud-link h-10 w-10"
-          title="Create a manually entered Traveller"
-          type="button"
-          @click="openNewManualTraveller"
-        >
-          <AppIcon name="plus" />
-        </button>
       </div>
     </div>
   </aside>
 </template>
 
 <style scoped>
+.travellers-utility-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+}
+
+.travellers-credits-chip {
+  display: inline-flex;
+  flex: 1 1 auto;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 0.4rem;
+  min-height: 2.5rem;
+  padding: 0 0.95rem;
+  white-space: nowrap;
+  border: 1px solid rgba(250, 204, 21, 0.46);
+  background:
+    linear-gradient(180deg, rgba(135, 58, 11, 0.92), rgba(88, 28, 8, 0.96));
+  color: rgb(250 204 21);
+  font-size: 0.96rem;
+  font-weight: 700;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.06),
+    0 0 16px rgba(250, 204, 21, 0.18),
+    0 0 28px rgba(234, 179, 8, 0.12);
+  clip-path: polygon(0 0, calc(100% - 0.55rem) 0, 100% 0.55rem, 100% 100%, 0.55rem 100%, 0 calc(100% - 0.55rem));
+}
+
+.travellers-credits-chip__value {
+  color: rgb(250 204 21);
+  font-size: 1.12rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  line-height: 1;
+  text-align: center;
+  text-shadow:
+    0 0 6px rgb(250 204 21 / 0.24),
+    0 0 14px rgb(234 179 8 / 0.18);
+}
+
+.travellers-utility-button :deep(svg) {
+  width: 1.55rem;
+  height: 1.55rem;
+  display: block;
+}
+
+.travellers-credits-chip__symbol {
+  color: rgb(250 204 21);
+  width: 1.36rem;
+  height: 1.36rem;
+  flex: 0 0 auto;
+  align-self: center;
+  transform: translateY(0.11rem);
+  filter:
+    drop-shadow(0 0 6px rgb(250 204 21 / 0.24))
+    drop-shadow(0 0 14px rgb(234 179 8 / 0.18));
+}
+
+.travellers-utility-button {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  min-width: 2.5rem;
+  min-height: 2.5rem;
+}
+
+.travellers-utility-button--leave {
+  border-color: rgba(34, 211, 238, 0.24);
+}
+
+.travellers-utility-button__leave-icon {
+  transform: rotate(90deg);
+}
+
 .traveller-nav-entry {
   position: relative;
 }
