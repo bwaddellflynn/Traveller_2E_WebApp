@@ -2407,6 +2407,153 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     ]
   }
 
+  const musteringOutSourcePrefix = 'Mustering Out'
+  const isMusteringOutSource = (source: string) => source === musteringOutSourcePrefix || source.startsWith(`${musteringOutSourcePrefix}:`)
+  const voucherBenefitTypes = new Set([
+    'weapon',
+    'gun',
+    'blade',
+    'armour',
+    'scientific equipment',
+    'cybernetic implant',
+    'combat implant',
+    'personal vehicle',
+    "ship's boat",
+    'scout ship',
+    'lab ship',
+    'free trader',
+    'yacht',
+  ])
+
+  const addMusteringVoucher = (benefit: string, source: string) => {
+    addCreatorEquipmentEntry(
+      `${benefit} Voucher`,
+      `Voucher · ${benefit} claim · ${source}`,
+    )
+  }
+
+  const addMusteringShipShares = (count: number) => {
+    shipShares.value += Math.max(0, count)
+  }
+
+  const musteringSkillChoiceOptions = (options: string[], level: number) => {
+    return options.flatMap((option) => {
+      const parsed = skillFromLabel(option)
+      if (parsed.specialityId) return [option]
+      if (!skillNeedsSpecialityAtLevel(parsed.baseId, level)) return [parsed.baseId]
+      const specialityOptions = skillSpecialityOptions(parsed.baseId)
+      return specialityOptions.length ? specialityOptions : [parsed.baseId]
+    })
+  }
+
+  const addMusteringSkillChoiceResolution = (label: string, options: string[], source: string, level = 1) => {
+    const normalizedOptions = musteringSkillChoiceOptions(options, level)
+    if (!normalizedOptions.length) return
+
+    addPendingEventResolution({
+      kind: 'skill_choice',
+      label,
+      source,
+      effect: normalizeTravellerEventEffect({ type: 'choose_skill', skills: options, level }),
+      options: normalizedOptions,
+      level,
+    })
+    recordEventOutcome(source, { type: 'choose_skill', skills: options, level } as TravellerEventEffect, label, 'pending')
+  }
+
+  const buildMusteringChoiceOption = (benefit: string, optionLabel: string): EventChoiceOption | null => {
+    const trimmed = optionLabel.trim()
+    const characteristicMatch = trimmed.match(/^(STR|DEX|END|INT|EDU|SOC)\s*\+(\d+)$/i)
+    if (characteristicMatch) {
+      return {
+        id: `${benefit}-${slugifySkill(trimmed)}`,
+        label: trimmed,
+        effects: [normalizeTravellerEventEffect({
+          type: 'characteristic_increase',
+          characteristic: characteristicMatch[1].toLowerCase(),
+          amount: Number(characteristicMatch[2]),
+        })],
+      }
+    }
+
+    const numericShipShares = trimmed.match(/^(\d+)\s+ship shares?$/i)
+    if (numericShipShares) {
+      return {
+        id: `${benefit}-${slugifySkill(trimmed)}`,
+        label: trimmed,
+        effects: [normalizeTravellerEventEffect({
+          type: 'ship_shares',
+          count: Number(numericShipShares[1]),
+        })],
+      }
+    }
+
+    if (/^two ship shares$/i.test(trimmed)) {
+      return {
+        id: `${benefit}-${slugifySkill(trimmed)}`,
+        label: trimmed,
+        effects: [normalizeTravellerEventEffect({
+          type: 'ship_shares',
+          count: 2,
+        })],
+      }
+    }
+
+    if (/^ship share$/i.test(trimmed)) {
+      return {
+        id: `${benefit}-${slugifySkill(trimmed)}`,
+        label: trimmed,
+        effects: [normalizeTravellerEventEffect({
+          type: 'ship_shares',
+          count: 1,
+        })],
+      }
+    }
+
+    if (/^(contact|ally)$/i.test(trimmed)) {
+      return {
+        id: `${benefit}-${slugifySkill(trimmed)}`,
+        label: trimmed,
+        effects: [normalizeTravellerEventEffect({
+          type: 'gain_associate',
+          associateTypes: [trimmed.toLowerCase()],
+          count: 1,
+        })],
+      }
+    }
+
+    if (voucherBenefitTypes.has(trimmed.toLowerCase())) {
+      return {
+        id: `${benefit}-${slugifySkill(trimmed)}`,
+        label: trimmed,
+        effects: [normalizeTravellerEventEffect({
+          type: 'record_item',
+          itemName: `${trimmed} Voucher`,
+          itemCategory: `Voucher · ${trimmed} claim`,
+        })],
+      }
+    }
+
+    return null
+  }
+
+  const addMusteringOutcomeChoiceResolution = (benefit: string, optionLabels: string[], source: string) => {
+    const choiceOptions = optionLabels
+      .map((option) => buildMusteringChoiceOption(benefit, option))
+      .filter((option): option is EventChoiceOption => Boolean(option))
+
+    if (!choiceOptions.length) return
+
+    addPendingEventResolution({
+      kind: 'choice',
+      label: benefit,
+      source,
+      effect: normalizeTravellerEventEffect({ type: 'choice', label: benefit }),
+      choiceOptions,
+    })
+    recordEventOutcome(source, { type: 'choice', label: benefit } as TravellerEventEffect, benefit, 'pending')
+  }
+
   const eventChoiceOptionLabel = (effect: TravellerEventEffect, index = 0) => {
     if (effect.label && typeof effect.label === 'string') return effect.label
     return tableEffectLabel(effect) || `Option ${index + 1}`
@@ -3066,6 +3213,12 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
         typeof effect.itemCategory === 'string' ? effect.itemCategory : undefined,
       )
       recordEventOutcome(source, effect, `${String(effect.itemName ?? event.name ?? 'Item')}: ${String(effect.itemCategory ?? 'Item')}`)
+      return
+    }
+
+    if (effect.type === 'ship_shares' && typeof effect.count === 'number') {
+      addMusteringShipShares(effect.count)
+      recordEventOutcome(source, effect, `${effect.count} ${effect.count === 1 ? 'Ship Share' : 'Ship Shares'}`)
       return
     }
 
@@ -5321,6 +5474,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
   const canRollMusteringOut = computed(() => {
     if (!lifepathComplete.value) return false
     if (!selectedMusteringCareerId.value) return false
+    if (pendingEventResolutions.value.some((resolution) => !resolution.resolved && isMusteringOutSource(resolution.source))) return false
     if (remainingBenefitRolls.value <= 0) return false
     if (selectedMusteringCareerSpecificRollsRemaining.value <= 0 && flexibleBenefitRollsAvailable.value <= 0) return false
     if (selectedMusteringRollType.value === 'cash' && cashRollsUsed.value >= cashRollLimit) return false
@@ -5434,38 +5588,87 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
   }
 
   const applyMusteringBenefit = (benefit: string, source: string) => {
-    const parts = benefit.split(/\s+and\s+/i).map((part) => part.trim()).filter(Boolean)
-    if (parts.length > 1 && parts.every((part) => /^(STR|DEX|END|INT|EDU|SOC)\s*\+\d+$/i.test(part))) {
-      for (const part of parts) applyCharacteristicIncrease(part)
+    const normalizedBenefit = benefit.trim()
+
+    if (/^Deception,\s*Persuade\s+or\s+Stealth$/i.test(normalizedBenefit)) {
+      addMusteringSkillChoiceResolution(normalizedBenefit, ['deception', 'persuade', 'stealth'], source, 1)
       return
     }
 
-    if (applyCharacteristicIncrease(benefit)) return
-
-    if (/^two ship shares$/i.test(benefit)) {
-      shipShares.value += 2
+    if (/^Melee,\s*Recon\s+or\s+Streetwise$/i.test(normalizedBenefit)) {
+      addMusteringSkillChoiceResolution(normalizedBenefit, ['melee', 'recon', 'streetwise'], source, 1)
       return
     }
 
-    if (/^ship share$/i.test(benefit)) {
-      shipShares.value += 1
+    if (/^Deception,\s*Persuade\s+and\s+Stealth$/i.test(normalizedBenefit)) {
+      setSkillMinimum('deception', 1, source)
+      setSkillMinimum('persuade', 1, source)
+      setSkillMinimum('stealth', 1, source)
       return
     }
 
-    if (/^contact$/i.test(benefit) || /^ally$/i.test(benefit)) {
-      associates.value = [
-        ...associates.value,
-        {
-          id: makeEventOutcomeId('associate'),
-          source,
-          type: benefit.toLowerCase(),
-          name: `${benefit} from mustering out`,
-        },
-      ]
+    if (/\s+or\s+/i.test(normalizedBenefit)) {
+      const parts = normalizedBenefit.split(/\s+or\s+/i).map((part) => part.trim()).filter(Boolean)
+      addMusteringOutcomeChoiceResolution(normalizedBenefit, parts, source)
       return
     }
 
-    personalBenefits.value = [...personalBenefits.value, benefit]
+    if (/\s+and\s+/i.test(normalizedBenefit)) {
+      const parts = normalizedBenefit.split(/\s+and\s+/i).map((part) => part.trim()).filter(Boolean)
+      for (const part of parts) applyMusteringBenefit(part, source)
+      return
+    }
+
+    if (applyCharacteristicIncrease(normalizedBenefit)) return
+
+    const numericShipShares = normalizedBenefit.match(/^(\d+)\s+ship shares?$/i)
+    if (numericShipShares) {
+      addMusteringShipShares(Number(numericShipShares[1]))
+      return
+    }
+
+    if (/^two ship shares$/i.test(normalizedBenefit)) {
+      addMusteringShipShares(2)
+      return
+    }
+
+    if (/^ship share$/i.test(normalizedBenefit)) {
+      addMusteringShipShares(1)
+      return
+    }
+
+    if (/^1D ship shares$/i.test(normalizedBenefit)) {
+      addMusteringShipShares(Math.ceil(Math.random() * 6))
+      return
+    }
+
+    if (/^2D ship shares$/i.test(normalizedBenefit) || /^2 ship shares$/i.test(normalizedBenefit)) {
+      const count = /^2 ship shares$/i.test(normalizedBenefit)
+        ? 2
+        : Math.ceil(Math.random() * 6) + Math.ceil(Math.random() * 6)
+      addMusteringShipShares(count)
+      return
+    }
+
+    if (/^(contact|ally)$/i.test(normalizedBenefit)) {
+      addAssociateResolution(
+        normalizeTravellerEventEffect({
+          type: 'gain_associate',
+          associateTypes: [normalizedBenefit.toLowerCase()],
+          count: 1,
+        }),
+        source,
+        normalizedBenefit,
+      )
+      return
+    }
+
+    if (voucherBenefitTypes.has(normalizedBenefit.toLowerCase())) {
+      addMusteringVoucher(normalizedBenefit, source)
+      return
+    }
+
+    personalBenefits.value = [...personalBenefits.value, normalizedBenefit]
   }
 
   const resolveMusteringOutRoll = (die: number, source: 'rolled' | 'manual') => {

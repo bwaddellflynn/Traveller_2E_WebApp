@@ -186,6 +186,14 @@ const {
   values,
 } = storeToRefs(characterCreator)
 
+const unresolvedMusteringOutResolutions = computed(() => pendingEventResolutions.value.some((resolution) => {
+  return !resolution.resolved && (resolution.source === 'Mustering Out' || resolution.source.startsWith('Mustering Out:'))
+}))
+
+const unresolvedMusteringOutSkillChoice = computed(() => {
+  return Boolean(pendingSkillChoice.value && pendingSkillChoice.value.source.startsWith('Mustering Out'))
+})
+
 const setupCreatorTabs = ['creation', 'setup-stats', 'setup-skills'] as const
 const setupTabSet = new Set<string>(setupCreatorTabs)
 const activeCreatorTabIsSetup = computed(() => setupTabSet.has(activeCreatorTab.value))
@@ -1339,6 +1347,11 @@ watch(
 )
 
 const saveCreatedTraveller = async () => {
+  if (unresolvedMusteringOutResolutions.value || unresolvedMusteringOutSkillChoice.value) {
+    creatorSaveMessage.value = 'Resolve remaining mustering-out rewards before saving this traveller.'
+    return null
+  }
+
   const saved = await travellers.saveCreatorProfile(characterProfile.value)
   creatorSaveMessage.value = `Saved ${saved.identity.name || 'Traveller'}`
   return saved
@@ -1346,6 +1359,7 @@ const saveCreatedTraveller = async () => {
 
 const saveAndOpenCreatedTraveller = async () => {
   const saved = await saveCreatedTraveller()
+  if (!saved) return
   clearBuilderDraft(CHARACTER_CREATOR_DRAFT_CACHE_KEY)
   await router.push(`/character/sheet?id=${saved.id}`)
 }
@@ -3045,6 +3059,18 @@ if (import.meta.client) {
               </div>
             </div>
 
+            <div v-if="unresolvedMusteringOutResolutions" class="mt-5 rounded-lg border border-amber-300/25 bg-amber-500/10 p-4">
+              <div class="flex items-center justify-between gap-3">
+                <div>
+                  <p class="text-sm font-semibold text-amber-100">Pending Mustering-Out Rewards</p>
+                  <p class="mt-1 text-xs text-amber-100/75">Resolve the current reward before rolling or saving again.</p>
+                </div>
+              </div>
+              <div class="mt-4">
+                <EventResolutionList source-prefix="Mustering Out" @show-roll="handleCreatorRollModalPayload" />
+              </div>
+            </div>
+
             <div v-if="selectedMusteringCareerBenefits.length" class="mt-5 overflow-hidden rounded-lg border border-cyan-400/20">
               <table class="w-full text-left text-sm">
                 <thead class="bg-zinc-900 text-xs uppercase tracking-[0.18em] text-cyan-200/65">
@@ -3130,7 +3156,13 @@ if (import.meta.client) {
                 Mustering out is complete when you are satisfied with the ledger above. This saves the traveller and opens the character sheet.
               </p>
               <button
-                class="muster-out-save-cta mt-4 flex w-full items-center justify-center rounded-lg border border-cyan-300/65 bg-[linear-gradient(180deg,rgba(124,48,10,0.98),rgba(90,31,8,0.98))] px-6 py-5 text-lg font-semibold text-amber-50 shadow-[0_0_0_1px_rgba(255,255,255,0.08),0_10px_22px_rgba(120,53,15,0.18)] transition-[transform,box-shadow,filter] duration-150 hover:-translate-y-0.5 lg:mx-auto lg:w-1/2"
+                :class="[
+                  'muster-out-save-cta mt-4 flex w-full items-center justify-center rounded-lg border border-cyan-300/65 bg-[linear-gradient(180deg,rgba(124,48,10,0.98),rgba(90,31,8,0.98))] px-6 py-5 text-lg font-semibold text-amber-50 shadow-[0_0_0_1px_rgba(255,255,255,0.08),0_10px_22px_rgba(120,53,15,0.18)] transition-[transform,box-shadow,filter] duration-150 lg:mx-auto lg:w-1/2',
+                  unresolvedMusteringOutResolutions || unresolvedMusteringOutSkillChoice
+                    ? 'cursor-not-allowed opacity-55 saturate-75'
+                    : 'hover:-translate-y-0.5',
+                ]"
+                :disabled="unresolvedMusteringOutResolutions || unresolvedMusteringOutSkillChoice"
                 type="button"
                 @click="saveAndOpenCreatedTraveller"
               >
