@@ -5,6 +5,7 @@ import { useCharacterCreatorStore } from '~/stores/characterCreator'
 
 const props = defineProps<{
   sourcePrefix?: string
+  resolutionIds?: string[]
 }>()
 
 const emit = defineEmits<{
@@ -15,6 +16,7 @@ const emit = defineEmits<{
     total?: number
     dice?: number[]
   }): void
+  (event: 'resolved'): void
 }>()
 
 const characterCreator = useCharacterCreatorStore()
@@ -53,6 +55,11 @@ const {
 } = storeToRefs(characterCreator)
 
 const visibleEventResolutions = computed(() => {
+  if (props.resolutionIds?.length) {
+    const allowedIds = new Set(props.resolutionIds)
+    return pendingEventResolutions.value.filter((resolution) => allowedIds.has(resolution.id))
+  }
+
   if (!props.sourcePrefix) return pendingEventResolutions.value
 
   return pendingEventResolutions.value.filter((resolution) => {
@@ -275,6 +282,32 @@ const triggerEventResolutionPrisonLawyerRoll = (resolution: {
 
   rollEventResolutionPrisonLawyer(resolution.id, advocateLevel, diceTotal, reductionDie)
 }
+
+const handleResolveSkillChoice = (resolutionId: string, choice: string) => {
+  resolveEventChoice(resolutionId, choice)
+  emit('resolved')
+}
+
+const handleResolveOutcomeChoice = (resolutionId: string, optionId: string) => {
+  resolveEventOutcomeChoice(resolutionId, optionId)
+  emit('resolved')
+}
+
+const resolutionHeading = (resolution: {
+  source: string
+  kind: string
+  resolved?: boolean
+}) => {
+  if (resolution.resolved) return 'Resolved'
+
+  const isMusteringOut = resolution.source === 'Mustering Out' || resolution.source.startsWith('Mustering Out:')
+  if (!isMusteringOut) return 'Resolution needed'
+
+  if (resolution.kind === 'choice' || resolution.kind === 'skill_choice') return 'Choose benefit'
+  if (resolution.kind === 'associate') return 'Add benefit'
+  if (resolution.kind === 'characteristic_adjustment') return 'Apply benefit'
+  return 'Resolve benefit'
+}
 </script>
 
 <template>
@@ -289,7 +322,7 @@ const triggerEventResolutionPrisonLawyerRoll = (resolution: {
     >
       <div class="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p class="font-semibold">{{ resolution.resolved ? 'Resolved' : 'Resolution needed' }}</p>
+          <p class="font-semibold">{{ resolutionHeading(resolution) }}</p>
           <p class="mt-1">{{ resolution.label }}</p>
           <p v-if="resolution.kind === 'check' && resolution.check && !resolution.resolved" class="mt-1 text-xs">
             {{ resolution.check.label }} · DM {{ resolution.check.dm >= 0 ? `+${resolution.check.dm}` : resolution.check.dm }} · Target {{ resolution.check.target }}+
@@ -305,7 +338,7 @@ const triggerEventResolutionPrisonLawyerRoll = (resolution: {
           :key="choice"
           class="h-9 rounded-md border border-amber-300 bg-white px-3 text-sm font-semibold text-amber-900 hover:border-amber-600"
           type="button"
-          @click="resolveEventChoice(resolution.id, choice)"
+          @click="handleResolveSkillChoice(resolution.id, choice)"
         >
           {{ skillOptionLabel(choice) }}
         </button>
@@ -413,7 +446,7 @@ const triggerEventResolutionPrisonLawyerRoll = (resolution: {
           class="h-9 rounded-md border border-amber-300 bg-white px-3 text-sm font-semibold text-amber-900 hover:border-amber-600"
           :title="option.label"
           type="button"
-          @click="resolveEventOutcomeChoice(resolution.id, option.id)"
+          @click="handleResolveOutcomeChoice(resolution.id, option.id)"
         >
           {{ eventChoiceButtonLabel(option) }}
         </button>

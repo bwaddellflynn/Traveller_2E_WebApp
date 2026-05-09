@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 
 const AUTH_STORAGE_KEY = 'scoutsuite.auth.v1'
 const DUMMY_USERNAME = 'User'
+const SYSADMIN_USERNAME = 'SysAdmin'
 const DUMMY_PASSWORD = 'Welcome01'
 
 type AuthProfile = {
@@ -44,6 +45,7 @@ export const useAuthStore = defineStore('auth', () => {
   })
 
   const isAuthenticated = computed(() => Boolean(signedInUser.value))
+  const isSysAdmin = computed(() => signedInUser.value === SYSADMIN_USERNAME)
   const profileDisplayName = computed(() => profile.displayName || signedInUser.value || 'User')
 
   const persist = () => {
@@ -121,11 +123,11 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   const login = (username: string, password: string) => {
-    if (username === DUMMY_USERNAME && password === DUMMY_PASSWORD) {
-      signedInUser.value = DUMMY_USERNAME
-      if (!profile.displayName) profile.displayName = DUMMY_USERNAME
-      if (!profile.handle) profile.handle = 'user'
-      if (!profile.role) profile.role = 'Administrator'
+    if ((username === DUMMY_USERNAME || username === SYSADMIN_USERNAME) && password === DUMMY_PASSWORD) {
+      signedInUser.value = username
+      if (!profile.displayName) profile.displayName = username
+      if (!profile.handle) profile.handle = username === SYSADMIN_USERNAME ? 'sysadmin' : 'user'
+      if (!profile.role) profile.role = username === SYSADMIN_USERNAME ? 'System Administrator' : 'Administrator'
       if (!profile.organization) profile.organization = 'ScoutSuite Local Access'
       if (!profile.timezone) profile.timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
       if (!profile.locale) profile.locale = 'en-CA'
@@ -178,6 +180,7 @@ export const useAuthStore = defineStore('auth', () => {
     profile,
     profileDisplayName,
     isAuthenticated,
+    isSysAdmin,
     hydrate,
     login,
     logout,

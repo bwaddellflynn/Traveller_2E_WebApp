@@ -39,10 +39,6 @@ const openTraveller = async (profileId: string) => {
   await router.push(`/character/sheet?id=${profileId}`)
 }
 
-const clearActiveTraveller = async () => {
-  await travellers.clearActiveProfile()
-}
-
 const requestDeleteProfile = (profileId: string) => {
   pendingDeleteProfileId.value = profileId
 }
@@ -65,14 +61,6 @@ const confirmDeleteProfile = async (profileId: string) => {
     <div class="flex items-center justify-between gap-3 px-4 py-4">
       <div>
         <h2 class="text-xl font-semibold">Travellers</h2>
-        <button
-          v-if="activeProfileId"
-          class="mt-1 text-xs font-semibold text-cyan-200/75 hover:text-cyan-100"
-          type="button"
-          @click="clearActiveTraveller"
-        >
-          Reference Mode
-        </button>
       </div>
       <div class="flex items-center gap-2">
         <button
@@ -171,6 +159,9 @@ const confirmDeleteProfile = async (profileId: string) => {
   position: absolute;
   top: 0.4rem;
   right: 0.4rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   opacity: 0;
   pointer-events: none;
   color: rgba(248, 113, 113, 0.92);
@@ -187,6 +178,7 @@ const confirmDeleteProfile = async (profileId: string) => {
 .traveller-nav-delete :deep(svg) {
   width: 0.6rem;
   height: 0.6rem;
+  display: block;
 }
 
 .traveller-nav-entry:hover .traveller-nav-delete,

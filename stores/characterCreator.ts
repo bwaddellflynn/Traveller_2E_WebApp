@@ -110,6 +110,7 @@ type PendingEventResolution = {
   kind: EventResolutionKind
   label: string
   source: string
+  musteringOutResultId?: string
   effect: TravellerEventEffect
   options?: string[]
   choiceOptions?: EventChoiceOption[]
@@ -235,6 +236,7 @@ type MusteringOutResult = {
   tableRoll: number
   cash?: number
   benefit?: string
+  resolvedSelections?: string[]
 }
 type MedicalCareEntry = {
   id: string
@@ -424,6 +426,8 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
   const musteringOutResults = ref<MusteringOutResult[]>([])
   const selectedMusteringCareerId = ref('')
   const selectedMusteringRollType = ref<MusteringOutRollType>('benefit')
+  const selectedMusteringRollModifierIds = ref<string[]>([])
+  const musteringOutRollFastMode = ref(false)
   const startingCredits = ref(0)
   const shipShares = ref(0)
   const personalBenefits = ref<string[]>([])
@@ -2436,6 +2440,21 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     shipShares.value += Math.max(0, count)
   }
 
+  const appendMusteringResultSelection = (resultId: string | undefined, detail: string) => {
+    const trimmedDetail = detail.trim()
+    if (!resultId || !trimmedDetail) return
+
+    musteringOutResults.value = musteringOutResults.value.map((result) => {
+      if (result.id !== resultId) return result
+      const existing = result.resolvedSelections ?? []
+      if (existing.includes(trimmedDetail)) return result
+      return {
+        ...result,
+        resolvedSelections: [...existing, trimmedDetail],
+      }
+    })
+  }
+
   const musteringSkillChoiceOptions = (options: string[], level: number) => {
     return options.flatMap((option) => {
       const parsed = skillFromLabel(option)
@@ -2446,7 +2465,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     })
   }
 
-  const addMusteringSkillChoiceResolution = (label: string, options: string[], source: string, level = 1) => {
+  const addMusteringSkillChoiceResolution = (label: string, options: string[], source: string, level = 1, resultId?: string) => {
     const normalizedOptions = musteringSkillChoiceOptions(options, level)
     if (!normalizedOptions.length) return
 
@@ -2454,6 +2473,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
       kind: 'skill_choice',
       label,
       source,
+      musteringOutResultId: resultId,
       effect: normalizeTravellerEventEffect({ type: 'choose_skill', skills: options, level }),
       options: normalizedOptions,
       level,
@@ -2537,7 +2557,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     return null
   }
 
-  const addMusteringOutcomeChoiceResolution = (benefit: string, optionLabels: string[], source: string) => {
+  const addMusteringOutcomeChoiceResolution = (benefit: string, optionLabels: string[], source: string, resultId?: string) => {
     const choiceOptions = optionLabels
       .map((option) => buildMusteringChoiceOption(benefit, option))
       .filter((option): option is EventChoiceOption => Boolean(option))
@@ -2548,6 +2568,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
       kind: 'choice',
       label: benefit,
       source,
+      musteringOutResultId: resultId,
       effect: normalizeTravellerEventEffect({ type: 'choice', label: benefit }),
       choiceOptions,
     })
@@ -2839,7 +2860,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     return null
   }
 
-  const addAssociateResolution = (effect: TravellerEventEffect, source: string, label = tableEffectLabel(effect)) => {
+  const addAssociateResolution = (effect: TravellerEventEffect, source: string, label = tableEffectLabel(effect), musteringOutResultId?: string) => {
     const countRoll = normalizedAssociateCountRoll(effect.count)
     const count = typeof effect.count === 'number' ? Math.max(1, effect.count) : 1
     const associateCount = typeof effect.count === 'number' || typeof effect.count === 'string' ? effect.count : 1
@@ -2852,6 +2873,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
         kind: 'associate',
         label,
         source,
+        musteringOutResultId,
         effect,
         associateTypes,
         associateCount,
@@ -2868,6 +2890,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
         kind: 'associate',
         label: count > 1 ? `${label} (${index + 1} of ${count})` : label,
         source,
+        musteringOutResultId,
         effect,
         associateTypes,
         associateCount,
@@ -2889,6 +2912,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
       kind: 'associate' as const,
       label: count > 1 ? `${resolution.label} (${index + 1} of ${count})` : resolution.label,
       source: resolution.source,
+      musteringOutResultId: resolution.musteringOutResultId,
       effect: resolution.effect,
       associateTypes: resolution.associateTypes,
       associateCount: count,
@@ -4095,6 +4119,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
         selected: option.label,
       }
     })
+    appendMusteringResultSelection(resolution.musteringOutResultId, option.label)
     recordEventOutcome(resolution.source, resolution.effect, `${resolution.label}: ${option.label}`, 'manual')
     applyResolvedEffects(option.effects, resolution.source)
   }
@@ -4139,6 +4164,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
         selected: `${type}: ${associateName}`,
       }
     })
+    appendMusteringResultSelection(resolution.musteringOutResultId, `${associateTypeLabel(type)}: ${associateName}`)
     recordEventOutcome(resolution.source, resolution.effect, `Gained ${type}: ${associateName}`, 'manual')
   }
 
@@ -4508,6 +4534,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
       }
     })
 
+    appendMusteringResultSelection(resolution.musteringOutResultId, skillOptionLabel(choice))
     recordEventOutcome(resolution.source, resolution.effect, `${resolution.label}: ${skillOptionLabel(choice)}`, 'manual')
   }
 
@@ -4851,6 +4878,8 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     musteringOutResults.value = []
     selectedMusteringCareerId.value = ''
     selectedMusteringRollType.value = 'benefit'
+    selectedMusteringRollModifierIds.value = []
+    musteringOutRollFastMode.value = false
     startingCredits.value = 0
     shipShares.value = 0
     personalBenefits.value = []
@@ -4861,6 +4890,163 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     pendingSkillChoice.value = null
 
     resetTermRolls()
+  }
+
+  const hydrateMusterOutTestState = () => {
+    resetCreatorState()
+
+    characterName.value = 'Test Traveller'
+    characterSpecies.value = 'Human'
+    currentAge.value = 42
+    currentTermNumber.value = 8
+    lifepathComplete.value = true
+    selectedTermPath.value = 'career'
+    selectedCareerId.value = 'navy'
+    selectedAssignmentId.value = 'engineering-gunnery'
+    activeCreatorTab.value = `term-${currentTermNumber.value}` as CreatorTab
+
+    values.str = 8
+    values.dex = 9
+    values.end = 8
+    values.int = 10
+    values.edu = 11
+    values.soc = 9
+
+    termHistory.value = [
+      { termNumber: 1, path: 'career', careerId: 'navy', assignmentId: 'line-crew', startAge: 18, endAge: 22, summary: 'Navy - Line/Crew', details: [], rolls: [] },
+      { termNumber: 2, path: 'career', careerId: 'navy', assignmentId: 'engineering-gunnery', startAge: 22, endAge: 26, summary: 'Navy - Engineering/Gunnery', details: [], rolls: [] },
+      { termNumber: 3, path: 'career', careerId: 'navy', assignmentId: 'engineering-gunnery', startAge: 26, endAge: 30, summary: 'Navy - Engineering/Gunnery', details: [], rolls: [] },
+      { termNumber: 4, path: 'career', careerId: 'merchant', assignmentId: 'free-trader', startAge: 30, endAge: 34, summary: 'Merchant - Free Trader', details: [], rolls: [] },
+      { termNumber: 5, path: 'career', careerId: 'merchant', assignmentId: 'free-trader', startAge: 34, endAge: 38, summary: 'Merchant - Free Trader', details: [], rolls: [] },
+      { termNumber: 6, path: 'career', careerId: 'merchant', assignmentId: 'free-trader', startAge: 38, endAge: 42, summary: 'Merchant - Free Trader', details: [], rolls: [] },
+    ]
+
+    careerRanks.value = [
+      {
+        careerId: 'navy',
+        careerName: 'Navy',
+        assignmentId: 'engineering-gunnery',
+        assignmentName: 'Engineering/Gunnery',
+        rank: 3,
+        title: 'Petty Officer, 2nd class',
+      },
+      {
+        careerId: 'merchant',
+        careerName: 'Merchant',
+        assignmentId: 'free-trader',
+        assignmentName: 'Free Trader',
+        rank: 2,
+        title: 'Senior Crew',
+      },
+    ]
+
+    benefitRollLedger.value = [
+      {
+        id: makeEventOutcomeId('benefit-roll'),
+        termNumber: 1,
+        source: 'Navy - Line/Crew',
+        label: 'Completed career term',
+        count: 1,
+        careerId: 'navy',
+      },
+      {
+        id: makeEventOutcomeId('benefit-roll'),
+        termNumber: 2,
+        source: 'Navy - Engineering/Gunnery',
+        label: 'Completed career term',
+        count: 1,
+        careerId: 'navy',
+      },
+      {
+        id: makeEventOutcomeId('benefit-roll'),
+        termNumber: 3,
+        source: 'Navy - Engineering/Gunnery',
+        label: 'Completed career term',
+        count: 1,
+        careerId: 'navy',
+      },
+      {
+        id: makeEventOutcomeId('benefit-roll'),
+        termNumber: 4,
+        source: 'Merchant - Free Trader',
+        label: 'Completed career term',
+        count: 1,
+        careerId: 'merchant',
+      },
+      {
+        id: makeEventOutcomeId('benefit-roll'),
+        termNumber: 5,
+        source: 'Merchant - Free Trader',
+        label: 'Completed career term',
+        count: 1,
+        careerId: 'merchant',
+      },
+      {
+        id: makeEventOutcomeId('benefit-roll'),
+        termNumber: 6,
+        source: 'Merchant - Free Trader',
+        label: 'Completed career term',
+        count: 1,
+        careerId: 'merchant',
+      },
+    ]
+
+    benefitRollAdjustments.value = [
+      {
+        id: makeEventOutcomeId('benefit-adjustment'),
+        source: 'Test Fixture',
+        label: 'Life Event: Bonus benefit roll',
+        adjustment: 1,
+        scope: 'any',
+      },
+    ]
+
+    rollModifiers.value = [
+      {
+        id: makeEventOutcomeId('roll-modifier'),
+        source: 'Test Fixture',
+        label: 'Career Event bonus',
+        target: 'benefit',
+        dm: 1,
+        scope: 'one',
+        careerId: 'navy',
+      },
+    ]
+
+    musteringOutResults.value = [
+      {
+        id: makeEventOutcomeId('mustering-out'),
+        careerId: 'navy',
+        careerName: 'Navy',
+        spentPool: 'career',
+        rollType: 'cash',
+        dice: [5],
+        dm: 1,
+        total: 6,
+        tableRoll: 6,
+        cash: 50000,
+      },
+      {
+        id: makeEventOutcomeId('mustering-out'),
+        careerId: 'merchant',
+        careerName: 'Merchant',
+        spentPool: 'career',
+        rollType: 'benefit',
+        dice: [6],
+        dm: 0,
+        total: 6,
+        tableRoll: 6,
+        benefit: 'Free Trader',
+      },
+    ]
+
+    startingCredits.value = 72500
+    shipShares.value = 4
+    personalBenefits.value = ['TAS Membership']
+    selectedMusteringCareerId.value = 'navy'
+    selectedMusteringRollType.value = 'benefit'
+    selectedMusteringRollModifierIds.value = []
+    musteringOutRollFastMode.value = false
   }
 
   const agingEffect = computed(() => {
@@ -5559,15 +5745,37 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
       : []
   ))
 
+  const appliedMusteringRollModifiers = computed(() => {
+    const selectedIds = new Set(selectedMusteringRollModifierIds.value)
+    return activeMusteringRollModifiers.value.filter((modifier) => selectedIds.has(modifier.id))
+  })
+
   const selectedMusteringRollDmTotal = computed(() => {
     if (!selectedMusteringCareer.value) return 0
     const rankBenefitDm = rankBenefitBonusByCareer.value[selectedMusteringCareer.value.id]?.benefitDm ?? 0
-    const modifierDm = activeMusteringRollModifiers.value.reduce((sum, modifier) => sum + modifier.dm, 0)
+    const modifierDm = appliedMusteringRollModifiers.value.reduce((sum, modifier) => sum + modifier.dm, 0)
     const gamblerCashDm = selectedMusteringRollType.value === 'cash' && skillLevel('gambler') >= 0
       ? Number(creationRulesData.benefits.gamblerCashBenefitDm ?? 1)
       : 0
     return rankBenefitDm + modifierDm + gamblerCashDm
   })
+
+  watch(activeMusteringRollModifiers, (modifiers) => {
+    const activeIds = new Set(modifiers.map((modifier) => modifier.id))
+    selectedMusteringRollModifierIds.value = selectedMusteringRollModifierIds.value.filter((id) => activeIds.has(id))
+  }, { immediate: true })
+
+  const toggleMusteringRollModifier = (modifierId: string) => {
+    if (!activeMusteringRollModifiers.value.some((modifier) => modifier.id === modifierId)) return
+
+    selectedMusteringRollModifierIds.value = selectedMusteringRollModifierIds.value.includes(modifierId)
+      ? selectedMusteringRollModifierIds.value.filter((id) => id !== modifierId)
+      : [...selectedMusteringRollModifierIds.value, modifierId]
+  }
+
+  const setMusteringOutRollFastMode = (value: boolean) => {
+    musteringOutRollFastMode.value = value
+  }
 
   const consumeBenefitRollModifiers = (modifiers: TravellerRollModifier[]) => {
     const consumedIds = modifiers
@@ -5587,16 +5795,16 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     return selectedMusteringCareerBenefits.value.find((benefit) => benefit.roll === tableRoll) ?? null
   }
 
-  const applyMusteringBenefit = (benefit: string, source: string) => {
+  const applyMusteringBenefit = (benefit: string, source: string, resultId?: string) => {
     const normalizedBenefit = benefit.trim()
 
     if (/^Deception,\s*Persuade\s+or\s+Stealth$/i.test(normalizedBenefit)) {
-      addMusteringSkillChoiceResolution(normalizedBenefit, ['deception', 'persuade', 'stealth'], source, 1)
+      addMusteringSkillChoiceResolution(normalizedBenefit, ['deception', 'persuade', 'stealth'], source, 1, resultId)
       return
     }
 
     if (/^Melee,\s*Recon\s+or\s+Streetwise$/i.test(normalizedBenefit)) {
-      addMusteringSkillChoiceResolution(normalizedBenefit, ['melee', 'recon', 'streetwise'], source, 1)
+      addMusteringSkillChoiceResolution(normalizedBenefit, ['melee', 'recon', 'streetwise'], source, 1, resultId)
       return
     }
 
@@ -5604,41 +5812,50 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
       setSkillMinimum('deception', 1, source)
       setSkillMinimum('persuade', 1, source)
       setSkillMinimum('stealth', 1, source)
+      appendMusteringResultSelection(resultId, normalizedBenefit)
       return
     }
 
     if (/\s+or\s+/i.test(normalizedBenefit)) {
       const parts = normalizedBenefit.split(/\s+or\s+/i).map((part) => part.trim()).filter(Boolean)
-      addMusteringOutcomeChoiceResolution(normalizedBenefit, parts, source)
+      addMusteringOutcomeChoiceResolution(normalizedBenefit, parts, source, resultId)
       return
     }
 
     if (/\s+and\s+/i.test(normalizedBenefit)) {
       const parts = normalizedBenefit.split(/\s+and\s+/i).map((part) => part.trim()).filter(Boolean)
-      for (const part of parts) applyMusteringBenefit(part, source)
+      for (const part of parts) applyMusteringBenefit(part, source, resultId)
       return
     }
 
-    if (applyCharacteristicIncrease(normalizedBenefit)) return
+    if (applyCharacteristicIncrease(normalizedBenefit)) {
+      appendMusteringResultSelection(resultId, normalizedBenefit)
+      return
+    }
 
     const numericShipShares = normalizedBenefit.match(/^(\d+)\s+ship shares?$/i)
     if (numericShipShares) {
       addMusteringShipShares(Number(numericShipShares[1]))
+      appendMusteringResultSelection(resultId, normalizedBenefit)
       return
     }
 
     if (/^two ship shares$/i.test(normalizedBenefit)) {
       addMusteringShipShares(2)
+      appendMusteringResultSelection(resultId, 'Two Ship Shares')
       return
     }
 
     if (/^ship share$/i.test(normalizedBenefit)) {
       addMusteringShipShares(1)
+      appendMusteringResultSelection(resultId, 'Ship Share')
       return
     }
 
     if (/^1D ship shares$/i.test(normalizedBenefit)) {
-      addMusteringShipShares(Math.ceil(Math.random() * 6))
+      const count = Math.ceil(Math.random() * 6)
+      addMusteringShipShares(count)
+      appendMusteringResultSelection(resultId, `${count} Ship Shares`)
       return
     }
 
@@ -5647,6 +5864,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
         ? 2
         : Math.ceil(Math.random() * 6) + Math.ceil(Math.random() * 6)
       addMusteringShipShares(count)
+      appendMusteringResultSelection(resultId, `${count} Ship Shares`)
       return
     }
 
@@ -5659,16 +5877,19 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
         }),
         source,
         normalizedBenefit,
+        resultId,
       )
       return
     }
 
     if (voucherBenefitTypes.has(normalizedBenefit.toLowerCase())) {
       addMusteringVoucher(normalizedBenefit, source)
+      appendMusteringResultSelection(resultId, `${normalizedBenefit} Voucher`)
       return
     }
 
     personalBenefits.value = [...personalBenefits.value, normalizedBenefit]
+    appendMusteringResultSelection(resultId, normalizedBenefit)
   }
 
   const resolveMusteringOutRoll = (die: number, source: 'rolled' | 'manual') => {
@@ -5676,7 +5897,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     if (die < 1 || die > 6) return
 
     const spentPool: MusteringOutResult['spentPool'] = selectedMusteringCareerSpecificRollsRemaining.value > 0 ? 'career' : 'flexible'
-    const modifiers = activeBenefitRollModifiers(selectedMusteringCareer.value.id)
+    const modifiers = appliedMusteringRollModifiers.value
     const gamblerCashDm = selectedMusteringRollType.value === 'cash' && skillLevel('gambler') >= 0
       ? Number(creationRulesData.benefits.gamblerCashBenefitDm ?? 1)
       : 0
@@ -5702,9 +5923,10 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
 
     musteringOutResults.value = [...musteringOutResults.value, result]
     consumeBenefitRollModifiers(modifiers)
+    selectedMusteringRollModifierIds.value = selectedMusteringRollModifierIds.value.filter((id) => !modifiers.some((modifier) => modifier.id === id))
 
     if (typeof result.cash === 'number') startingCredits.value += result.cash
-    if (result.benefit) applyMusteringBenefit(result.benefit, `Mustering Out: ${selectedMusteringCareer.value.name}`)
+    if (result.benefit) applyMusteringBenefit(result.benefit, `Mustering Out: ${selectedMusteringCareer.value.name}`, result.id)
 
     eventOutcomeLog.value = [
       {
@@ -6035,6 +6257,8 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     musteringOutResults,
     selectedMusteringCareerId,
     selectedMusteringRollType,
+    selectedMusteringRollModifierIds,
+    musteringOutRollFastMode,
     startingCredits,
     shipShares,
     personalBenefits,
@@ -6250,6 +6474,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     enterManualCareerMishap,
     resetTermRolls,
     resetCreatorState,
+    hydrateMusterOutTestState,
     agingEffect,
     rollAging,
     enterManualAging,
@@ -6274,6 +6499,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     selectedMusteringCareer,
     selectedMusteringCareerSpecificRollsRemaining,
     activeMusteringRollModifiers,
+    appliedMusteringRollModifiers,
     selectedMusteringRollDmTotal,
     selectedMusteringCareerBenefits,
     annualPensionByCareer,
@@ -6281,6 +6507,8 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     annualPensionLabel,
     rollMusteringOutBenefit,
     enterManualMusteringOutBenefit,
+    toggleMusteringRollModifier,
+    setMusteringOutRollFastMode,
     modifierLabel,
     educationBenefitLabel,
     preCareerEventEffectLabel,
