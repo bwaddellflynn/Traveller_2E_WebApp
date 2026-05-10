@@ -51,14 +51,14 @@ onBeforeUnmount(() => {
     <NuxtRouteAnnouncer />
     <AppTopNav />
     <AppFullscreenToggle v-if="hydrated && isAuthenticated" />
-    <div v-if="hydrated && isAuthenticated" class="app-shell">
-      <TravellersSideNav />
-      <div class="app-shell-content">
+    <div class="app-shell" :class="{ 'app-shell--active': hydrated && isAuthenticated }">
+      <TravellersSideNav v-if="hydrated && isAuthenticated" />
+      <div v-show="hydrated && isAuthenticated" class="app-shell-content">
         <NuxtPage />
         <AppFooter />
       </div>
     </div>
-    <main v-else-if="hydrated" class="mx-auto flex min-h-[calc(100vh-4.5rem)] w-full max-w-3xl items-center justify-center px-6 py-12">
+    <main v-if="hydrated && !isAuthenticated" class="mx-auto flex min-h-[calc(100vh-4.5rem)] w-full max-w-3xl items-center justify-center px-6 py-12">
       <section class="hud-panel max-w-xl rounded-lg border p-8 text-center">
         <button
           class="mx-auto mb-4 grid h-14 w-14 place-items-center rounded-md border border-cyan-400/28 bg-cyan-400/8 text-cyan-200 transition hover:border-cyan-300/45 hover:bg-cyan-300/10"

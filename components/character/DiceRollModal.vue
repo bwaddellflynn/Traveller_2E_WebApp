@@ -247,8 +247,13 @@ const displayDice = computed(() => {
   color: rgb(165 243 252);
   font-size: 1.45rem;
   font-weight: 800;
-  box-shadow: inset 0 0 0 1px rgb(34 211 238 / 0.1), 0 0 22px rgb(34 211 238 / 0.14);
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  box-shadow: inset 0 0 0 1px rgb(34 211 238 / 0.1), 0 0 18px rgb(34 211 238 / 0.14);
   clip-path: polygon(0 0, calc(100% - 0.8rem) 0, 100% 0.8rem, 100% 100%, 0.8rem 100%, 0 calc(100% - 0.8rem));
+  will-change: transform, box-shadow, color;
+  backface-visibility: hidden;
+  transform: translateZ(0);
 }
 
 .dice-roll-modal__die.is-rolling {
@@ -402,27 +407,29 @@ const displayDice = computed(() => {
 @keyframes dice-roll-pulse {
   0%,
   100% {
-    transform: scale(1);
-    filter: brightness(1);
+    transform: translateY(0);
+    color: rgb(165 243 252);
+    box-shadow: inset 0 0 0 1px rgb(34 211 238 / 0.1), 0 0 18px rgb(34 211 238 / 0.14);
   }
   50% {
-    transform: scale(1.04);
-    filter: brightness(1.15);
+    transform: translateY(-1px);
+    color: rgb(207 250 254);
+    box-shadow: inset 0 0 0 1px rgb(34 211 238 / 0.18), 0 0 28px rgb(34 211 238 / 0.24);
   }
 }
 
 @keyframes dice-roll-total-settle {
   0% {
-    transform: scale(0.94);
-    opacity: 0.55;
-  }
-  65% {
-    transform: scale(1.06);
-    opacity: 1;
+    transform: scale(1.52);
+    filter:
+      drop-shadow(0 0 12px rgb(252 211 77 / 0.4))
+      drop-shadow(0 0 24px rgb(245 158 11 / 0.34));
   }
   100% {
     transform: scale(1);
-    opacity: 1;
+    filter:
+      drop-shadow(0 0 8px rgb(252 211 77 / 0.32))
+      drop-shadow(0 0 18px rgb(245 158 11 / 0.26));
   }
 }
 
