@@ -159,7 +159,6 @@ onMounted(() => {
   transform: translateX(-125%);
   opacity: 0;
   pointer-events: none;
-  pointer-events: none;
 }
 
 .app-top-nav-brand:hover .app-top-nav-brand__glyph::after {

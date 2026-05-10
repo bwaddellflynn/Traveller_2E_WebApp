@@ -1025,6 +1025,8 @@ const addCompletedWeaponToActiveTraveller = async () => {
       {
         id: makeWeaponId(),
         name: finalizedWeapon.name,
+        skill: finalizedWeapon.skill,
+        speciality: finalizedWeapon.speciality,
         techLevel: finalizedWeapon.techLevel === null ? undefined : String(finalizedWeapon.techLevel),
         range: finalizedWeapon.range,
         damage: finalizedWeapon.damage,
@@ -1054,6 +1056,8 @@ const purchaseReferenceWeapon = async (weapon: TravellerWeaponRecord) => {
       {
         id: makeWeaponId(),
         name: weapon.name,
+        skill: weapon.skill,
+        speciality: weapon.speciality,
         techLevel: weapon.techLevel === null ? undefined : String(weapon.techLevel),
         range: weapon.range,
         damage: weapon.damage,
@@ -1083,6 +1087,8 @@ const purchaseSavedWeapon = async (weapon: CustomWeaponDesign) => {
       {
         id: makeWeaponId(),
         name: weapon.name,
+        skill: weapon.skill,
+        speciality: weapon.speciality,
         techLevel: weapon.techLevel === null ? undefined : String(weapon.techLevel),
         range: weapon.range,
         damage: weapon.damage,

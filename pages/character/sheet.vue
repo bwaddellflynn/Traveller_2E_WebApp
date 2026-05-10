@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import DiceRollModal from '~/components/character/DiceRollModal.vue'
+import GalacticCreditsIcon from '~/components/GalacticCreditsIcon.vue'
 import skillsData from '~/data/traveller2e/core/skills.json'
 import type { TravellerAssociate, TravellerCharacteristicId, TravellerProfile, TravellerSkill } from '~/types/traveller'
 import { useTravellersStore } from '~/stores/travellers'
@@ -415,7 +417,12 @@ const sheetRollModifier = (definition: SkillDefinition, specialityName?: string)
 
 const openSheetSkillDefinitionRoll = (definition: SkillDefinition, specialityName?: string, explicitLevel?: number | null) => {
   const label = buildSheetSkillLabel(definition, specialityName)
-  startRollModal(label, 'Skill Check', explicitLevel ?? sheetRollModifier(definition, specialityName))
+  startRollModal(
+    label,
+    'Skill Check',
+    explicitLevel ?? sheetRollModifier(definition, specialityName),
+    () => openSheetSkillDefinitionRoll(definition, specialityName, explicitLevel),
+  )
 }
 
 const skillGroups = computed<SheetSkillGroup[]>(() => sheetSkillDefinitions.value
@@ -440,9 +447,13 @@ const rollModalTitle = ref('')
 const rollModalSubtitle = ref('')
 const rollModalModifier = ref(0)
 const rollModalDice = ref<[number, number]>([1, 1])
+const rollModalDiceFaces = ref<Array<number | string>>([1, 1])
 const rollModalTotal = ref(0)
 const rollModalTimer = ref<number | null>(null)
 const rollModalFinishTimer = ref<number | null>(null)
+const rollModalRerollAction = ref<null | (() => void)>(null)
+const rollModalRawTotal = computed(() => rollModalDice.value[0] + rollModalDice.value[1])
+const rollModalJackpot = computed(() => !rollModalRolling.value && rollModalDiceFaces.value.length === 2 && rollModalRawTotal.value === 12)
 const historyBackgroundLines = computed({
   get: () => {
     const blocks = [draft.value.history.background, draft.value.history.notes].filter(Boolean)
@@ -479,11 +490,6 @@ const diceModifier = (score: number) => {
 
 const formatDm = (value: number) => value >= 0 ? `+${value}` : `${value}`
 const randomDie = () => Math.floor(Math.random() * 6) + 1
-const rollModalFormula = computed(() => {
-  if (rollModalModifier.value === 0) return '2D'
-  return `2D ${rollModalModifier.value > 0 ? '+' : '-'} ${Math.abs(rollModalModifier.value)}`
-})
-
 const clearRollModalTimers = () => {
   if (!import.meta.client) return
   if (rollModalTimer.value !== null) window.clearInterval(rollModalTimer.value)
@@ -498,17 +504,25 @@ const closeRollModal = () => {
   rollModalRolling.value = false
 }
 
-const startRollModal = (title: string, subtitle: string, modifier: number) => {
+const rerollRollModal = () => {
+  const action = rollModalRerollAction.value
+  if (!action) return
+  action()
+}
+
+const startRollModal = (title: string, subtitle: string, modifier: number, rerollAction?: () => void) => {
   clearRollModalTimers()
   rollModalTitle.value = title
   rollModalSubtitle.value = subtitle
   rollModalModifier.value = modifier
+  rollModalRerollAction.value = rerollAction ?? null
   rollModalOpen.value = true
   rollModalRolling.value = true
 
   const updateRoll = () => {
     const nextDice: [number, number] = [randomDie(), randomDie()]
     rollModalDice.value = nextDice
+    rollModalDiceFaces.value = [nextDice[0], nextDice[1]]
     rollModalTotal.value = nextDice[0] + nextDice[1] + rollModalModifier.value
   }
 
@@ -526,9 +540,108 @@ const startRollModal = (title: string, subtitle: string, modifier: number) => {
   }, 1100)
 }
 
+const startResolvedRollModal = (title: string, subtitle: string, finalFaces: Array<number | string>, total: number, rerollAction?: () => void) => {
+  clearRollModalTimers()
+  rollModalTitle.value = title
+  rollModalSubtitle.value = subtitle
+  rollModalModifier.value = 0
+  rollModalRerollAction.value = rerollAction ?? null
+  rollModalOpen.value = true
+  rollModalRolling.value = true
+
+  const faceCount = Math.max(1, finalFaces.length)
+  const updateRoll = () => {
+    const nextFaces = Array.from({ length: faceCount }, () => randomDie())
+    rollModalDiceFaces.value = nextFaces
+    rollModalDice.value = [Number(nextFaces[0]) || 0, Number(nextFaces[1]) || 0]
+    rollModalTotal.value = nextFaces.reduce((sum, face) => sum + (Number(face) || 0), 0)
+  }
+
+  updateRoll()
+  if (!import.meta.client) {
+    rollModalDiceFaces.value = finalFaces
+    rollModalDice.value = [Number(finalFaces[0]) || 0, Number(finalFaces[1]) || 0]
+    rollModalTotal.value = total
+    rollModalRolling.value = false
+    return
+  }
+
+  rollModalTimer.value = window.setInterval(updateRoll, 90)
+  rollModalFinishTimer.value = window.setTimeout(() => {
+    clearRollModalTimers()
+    rollModalDiceFaces.value = finalFaces
+    rollModalDice.value = [Number(finalFaces[0]) || 0, Number(finalFaces[1]) || 0]
+    rollModalTotal.value = total
+    rollModalRolling.value = false
+  }, 1100)
+}
+
+const evaluateDamageExpression = (expression: string) => {
+  const normalized = sanitizeWeaponDamageInput(expression)
+  if (!normalized) return null
+
+  const diceFaces: number[] = []
+  const replaced = normalized.replace(/(\d*)D/g, (_, rawCount: string) => {
+    const count = Math.max(1, Number(rawCount || '1'))
+    let subtotal = 0
+    for (let index = 0; index < count; index += 1) {
+      const die = randomDie()
+      diceFaces.push(die)
+      subtotal += die
+    }
+    return String(subtotal)
+  })
+
+  if (!/^[0-9+\-/*().\s]+$/.test(replaced)) return null
+
+  try {
+    const total = Function(`"use strict"; return (${replaced})`)()
+    if (typeof total !== 'number' || !Number.isFinite(total)) return null
+    return {
+      normalized,
+      total: Math.trunc(total),
+      diceFaces,
+    }
+  }
+  catch {
+    return null
+  }
+}
+
+const openWeaponDamageRoll = (weapon: TravellerProfile['weapons'][number]) => {
+  const evaluation = evaluateDamageExpression(weapon.damage || '')
+  if (!evaluation) return
+
+  startResolvedRollModal(
+    weapon.name || 'Weapon Damage',
+    `Damage Roll · ${evaluation.normalized}`,
+    evaluation.diceFaces.length ? evaluation.diceFaces : [evaluation.total],
+    evaluation.total,
+    () => openWeaponDamageRoll(weapon),
+  )
+}
+
 const openCharacteristicRoll = (id: TravellerCharacteristicId) => {
   const characteristic = draft.value.characteristics[id]
-  startRollModal(characteristic.name || characteristic.abbreviation, 'Characteristic Check', Number(characteristic.dm) || 0)
+  startRollModal(
+    characteristic.name || characteristic.abbreviation,
+    'Characteristic Check',
+    Number(characteristic.dm) || 0,
+    () => openCharacteristicRoll(id),
+  )
+}
+
+const sanitizeWeaponDamageInput = (value: string) => value
+  .toUpperCase()
+  .replace(/[^0-9D+\-/*().\s]/g, '')
+  .replace(/\s+/g, ' ')
+  .trim()
+
+const handleWeaponDamageInput = (weapon: TravellerProfile['weapons'][number], event: Event) => {
+  const target = event.target as HTMLInputElement
+  const sanitized = sanitizeWeaponDamageInput(target.value)
+  weapon.damage = sanitized
+  if (target.value !== sanitized) target.value = sanitized
 }
 
 const syncCharacteristicDm = (id: TravellerCharacteristicId) => {
@@ -656,7 +769,6 @@ const addWeapon = () => {
     kg: '',
     magazine: '',
     traits: '',
-    notes: '',
   })
 }
 
@@ -1169,7 +1281,7 @@ watch(
                   type="button"
                   @click="showOnlyTrainedSkills = !showOnlyTrainedSkills"
                 >
-                  <svg v-if="showOnlyTrainedSkills" viewBox="0 0 24 24" class="sheet-skill-visibility-icon" aria-hidden="true">
+                  <svg v-if="!showOnlyTrainedSkills" viewBox="0 0 24 24" class="sheet-skill-visibility-icon" aria-hidden="true">
                     <path fill="currentColor" d="M12 5c5.6 0 9.57 4.13 10.82 6.13a1.5 1.5 0 0 1 0 1.74C21.57 14.87 17.6 19 12 19S2.43 14.87 1.18 12.87a1.5 1.5 0 0 1 0-1.74C2.43 9.13 6.4 5 12 5Zm0 2c-4.62 0-8.02 3.28-9.2 5 1.18 1.72 4.58 5 9.2 5s8.02-3.28 9.2-5C20.02 10.28 16.62 7 12 7Zm0 2.25A2.75 2.75 0 1 1 9.25 12 2.75 2.75 0 0 1 12 9.25Zm0 2A.75.75 0 1 0 12.75 12 .75.75 0 0 0 12 11.25Z" />
                   </svg>
                   <svg v-else viewBox="0 0 24 24" class="sheet-skill-visibility-icon" aria-hidden="true">
@@ -1188,6 +1300,7 @@ watch(
                           type="checkbox"
                           @change="toggleBaseSkill(group.definition)"
                         >
+                        <span class="sheet-skill-toggle__frame" aria-hidden="true"></span>
                       </label>
                       <button
                         class="sheet-skill-roll-button"
@@ -1257,16 +1370,14 @@ watch(
                             type="checkbox"
                             @change="toggleSpecialitySkill(group.definition, speciality.specialityName)"
                           >
+                          <span class="sheet-skill-toggle__frame" aria-hidden="true"></span>
                         </label>
                         <button
                           class="sheet-skill-roll-button sheet-skill-roll-button--speciality"
                           type="button"
                           @click="openSheetSkillDefinitionRoll(group.definition, speciality.specialityName, specialitySkillDisplayLevel(group.definition, speciality.specialityId))"
                         >
-                          <span class="sheet-skill-speciality-label">
-                            <span class="sheet-skill-speciality-bullet" aria-hidden="true"></span>
-                            {{ speciality.specialityName }}
-                          </span>
+                          <span class="sheet-skill-speciality-label">{{ speciality.specialityName }}</span>
                         </button>
                         <div class="sheet-skill-rank">
                           <button class="sheet-skill-rank__button" type="button" @click="changeSpecialitySkillLevel(group.definition, speciality.specialityName, -1)">
@@ -1330,21 +1441,23 @@ watch(
                   <div class="sheet-table-body">
                     <div v-for="(armour, index) in draft.armour" :key="armour.id" class="sheet-table-row sheet-table-row--armour">
                       <div class="sheet-armour-grid">
+                        <div class="sheet-entry-actions sheet-entry-actions--single">
+                          <button aria-label="Remove armour" class="sheet-entry-action sheet-entry-action--danger" title="Remove armour" type="button" @click="removeArmour(index)">
+                            <AppIcon name="close" />
+                          </button>
+                        </div>
                         <div class="sheet-armour-row sheet-armour-row--top">
-                          <input v-model="armour.name" class="sheet-cell-input" placeholder="Name">
-                          <input v-model="armour.type" class="sheet-cell-input" placeholder="Type">
-                          <input v-model="armour.radiationProtection" class="sheet-cell-input" placeholder="Rad">
-                          <input v-model="armour.protection" class="sheet-cell-input" placeholder="Prot">
-                          <input v-model="armour.kg" class="sheet-cell-input" placeholder="Kg">
+                          <label class="sheet-field-with-label"><span>Name</span><input v-model="armour.name" class="sheet-cell-input" placeholder="Name"></label>
+                          <label class="sheet-field-with-label"><span>Type</span><input v-model="armour.type" class="sheet-cell-input" placeholder="Type"></label>
+                          <label class="sheet-field-with-label"><span>Rad</span><input v-model="armour.radiationProtection" class="sheet-cell-input" placeholder="Rad"></label>
+                          <label class="sheet-field-with-label"><span>Prot</span><input v-model="armour.protection" class="sheet-cell-input" placeholder="Prot"></label>
+                          <label class="sheet-field-with-label"><span>Kg</span><input v-model="armour.kg" class="sheet-cell-input" placeholder="Kg"></label>
                         </div>
                         <div class="sheet-armour-row sheet-armour-row--bottom">
-                          <input v-model="armour.options" class="sheet-cell-input" placeholder="Options">
-                          <input v-model="armour.traits" class="sheet-cell-input" placeholder="Traits">
+                          <label class="sheet-field-with-label"><span>Options</span><input v-model="armour.options" class="sheet-cell-input" placeholder="Options"></label>
+                          <label class="sheet-field-with-label"><span>Traits</span><input v-model="armour.traits" class="sheet-cell-input" placeholder="Traits"></label>
                         </div>
                       </div>
-                      <button aria-label="Remove armour" class="sheet-remove" title="Remove armour" type="button" @click="removeArmour(index)">
-                        <AppIcon name="close" />
-                      </button>
                     </div>
                     <button class="sheet-add" type="button" @click="addArmour">Add Armour</button>
                   </div>
@@ -1357,22 +1470,38 @@ watch(
                   <div class="sheet-table-body">
                     <div v-for="(weapon, index) in draft.weapons" :key="weapon.id" class="sheet-table-row sheet-table-row--weapons">
                       <div class="sheet-weapon-grid">
+                        <div class="sheet-entry-actions sheet-entry-actions--single">
+                          <button aria-label="Remove weapon" class="sheet-entry-action sheet-entry-action--danger" title="Remove weapon" type="button" @click="removeWeapon(index)">
+                            <AppIcon name="close" />
+                          </button>
+                        </div>
                         <div class="sheet-weapon-row sheet-weapon-row--top">
-                          <input v-model="weapon.name" class="sheet-cell-input" placeholder="Name">
-                          <input v-model="weapon.techLevel" class="sheet-cell-input" placeholder="TL">
-                          <input v-model="weapon.range" class="sheet-cell-input" placeholder="Range">
-                          <input v-model="weapon.damage" class="sheet-cell-input" placeholder="Damage">
-                          <input v-model="weapon.kg" class="sheet-cell-input" placeholder="Kg">
-                          <input v-model="weapon.magazine" class="sheet-cell-input" placeholder="Mag">
+                          <label class="sheet-field-with-label"><span>Name</span><input v-model="weapon.name" class="sheet-cell-input" placeholder="Name"></label>
+                          <label class="sheet-field-with-label"><span>Traits</span><input v-model="weapon.traits" class="sheet-cell-input" placeholder="Traits"></label>
                         </div>
                         <div class="sheet-weapon-row sheet-weapon-row--bottom">
-                          <input v-model="weapon.traits" class="sheet-cell-input" placeholder="Traits">
-                          <input v-model="weapon.notes" class="sheet-cell-input" placeholder="Notes">
+                          <label class="sheet-field-with-label"><span>TL</span><input v-model="weapon.techLevel" class="sheet-cell-input" placeholder="TL"></label>
+                          <label class="sheet-field-with-label"><span>Range</span><input v-model="weapon.range" class="sheet-cell-input" placeholder="Range"></label>
+                          <div class="sheet-field-with-label">
+                            <span>Damage</span>
+                            <div class="sheet-inline-field">
+                              <input :value="weapon.damage" class="sheet-cell-input" placeholder="Damage" @input="handleWeaponDamageInput(weapon, $event)">
+                              <button
+                                aria-label="Roll weapon damage"
+                                class="sheet-inline-field__action"
+                                :class="{ 'sheet-inline-field__action--enabled': Boolean(weapon.damage) }"
+                                :title="weapon.damage ? `Roll ${weapon.damage}` : 'Enter a damage expression such as 3D+2.'"
+                                type="button"
+                                @click="openWeaponDamageRoll(weapon)"
+                              >
+                                <AppIcon name="dice" />
+                              </button>
+                            </div>
+                          </div>
+                          <label class="sheet-field-with-label"><span>Kg</span><input v-model="weapon.kg" class="sheet-cell-input" placeholder="Kg"></label>
+                          <label class="sheet-field-with-label"><span>Mag</span><input v-model="weapon.magazine" class="sheet-cell-input" placeholder="Mag"></label>
                         </div>
                       </div>
-                      <button aria-label="Remove weapon" class="sheet-remove" title="Remove weapon" type="button" @click="removeWeapon(index)">
-                        <AppIcon name="close" />
-                      </button>
                     </div>
                     <button class="sheet-add" type="button" @click="addWeapon">Add Weapon</button>
                   </div>
@@ -1385,19 +1514,21 @@ watch(
                   <div class="sheet-table-body">
                     <div v-for="({ item, index }) in nonVoucherEquipmentEntries" :key="item.id" class="sheet-table-row sheet-table-row--equipment">
                       <div class="sheet-equipment-grid">
+                        <div class="sheet-entry-actions sheet-entry-actions--single">
+                          <button aria-label="Remove equipment" class="sheet-entry-action sheet-entry-action--danger" title="Remove equipment" type="button" @click="removeEquipment(index)">
+                            <AppIcon name="close" />
+                          </button>
+                        </div>
                         <div class="sheet-equipment-row sheet-equipment-row--top">
-                          <input v-model="item.name" class="sheet-cell-input" placeholder="Name">
-                          <input v-model="item.traits" class="sheet-cell-input" placeholder="Type / traits">
-                          <input v-model="item.techLevel" class="sheet-cell-input" placeholder="TL">
-                          <input v-model="item.kg" class="sheet-cell-input" placeholder="Kg">
+                          <label class="sheet-field-with-label"><span>Name</span><input v-model="item.name" class="sheet-cell-input" placeholder="Name"></label>
+                          <label class="sheet-field-with-label"><span>Type / Traits</span><input v-model="item.traits" class="sheet-cell-input" placeholder="Type / traits"></label>
+                          <label class="sheet-field-with-label"><span>TL</span><input v-model="item.techLevel" class="sheet-cell-input" placeholder="TL"></label>
+                          <label class="sheet-field-with-label"><span>Kg</span><input v-model="item.kg" class="sheet-cell-input" placeholder="Kg"></label>
                         </div>
                         <div class="sheet-equipment-row sheet-equipment-row--bottom">
-                          <input v-model="item.notes" class="sheet-cell-input" placeholder="Notes">
+                          <label class="sheet-field-with-label"><span>Notes</span><input v-model="item.notes" class="sheet-cell-input" placeholder="Notes"></label>
                         </div>
                       </div>
-                      <button aria-label="Remove equipment" class="sheet-remove" title="Remove equipment" type="button" @click="removeEquipment(index)">
-                        <AppIcon name="close" />
-                      </button>
                     </div>
                     <div class="sheet-loadout-actions">
                       <button class="sheet-add" type="button" @click="addEquipment">Add Equipment</button>
@@ -1421,7 +1552,9 @@ watch(
                       :class="voucherThemeClass(item)"
                     >
                       <div class="sheet-voucher-card__top">
-                        <div class="sheet-voucher-card__tl">TL{{ item.techLevel || 'X' }}</div>
+                        <div class="sheet-voucher-card__brand" :title="item.techLevel ? `TL ${item.techLevel}` : 'Voucher mark'">
+                          <GalacticCreditsIcon class="sheet-voucher-card__brand-icon" />
+                        </div>
                         <div class="sheet-voucher-card__text">
                           <div class="sheet-voucher-card__heading">{{ voucherDisplayHeading(item) }}</div>
                           <div class="sheet-voucher-card__subheading">VOUCHER</div>
@@ -1431,11 +1564,15 @@ watch(
                         </button>
                       </div>
                       <div class="sheet-voucher-card__meta">
-                        <select :value="voucherSelectedType(item)" class="sheet-voucher-card__field sheet-voucher-card__field--select" @change="setVoucherType(item, ($event.target as HTMLSelectElement).value)">
-                          <option value="">Select type</option>
-                          <option v-for="option in voucherTypeOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
-                        </select>
-                        <input v-model="item.techLevel" class="sheet-voucher-card__field" placeholder="TL / scope">
+                        <div class="sheet-voucher-card__field-shell sheet-voucher-card__field-shell--select">
+                          <select :value="voucherSelectedType(item)" class="sheet-voucher-card__field sheet-voucher-card__field--select" @change="setVoucherType(item, ($event.target as HTMLSelectElement).value)">
+                            <option value="">Select type</option>
+                            <option v-for="option in voucherTypeOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
+                          </select>
+                        </div>
+                        <div class="sheet-voucher-card__field-shell">
+                          <input v-model="item.techLevel" class="sheet-voucher-card__field" min="0" placeholder="TL" type="number">
+                        </div>
                       </div>
                     </article>
                   </div>
@@ -1663,21 +1800,23 @@ watch(
                 <div class="sheet-table-body">
                   <div v-for="(armour, index) in draft.armour" :key="armour.id" class="sheet-table-row sheet-table-row--armour">
                     <div class="sheet-armour-grid">
+                      <div class="sheet-entry-actions sheet-entry-actions--single">
+                        <button aria-label="Remove armour" class="sheet-entry-action sheet-entry-action--danger" title="Remove armour" type="button" @click="removeArmour(index)">
+                          <AppIcon name="close" />
+                        </button>
+                      </div>
                       <div class="sheet-armour-row sheet-armour-row--top">
-                        <input v-model="armour.name" class="sheet-cell-input" placeholder="Name">
-                        <input v-model="armour.type" class="sheet-cell-input" placeholder="Type">
-                        <input v-model="armour.radiationProtection" class="sheet-cell-input" placeholder="Rad">
-                        <input v-model="armour.protection" class="sheet-cell-input" placeholder="Prot">
-                        <input v-model="armour.kg" class="sheet-cell-input" placeholder="Kg">
+                        <label class="sheet-field-with-label"><span>Name</span><input v-model="armour.name" class="sheet-cell-input" placeholder="Name"></label>
+                        <label class="sheet-field-with-label"><span>Type</span><input v-model="armour.type" class="sheet-cell-input" placeholder="Type"></label>
+                        <label class="sheet-field-with-label"><span>Rad</span><input v-model="armour.radiationProtection" class="sheet-cell-input" placeholder="Rad"></label>
+                        <label class="sheet-field-with-label"><span>Prot</span><input v-model="armour.protection" class="sheet-cell-input" placeholder="Prot"></label>
+                        <label class="sheet-field-with-label"><span>Kg</span><input v-model="armour.kg" class="sheet-cell-input" placeholder="Kg"></label>
                       </div>
                       <div class="sheet-armour-row sheet-armour-row--bottom">
-                        <input v-model="armour.options" class="sheet-cell-input" placeholder="Options">
-                        <input v-model="armour.traits" class="sheet-cell-input" placeholder="Traits">
+                        <label class="sheet-field-with-label"><span>Options</span><input v-model="armour.options" class="sheet-cell-input" placeholder="Options"></label>
+                        <label class="sheet-field-with-label"><span>Traits</span><input v-model="armour.traits" class="sheet-cell-input" placeholder="Traits"></label>
                       </div>
                     </div>
-                    <button aria-label="Remove armour" class="sheet-remove" title="Remove armour" type="button" @click="removeArmour(index)">
-                      <AppIcon name="close" />
-                    </button>
                   </div>
                   <button class="sheet-add" type="button" @click="addArmour">Add Armour</button>
                 </div>
@@ -1690,22 +1829,38 @@ watch(
                 <div class="sheet-table-body">
                   <div v-for="(weapon, index) in draft.weapons" :key="weapon.id" class="sheet-table-row sheet-table-row--weapons">
                     <div class="sheet-weapon-grid">
+                      <div class="sheet-entry-actions sheet-entry-actions--single">
+                        <button aria-label="Remove weapon" class="sheet-entry-action sheet-entry-action--danger" title="Remove weapon" type="button" @click="removeWeapon(index)">
+                          <AppIcon name="close" />
+                        </button>
+                      </div>
                       <div class="sheet-weapon-row sheet-weapon-row--top">
-                        <input v-model="weapon.name" class="sheet-cell-input" placeholder="Name">
-                        <input v-model="weapon.techLevel" class="sheet-cell-input" placeholder="TL">
-                        <input v-model="weapon.range" class="sheet-cell-input" placeholder="Range">
-                        <input v-model="weapon.damage" class="sheet-cell-input" placeholder="Damage">
-                        <input v-model="weapon.kg" class="sheet-cell-input" placeholder="Kg">
-                        <input v-model="weapon.magazine" class="sheet-cell-input" placeholder="Mag">
+                        <label class="sheet-field-with-label"><span>Name</span><input v-model="weapon.name" class="sheet-cell-input" placeholder="Name"></label>
+                        <label class="sheet-field-with-label"><span>Traits</span><input v-model="weapon.traits" class="sheet-cell-input" placeholder="Traits"></label>
                       </div>
                       <div class="sheet-weapon-row sheet-weapon-row--bottom">
-                        <input v-model="weapon.traits" class="sheet-cell-input" placeholder="Traits">
-                        <input v-model="weapon.notes" class="sheet-cell-input" placeholder="Notes">
+                        <label class="sheet-field-with-label"><span>TL</span><input v-model="weapon.techLevel" class="sheet-cell-input" placeholder="TL"></label>
+                        <label class="sheet-field-with-label"><span>Range</span><input v-model="weapon.range" class="sheet-cell-input" placeholder="Range"></label>
+                        <div class="sheet-field-with-label">
+                          <span>Damage</span>
+                          <div class="sheet-inline-field">
+                            <input :value="weapon.damage" class="sheet-cell-input" placeholder="Damage" @input="handleWeaponDamageInput(weapon, $event)">
+                            <button
+                              aria-label="Roll weapon damage"
+                              class="sheet-inline-field__action"
+                              :class="{ 'sheet-inline-field__action--enabled': Boolean(weapon.damage) }"
+                              :title="weapon.damage ? `Roll ${weapon.damage}` : 'Enter a damage expression such as 3D+2.'"
+                              type="button"
+                              @click="openWeaponDamageRoll(weapon)"
+                            >
+                              <AppIcon name="dice" />
+                            </button>
+                          </div>
+                        </div>
+                        <label class="sheet-field-with-label"><span>Kg</span><input v-model="weapon.kg" class="sheet-cell-input" placeholder="Kg"></label>
+                        <label class="sheet-field-with-label"><span>Mag</span><input v-model="weapon.magazine" class="sheet-cell-input" placeholder="Mag"></label>
                       </div>
                     </div>
-                    <button aria-label="Remove weapon" class="sheet-remove" title="Remove weapon" type="button" @click="removeWeapon(index)">
-                      <AppIcon name="close" />
-                    </button>
                   </div>
                   <button class="sheet-add" type="button" @click="addWeapon">Add Weapon</button>
                 </div>
@@ -1718,19 +1873,21 @@ watch(
                 <div class="sheet-table-body">
                   <div v-for="({ item, index }) in nonVoucherEquipmentEntries" :key="item.id" class="sheet-table-row sheet-table-row--equipment">
                     <div class="sheet-equipment-grid">
+                      <div class="sheet-entry-actions sheet-entry-actions--single">
+                        <button aria-label="Remove equipment" class="sheet-entry-action sheet-entry-action--danger" title="Remove equipment" type="button" @click="removeEquipment(index)">
+                          <AppIcon name="close" />
+                        </button>
+                      </div>
                       <div class="sheet-equipment-row sheet-equipment-row--top">
-                        <input v-model="item.name" class="sheet-cell-input" placeholder="Name">
-                        <input v-model="item.traits" class="sheet-cell-input" placeholder="Type / traits">
-                        <input v-model="item.techLevel" class="sheet-cell-input" placeholder="TL">
-                        <input v-model="item.kg" class="sheet-cell-input" placeholder="Kg">
+                        <label class="sheet-field-with-label"><span>Name</span><input v-model="item.name" class="sheet-cell-input" placeholder="Name"></label>
+                        <label class="sheet-field-with-label"><span>Type / Traits</span><input v-model="item.traits" class="sheet-cell-input" placeholder="Type / traits"></label>
+                        <label class="sheet-field-with-label"><span>TL</span><input v-model="item.techLevel" class="sheet-cell-input" placeholder="TL"></label>
+                        <label class="sheet-field-with-label"><span>Kg</span><input v-model="item.kg" class="sheet-cell-input" placeholder="Kg"></label>
                       </div>
                       <div class="sheet-equipment-row sheet-equipment-row--bottom">
-                        <input v-model="item.notes" class="sheet-cell-input" placeholder="Notes">
+                        <label class="sheet-field-with-label"><span>Notes</span><input v-model="item.notes" class="sheet-cell-input" placeholder="Notes"></label>
                       </div>
                     </div>
-                    <button aria-label="Remove equipment" class="sheet-remove" title="Remove equipment" type="button" @click="removeEquipment(index)">
-                      <AppIcon name="close" />
-                    </button>
                   </div>
                   <div class="sheet-loadout-actions">
                     <button class="sheet-add" type="button" @click="addEquipment">Add Equipment</button>
@@ -1754,7 +1911,9 @@ watch(
                     :class="voucherThemeClass(item)"
                   >
                     <div class="sheet-voucher-card__top">
-                      <div class="sheet-voucher-card__tl">TL{{ item.techLevel || 'X' }}</div>
+                      <div class="sheet-voucher-card__brand" :title="item.techLevel ? `TL ${item.techLevel}` : 'Voucher mark'">
+                        <GalacticCreditsIcon class="sheet-voucher-card__brand-icon" />
+                      </div>
                       <div class="sheet-voucher-card__text">
                         <div class="sheet-voucher-card__heading">{{ voucherDisplayHeading(item) }}</div>
                         <div class="sheet-voucher-card__subheading">VOUCHER</div>
@@ -1764,11 +1923,15 @@ watch(
                       </button>
                     </div>
                     <div class="sheet-voucher-card__meta">
-                      <select :value="voucherSelectedType(item)" class="sheet-voucher-card__field sheet-voucher-card__field--select" @change="setVoucherType(item, ($event.target as HTMLSelectElement).value)">
-                        <option value="">Select type</option>
-                        <option v-for="option in voucherTypeOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
-                      </select>
-                      <input v-model="item.techLevel" class="sheet-voucher-card__field" placeholder="TL / scope">
+                      <div class="sheet-voucher-card__field-shell sheet-voucher-card__field-shell--select">
+                        <select :value="voucherSelectedType(item)" class="sheet-voucher-card__field sheet-voucher-card__field--select" @change="setVoucherType(item, ($event.target as HTMLSelectElement).value)">
+                          <option value="">Select type</option>
+                          <option v-for="option in voucherTypeOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
+                        </select>
+                      </div>
+                      <div class="sheet-voucher-card__field-shell">
+                        <input v-model="item.techLevel" class="sheet-voucher-card__field" min="0" placeholder="TL" type="number">
+                      </div>
                     </div>
                   </article>
                 </div>
@@ -1925,7 +2088,7 @@ watch(
                   type="button"
                   @click="showOnlyTrainedSkills = !showOnlyTrainedSkills"
                 >
-                  <svg v-if="showOnlyTrainedSkills" viewBox="0 0 24 24" class="sheet-skill-visibility-icon" aria-hidden="true">
+                  <svg v-if="!showOnlyTrainedSkills" viewBox="0 0 24 24" class="sheet-skill-visibility-icon" aria-hidden="true">
                     <path fill="currentColor" d="M12 5c5.6 0 9.57 4.13 10.82 6.13a1.5 1.5 0 0 1 0 1.74C21.57 14.87 17.6 19 12 19S2.43 14.87 1.18 12.87a1.5 1.5 0 0 1 0-1.74C2.43 9.13 6.4 5 12 5Zm0 2c-4.62 0-8.02 3.28-9.2 5 1.18 1.72 4.58 5 9.2 5s8.02-3.28 9.2-5C20.02 10.28 16.62 7 12 7Zm0 2.25A2.75 2.75 0 1 1 9.25 12 2.75 2.75 0 0 1 12 9.25Zm0 2A.75.75 0 1 0 12.75 12 .75.75 0 0 0 12 11.25Z" />
                   </svg>
                   <svg v-else viewBox="0 0 24 24" class="sheet-skill-visibility-icon" aria-hidden="true">
@@ -1944,6 +2107,7 @@ watch(
                           type="checkbox"
                           @change="toggleBaseSkill(group.definition)"
                         >
+                        <span class="sheet-skill-toggle__frame" aria-hidden="true"></span>
                       </label>
                       <button
                         class="sheet-skill-roll-button"
@@ -2013,16 +2177,14 @@ watch(
                             type="checkbox"
                             @change="toggleSpecialitySkill(group.definition, speciality.specialityName)"
                           >
+                          <span class="sheet-skill-toggle__frame" aria-hidden="true"></span>
                         </label>
                         <button
                           class="sheet-skill-roll-button sheet-skill-roll-button--speciality"
                           type="button"
                           @click="openSheetSkillDefinitionRoll(group.definition, speciality.specialityName, specialitySkillDisplayLevel(group.definition, speciality.specialityId))"
                         >
-                          <span class="sheet-skill-speciality-label">
-                            <span class="sheet-skill-speciality-bullet" aria-hidden="true"></span>
-                            {{ speciality.specialityName }}
-                          </span>
+                          <span class="sheet-skill-speciality-label">{{ speciality.specialityName }}</span>
                         </button>
                         <div class="sheet-skill-rank">
                           <button class="sheet-skill-rank__button" type="button" @click="changeSpecialitySkillLevel(group.definition, speciality.specialityName, -1)">
@@ -2210,37 +2372,20 @@ watch(
       </div>
       </template>
 
-      <div v-if="rollModalOpen" class="sheet-roll-overlay" @click.self="closeRollModal">
-        <div class="sheet-roll-modal" role="dialog" aria-modal="true" :aria-labelledby="'sheet-roll-title'">
-          <div class="sheet-roll-modal__header">
-            <div>
-              <div id="sheet-roll-title" class="sheet-roll-modal__title">{{ rollModalTitle }}</div>
-              <div class="sheet-roll-modal__subtitle">{{ rollModalSubtitle }}</div>
-            </div>
-            <button aria-label="Close roll dialog" class="sheet-roll-modal__close" type="button" @click="closeRollModal">
-              <AppIcon name="close" />
-            </button>
-          </div>
-
-          <div class="sheet-roll-dice">
-            <div class="sheet-roll-die" :class="{ 'sheet-roll-die--rolling': rollModalRolling }">{{ rollModalDice[0] }}</div>
-            <div class="sheet-roll-die" :class="{ 'sheet-roll-die--rolling': rollModalRolling }">{{ rollModalDice[1] }}</div>
-          </div>
-
-          <div class="sheet-roll-formula">{{ rollModalFormula }}</div>
-          <div class="sheet-roll-total">{{ rollModalTotal }}</div>
-          <div class="sheet-roll-status">{{ rollModalRolling ? 'Rolling...' : 'Roll complete' }}</div>
-
-          <div class="sheet-roll-actions">
-            <button class="sheet-portrait-confirm-button" type="button" @click="startRollModal(rollModalTitle, rollModalSubtitle, rollModalModifier)">
-              Roll Again
-            </button>
-            <button class="sheet-portrait-confirm-button sheet-portrait-confirm-button--danger" type="button" @click="closeRollModal">
-              Close
-            </button>
-          </div>
-        </div>
-      </div>
+      <DiceRollModal
+        :open="rollModalOpen"
+        :rolling="rollModalRolling"
+        :title="rollModalTitle"
+        :subtitle="rollModalSubtitle"
+        :modifier="rollModalModifier"
+        :dice="rollModalDice"
+        :dice-faces="rollModalDiceFaces"
+        :total="rollModalTotal"
+        :jackpot="rollModalJackpot"
+        :can-reroll="!rollModalRolling && !!rollModalRerollAction"
+        @close="closeRollModal"
+        @reroll="rerollRollModal"
+      />
     </section>
   </main>
 </template>
@@ -2703,7 +2848,15 @@ watch(
 
 .sheet-armour-grid {
   display: grid;
+  grid-template-columns: minmax(0, 1fr) 2.5rem;
+  grid-template-rows: auto auto;
   gap: 6px;
+  padding: 0.85rem;
+  border: 1px solid rgba(34, 211, 238, 0.18);
+  border-radius: 12px 0 12px 0;
+  clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px));
+  background:
+    linear-gradient(180deg, rgba(8, 18, 32, 0.7), rgba(4, 9, 20, 0.7));
 }
 
 .sheet-armour-row {
@@ -2712,16 +2865,29 @@ watch(
 }
 
 .sheet-armour-row--top {
+  grid-column: 1;
   grid-template-columns: minmax(0, 1fr) repeat(4, 82px);
 }
 
 .sheet-armour-row--bottom {
+  grid-column: 1;
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .sheet-weapon-grid {
   display: grid;
+  grid-template-columns: minmax(0, 1fr) 2.5rem;
+  grid-template-rows: auto auto;
   gap: 6px;
+  padding: 0.85rem;
+  border: 1px solid rgba(34, 211, 238, 0.2);
+  border-radius: 12px 0 12px 0;
+  clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px));
+  background:
+    linear-gradient(180deg, rgba(8, 18, 32, 0.76), rgba(4, 9, 20, 0.76));
+  box-shadow:
+    inset 0 0 0 1px rgba(34, 211, 238, 0.04),
+    0 0 16px rgba(34, 211, 238, 0.05);
 }
 
 .sheet-weapon-row {
@@ -2730,16 +2896,26 @@ watch(
 }
 
 .sheet-weapon-row--top {
-  grid-template-columns: minmax(0, 1fr) repeat(5, 82px);
+  grid-column: 1;
+  grid-template-columns: minmax(0, 1.8fr) minmax(0, 1.25fr);
 }
 
 .sheet-weapon-row--bottom {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-column: 1;
+  grid-template-columns: 72px 88px minmax(0, 1.2fr) 72px 72px;
 }
 
 .sheet-equipment-grid {
   display: grid;
+  grid-template-columns: minmax(0, 1fr) 2.5rem;
+  grid-template-rows: auto auto;
   gap: 6px;
+  padding: 0.85rem;
+  border: 1px solid rgba(34, 211, 238, 0.18);
+  border-radius: 12px 0 12px 0;
+  clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px));
+  background:
+    linear-gradient(180deg, rgba(8, 18, 32, 0.7), rgba(4, 9, 20, 0.7));
 }
 
 .sheet-equipment-row {
@@ -2748,11 +2924,132 @@ watch(
 }
 
 .sheet-equipment-row--top {
+  grid-column: 1;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 82px 82px;
 }
 
 .sheet-equipment-row--bottom {
+  grid-column: 1;
   grid-template-columns: minmax(0, 1fr);
+}
+
+.sheet-entry-actions {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  display: grid;
+  align-content: start;
+  justify-items: stretch;
+  gap: 6px;
+}
+
+.sheet-entry-actions--single {
+  grid-template-rows: 1fr;
+}
+
+.sheet-entry-action {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border: 1px solid rgba(34, 211, 238, 0.3);
+  border-radius: 10px 0 10px 0;
+  clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px));
+  background:
+    linear-gradient(180deg, rgba(10, 18, 32, 0.92), rgba(3, 8, 18, 0.94)),
+    radial-gradient(circle at 0 0, rgba(34, 211, 238, 0.12), transparent 4rem);
+  color: rgba(148, 163, 184, 0.7);
+  box-shadow:
+    inset 0 0 0 1px rgba(34, 211, 238, 0.05),
+    0 0 0 rgba(34, 211, 238, 0);
+  transition: border-color 140ms ease, background 140ms ease, color 140ms ease, box-shadow 140ms ease;
+}
+
+.sheet-entry-action:hover,
+.sheet-entry-action:focus-visible,
+.sheet-entry-action--enabled {
+  border-color: rgba(34, 211, 238, 0.65);
+  background:
+    linear-gradient(180deg, rgba(12, 24, 40, 0.96), rgba(4, 10, 22, 0.96)),
+    radial-gradient(circle at 0 0, rgba(34, 211, 238, 0.16), transparent 4rem);
+  color: #cffafe;
+  box-shadow:
+    inset 0 0 0 1px rgba(34, 211, 238, 0.08),
+    0 0 16px rgba(34, 211, 238, 0.14);
+  outline: none;
+}
+
+.sheet-entry-action--danger {
+  border-color: rgba(248, 113, 113, 0.38);
+  background:
+    linear-gradient(180deg, rgba(56, 12, 18, 0.92), rgba(22, 8, 10, 0.94)),
+    radial-gradient(circle at 0 0, rgba(248, 113, 113, 0.12), transparent 4rem);
+  color: #fecaca;
+}
+
+.sheet-entry-action--danger:hover,
+.sheet-entry-action--danger:focus-visible {
+  border-color: rgba(248, 113, 113, 0.72);
+  background:
+    linear-gradient(180deg, rgba(72, 16, 22, 0.94), rgba(30, 10, 14, 0.96)),
+    radial-gradient(circle at 0 0, rgba(248, 113, 113, 0.18), transparent 4rem);
+  color: #fff1f2;
+  box-shadow:
+    inset 0 0 0 1px rgba(248, 113, 113, 0.08),
+    0 0 18px rgba(248, 113, 113, 0.18);
+}
+
+.sheet-entry-action :deep(svg) {
+  width: 0.78rem;
+  height: 0.78rem;
+}
+
+.sheet-inline-field {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 2.2rem;
+  gap: 0.35rem;
+  align-items: center;
+}
+
+.sheet-inline-field__action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.28rem;
+  height: 2.28rem;
+  padding: 0;
+  border: 1px solid rgba(251, 191, 36, 0.32);
+  border-radius: 10px 0 10px 0;
+  clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px));
+  background:
+    linear-gradient(180deg, rgba(64, 36, 13, 0.9), rgba(46, 24, 8, 0.96)),
+    radial-gradient(circle at 0 0, rgba(251, 191, 36, 0.16), transparent 4rem);
+  color: rgb(253 186 55 / 0.92);
+  box-shadow:
+    inset 0 0 0 1px rgba(251, 191, 36, 0.07),
+    0 0 0 rgba(245, 158, 11, 0);
+  transition: border-color 140ms ease, background 140ms ease, color 140ms ease, box-shadow 140ms ease;
+}
+
+.sheet-inline-field__action:hover,
+.sheet-inline-field__action:focus-visible,
+.sheet-inline-field__action--enabled {
+  border-color: rgba(251, 191, 36, 0.58);
+  background:
+    linear-gradient(180deg, rgba(84, 46, 14, 0.96), rgba(58, 28, 8, 0.98)),
+    radial-gradient(circle at 0 0, rgba(251, 191, 36, 0.22), transparent 4rem);
+  color: rgb(255 248 214);
+  box-shadow:
+    inset 0 0 0 1px rgba(251, 191, 36, 0.1),
+    0 0 16px rgba(245, 158, 11, 0.16);
+  outline: none;
+}
+
+.sheet-inline-field__action :deep(svg) {
+  width: 0.98rem;
+  height: 0.98rem;
 }
 
 .sheet-cell-input,
@@ -2774,6 +3071,33 @@ watch(
     inset 0 0 0 1px rgba(34, 211, 238, 0.04),
     0 0 0 rgba(34, 211, 238, 0);
   transition: border-color 140ms ease, box-shadow 140ms ease, background 140ms ease;
+}
+
+.sheet-cell-input--button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  text-align: left;
+  cursor: default;
+}
+
+.sheet-cell-input--interactive {
+  cursor: pointer;
+  color: #67e8f9;
+  border-color: rgba(34, 211, 238, 0.34);
+  box-shadow:
+    inset 0 0 0 1px rgba(34, 211, 238, 0.08),
+    0 0 14px rgba(34, 211, 238, 0.08);
+}
+
+.sheet-cell-input--interactive:hover,
+.sheet-cell-input--interactive:focus-visible {
+  color: #cffafe;
+  border-color: rgba(34, 211, 238, 0.7);
+  box-shadow:
+    inset 0 0 0 1px rgba(34, 211, 238, 0.12),
+    0 0 18px rgba(34, 211, 238, 0.14);
+  outline: none;
 }
 
 .sheet-cell-input:focus,
@@ -3317,7 +3641,7 @@ watch(
 .sheet-skill-entry {
   display: grid;
   grid-template-columns: 1.1rem minmax(0, 1fr) 4.9rem;
-  gap: 0.32rem;
+  gap: 0.72rem;
   align-items: center;
 }
 
@@ -3328,9 +3652,9 @@ watch(
 .sheet-skill-specialities {
   display: grid;
   gap: 0.28rem;
-  margin-left: 0.75rem;
+  margin-left: 0.95rem;
   padding-top: 0.28rem;
-  padding-left: 0.9rem;
+  padding-left: 1.15rem;
   border-left: 1px solid rgb(34 211 238 / 0.22);
   box-shadow: inset 8px 0 10px -10px rgb(34 211 238 / 0.18);
 }
@@ -3340,15 +3664,82 @@ watch(
 }
 
 .sheet-skill-toggle {
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  width: 0.98rem;
+  height: 0.98rem;
 }
 
 .sheet-skill-toggle input {
-  width: 0.95rem;
-  height: 0.95rem;
-  accent-color: #22d3ee;
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.sheet-skill-toggle__frame {
+  position: relative;
+  display: inline-flex;
+  width: 0.98rem;
+  height: 0.98rem;
+  border: 1px solid rgba(34, 211, 238, 0.34);
+  border-radius: 6px 0 6px 0;
+  clip-path: polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px));
+  background:
+    linear-gradient(180deg, rgba(8, 18, 32, 0.9), rgba(4, 10, 22, 0.92)),
+    radial-gradient(circle at 0 0, rgba(34, 211, 238, 0.12), transparent 3rem);
+  box-shadow:
+    inset 0 0 0 1px rgba(34, 211, 238, 0.05),
+    0 0 0 rgba(34, 211, 238, 0);
+  transition: border-color 140ms ease, background 140ms ease, box-shadow 140ms ease, transform 140ms ease;
+}
+
+.sheet-skill-toggle__frame::after {
+  content: '✓';
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  opacity: 0;
+  color: rgba(8, 20, 31, 0.98);
+  font-size: 0.76rem;
+  font-weight: 900;
+  line-height: 1;
+  transition: opacity 140ms ease;
+}
+
+.sheet-skill-toggle input:hover + .sheet-skill-toggle__frame,
+.sheet-skill-toggle input:focus-visible + .sheet-skill-toggle__frame {
+  border-color: rgba(34, 211, 238, 0.62);
+  background:
+    linear-gradient(180deg, rgba(10, 24, 40, 0.96), rgba(6, 14, 28, 0.96)),
+    radial-gradient(circle at 0 0, rgba(34, 211, 238, 0.2), transparent 3rem);
+  box-shadow:
+    inset 0 0 0 1px rgba(34, 211, 238, 0.08),
+    0 0 14px rgba(34, 211, 238, 0.12);
+  transform: translateY(-1px);
+  outline: none;
+}
+
+.sheet-skill-toggle input:checked + .sheet-skill-toggle__frame {
+  border-color: rgba(34, 211, 238, 0.72);
+  background:
+    linear-gradient(180deg, rgba(10, 24, 40, 0.98), rgba(6, 14, 28, 0.98)),
+    radial-gradient(circle at 0 0, rgba(34, 211, 238, 0.22), transparent 3rem);
+  box-shadow:
+    inset 0 0 0 1px rgba(34, 211, 238, 0.12),
+    0 0 16px rgba(34, 211, 238, 0.22);
+}
+
+.sheet-skill-toggle input:checked + .sheet-skill-toggle__frame::after {
+  opacity: 1;
+  color: rgb(126 241 255 / 0.98);
+  text-shadow:
+    0 0 8px rgba(34, 211, 238, 0.24),
+    0 0 14px rgba(34, 211, 238, 0.16);
 }
 
 .sheet-skill-toggle--empty {
@@ -3360,7 +3751,7 @@ watch(
   min-width: 0;
   border: none;
   background: none;
-  padding: 0 0 0 0.38rem;
+  padding: 0 0 0 0.68rem;
   text-align: left;
   color: #e4e4e7;
   font-size: 0.8rem;
@@ -3377,24 +3768,13 @@ watch(
 }
 
 .sheet-skill-roll-button--speciality {
-  padding-left: 0;
+  padding-left: 0.55rem;
 }
 
 .sheet-skill-speciality-label {
   display: inline-flex;
   align-items: center;
-  gap: 0.42rem;
   min-width: 0;
-}
-
-.sheet-skill-speciality-bullet {
-  display: inline-flex;
-  width: 0.35rem;
-  height: 0.35rem;
-  flex: 0 0 0.35rem;
-  border-radius: 999px;
-  background: rgb(103 232 249 / 0.72);
-  box-shadow: 0 0 8px rgb(34 211 238 / 0.28);
 }
 
 .sheet-skill-rank {
@@ -3519,29 +3899,56 @@ watch(
 .sheet-roll-overlay {
   position: fixed;
   inset: 0;
-  z-index: 70;
+  z-index: 80;
   display: grid;
   place-items: center;
   padding: 1.5rem;
-  background: rgba(2, 6, 23, 0.56);
-  backdrop-filter: blur(16px);
+  background: rgba(2, 6, 23, 0.68);
+  backdrop-filter: blur(18px);
   animation: sheet-roll-fade-in 180ms ease;
 }
 
 .sheet-roll-modal {
-  width: min(100%, 28rem);
+  position: relative;
+  width: min(100%, 32rem);
   display: grid;
-  gap: 1rem;
-  padding: 1.15rem;
-  border: 1px solid rgba(34, 211, 238, 0.38);
+  gap: 1.05rem;
+  padding: 1.2rem;
+  border: 1px solid rgba(34, 211, 238, 0.42);
   border-radius: 16px 0 16px 0;
   clip-path: polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 16px 100%, 0 calc(100% - 16px));
   background:
-    linear-gradient(180deg, rgba(8, 18, 32, 0.96), rgba(3, 7, 18, 0.96)),
-    radial-gradient(circle at 0 0, rgba(34, 211, 238, 0.15), transparent 14rem);
+    linear-gradient(180deg, rgba(10, 18, 32, 0.98), rgba(4, 9, 20, 0.98)),
+    linear-gradient(90deg, rgba(34, 211, 238, 0.04) 1px, transparent 1px),
+    radial-gradient(circle at 0 0, rgba(34, 211, 238, 0.16), transparent 14rem);
+  background-size: auto, 28px 28px, auto;
   box-shadow:
-    0 0 28px rgba(34, 211, 238, 0.18),
-    inset 0 0 22px rgba(34, 211, 238, 0.05);
+    0 0 30px rgba(34, 211, 238, 0.2),
+    inset 0 0 24px rgba(34, 211, 238, 0.05);
+}
+
+.sheet-roll-modal::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: 16px 0 16px 0;
+  clip-path: inherit;
+  background:
+    linear-gradient(180deg, rgba(34, 211, 238, 0.08), transparent 28%),
+    radial-gradient(circle at 50% 0, rgba(34, 211, 238, 0.12), transparent 45%);
+}
+
+.sheet-roll-modal--jackpot {
+  border-color: rgba(251, 191, 36, 0.56);
+  background:
+    linear-gradient(180deg, rgba(53, 24, 8, 0.98), rgba(24, 11, 5, 0.98)),
+    linear-gradient(90deg, rgba(251, 191, 36, 0.05) 1px, transparent 1px),
+    radial-gradient(circle at 0 0, rgba(251, 191, 36, 0.22), transparent 14rem);
+  background-size: auto, 28px 28px, auto;
+  box-shadow:
+    0 0 38px rgba(251, 191, 36, 0.24),
+    inset 0 0 30px rgba(251, 191, 36, 0.08);
 }
 
 .sheet-roll-modal__header {
@@ -3552,18 +3959,20 @@ watch(
 }
 
 .sheet-roll-modal__title {
-  color: #e0f2fe;
-  font-size: 1.1rem;
+  color: #f8fafc;
+  font-size: 1.12rem;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.04em;
+  text-shadow: 0 0 16px rgba(34, 211, 238, 0.12);
 }
 
 .sheet-roll-modal__subtitle {
   margin-top: 0.2rem;
-  color: #94a3b8;
+  color: #fbbf24;
   font-size: 0.82rem;
   text-transform: uppercase;
+  letter-spacing: 0.06em;
 }
 
 .sheet-roll-modal__close {
@@ -3582,45 +3991,69 @@ watch(
 .sheet-roll-dice {
   display: flex;
   justify-content: center;
-  gap: 0.85rem;
+  gap: 0.9rem;
 }
 
 .sheet-roll-die {
   display: grid;
   place-items: center;
-  width: 4.2rem;
-  height: 4.2rem;
-  border: 1px solid rgba(34, 211, 238, 0.42);
+  width: 4.45rem;
+  height: 4.45rem;
+  border: 1px solid rgba(34, 211, 238, 0.46);
   border-radius: 14px 0 14px 0;
   clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 14px 100%, 0 calc(100% - 14px));
   background:
-    linear-gradient(180deg, rgba(15, 23, 42, 0.98), rgba(8, 13, 24, 1));
+    linear-gradient(180deg, rgba(11, 24, 44, 0.98), rgba(6, 13, 24, 1));
   color: #e0f2fe;
-  font-size: 1.5rem;
+  font-size: 1.6rem;
   font-weight: 800;
-  box-shadow: inset 0 0 0 1px rgba(34, 211, 238, 0.09);
+  box-shadow:
+    inset 0 0 0 1px rgba(34, 211, 238, 0.1),
+    0 0 18px rgba(34, 211, 238, 0.08);
 }
 
 .sheet-roll-die--rolling {
   animation: sheet-roll-die-pulse 220ms linear infinite;
 }
 
+.sheet-roll-die--jackpot {
+  border-color: rgba(251, 191, 36, 0.7);
+  color: #fde68a;
+  background:
+    linear-gradient(180deg, rgba(73, 34, 8, 0.98), rgba(34, 16, 4, 1));
+  box-shadow:
+    inset 0 0 0 1px rgba(251, 191, 36, 0.12),
+    0 0 22px rgba(251, 191, 36, 0.22);
+}
+
 .sheet-roll-formula,
 .sheet-roll-status {
   text-align: center;
-  color: #94a3b8;
+  color: #cbd5e1;
   font-size: 0.82rem;
   text-transform: uppercase;
-  letter-spacing: 0.03em;
+  letter-spacing: 0.05em;
 }
 
 .sheet-roll-total {
   text-align: center;
   color: #fbbf24;
-  font-size: 2.4rem;
+  font-size: 2.55rem;
   font-weight: 800;
   line-height: 1;
-  text-shadow: 0 0 18px rgba(251, 191, 36, 0.16);
+  text-shadow: 0 0 20px rgba(251, 191, 36, 0.2);
+}
+
+.sheet-roll-total--jackpot {
+  color: #fde68a;
+  text-shadow:
+    0 0 10px rgba(253, 230, 138, 0.24),
+    0 0 24px rgba(251, 191, 36, 0.28),
+    0 0 40px rgba(251, 191, 36, 0.18);
+}
+
+.sheet-roll-status--jackpot {
+  color: #fde68a;
 }
 
 .sheet-roll-actions {
@@ -3738,10 +4171,14 @@ watch(
 
 .sheet-voucher-grid {
   display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.8rem;
 }
 
 .sheet-voucher-card {
+  --voucher-accent: rgba(34, 211, 238, 0.42);
+  --voucher-accent-strong: rgba(34, 211, 238, 0.62);
+  --voucher-accent-glow: rgba(34, 211, 238, 0.18);
   display: grid;
   gap: 0.85rem;
   padding: 1rem 1rem 0.95rem;
@@ -3757,6 +4194,9 @@ watch(
 }
 
 .sheet-voucher-card--weapon {
+  --voucher-accent: rgba(52, 211, 153, 0.46);
+  --voucher-accent-strong: rgba(110, 231, 183, 0.72);
+  --voucher-accent-glow: rgba(52, 211, 153, 0.22);
   border-color: rgba(52, 211, 153, 0.4);
   background:
     linear-gradient(180deg, rgba(9, 45, 31, 0.96), rgba(5, 21, 14, 0.96)),
@@ -3765,6 +4205,9 @@ watch(
 }
 
 .sheet-voucher-card--armour {
+  --voucher-accent: rgba(52, 211, 153, 0.46);
+  --voucher-accent-strong: rgba(110, 231, 183, 0.72);
+  --voucher-accent-glow: rgba(52, 211, 153, 0.22);
   border-color: rgba(52, 211, 153, 0.4);
   background:
     linear-gradient(180deg, rgba(8, 45, 34, 0.96), rgba(4, 20, 15, 0.96)),
@@ -3772,6 +4215,9 @@ watch(
 }
 
 .sheet-voucher-card--equipment {
+  --voucher-accent: rgba(226, 232, 240, 0.42);
+  --voucher-accent-strong: rgba(248, 250, 252, 0.72);
+  --voucher-accent-glow: rgba(226, 232, 240, 0.16);
   border-color: rgba(226, 232, 240, 0.34);
   background:
     linear-gradient(180deg, rgba(48, 54, 66, 0.96), rgba(20, 24, 32, 0.96)),
@@ -3779,6 +4225,9 @@ watch(
 }
 
 .sheet-voucher-card--implant {
+  --voucher-accent: rgba(226, 232, 240, 0.42);
+  --voucher-accent-strong: rgba(248, 250, 252, 0.72);
+  --voucher-accent-glow: rgba(226, 232, 240, 0.16);
   border-color: rgba(226, 232, 240, 0.34);
   background:
     linear-gradient(180deg, rgba(48, 54, 66, 0.96), rgba(20, 24, 32, 0.96)),
@@ -3786,27 +4235,39 @@ watch(
 }
 
 .sheet-voucher-card--vehicle {
-  border-color: rgba(34, 211, 238, 0.38);
-  background:
-    linear-gradient(180deg, rgba(7, 31, 40, 0.96), rgba(4, 14, 20, 0.96)),
-    radial-gradient(circle at 0 0, rgba(34, 211, 238, 0.14), transparent 13rem);
-}
-
-.sheet-voucher-card--small-craft {
+  --voucher-accent: rgba(168, 85, 247, 0.46);
+  --voucher-accent-strong: rgba(216, 180, 254, 0.76);
+  --voucher-accent-glow: rgba(168, 85, 247, 0.22);
   border-color: rgba(168, 85, 247, 0.38);
   background:
     linear-gradient(180deg, rgba(38, 16, 64, 0.96), rgba(17, 8, 32, 0.96)),
     radial-gradient(circle at 0 0, rgba(168, 85, 247, 0.14), transparent 13rem);
 }
 
-.sheet-voucher-card--ship {
+.sheet-voucher-card--small-craft {
+  --voucher-accent: rgba(251, 146, 60, 0.48);
+  --voucher-accent-strong: rgba(253, 186, 116, 0.76);
+  --voucher-accent-glow: rgba(251, 146, 60, 0.22);
   border-color: rgba(251, 146, 60, 0.4);
   background:
     linear-gradient(180deg, rgba(70, 28, 10, 0.96), rgba(28, 12, 6, 0.96)),
     radial-gradient(circle at 0 0, rgba(251, 146, 60, 0.14), transparent 13rem);
 }
 
+.sheet-voucher-card--ship {
+  --voucher-accent: rgba(244, 114, 182, 0.48);
+  --voucher-accent-strong: rgba(251, 207, 232, 0.76);
+  --voucher-accent-glow: rgba(244, 114, 182, 0.22);
+  border-color: rgba(244, 114, 182, 0.42);
+  background:
+    linear-gradient(180deg, rgba(66, 18, 42, 0.96), rgba(28, 8, 20, 0.96)),
+    radial-gradient(circle at 0 0, rgba(244, 114, 182, 0.16), transparent 13rem);
+}
+
 .sheet-voucher-card--generic {
+  --voucher-accent: rgba(148, 163, 184, 0.34);
+  --voucher-accent-strong: rgba(226, 232, 240, 0.62);
+  --voucher-accent-glow: rgba(148, 163, 184, 0.16);
   border-color: rgba(148, 163, 184, 0.28);
 }
 
@@ -3817,7 +4278,8 @@ watch(
   gap: 0.75rem;
 }
 
-.sheet-voucher-card__tl {
+.sheet-voucher-card__brand {
+  position: relative;
   display: grid;
   place-items: center;
   min-width: 3.6rem;
@@ -3826,11 +4288,46 @@ watch(
   border-radius: 12px 0 12px 0;
   clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px));
   background: rgba(2, 6, 23, 0.3);
-  font-size: 1rem;
-  font-weight: 800;
-  letter-spacing: 0.04em;
   grid-row: 1 / span 2;
   align-self: stretch;
+  overflow: hidden;
+}
+
+.sheet-voucher-card__brand-icon {
+  width: 2.3rem;
+  height: 2.3rem;
+  color: currentColor;
+  transition: transform 260ms ease;
+  transform-origin: center;
+  transform-style: preserve-3d;
+  will-change: transform, filter;
+  filter:
+    drop-shadow(0 0 5px color-mix(in srgb, currentColor 28%, transparent))
+    drop-shadow(0 0 12px color-mix(in srgb, currentColor 16%, transparent));
+}
+
+.sheet-voucher-card__brand:hover .sheet-voucher-card__brand-icon,
+.sheet-voucher-card__brand:focus-within .sheet-voucher-card__brand-icon {
+  animation:
+    sheet-voucher-brand-roll 950ms linear infinite,
+    sheet-voucher-brand-glow 1.1s ease-in-out infinite;
+}
+
+.sheet-voucher-card__brand::after {
+  content: '';
+  position: absolute;
+  inset: 1px;
+  clip-path: polygon(0 0, calc(100% - 11px) 0, 100% 11px, 100% 100%, 11px 100%, 0 calc(100% - 11px));
+  background: linear-gradient(110deg, transparent 0%, rgb(207 250 254 / 0.08) 42%, rgb(255 255 255 / 0.26) 50%, rgb(103 232 249 / 0.12) 58%, transparent 100%);
+  transform: translateX(-125%);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.sheet-voucher-card__brand:hover::after,
+.sheet-voucher-card__brand:focus-within::after {
+  opacity: 1;
+  animation: sheet-voucher-brand-sweep 1.2s ease-out;
 }
 
 .sheet-voucher-card__text {
@@ -3844,17 +4341,18 @@ watch(
   display: flex;
   align-items: center;
   min-height: 1.55rem;
+  font-family: "Orbitron", "Rajdhani", "Eurostile", "Bank Gothic", "Inter", sans-serif;
   font-weight: 800;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.08em;
 }
 
 .sheet-voucher-card__heading {
-  font-size: 0.98rem;
+  font-size: 1.04rem;
 }
 
 .sheet-voucher-card__subheading {
-  font-size: 0.72rem;
+  font-size: 0.7rem;
   opacity: 0.78;
 }
 
@@ -3871,31 +4369,100 @@ watch(
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 2rem;
-  height: 2rem;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  border-radius: 10px 0 10px 0;
-  clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px));
-  background: rgba(2, 6, 23, 0.42);
-  color: #e2e8f0;
+  width: 1.12rem;
+  height: 1.12rem;
+  border: 1px solid rgba(248, 113, 113, 0.42);
+  border-radius: 6px 0 6px 0;
+  clip-path: polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px));
+  background:
+    linear-gradient(180deg, rgba(56, 12, 18, 0.92), rgba(22, 8, 10, 0.94)),
+    radial-gradient(circle at 0 0, rgba(248, 113, 113, 0.14), transparent 4rem);
+  color: #fecaca;
+  box-shadow:
+    inset 0 0 0 1px rgba(248, 113, 113, 0.05),
+    0 0 8px rgba(248, 113, 113, 0.1);
+}
+
+.sheet-voucher-card__remove:hover,
+.sheet-voucher-card__remove:focus-visible {
+  border-color: rgba(248, 113, 113, 0.72);
+  background:
+    linear-gradient(180deg, rgba(72, 16, 22, 0.94), rgba(30, 10, 14, 0.96)),
+    radial-gradient(circle at 0 0, rgba(248, 113, 113, 0.2), transparent 4rem);
+  color: #fff1f2;
+  box-shadow:
+    inset 0 0 0 1px rgba(248, 113, 113, 0.08),
+    0 0 14px rgba(248, 113, 113, 0.18);
+  outline: none;
+}
+
+.sheet-voucher-card__remove :deep(svg) {
+  width: 0.46rem;
+  height: 0.46rem;
 }
 
 .sheet-voucher-card__meta {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 3fr) minmax(0, 1fr);
   gap: 0.65rem;
+}
+
+.sheet-voucher-card__field-shell {
+  position: relative;
+  display: grid;
+  align-items: stretch;
+  min-width: 0;
+  color: currentColor;
+  border: 1px solid color-mix(in srgb, var(--voucher-accent-strong) 88%, white 12%);
+  border-radius: 10px 0 10px 0;
+  clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px));
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--voucher-accent) 42%, rgba(2, 6, 23, 0.96)), color-mix(in srgb, var(--voucher-accent) 18%, rgba(2, 6, 23, 0.9))),
+    radial-gradient(circle at 0 0, color-mix(in srgb, var(--voucher-accent-strong) 44%, transparent), transparent 4rem);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--voucher-accent-strong) 24%, transparent),
+    0 0 0 1px color-mix(in srgb, var(--voucher-accent) 18%, transparent),
+    0 0 14px color-mix(in srgb, var(--voucher-accent-glow) 52%, transparent);
+  transition: border-color 140ms ease, box-shadow 140ms ease, background 140ms ease;
+}
+
+.sheet-voucher-card__field-shell:hover,
+.sheet-voucher-card__field-shell:focus-within {
+  border-color: color-mix(in srgb, var(--voucher-accent-strong) 94%, white 6%);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--voucher-accent-strong) 38%, transparent),
+    0 0 18px color-mix(in srgb, var(--voucher-accent-glow) 80%, transparent);
+}
+
+.sheet-voucher-card__field-shell--select::after {
+  content: '';
+  position: absolute;
+  right: 0.72rem;
+  top: 50%;
+  width: 0.5rem;
+  height: 0.32rem;
+  background: currentColor;
+  clip-path: polygon(0 0, 100% 0, 50% 100%);
+  transform: translateY(-50%);
+  opacity: 0.88;
+  pointer-events: none;
 }
 
 .sheet-voucher-card__field {
   appearance: none;
   -webkit-appearance: none;
   -moz-appearance: none;
-  min-height: 2.1rem;
-  padding: 0 0.7rem;
-  font-size: 0.82rem;
+  width: 100%;
+  min-height: 1.9rem;
+  padding: 0 0.58rem;
+  font-size: 0.74rem;
+  font-family: "Rajdhani", "Orbitron", "Eurostile", "Bank Gothic", "Inter", sans-serif;
   font-weight: 700;
-  border-color: color-mix(in srgb, currentColor 38%, transparent);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, currentColor 18%, transparent);
+  border: 0;
+  border-radius: 0;
+  clip-path: none;
+  box-shadow: none;
+  background: transparent;
   color: currentColor;
 }
 
@@ -3904,14 +4471,18 @@ watch(
 }
 
 .sheet-voucher-card__field--select {
-  background:
-    linear-gradient(180deg, color-mix(in srgb, currentColor 16%, rgba(2, 6, 23, 0.84)), rgba(2, 6, 23, 0.38));
   -webkit-text-fill-color: currentColor;
+  padding-right: 1.6rem;
 }
 
 .sheet-voucher-card__field--select option {
   color: #e2e8f0;
   background: #081220;
+}
+
+.sheet-voucher-card__field:hover,
+.sheet-voucher-card__field:focus-visible {
+  outline: none;
 }
 
 .sheet-skill-visibility-icon {
@@ -3949,19 +4520,55 @@ watch(
 }
 
 .sheet-voucher-card--vehicle {
-  color: #a5f3fc;
-}
-
-.sheet-voucher-card--small-craft {
   color: #e9d5ff;
 }
 
-.sheet-voucher-card--ship {
+.sheet-voucher-card--small-craft {
   color: #fdba74;
+}
+
+.sheet-voucher-card--ship {
+  color: #fbcfe8;
 }
 
 .sheet-voucher-card--generic {
   color: #e2e8f0;
+}
+
+@keyframes sheet-voucher-brand-sweep {
+  0% {
+    transform: translateX(-125%);
+  }
+  100% {
+    transform: translateX(125%);
+  }
+}
+
+@keyframes sheet-voucher-brand-roll {
+  0% {
+    transform: perspective(900px) rotateY(0deg) scale(1);
+  }
+  50% {
+    transform: perspective(900px) rotateY(180deg) scale(1.04);
+  }
+  100% {
+    transform: perspective(900px) rotateY(360deg) scale(1);
+  }
+}
+
+@keyframes sheet-voucher-brand-glow {
+  0%,
+  100% {
+    filter:
+      drop-shadow(0 0 5px color-mix(in srgb, currentColor 28%, transparent))
+      drop-shadow(0 0 12px color-mix(in srgb, currentColor 16%, transparent));
+  }
+  50% {
+    filter:
+      drop-shadow(0 0 10px color-mix(in srgb, currentColor 38%, transparent))
+      drop-shadow(0 0 20px color-mix(in srgb, currentColor 26%, transparent))
+      drop-shadow(0 0 34px color-mix(in srgb, currentColor 14%, transparent));
+  }
 }
 
 .sheet-panel-empty {
@@ -4065,9 +4672,29 @@ watch(
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .sheet-equipment-row--top {
+  .sheet-weapon-row--bottom {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
+.sheet-equipment-row--top {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.sheet-field-with-label {
+  display: grid;
+  gap: 0.22rem;
+  min-width: 0;
+}
+
+.sheet-field-with-label > span {
+  padding-left: 0.12rem;
+  color: #94a3b8;
+  font-size: 0.62rem;
+  font-weight: 700;
+  line-height: 1;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
 
   .sheet-voucher-card__meta {
     grid-template-columns: 1fr;

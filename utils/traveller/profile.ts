@@ -265,6 +265,8 @@ export const normalizeTravellerProfile = (
   profile.weapons = arrayOr<Record<string, unknown>>(value.weapons).map((item, index) => ({
     id: stringOr(item.id, `weapon-${index}`),
     name: stringOr(item.name, ''),
+    skill: stringOr(item.skill, ''),
+    speciality: stringOr(item.speciality, ''),
     techLevel: stringOr(item.techLevel, ''),
     range: stringOr(item.range, ''),
     damage: stringOr(item.damage, ''),

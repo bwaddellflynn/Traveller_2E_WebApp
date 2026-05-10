@@ -107,6 +107,8 @@ export type TravellerProfile = {
   weapons: Array<{
     id: string
     name: string
+    skill?: string
+    speciality?: string
     techLevel?: string
     range?: string
     damage?: string

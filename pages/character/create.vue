@@ -3,6 +3,7 @@ import { storeToRefs } from 'pinia'
 import { nextTick, onBeforeUnmount } from 'vue'
 import CharacterCreatorHeader from '~/components/character/CharacterCreatorHeader.vue'
 import CreationStepPanel from '~/components/character/CreationStepPanel.vue'
+import DiceRollModal from '~/components/character/DiceRollModal.vue'
 import CreatorResolvedEventCard from '~/components/character/CreatorResolvedEventCard.vue'
 import CreatorTabNavigation from '~/components/character/CreatorTabNavigation.vue'
 import CurrentTravellerCard from '~/components/character/CurrentTravellerCard.vue'
@@ -2867,58 +2868,17 @@ if (import.meta.client) {
 
     <RerollConfirmDialog />
 
-    <Transition name="creator-roll-fade">
-      <div
-        v-if="creatorRollModalOpen"
-        class="creator-roll-modal fixed inset-0 z-50 flex items-center justify-center bg-zinc-950/60 px-4 py-8 backdrop-blur-sm"
-        role="dialog"
-        aria-modal="true"
-        @click.self="closeCreatorRollModal"
-      >
-        <div class="creator-roll-modal__panel w-full max-w-md overflow-hidden">
-          <div class="creator-roll-modal__header">
-            <div>
-              <p class="creator-roll-modal__kicker">Roll Result</p>
-              <h2 class="creator-roll-modal__title">{{ creatorRollModalTitle }}</h2>
-            </div>
-            <div class="creator-roll-modal__header-actions">
-              <span class="creator-roll-modal__modifier">DM {{ formatDm(creatorRollModalModifier) }}</span>
-              <button
-                class="creator-roll-modal__close"
-                type="button"
-                aria-label="Close roll modal"
-                @click="closeCreatorRollModal"
-              >
-                <AppIcon name="close" />
-                <span class="creator-roll-modal__close-label">Close</span>
-              </button>
-            </div>
-          </div>
-
-          <div class="creator-roll-modal__body">
-            <div class="creator-roll-modal__dice-row">
-              <div class="creator-roll-modal__die" :class="{ 'is-rolling': creatorRollModalRolling }">
-                {{ creatorRollModalDice[0] }}
-              </div>
-              <template v-if="creatorRollModalDiceCount === 2">
-                <div class="creator-roll-modal__plus">+</div>
-                <div class="creator-roll-modal__die" :class="{ 'is-rolling': creatorRollModalRolling }">
-                  {{ creatorRollModalDice[1] }}
-                </div>
-              </template>
-            </div>
-
-            <div class="creator-roll-modal__result-row">
-              <span class="creator-roll-modal__total" :class="{ 'is-settled': !creatorRollModalRolling }">
-                <span class="creator-roll-modal__total-frame">{{ creatorRollModalTotal }}</span>
-              </span>
-            </div>
-
-            <p v-if="!creatorRollModalRolling" class="creator-roll-modal__result">{{ creatorRollModalResult }}</p>
-          </div>
-        </div>
-      </div>
-    </Transition>
+    <DiceRollModal
+      :open="creatorRollModalOpen"
+      :rolling="creatorRollModalRolling"
+      :title="creatorRollModalTitle"
+      :modifier="creatorRollModalModifier"
+      :dice="creatorRollModalDice"
+      :dice-count="creatorRollModalDiceCount"
+      :total="creatorRollModalTotal"
+      :result="creatorRollModalResult"
+      @close="closeCreatorRollModal"
+    />
 
     <Transition name="creator-roll-fade">
       <div
