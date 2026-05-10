@@ -1,13 +1,31 @@
 <script setup lang="ts">
 import { storeToRefs } from 'pinia'
-import type { TravellerVehicleCategory, TravellerVehicleRecord } from '~/types/vehicle'
+import type { CustomVehicleDesign, TravellerVehicleCategory, TravellerVehicleRecord } from '~/types/vehicle'
+import VehicleBuilderCoreStep from '~/components/vehicles/VehicleBuilderCoreStep.vue'
+import VehicleBuilderLoadoutStep from '~/components/vehicles/VehicleBuilderLoadoutStep.vue'
+import VehicleBuilderPerformanceStep from '~/components/vehicles/VehicleBuilderPerformanceStep.vue'
+import VehicleBuilderReviewStep from '~/components/vehicles/VehicleBuilderReviewStep.vue'
+import VehicleBuilderTabs from '~/components/vehicles/VehicleBuilderTabs.vue'
 import { useVehiclesStore } from '~/stores/vehicles'
+import {
+  applyVehicleHandbookDerivations,
+  cloneVehicle,
+  createBlankCustomVehicle,
+  createBlankVehicleWeapon,
+  normalizeCustomVehicleDesign,
+  validateCustomVehicle,
+  vehicleAuxiliaryDriveOptions,
+  vehicleBuilderOptionSets,
+  vehicleConstructionSummary,
+  vehicleFamilyRule,
+  vehiclePrimaryPowerOptions,
+} from '~/utils/traveller/vehicles'
 
 type VehicleSortKey = 'name' | 'techLevel' | 'category' | 'speed' | 'agility' | 'spaces' | 'costCredits'
 type VehicleSortIcon = 'sort-asc' | 'sort-desc'
 
 const vehiclesStore = useVehiclesStore()
-const { referenceVehicles, playerBuiltVehicles } = storeToRefs(vehiclesStore)
+const { activeUserId, referenceVehicles, playerBuiltVehicles } = storeToRefs(vehiclesStore)
 
 const activeGarageTab = ref('reference')
 const selectedCategory = ref<TravellerVehicleCategory | 'all'>('all')
@@ -17,6 +35,13 @@ const vehicleSortDirection = ref<'asc' | 'desc'>('asc')
 const selectedVehicleId = ref('')
 const expandedVehicleId = ref('')
 const categoryMenuOpen = ref(false)
+const saveMessage = ref('')
+const activeBuildStep = ref(0)
+const buildDraft = ref<CustomVehicleDesign | null>(null)
+const selectedCustomVehicleId = ref('')
+let applyingBuildDraftDerivations = false
+
+type VehicleBuildStep = { id: string, label: string, title: string, description: string }
 
 const categories: { id: TravellerVehicleCategory | 'all', label: string }[] = [
   { id: 'all', label: 'All' },
@@ -34,7 +59,15 @@ const garageTabs = [
   { id: 'reference', label: 'Pre-Fab Vehicles' },
   { id: 'builds', label: 'Custom Vehicles' },
 ]
-
+const builderSteps: VehicleBuildStep[] = [
+  { id: 'core', label: 'Frame', title: 'Frame', description: 'Name the vehicle and define its category, hull, skill, and core classification.' },
+  { id: 'performance', label: 'Performance', title: 'Performance', description: 'Set movement, crew, commercial, and structural values.' },
+  { id: 'loadout', label: 'Loadout', title: 'Loadout', description: 'Define armour, traits, equipment, and mounted weapons.' },
+  { id: 'review', label: 'Review', title: 'Review', description: 'Validate the finished vehicle record before saving it.' },
+]
+const builderOptionSets = vehicleBuilderOptionSets()
+const allPrimaryPowerOptions = vehiclePrimaryPowerOptions()
+const allAuxiliaryDriveOptions = vehicleAuxiliaryDriveOptions()
 const sortableVehicleColumns: { key: VehicleSortKey, label: string }[] = [
   { key: 'name', label: 'Vehicle' },
   { key: 'techLevel', label: 'TL' },
@@ -148,6 +181,156 @@ const formatCredits = (credits: number | null) => {
 }
 
 const categoryLabel = (category: string) => category.split('-').map((part) => `${part.charAt(0).toUpperCase()}${part.slice(1)}`).join(' ')
+const buildValidationIssues = computed(() => buildDraft.value ? validateCustomVehicle(buildDraft.value) : [])
+const buildDraftFamilyRule = computed(() => buildDraft.value ? vehicleFamilyRule(buildDraft.value.baseFamily) : null)
+const buildDraftConstructionSummary = computed(() => buildDraft.value ? vehicleConstructionSummary(buildDraft.value) : null)
+const buildDraftPrimaryPowerOptions = computed(() => {
+  if (!buildDraft.value) return allPrimaryPowerOptions
+  return allPrimaryPowerOptions.filter((option) => !option.allowedFamilies || option.allowedFamilies.includes(buildDraft.value!.baseFamily))
+})
+const buildDraftAuxiliaryDriveOptions = computed(() => {
+  if (!buildDraft.value) return allAuxiliaryDriveOptions
+  return allAuxiliaryDriveOptions.filter((option) => !option.allowedFamilies || option.allowedFamilies.includes(buildDraft.value!.baseFamily) || option.id === 'none')
+})
+const activeBuildStepMeta = computed(() => builderSteps[activeBuildStep.value] ?? builderSteps[0])
+
+// Vehicle handbook derivations mutate the draft in place. This guard prevents
+// those derived writes from recursively retriggering the same synchronization
+// watcher during a single reactive flush.
+const syncBuildDraftDerivations = () => {
+  if (!buildDraft.value || applyingBuildDraftDerivations) return
+  applyingBuildDraftDerivations = true
+  try {
+    applyVehicleHandbookDerivations(buildDraft.value)
+  }
+  finally {
+    applyingBuildDraftDerivations = false
+  }
+}
+
+const coreStepComplete = computed(() => {
+  if (!buildDraft.value) return false
+  return Boolean(
+    buildDraft.value.name.trim()
+    && buildDraft.value.baseFamily
+    && buildDraft.value.hull.trim()
+    && buildDraft.value.spaces > 0,
+  )
+})
+
+const performanceStepComplete = computed(() => {
+  if (!buildDraft.value) return false
+  return Boolean(
+    buildDraft.value.speed.trim()
+    && buildDraft.value.comfortLevel.trim()
+    && buildDraft.value.crew.trim()
+    && buildDraft.value.passengers.trim()
+    && buildDraft.value.cost.trim(),
+  )
+})
+
+const loadoutStepComplete = computed(() => {
+  if (!buildDraft.value) return false
+  return Object.values(buildDraft.value.armour).every((value) => String(value ?? '').trim())
+})
+
+const canAccessBuildStep = (index: number) => {
+  if (index <= 0) return true
+  if (index === 1) return coreStepComplete.value
+  if (index === 2) return coreStepComplete.value && performanceStepComplete.value
+  return coreStepComplete.value && performanceStepComplete.value && loadoutStepComplete.value
+}
+
+const setBuildStep = (index: number) => {
+  if (!canAccessBuildStep(index)) return
+  activeBuildStep.value = index
+}
+
+const ensureBuildDraft = () => {
+  if (buildDraft.value) return
+  buildDraft.value = createBlankCustomVehicle(activeUserId.value)
+  syncBuildDraftDerivations()
+}
+
+const newVehicle = () => {
+  buildDraft.value = createBlankCustomVehicle(activeUserId.value)
+  selectedCustomVehicleId.value = ''
+  activeBuildStep.value = 0
+  saveMessage.value = ''
+  syncBuildDraftDerivations()
+}
+
+const editVehicle = (vehicleId: string) => {
+  const vehicle = vehiclesStore.getCustomVehicle(vehicleId)
+  if (!vehicle) return
+  buildDraft.value = normalizeCustomVehicleDesign(cloneVehicle(vehicle))
+  syncBuildDraftDerivations()
+  selectedCustomVehicleId.value = vehicle.id
+  activeBuildStep.value = 0
+  saveMessage.value = ''
+}
+
+const saveVehicle = () => {
+  if (!buildDraft.value) return
+  if (buildValidationIssues.value.length) return
+  const saved = vehiclesStore.saveCustomVehicle(buildDraft.value)
+  buildDraft.value = cloneVehicle(saved)
+  selectedCustomVehicleId.value = saved.id
+  saveMessage.value = `Saved ${saved.name || 'Custom Vehicle'}`
+}
+
+const duplicateVehicle = (vehicleId: string) => {
+  const copy = vehiclesStore.duplicateCustomVehicle(vehicleId)
+  if (!copy) return
+  buildDraft.value = normalizeCustomVehicleDesign(cloneVehicle(copy))
+  syncBuildDraftDerivations()
+  selectedCustomVehicleId.value = copy.id
+  activeBuildStep.value = 0
+  saveMessage.value = `Duplicated ${copy.name || 'Custom Vehicle'}`
+}
+
+const deleteVehicle = (vehicleId: string) => {
+  vehiclesStore.deleteCustomVehicle(vehicleId)
+  if (selectedCustomVehicleId.value === vehicleId) {
+    selectedCustomVehicleId.value = ''
+    buildDraft.value = createBlankCustomVehicle(activeUserId.value)
+    syncBuildDraftDerivations()
+  }
+  saveMessage.value = 'Deleted vehicle'
+}
+
+const toggleFeature = (value: string) => {
+  ensureBuildDraft()
+  if (!buildDraft.value) return
+  const features = buildDraft.value.features ?? []
+  buildDraft.value.features = features.includes(value)
+    ? features.filter((feature) => feature !== value)
+    : [...features, value]
+  syncBuildDraftDerivations()
+}
+
+const addEquipmentEntry = (value: string) => {
+  ensureBuildDraft()
+  if (!buildDraft.value) return
+  if (!buildDraft.value.equipment.includes(value)) buildDraft.value.equipment.push(value)
+}
+
+const removeEquipmentEntry = (index: number) => {
+  buildDraft.value?.equipment.splice(index, 1)
+}
+
+const addVehicleWeapon = () => {
+  ensureBuildDraft()
+  buildDraft.value?.weapons.push(createBlankVehicleWeapon())
+}
+
+const removeVehicleWeapon = (index: number) => {
+  buildDraft.value?.weapons.splice(index, 1)
+}
+
+watch(activeGarageTab, (tab) => {
+  if (tab === 'builds') ensureBuildDraft()
+}, { immediate: true })
 </script>
 
 <template>
@@ -365,24 +548,164 @@ const categoryLabel = (category: string) => category.split('-').map((part) => `$
     </section>
 
     <section v-else class="mx-auto w-full max-w-[96rem] px-5 py-6 sm:px-8 lg:px-10">
-      <div class="hud-panel grid gap-4 rounded-lg border p-6 shadow-sm lg:grid-cols-[1fr_auto] lg:items-center">
-        <div>
-          <p class="hud-kicker text-sm font-semibold uppercase tracking-wide">Player Builds</p>
-          <h2 class="mt-2 text-2xl font-semibold">Vehicle builder placeholder</h2>
-          <p class="mt-2 max-w-3xl text-sm leading-6 text-zinc-600">
-            Player-built vehicles will use the same record shape as the reference catalogue, with draft caching and construction steps added in a later pass.
-          </p>
-        </div>
-        <button class="hud-link h-10 cursor-not-allowed px-4 text-sm font-semibold opacity-60" disabled type="button">
-          Builder Coming Later
-        </button>
-      </div>
+      <div class="grid gap-5 xl:grid-cols-[minmax(0,1fr)_24rem]">
+        <section class="hud-panel rounded-lg border p-5 shadow-sm">
+          <div class="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p class="hud-kicker text-sm font-semibold uppercase tracking-wide">Player Builds</p>
+              <h2 class="mt-2 text-2xl font-semibold">Custom Vehicle Builder</h2>
+              <p class="mt-2 max-w-3xl text-sm leading-6 text-zinc-600">
+                This builder now starts from the Vehicle Handbook base vehicle families and derives handbook defaults for type, target size, baseline speed and range, shipping, base cost, hull, structure, and a first pass of rule-driven customisations.
+              </p>
+            </div>
+            <div class="flex flex-wrap gap-2">
+              <button class="rounded-md border border-zinc-300 px-3 py-2 text-sm font-semibold text-zinc-700 hover:border-amber-600" type="button" @click="newVehicle">
+                New
+              </button>
+              <button
+                class="rounded-md border border-zinc-300 px-3 py-2 text-sm font-semibold text-zinc-700 hover:border-amber-600 disabled:cursor-not-allowed disabled:opacity-50"
+                :disabled="!buildDraft || !!buildValidationIssues.length"
+                type="button"
+                @click="saveVehicle"
+              >
+                Save
+              </button>
+            </div>
+          </div>
 
-      <div v-if="playerBuiltVehicles.length" class="mt-5 grid gap-3">
-        <div v-for="vehicle in playerBuiltVehicles" :key="vehicle.id" class="hud-panel rounded-lg border p-4">
-          <p class="font-semibold">{{ vehicle.name }}</p>
-          <p class="mt-1 text-sm text-zinc-600">{{ vehicle.notes }}</p>
-        </div>
+          <p v-if="saveMessage" class="mt-4 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-900">
+            {{ saveMessage }}
+          </p>
+
+          <VehicleBuilderTabs
+            :steps="builderSteps"
+            :active-step="activeBuildStep"
+            :can-access-step="canAccessBuildStep"
+            @select-step="setBuildStep"
+          />
+
+          <div v-if="buildDraft" class="mt-5 rounded-md border border-zinc-200 p-5">
+            <div class="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h3 class="text-lg font-semibold">{{ activeBuildStepMeta.title }}</h3>
+                <p class="mt-1 text-sm text-zinc-600">{{ activeBuildStepMeta.description }}</p>
+              </div>
+            </div>
+
+            <div class="mt-5">
+              <VehicleBuilderCoreStep
+                v-if="activeBuildStep === 0"
+                :vehicle="buildDraft"
+                :option-sets="{
+                  baseFamilies: builderOptionSets.baseFamilies,
+                  hulls: builderOptionSets.hulls,
+                  skills: builderOptionSets.skills,
+                }"
+                @sync-derivations="syncBuildDraftDerivations"
+              />
+
+              <VehicleBuilderPerformanceStep
+                v-else-if="activeBuildStep === 1"
+                :vehicle="buildDraft"
+                :option-sets="{
+                  comfortLevels: builderOptionSets.comfortLevels,
+                  primaryPowerOptions: buildDraftPrimaryPowerOptions,
+                  auxiliaryDriveOptions: buildDraftAuxiliaryDriveOptions,
+                }"
+                :summary="buildDraftConstructionSummary ?? { availableSpaces: 0, auxiliarySpaces: 0, auxiliarySummary: null }"
+                @sync-derivations="syncBuildDraftDerivations"
+              />
+
+              <VehicleBuilderLoadoutStep
+                v-else-if="activeBuildStep === 2"
+                :vehicle="buildDraft"
+                :allowed-features="buildDraftFamilyRule?.allowedFeatures ?? []"
+                :equipment-suggestions="builderOptionSets.equipmentLibrary"
+                @toggle-feature="toggleFeature"
+                @add-equipment="addEquipmentEntry"
+                @remove-equipment="removeEquipmentEntry"
+                @add-weapon="addVehicleWeapon"
+                @remove-weapon="removeVehicleWeapon"
+              />
+
+              <VehicleBuilderReviewStep
+                v-else
+                :vehicle="buildDraft"
+                :validation-issues="buildValidationIssues"
+              />
+            </div>
+          </div>
+        </section>
+
+        <aside class="grid gap-5">
+          <section class="hud-panel rounded-lg border p-5 shadow-sm">
+            <div class="flex items-start justify-between gap-3">
+              <div>
+                <p class="hud-kicker text-xs font-semibold uppercase tracking-wide">Current Draft</p>
+                <h3 class="mt-2 text-xl font-semibold">{{ buildDraft?.name || 'Unnamed Vehicle' }}</h3>
+                <p class="mt-1 text-sm text-cyan-100/70">{{ buildDraft?.type || 'Vehicle type pending' }}</p>
+              </div>
+              <span class="hud-glyph grid h-10 w-10 shrink-0 place-items-center rounded-md">
+                <AppIcon name="car" />
+              </span>
+            </div>
+
+            <div v-if="buildDraft" class="mt-5 grid grid-cols-2 gap-3 text-sm">
+              <div class="hud-stat rounded-md border p-3">
+                <p class="text-xs uppercase tracking-wide text-zinc-400">TL</p>
+                <p class="mt-1 text-lg font-semibold">{{ buildDraft.techLevel }}</p>
+              </div>
+              <div class="hud-stat rounded-md border p-3">
+                <p class="text-xs uppercase tracking-wide text-zinc-400">Spaces</p>
+                <p class="mt-1 text-lg font-semibold">{{ buildDraft.spaces }}</p>
+              </div>
+              <div class="hud-stat rounded-md border p-3">
+                <p class="text-xs uppercase tracking-wide text-zinc-400">Usable Spaces</p>
+                <p class="mt-1 text-lg font-semibold">{{ buildDraftConstructionSummary?.availableSpaces ?? 0 }}</p>
+              </div>
+              <div class="hud-stat rounded-md border p-3">
+                <p class="text-xs uppercase tracking-wide text-zinc-400">Speed</p>
+                <p class="mt-1 text-lg font-semibold">{{ buildDraft.speed || '-' }}</p>
+              </div>
+              <div class="hud-stat rounded-md border p-3">
+                <p class="text-xs uppercase tracking-wide text-zinc-400">Cost</p>
+                <p class="mt-1 text-lg font-semibold">{{ buildDraft.cost || '-' }}</p>
+              </div>
+            </div>
+          </section>
+
+          <section class="hud-panel rounded-lg border p-5 shadow-sm">
+            <div class="flex items-center justify-between gap-3">
+              <h3 class="text-lg font-semibold">Saved Vehicles</h3>
+              <span class="text-xs text-zinc-500">{{ playerBuiltVehicles.length }} saved</span>
+            </div>
+
+            <div v-if="playerBuiltVehicles.length" class="mt-4 grid gap-2">
+              <div
+                v-for="vehicle in playerBuiltVehicles"
+                :key="vehicle.id"
+                class="rounded-md border p-3"
+                :class="selectedCustomVehicleId === vehicle.id ? 'border-cyan-400/50 bg-cyan-50/5' : 'border-zinc-200 bg-stone-50/30'"
+              >
+                <div class="flex items-start justify-between gap-3">
+                  <button class="min-w-0 text-left" type="button" @click="editVehicle(vehicle.id)">
+                    <p class="font-semibold text-zinc-950">{{ vehicle.name || 'Unnamed Vehicle' }}</p>
+                    <p class="mt-1 text-sm text-zinc-600">{{ vehicle.type || '-' }} · TL {{ vehicle.techLevel }}</p>
+                  </button>
+                  <div class="flex items-center gap-2">
+                    <button class="rounded-md border border-zinc-300 px-2 py-1 text-xs font-semibold text-zinc-700 hover:border-amber-600" type="button" @click="duplicateVehicle(vehicle.id)">
+                      Duplicate
+                    </button>
+                    <button class="rounded-md border border-red-300 px-2 py-1 text-xs font-semibold text-red-700 hover:border-red-500" type="button" @click="deleteVehicle(vehicle.id)">
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <p v-else class="mt-4 rounded-md bg-stone-50 p-4 text-sm text-zinc-600">No custom vehicles saved yet.</p>
+          </section>
+        </aside>
       </div>
     </section>
   </main>

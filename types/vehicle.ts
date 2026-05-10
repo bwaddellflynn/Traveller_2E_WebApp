@@ -4,6 +4,7 @@ export type TravellerVehicleSourceId =
   | 'mgt2e-field-catalogue'
   | 'mgt2e-mercenary-vehicle-recognition-cards'
   | 'mgt2e-vehicle-handbook'
+  | 'custom-player'
 
 export type TravellerVehicleCategory =
   | 'ground'
@@ -15,6 +16,39 @@ export type TravellerVehicleCategory =
   | 'rail'
   | 'biotech'
   | 'other'
+
+export type TravellerVehicleBaseFamily =
+  | 'aeroplane'
+  | 'airship'
+  | 'grav-vehicle'
+  | 'ground-vehicle'
+  | 'hovercraft'
+  | 'rotorcraft'
+  | 'structure'
+  | 'submersible'
+  | 'walker'
+  | 'watercraft'
+
+export type TravellerVehiclePrimaryPower =
+  | 'standard'
+  | 'unpowered'
+  | 'muscle'
+  | 'wind'
+  | 'grid'
+  | 'beamed'
+  | 'powered-structure'
+
+export type TravellerVehicleAuxiliaryDrive =
+  | 'none'
+  | 'aquatic'
+  | 'grav'
+  | 'ground'
+  | 'leg'
+  | 'lifters'
+  | 'rail'
+  | 'track'
+  | 'submarine'
+  | 'supercavitation'
 
 export type TravellerVehicleArmour = {
   forward: string
@@ -66,4 +100,17 @@ export type TravellerVehicleRecord = {
   equipment: string[]
   weapons: TravellerVehicleWeapon[]
   notes?: string
+}
+
+export type CustomVehicleDesign = TravellerVehicleRecord & {
+  userId: string
+  createdAt: string
+  updatedAt: string
+  baseFamily: TravellerVehicleBaseFamily
+  features: string[]
+  primaryPower: TravellerVehiclePrimaryPower
+  auxiliaryDrive: TravellerVehicleAuxiliaryDrive
+  speedModificationSteps: number
+  fuelEfficiencySteps: number
+  fuelCapacitySteps: number
 }
