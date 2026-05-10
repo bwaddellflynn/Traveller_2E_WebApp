@@ -3,10 +3,12 @@ import fieldCatalogueVehiclesData from '~/data/traveller2e/vehicles/field-catalo
 import vehicleHandbookData from '~/data/traveller2e/vehicles/vehicle-handbook-vehicles.json'
 import type {
   CustomVehicleDesign,
+  CustomVehicleEquipmentEntry,
   TravellerVehicleArmour,
   TravellerVehicleAuxiliaryDrive,
   TravellerVehicleBaseFamily,
   TravellerVehicleCategory,
+  TravellerVehicleFusionPlusFuelType,
   TravellerVehiclePrimaryPower,
   TravellerVehicleRecord,
   TravellerVehicleWeapon,
@@ -38,14 +40,20 @@ type PrimaryPowerRule = {
   label: string
   minimumTechLevel: number
   allowedFamilies?: TravellerVehicleBaseFamily[]
-  availableSpacePercent: number
+  availableSpacePercent?: number
   minimumSpaceGain?: number
   consumedSpacePercent?: number
   minimumConsumedSpaces?: number
   costMultiplier: number
-  flatCostPerSpace?: number
+  flatCostPerVehicleSpace?: number
+  costPerInstalledSpace?: number
   speedOverride?: SpeedBand
   speedBandAdjustment?: number
+  rangeMultiplier?: number
+  secondaryRangeMultiplier?: number
+  endurance?: string
+  powerPerSpace?: number
+  supportsFusionPlusFuelType?: boolean
   notes: string
 }
 
@@ -71,7 +79,20 @@ type VehicleSizeProfile = {
   hitDm: string
   speedModifier: number
   agilityModifier: number
+  armourVolumeMultiplier: number
+  armourAllowedFeatures: string[]
   traits: string[]
+}
+
+type VehicleArmourRule = {
+  minTl: number
+  maxTl?: number
+  materials: string
+  baseProtection: number
+  maximumProtection: number
+  vehicleSpacesPerPointPercent: number
+  costPerArmourSpace: number
+  costPerPointPerVehicleSpace: number
 }
 
 const withSource = (
@@ -164,6 +185,12 @@ export const createBlankVehicleWeapon = (): TravellerVehicleWeapon => ({
   cost: '',
   traits: [],
   fireControl: '',
+  spaces: 0,
+})
+
+export const createBlankVehicleEquipmentEntry = (): CustomVehicleEquipmentEntry => ({
+  name: '',
+  spaces: 0,
 })
 
 export const createBlankCustomVehicle = (userId = LOCAL_USER_ID): CustomVehicleDesign => {
@@ -201,9 +228,11 @@ export const createBlankCustomVehicle = (userId = LOCAL_USER_ID): CustomVehicleD
     traits: [],
     features: [],
     primaryPower: 'standard',
+    fusionPlusFuelType: 'water',
     auxiliaryDrive: 'none',
     armour: createBlankVehicleArmour(),
     equipment: [],
+    equipmentEntries: [],
     weapons: [],
     notes: '',
     speedModificationSteps: 0,
@@ -428,11 +457,24 @@ const handbookFamilyRules: Record<TravellerVehicleBaseFamily, VehicleFamilyRule>
 }
 
 const sizeProfiles: VehicleSizeProfile[] = [
-  { label: 'Small', hitDm: '+0', speedModifier: 0, agilityModifier: 0, traits: [] },
-  { label: 'Light', hitDm: '+1', speedModifier: 0, agilityModifier: 0, traits: [] },
-  { label: 'Heavy', hitDm: '+2', speedModifier: -1, agilityModifier: -1, traits: [] },
-  { label: 'Huge', hitDm: '+4', speedModifier: -1, agilityModifier: -2, traits: ['Unresponsive'] },
-  { label: 'Massive', hitDm: '+6', speedModifier: -1, agilityModifier: -4, traits: ['Unresponsive'] },
+  { label: 'Small', hitDm: '+0', speedModifier: 0, agilityModifier: 0, armourVolumeMultiplier: 4, armourAllowedFeatures: ['Open Frame'], traits: [] },
+  { label: 'Light', hitDm: '+1', speedModifier: 0, agilityModifier: 0, armourVolumeMultiplier: 2, armourAllowedFeatures: [], traits: [] },
+  { label: 'Heavy', hitDm: '+2', speedModifier: -1, agilityModifier: -1, armourVolumeMultiplier: 1, armourAllowedFeatures: ['AFV', 'Locomotive', 'Tunneller'], traits: [] },
+  { label: 'Huge', hitDm: '+4', speedModifier: -1, agilityModifier: -2, armourVolumeMultiplier: 0.5, armourAllowedFeatures: ['AFV', 'Locomotive', 'Tunneller'], traits: ['Unresponsive'] },
+  { label: 'Massive', hitDm: '+6', speedModifier: -1, agilityModifier: -4, armourVolumeMultiplier: 0.5, armourAllowedFeatures: ['AFV', 'Locomotive', 'Tunneller'], traits: ['Unresponsive'] },
+]
+
+const armourRules: VehicleArmourRule[] = [
+  { minTl: 0, maxTl: 2, materials: 'Wood, Bone, etc.', baseProtection: 0, maximumProtection: 10, vehicleSpacesPerPointPercent: 0.025, costPerArmourSpace: 1000, costPerPointPerVehicleSpace: 25 },
+  { minTl: 3, maxTl: 4, materials: 'Iron', baseProtection: 1, maximumProtection: 15, vehicleSpacesPerPointPercent: 0.015, costPerArmourSpace: 5000, costPerPointPerVehicleSpace: 75 },
+  { minTl: 5, maxTl: 6, materials: 'Steel', baseProtection: 2, maximumProtection: 20, vehicleSpacesPerPointPercent: 0.01, costPerArmourSpace: 7500, costPerPointPerVehicleSpace: 75 },
+  { minTl: 7, maxTl: 9, materials: 'Alloys, Composites', baseProtection: 3, maximumProtection: 30, vehicleSpacesPerPointPercent: 0.01, costPerArmourSpace: 12500, costPerPointPerVehicleSpace: 125 },
+  { minTl: 10, maxTl: 11, materials: 'Crystaliron', baseProtection: 5, maximumProtection: 40, vehicleSpacesPerPointPercent: 0.005, costPerArmourSpace: 50000, costPerPointPerVehicleSpace: 250 },
+  { minTl: 12, maxTl: 13, materials: 'Superdense', baseProtection: 6, maximumProtection: 50, vehicleSpacesPerPointPercent: 0.004, costPerArmourSpace: 75000, costPerPointPerVehicleSpace: 300 },
+  { minTl: 14, maxTl: 15, materials: 'Bonded Superdense', baseProtection: 8, maximumProtection: 60, vehicleSpacesPerPointPercent: 0.0032, costPerArmourSpace: 125000, costPerPointPerVehicleSpace: 400 },
+  { minTl: 16, maxTl: 16, materials: 'Molecular Bonded', baseProtection: 10, maximumProtection: 80, vehicleSpacesPerPointPercent: 0.002, costPerArmourSpace: 375000, costPerPointPerVehicleSpace: 750 },
+  { minTl: 17, maxTl: 17, materials: 'Coherent Superdense', baseProtection: 15, maximumProtection: 100, vehicleSpacesPerPointPercent: 0.0016, costPerArmourSpace: 500000, costPerPointPerVehicleSpace: 800 },
+  { minTl: 18, materials: 'Collapsium', baseProtection: 20, maximumProtection: 160, vehicleSpacesPerPointPercent: 0.001, costPerArmourSpace: 1000000, costPerPointPerVehicleSpace: 1000 },
 ]
 
 const featureAgilityModifiers: Record<string, number> = {
@@ -462,7 +504,6 @@ const primaryPowerRules: Record<TravellerVehiclePrimaryPower, PrimaryPowerRule> 
     id: 'standard',
     label: 'Standard Power',
     minimumTechLevel: 0,
-    availableSpacePercent: 0,
     costMultiplier: 0,
     notes: 'Default powered baseline assumed by the handbook type tables.',
   },
@@ -514,8 +555,8 @@ const primaryPowerRules: Record<TravellerVehiclePrimaryPower, PrimaryPowerRule> 
     minimumTechLevel: 8,
     allowedFamilies: ['airship', 'grav-vehicle', 'hovercraft', 'walker', 'structure'],
     availableSpacePercent: 0.3,
-    minimumSpaceGain: 1,
-    flatCostPerSpace: 10000,
+    minimumSpaceGain: 2,
+    flatCostPerVehicleSpace: 10000,
     costMultiplier: 0,
     notes: 'Adds 30% more available spaces and costs Cr10000 per vehicle space.',
   },
@@ -529,6 +570,162 @@ const primaryPowerRules: Record<TravellerVehiclePrimaryPower, PrimaryPowerRule> 
     minimumConsumedSpaces: 1,
     costMultiplier: 1,
     notes: 'Structures normally double available spaces; internal power then consumes 25% of original spaces and doubles base cost.',
+  },
+  'fission-basic': {
+    id: 'fission-basic',
+    label: 'Fission Power (Basic)',
+    minimumTechLevel: 6,
+    consumedSpacePercent: 0.5,
+    minimumConsumedSpaces: 10,
+    costMultiplier: 0,
+    costPerInstalledSpace: 100000,
+    endurance: '10 years',
+    powerPerSpace: 2,
+    notes: 'Self-contained fission reactor. Requires hostile environment protection for occupants and nearby bystanders.',
+  },
+  'fission-improved': {
+    id: 'fission-improved',
+    label: 'Fission Power (Improved)',
+    minimumTechLevel: 7,
+    consumedSpacePercent: 0.4,
+    minimumConsumedSpaces: 10,
+    costMultiplier: 0,
+    costPerInstalledSpace: 150000,
+    endurance: '25 years',
+    powerPerSpace: 2.2,
+    notes: 'Improved fission reactor with longer endurance and better power density.',
+  },
+  'fission-advanced': {
+    id: 'fission-advanced',
+    label: 'Fission Power (Advanced)',
+    minimumTechLevel: 8,
+    consumedSpacePercent: 0.3,
+    minimumConsumedSpaces: 10,
+    costMultiplier: 0,
+    costPerInstalledSpace: 200000,
+    endurance: '50 years',
+    powerPerSpace: 2.4,
+    notes: 'Advanced fission reactor with improved compactness and endurance.',
+  },
+  'fusion-basic': {
+    id: 'fusion-basic',
+    label: 'Fusion Power (Basic)',
+    minimumTechLevel: 8,
+    consumedSpacePercent: 0.25,
+    minimumConsumedSpaces: 10,
+    costMultiplier: 0,
+    costPerInstalledSpace: 125000,
+    endurance: '50 years',
+    powerPerSpace: 2.5,
+    notes: 'Basic fusion reactor. No routine radiation hazard but still requires careful disposal.',
+  },
+  'fusion-improved': {
+    id: 'fusion-improved',
+    label: 'Fusion Power (Improved)',
+    minimumTechLevel: 12,
+    consumedSpacePercent: 0.2,
+    minimumConsumedSpaces: 10,
+    costMultiplier: 0,
+    costPerInstalledSpace: 250000,
+    endurance: '100 years',
+    powerPerSpace: 3.5,
+    notes: 'Improved fusion reactor with higher power density and long service life.',
+  },
+  'fusion-advanced': {
+    id: 'fusion-advanced',
+    label: 'Fusion Power (Advanced)',
+    minimumTechLevel: 15,
+    consumedSpacePercent: 0.1,
+    minimumConsumedSpaces: 5,
+    costMultiplier: 0,
+    costPerInstalledSpace: 500000,
+    endurance: '100 years',
+    powerPerSpace: 5,
+    notes: 'Advanced fusion reactor with strong power density and compact footprint.',
+  },
+  antimatter: {
+    id: 'antimatter',
+    label: 'Antimatter Power',
+    minimumTechLevel: 20,
+    consumedSpacePercent: 0.1,
+    minimumConsumedSpaces: 4,
+    costMultiplier: 0,
+    costPerInstalledSpace: 2500000,
+    endurance: '100 years',
+    powerPerSpace: 25,
+    notes: 'Antimatter containment plant with extremely high power density and rapid startup/shutdown.',
+  },
+  'fusion-plus-basic': {
+    id: 'fusion-plus-basic',
+    label: 'Fusion+ Power (Basic)',
+    minimumTechLevel: 10,
+    consumedSpacePercent: 0.1,
+    minimumConsumedSpaces: 1,
+    costMultiplier: 0,
+    costPerInstalledSpace: 15000,
+    rangeMultiplier: 5,
+    powerPerSpace: 1,
+    supportsFusionPlusFuelType: true,
+    notes: 'Compact gravitic-assisted fusion plant using water or deuterium-enriched water as fuel.',
+  },
+  'fusion-plus-improved': {
+    id: 'fusion-plus-improved',
+    label: 'Fusion+ Power (Improved)',
+    minimumTechLevel: 13,
+    consumedSpacePercent: 0.1,
+    minimumConsumedSpaces: 1,
+    costMultiplier: 0,
+    costPerInstalledSpace: 25000,
+    rangeMultiplier: 15,
+    powerPerSpace: 2,
+    supportsFusionPlusFuelType: true,
+    notes: 'Improved Fusion+ plant with higher power density and much longer operational range.',
+  },
+  'fusion-plus-advanced': {
+    id: 'fusion-plus-advanced',
+    label: 'Fusion+ Power (Advanced)',
+    minimumTechLevel: 16,
+    consumedSpacePercent: 0.1,
+    minimumConsumedSpaces: 1,
+    costMultiplier: 0,
+    costPerInstalledSpace: 50000,
+    rangeMultiplier: 25,
+    powerPerSpace: 3,
+    supportsFusionPlusFuelType: true,
+    notes: 'Advanced Fusion+ plant with very high endurance and compact power density.',
+  },
+  'solar-basic': {
+    id: 'solar-basic',
+    label: 'Solar Power (Basic)',
+    minimumTechLevel: 8,
+    consumedSpacePercent: 0.2,
+    minimumConsumedSpaces: 2,
+    costMultiplier: 0,
+    costPerInstalledSpace: 50000,
+    endurance: 'Unlimited daytime / 3 hours stored at cruise',
+    notes: 'Solar panels and batteries sized for operation within a habitable zone.',
+  },
+  'solar-improved': {
+    id: 'solar-improved',
+    label: 'Solar Power (Improved)',
+    minimumTechLevel: 10,
+    consumedSpacePercent: 0.1,
+    minimumConsumedSpaces: 2,
+    costMultiplier: 0,
+    costPerInstalledSpace: 100000,
+    endurance: 'Unlimited daytime / 3 hours stored at cruise',
+    notes: 'Improved solar panels and batteries with reduced space demand.',
+  },
+  'solar-advanced': {
+    id: 'solar-advanced',
+    label: 'Solar Power (Advanced)',
+    minimumTechLevel: 12,
+    consumedSpacePercent: 0.05,
+    minimumConsumedSpaces: 2,
+    costMultiplier: 0,
+    costPerInstalledSpace: 150000,
+    endurance: 'Unlimited daytime / 3 hours stored at cruise',
+    notes: 'Advanced solar plant with compact panel and battery package.',
   },
 }
 
@@ -714,6 +911,72 @@ const baselineForTechLevel = (family: TravellerVehicleBaseFamily, techLevel: num
   return baseline ?? rule.speedBaselines[rule.speedBaselines.length - 1]
 }
 
+const armourRuleForTechLevel = (techLevel: number) => {
+  return armourRules.find((rule) => techLevel >= rule.minTl && (rule.maxTl === undefined || techLevel <= rule.maxTl)) ?? armourRules[armourRules.length - 1]
+}
+
+const fusionPlusFuelRangeMultiplier = (fuelType: TravellerVehicleFusionPlusFuelType) => (
+  fuelType === 'deuterium-enriched-water' ? 3 : 1
+)
+
+const installedPowerPlantSpaces = (vehicle: CustomVehicleDesign, power: PrimaryPowerRule) => {
+  if (!power.consumedSpacePercent) return 0
+  return Math.max(power.minimumConsumedSpaces ?? 0, Math.ceil(vehicle.spaces * power.consumedSpacePercent))
+}
+
+const isOpenToppedArmourException = (vehicle: CustomVehicleDesign, facing: keyof TravellerVehicleArmour) => {
+  if (facing !== 'dorsal') return false
+  return vehicle.features.includes('Open-Topped') || vehicle.features.includes('Open Frame')
+}
+
+const parsedArmourFaceValue = (vehicle: CustomVehicleDesign, facing: keyof TravellerVehicleArmour, baseProtection: number) => {
+  const rawValue = String(vehicle.armour[facing] ?? '').trim()
+  if (!rawValue) return baseProtection
+  const parsedValue = Number(rawValue)
+  return Number.isFinite(parsedValue) ? parsedValue : baseProtection
+}
+
+const armourSummaryForVehicle = (vehicle: CustomVehicleDesign) => {
+  const size = vehicleSizeBandForSpaces(vehicle.spaces)
+  const rule = armourRuleForTechLevel(vehicle.techLevel)
+  const baseProtection = rule.baseProtection
+  const maximumProtection = rule.maximumProtection * (vehicle.features.includes('AFV') ? 3 : 1)
+  const faceValues = {
+    forward: parsedArmourFaceValue(vehicle, 'forward', baseProtection),
+    port: parsedArmourFaceValue(vehicle, 'port', baseProtection),
+    dorsal: parsedArmourFaceValue(vehicle, 'dorsal', baseProtection),
+    aft: parsedArmourFaceValue(vehicle, 'aft', baseProtection),
+    starboard: parsedArmourFaceValue(vehicle, 'starboard', baseProtection),
+    ventral: parsedArmourFaceValue(vehicle, 'ventral', baseProtection),
+  }
+  const addedProtectionTotal = Object.entries(faceValues).reduce((total, [facing, value]) => {
+    const minimumFacingProtection = isOpenToppedArmourException(vehicle, facing as keyof TravellerVehicleArmour) ? 0 : baseProtection
+    return total + Math.max(0, value - minimumFacingProtection)
+  }, 0)
+  const equivalentAddedProtection = addedProtectionTotal / 5
+  const rawArmourSpaces = vehicle.spaces * rule.vehicleSpacesPerPointPercent * size.armourVolumeMultiplier * equivalentAddedProtection
+  const armourSpaces = Math.ceil(rawArmourSpaces)
+  const armourCost = rawArmourSpaces > 0
+    ? (
+        Number.isInteger(rawArmourSpaces)
+          ? rawArmourSpaces * rule.costPerArmourSpace
+          : equivalentAddedProtection * vehicle.spaces * size.armourVolumeMultiplier * rule.costPerPointPerVehicleSpace
+      )
+    : 0
+
+  return {
+    rule,
+    size,
+    baseProtection,
+    maximumProtection,
+    faceValues,
+    equivalentAddedProtection,
+    rawArmourSpaces,
+    armourSpaces,
+    armourCost,
+  }
+}
+
 export const vehicleSizeBandForSpaces = (spaces: number): VehicleSizeProfile => {
   if (spaces <= 3) return { ...sizeProfiles[0], hitDm: '+0' }
   if (spaces <= 19) return { ...sizeProfiles[1], hitDm: '+1' }
@@ -747,6 +1010,7 @@ export const vehicleConstructionSummary = (vehicle: CustomVehicleDesign) => {
   const auxiliary = auxiliaryDriveRules[vehicle.auxiliaryDrive]
   const baseline = baselineForTechLevel(family.id, Math.max(vehicle.techLevel, family.minimumTechLevel))
   const effectiveBaseSpaces = vehicle.spaces
+  const powerPlantSpaces = installedPowerPlantSpaces(vehicle, power)
   let availableSpaces = effectiveBaseSpaces
 
   if (family.id === 'structure') {
@@ -757,6 +1021,9 @@ export const vehicleConstructionSummary = (vehicle: CustomVehicleDesign) => {
   }
   else if (power.availableSpacePercent > 0) {
     availableSpaces += Math.max(power.minimumSpaceGain ?? 0, Math.ceil(effectiveBaseSpaces * power.availableSpacePercent))
+  }
+  else if (powerPlantSpaces > 0) {
+    availableSpaces -= powerPlantSpaces
   }
 
   const auxiliarySpaces = auxiliary.id === 'none'
@@ -780,14 +1047,28 @@ export const vehicleConstructionSummary = (vehicle: CustomVehicleDesign) => {
         }
       })()
 
+  const armourSummary = armourSummaryForVehicle(vehicle)
+  const featureAllocatedSpaces = 0
+  const equipmentAllocatedSpaces = (vehicle.equipmentEntries ?? []).reduce((total, entry) => total + Math.max(0, Number(entry.spaces ?? 0)), 0)
+  const weaponAllocatedSpaces = (vehicle.weapons ?? []).reduce((total, weapon) => total + Math.max(0, Number(weapon.spaces ?? 0)), 0)
+  const allocatedSpaces = featureAllocatedSpaces + equipmentAllocatedSpaces + weaponAllocatedSpaces + armourSummary.armourSpaces
+  const remainingSpaces = availableSpaces - allocatedSpaces
+
   return {
     family,
     power,
     auxiliary,
     baseline,
+    powerPlantSpaces,
     availableSpaces,
     auxiliarySpaces,
     auxiliarySummary,
+    armourSummary,
+    featureAllocatedSpaces,
+    equipmentAllocatedSpaces,
+    weaponAllocatedSpaces,
+    allocatedSpaces,
+    remainingSpaces,
   }
 }
 
@@ -798,7 +1079,24 @@ export const normalizeCustomVehicleDesign = (vehicle: CustomVehicleDesign): Cust
   normalized.primaryPower = normalized.primaryPower || (normalized.baseFamily === 'structure'
     ? (normalized.techLevel >= 3 ? 'grid' : 'unpowered')
     : 'standard')
+  normalized.fusionPlusFuelType = normalized.fusionPlusFuelType === 'deuterium-enriched-water' ? 'deuterium-enriched-water' : 'water'
   normalized.auxiliaryDrive = normalized.auxiliaryDrive || 'none'
+  normalized.equipmentEntries = Array.isArray(normalized.equipmentEntries)
+    ? normalized.equipmentEntries.map((entry) => ({
+        name: String(entry?.name ?? '').trim(),
+        spaces: Math.max(0, Number(entry?.spaces ?? 0)),
+      }))
+    : (Array.isArray(normalized.equipment) ? normalized.equipment : []).map((name) => ({
+        name: String(name ?? '').trim(),
+        spaces: 0,
+      }))
+  normalized.equipment = normalized.equipmentEntries.map((entry) => entry.name).filter(Boolean)
+  normalized.weapons = Array.isArray(normalized.weapons)
+    ? normalized.weapons.map((weapon) => ({
+        ...weapon,
+        spaces: Math.max(0, Number(weapon?.spaces ?? 0)),
+      }))
+    : []
   normalized.speedModificationSteps = Number.isFinite(normalized.speedModificationSteps) ? normalized.speedModificationSteps : 0
   normalized.fuelEfficiencySteps = Number.isFinite(normalized.fuelEfficiencySteps) ? normalized.fuelEfficiencySteps : 0
   normalized.fuelCapacitySteps = Number.isFinite(normalized.fuelCapacitySteps) ? normalized.fuelCapacitySteps : 0
@@ -823,7 +1121,7 @@ export const applyVehicleHandbookDerivations = (vehicle: CustomVehicleDesign) =>
   }
   const effectivePower = primaryPowerRules[vehicle.primaryPower]
   const effectiveAuxiliary = auxiliaryDriveRules[vehicle.auxiliaryDrive]
-  const selectedFeatures = [...new Set((vehicle.features ?? []).filter((feature) => family.allowedFeatures.includes(feature)))]
+  const selectedFeatures = [...new Set((vehicle.features ?? []).filter((feature) => family.allowedFeatures.includes(feature) && (size.armourAllowedFeatures.length === 0 || !['AFV', 'Locomotive', 'Tunneller'].includes(feature) || size.armourAllowedFeatures.includes(feature))))]
   const speedFeatureModifier = selectedFeatures.reduce((total, feature) => total + (featureSpeedModifiers[feature] ?? 0), 0)
   const agilityFeatureModifier = selectedFeatures.reduce((total, feature) => total + (featureAgilityModifiers[feature] ?? 0), 0)
   const speedSizeModifier = family.ignoreSizeSpeedModifier ? 0 : size.speedModifier
@@ -835,29 +1133,42 @@ export const applyVehicleHandbookDerivations = (vehicle: CustomVehicleDesign) =>
     ? vehicle.fuelEfficiencySteps * 0.5
     : vehicle.fuelEfficiencySteps * 0.25
   const rangeModifierPercent = efficiencyRangeModifier + (vehicle.fuelCapacitySteps * 0.25)
-  const powerRangeMultiplier = effectivePower.id === 'unpowered' ? 0 : 1
+  const fusionPlusRangeMultiplier = effectivePower.supportsFusionPlusFuelType
+    ? fusionPlusFuelRangeMultiplier(vehicle.fusionPlusFuelType)
+    : 1
+  const powerRangeMultiplier = effectivePower.id === 'unpowered'
+    ? 0
+    : (effectivePower.rangeMultiplier ?? 1) * fusionPlusRangeMultiplier
   const derivedRange = Math.max(0, roundHalfUp(baseRange * powerRangeMultiplier * (1 + rangeModifierPercent)))
   const cruiseRange = roundHalfUp(derivedRange * 1.5)
   const hullClassModifier = hullClassModifiers[hullClass]
   const baseHull = Math.max(1, roundHalfUp(vehicle.spaces * family.hullPerSpace))
   const derivedHull = Math.max(1, roundHalfUp(baseHull * (1 + hullClassModifier.hull)))
   const derivedStructure = Math.max(1, Math.ceil(derivedHull / 10))
+  const installedPowerSpaces = installedPowerPlantSpaces(vehicle, effectivePower)
   const costModifier = hullClassModifier.cost
     + effectivePower.costMultiplier
     + (vehicle.speedModificationSteps > 0 ? vehicle.speedModificationSteps * 1 : vehicle.speedModificationSteps * 0.1)
     + (vehicle.fuelEfficiencySteps > 0 ? vehicle.fuelEfficiencySteps * 0.25 : vehicle.fuelEfficiencySteps * 0.1)
   let derivedCostPerSpace = Math.max(family.baseCostPerSpace / 10, family.baseCostPerSpace * (1 + costModifier))
-  if (effectivePower.flatCostPerSpace) derivedCostPerSpace += effectivePower.flatCostPerSpace
+  if (effectivePower.flatCostPerVehicleSpace) derivedCostPerSpace += effectivePower.flatCostPerVehicleSpace
   let derivedCost = roundHalfUp(derivedCostPerSpace * vehicle.spaces)
+  if (effectivePower.costPerInstalledSpace && installedPowerSpaces > 0) {
+    derivedCost += roundHalfUp(installedPowerSpaces * effectivePower.costPerInstalledSpace)
+  }
 
   if (effectiveAuxiliary.id !== 'none') {
-    const auxEquivalentFamily = effectiveAuxiliary.baseEquivalentFamily ? familyRuleFor(effectiveAuxiliary.baseEquivalentFamily) : family
-    const auxBaseline = baselineForTechLevel(auxEquivalentFamily.id, vehicle.techLevel)
-    const auxSpaces = Math.max(effectiveAuxiliary.minimumSpaces, Math.ceil(vehicle.spaces * effectiveAuxiliary.spacePercent))
     derivedCost += roundHalfUp(effectiveAuxiliary.flatCostPerVehicleSpace * vehicle.spaces)
   }
 
   const derivedTraits = [...new Set([...family.defaultTraits ?? [], ...size.traits, ...selectedFeatures, ...effectiveAuxiliary.grantedTraits ?? []])]
+  const armourRule = armourRuleForTechLevel(vehicle.techLevel)
+  const baseProtection = armourRule.baseProtection
+  for (const facing of Object.keys(vehicle.armour) as Array<keyof TravellerVehicleArmour>) {
+    if (!String(vehicle.armour[facing] ?? '').trim()) {
+      vehicle.armour[facing] = String(baseProtection)
+    }
+  }
 
   vehicle.category = family.category
   vehicle.type = vehicleDerivedTypeName(family.id, vehicle.spaces)
@@ -876,6 +1187,7 @@ export const applyVehicleHandbookDerivations = (vehicle: CustomVehicleDesign) =>
   vehicle.cost = formatCost(derivedCost)
   vehicle.traits = derivedTraits
   vehicle.features = selectedFeatures
+  vehicle.equipment = (vehicle.equipmentEntries ?? []).map((entry) => entry.name).filter(Boolean)
 }
 
 export const vehicleBuilderOptionSets = () => {
@@ -899,6 +1211,7 @@ export const validateCustomVehicle = (vehicle: CustomVehicleDesign): string[] =>
   const family = familyRuleFor(vehicle.baseFamily)
   const power = primaryPowerRules[vehicle.primaryPower]
   const auxiliary = auxiliaryDriveRules[vehicle.auxiliaryDrive]
+  const armourSummary = armourSummaryForVehicle(vehicle)
 
   if (!vehicle.name.trim()) issues.push('Vehicle name is required.')
   if (!vehicle.baseFamily) issues.push('Base vehicle type is required.')
@@ -916,6 +1229,7 @@ export const validateCustomVehicle = (vehicle: CustomVehicleDesign): string[] =>
   if (vehicle.fuelCapacitySteps !== 0 && vehicle.techLevel < 3) issues.push('Fuel capacity changes require TL 3+.')
   if (power.allowedFamilies && !power.allowedFamilies.includes(family.id)) issues.push(`${power.label} is not allowed for ${family.label}.`)
   if (vehicle.primaryPower !== 'standard' && vehicle.techLevel < power.minimumTechLevel) issues.push(`${power.label} requires TL ${power.minimumTechLevel}+.`)
+  if (power.supportsFusionPlusFuelType && vehicle.fusionPlusFuelType === 'deuterium-enriched-water' && vehicle.techLevel < 10) issues.push('Deuterium-enriched Fusion+ fuel requires TL 10+ support infrastructure.')
   if (auxiliary.allowedFamilies && !auxiliary.allowedFamilies.includes(family.id)) issues.push(`${auxiliary.label} is not allowed for ${family.label}.`)
   if (vehicle.auxiliaryDrive !== 'none' && vehicle.techLevel < auxiliary.minimumTechLevel) issues.push(`${auxiliary.label} requires TL ${auxiliary.minimumTechLevel}+.`)
   if (vehicle.features.some((feature) => !family.allowedFeatures.includes(feature))) issues.push('Selected features must be allowed for the base vehicle type.')
@@ -926,13 +1240,31 @@ export const validateCustomVehicle = (vehicle: CustomVehicleDesign): string[] =>
 
   for (const [facing, value] of Object.entries(vehicle.armour)) {
     if (!String(value ?? '').trim()) issues.push(`Armour for ${facing} is required.`)
+    if (!Number.isFinite(Number(value))) issues.push(`Armour for ${facing} must be numeric.`)
+    const minimumFacingProtection = isOpenToppedArmourException(vehicle, facing as keyof TravellerVehicleArmour)
+      ? 0
+      : armourSummary.baseProtection
+    if (Number(value) < minimumFacingProtection) issues.push(`${facing} armour cannot be below ${minimumFacingProtection}.`)
+    if (Number(value) > armourSummary.maximumProtection) issues.push(`${facing} armour cannot exceed ${armourSummary.maximumProtection}.`)
   }
 
   vehicle.weapons.forEach((weapon, index) => {
     const prefix = `Weapon ${index + 1}`
     if (!weapon.name.trim()) issues.push(`${prefix} name is required.`)
     if (!weapon.damage.trim()) issues.push(`${prefix} damage is required.`)
+    if (Number(weapon.spaces ?? 0) < 0) issues.push(`${prefix} spaces cannot be negative.`)
   })
+
+  ;(vehicle.equipmentEntries ?? []).forEach((entry, index) => {
+    const prefix = `Equipment ${index + 1}`
+    if (!entry.name.trim()) issues.push(`${prefix} name is required.`)
+    if (Number(entry.spaces ?? 0) < 0) issues.push(`${prefix} spaces cannot be negative.`)
+  })
+
+  const summary = vehicleConstructionSummary(vehicle)
+  if (summary.allocatedSpaces > summary.availableSpaces) {
+    issues.push(`Allocated systems spaces (${summary.allocatedSpaces}) exceed available spaces (${summary.availableSpaces}).`)
+  }
 
   return issues
 }

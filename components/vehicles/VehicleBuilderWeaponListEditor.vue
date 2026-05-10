@@ -58,6 +58,10 @@ const emit = defineEmits<{
             <span>Fire Control</span>
             <input v-model="weapon.fireControl" class="h-10 rounded-md border border-zinc-300 px-3 text-sm font-normal normal-case tracking-normal outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200" placeholder="Fire control">
           </label>
+          <label class="grid gap-1 text-xs font-semibold uppercase tracking-wide text-zinc-500">
+            <span>Spaces</span>
+            <input v-model.number="weapon.spaces" min="0" step="1" type="number" class="h-10 rounded-md border border-zinc-300 px-3 text-sm font-normal outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200" placeholder="0">
+          </label>
           <label class="grid gap-1 text-xs font-semibold uppercase tracking-wide text-zinc-500 md:col-span-2">
             <span>Traits</span>
             <input

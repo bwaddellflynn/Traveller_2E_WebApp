@@ -37,6 +37,19 @@ export type TravellerVehiclePrimaryPower =
   | 'grid'
   | 'beamed'
   | 'powered-structure'
+  | 'fission-basic'
+  | 'fission-improved'
+  | 'fission-advanced'
+  | 'fusion-basic'
+  | 'fusion-improved'
+  | 'fusion-advanced'
+  | 'antimatter'
+  | 'fusion-plus-basic'
+  | 'fusion-plus-improved'
+  | 'fusion-plus-advanced'
+  | 'solar-basic'
+  | 'solar-improved'
+  | 'solar-advanced'
 
 export type TravellerVehicleAuxiliaryDrive =
   | 'none'
@@ -67,6 +80,16 @@ export type TravellerVehicleWeapon = {
   cost: string
   traits: string[]
   fireControl: string
+  spaces?: number
+}
+
+export type TravellerVehicleFusionPlusFuelType =
+  | 'water'
+  | 'deuterium-enriched-water'
+
+export type CustomVehicleEquipmentEntry = {
+  name: string
+  spaces: number
 }
 
 export type TravellerVehicleRecord = {
@@ -109,7 +132,9 @@ export type CustomVehicleDesign = TravellerVehicleRecord & {
   baseFamily: TravellerVehicleBaseFamily
   features: string[]
   primaryPower: TravellerVehiclePrimaryPower
+  fusionPlusFuelType: TravellerVehicleFusionPlusFuelType
   auxiliaryDrive: TravellerVehicleAuxiliaryDrive
+  equipmentEntries: CustomVehicleEquipmentEntry[]
   speedModificationSteps: number
   fuelEfficiencySteps: number
   fuelCapacitySteps: number

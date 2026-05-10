@@ -4,6 +4,7 @@ import type { CustomVehicleDesign, TravellerVehicleCategory, TravellerVehicleRec
 import VehicleBuilderCoreStep from '~/components/vehicles/VehicleBuilderCoreStep.vue'
 import VehicleBuilderLoadoutStep from '~/components/vehicles/VehicleBuilderLoadoutStep.vue'
 import VehicleBuilderPerformanceStep from '~/components/vehicles/VehicleBuilderPerformanceStep.vue'
+import VehicleBuilderProtectionStep from '~/components/vehicles/VehicleBuilderProtectionStep.vue'
 import VehicleBuilderReviewStep from '~/components/vehicles/VehicleBuilderReviewStep.vue'
 import VehicleBuilderTabs from '~/components/vehicles/VehicleBuilderTabs.vue'
 import { useVehiclesStore } from '~/stores/vehicles'
@@ -11,6 +12,7 @@ import {
   applyVehicleHandbookDerivations,
   cloneVehicle,
   createBlankCustomVehicle,
+  createBlankVehicleEquipmentEntry,
   createBlankVehicleWeapon,
   normalizeCustomVehicleDesign,
   validateCustomVehicle,
@@ -60,10 +62,11 @@ const garageTabs = [
   { id: 'builds', label: 'Custom Vehicles' },
 ]
 const builderSteps: VehicleBuildStep[] = [
-  { id: 'core', label: 'Frame', title: 'Frame', description: 'Name the vehicle and define its category, hull, skill, and core classification.' },
-  { id: 'performance', label: 'Performance', title: 'Performance', description: 'Set movement, crew, commercial, and structural values.' },
-  { id: 'loadout', label: 'Loadout', title: 'Loadout', description: 'Define armour, traits, equipment, and mounted weapons.' },
-  { id: 'review', label: 'Review', title: 'Review', description: 'Validate the finished vehicle record before saving it.' },
+  { id: 'core', label: 'Chassis', title: 'Chassis', description: 'Set the base family, size, hull class, and other foundational vehicle inputs.' },
+  { id: 'performance', label: 'Performance', title: 'Performance', description: 'Choose power, movement tuning, crew, and the operational profile.' },
+  { id: 'protection', label: 'Protection', title: 'Protection', description: 'Define the armour profile once the chassis and performance are set.' },
+  { id: 'systems', label: 'Systems & Weapons', title: 'Systems & Weapons', description: 'Assign features, carried equipment, and mounted weapons.' },
+  { id: 'review', label: 'Review', title: 'Review', description: 'Validate the finished vehicle datasheet before saving it.' },
 ]
 const builderOptionSets = vehicleBuilderOptionSets()
 const allPrimaryPowerOptions = vehiclePrimaryPowerOptions()
@@ -238,12 +241,24 @@ const canAccessBuildStep = (index: number) => {
   if (index <= 0) return true
   if (index === 1) return coreStepComplete.value
   if (index === 2) return coreStepComplete.value && performanceStepComplete.value
+  if (index === 3) return coreStepComplete.value && performanceStepComplete.value && loadoutStepComplete.value
   return coreStepComplete.value && performanceStepComplete.value && loadoutStepComplete.value
 }
 
 const setBuildStep = (index: number) => {
   if (!canAccessBuildStep(index)) return
   activeBuildStep.value = index
+}
+
+const goToPreviousBuildStep = () => {
+  if (activeBuildStep.value <= 0) return
+  activeBuildStep.value -= 1
+}
+
+const goToNextBuildStep = () => {
+  const nextIndex = activeBuildStep.value + 1
+  if (nextIndex >= builderSteps.length || !canAccessBuildStep(nextIndex)) return
+  activeBuildStep.value = nextIndex
 }
 
 const ensureBuildDraft = () => {
@@ -309,14 +324,14 @@ const toggleFeature = (value: string) => {
   syncBuildDraftDerivations()
 }
 
-const addEquipmentEntry = (value: string) => {
+const addEquipmentEntry = () => {
   ensureBuildDraft()
   if (!buildDraft.value) return
-  if (!buildDraft.value.equipment.includes(value)) buildDraft.value.equipment.push(value)
+  buildDraft.value.equipmentEntries.push(createBlankVehicleEquipmentEntry())
 }
 
 const removeEquipmentEntry = (index: number) => {
-  buildDraft.value?.equipment.splice(index, 1)
+  buildDraft.value?.equipmentEntries.splice(index, 1)
 }
 
 const addVehicleWeapon = () => {
@@ -555,7 +570,7 @@ watch(activeGarageTab, (tab) => {
               <p class="hud-kicker text-sm font-semibold uppercase tracking-wide">Player Builds</p>
               <h2 class="mt-2 text-2xl font-semibold">Custom Vehicle Builder</h2>
               <p class="mt-2 max-w-3xl text-sm leading-6 text-zinc-600">
-                This builder now starts from the Vehicle Handbook base vehicle families and derives handbook defaults for type, target size, baseline speed and range, shipping, base cost, hull, structure, and a first pass of rule-driven customisations.
+                This builder is laid out as a construction workflow. Each step separates the inputs you should choose from the handbook values the builder derives from those choices.
               </p>
             </div>
             <div class="flex flex-wrap gap-2">
@@ -612,15 +627,25 @@ watch(activeGarageTab, (tab) => {
                   primaryPowerOptions: buildDraftPrimaryPowerOptions,
                   auxiliaryDriveOptions: buildDraftAuxiliaryDriveOptions,
                 }"
-                :summary="buildDraftConstructionSummary ?? { availableSpaces: 0, auxiliarySpaces: 0, auxiliarySummary: null }"
+                :summary="buildDraftConstructionSummary ?? { availableSpaces: 0, powerPlantSpaces: 0, auxiliarySpaces: 0, auxiliarySummary: null }"
                 @sync-derivations="syncBuildDraftDerivations"
               />
 
-              <VehicleBuilderLoadoutStep
+              <VehicleBuilderProtectionStep
                 v-else-if="activeBuildStep === 2"
+                :vehicle="buildDraft"
+                :summary="buildDraftConstructionSummary ?? { armourSummary: { rule: { materials: '-' }, baseProtection: 0, maximumProtection: 0, equivalentAddedProtection: 0, armourSpaces: 0, armourCost: 0 } }"
+              />
+
+              <VehicleBuilderLoadoutStep
+                v-else-if="activeBuildStep === 3"
                 :vehicle="buildDraft"
                 :allowed-features="buildDraftFamilyRule?.allowedFeatures ?? []"
                 :equipment-suggestions="builderOptionSets.equipmentLibrary"
+                :available-spaces="buildDraftConstructionSummary?.availableSpaces ?? 0"
+                :auxiliary-spaces="buildDraftConstructionSummary?.auxiliarySpaces ?? 0"
+                :allocated-spaces="buildDraftConstructionSummary?.allocatedSpaces ?? 0"
+                :remaining-spaces="buildDraftConstructionSummary?.remainingSpaces ?? 0"
                 @toggle-feature="toggleFeature"
                 @add-equipment="addEquipmentEntry"
                 @remove-equipment="removeEquipmentEntry"
@@ -633,6 +658,30 @@ watch(activeGarageTab, (tab) => {
                 :vehicle="buildDraft"
                 :validation-issues="buildValidationIssues"
               />
+            </div>
+
+            <div class="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-zinc-200 pt-4">
+              <button
+                class="rounded-md border border-zinc-300 px-4 py-2 text-sm font-semibold text-zinc-700 transition hover:border-amber-600 disabled:cursor-not-allowed disabled:opacity-45"
+                :disabled="activeBuildStep === 0"
+                type="button"
+                @click="goToPreviousBuildStep"
+              >
+                Previous
+              </button>
+
+              <div class="text-xs text-zinc-500">
+                Step {{ activeBuildStep + 1 }} of {{ builderSteps.length }}
+              </div>
+
+              <button
+                class="rounded-md border border-cyan-300/30 bg-cyan-300/10 px-4 py-2 text-sm font-semibold text-cyan-950 transition hover:border-cyan-300 disabled:cursor-not-allowed disabled:opacity-45"
+                :disabled="activeBuildStep >= builderSteps.length - 1 || !canAccessBuildStep(activeBuildStep + 1)"
+                type="button"
+                @click="goToNextBuildStep"
+              >
+                Next
+              </button>
             </div>
           </div>
         </section>

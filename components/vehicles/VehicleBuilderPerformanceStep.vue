@@ -7,11 +7,12 @@ const props = defineProps<{
   vehicle: CustomVehicleDesign
   optionSets: {
     comfortLevels: string[]
-    primaryPowerOptions: Array<{ id: string, label: string, minimumTechLevel: number, notes: string }>
+    primaryPowerOptions: Array<{ id: string, label: string, minimumTechLevel: number, notes: string, endurance?: string, powerPerSpace?: number, supportsFusionPlusFuelType?: boolean }>
     auxiliaryDriveOptions: Array<{ id: string, label: string, minimumTechLevel: number, notes: string }>
   }
   summary: {
     availableSpaces: number
+    powerPlantSpaces: number
     auxiliarySpaces: number
     auxiliarySummary: null | { speed: string, agility: string, range: string }
   }
@@ -22,6 +23,7 @@ const emit = defineEmits<{
 }>()
 
 const familyRule = computed(() => vehicleFamilyRule(props.vehicle.baseFamily))
+const selectedPrimaryPower = computed(() => props.optionSets.primaryPowerOptions.find((option) => option.id === props.vehicle.primaryPower) ?? null)
 const speedStepOptions = [
   { value: -3, label: '-3 Bands' },
   { value: -2, label: '-2 Bands' },
@@ -65,8 +67,7 @@ watch(
 </script>
 
 <template>
-  <!-- Handbook-derived performance values stay read-only here, while the builder only edits
-       the inputs the rules actually let the designer vary at this stage. -->
+  <!-- Performance separates handbook baselines, editable system choices, and derived output. -->
   <div class="grid gap-4">
     <section class="rounded-md border border-cyan-400/20 bg-slate-950/30 p-4">
       <h3 class="text-sm font-semibold text-cyan-50">Handbook Baseline</h3>
@@ -107,19 +108,43 @@ watch(
             <option v-for="option in optionSets.primaryPowerOptions" :key="option.id" :value="option.id">{{ option.label }}</option>
           </select>
           <span class="text-[11px] font-normal normal-case tracking-normal text-zinc-400">
-            {{ optionSets.primaryPowerOptions.find((option) => option.id === vehicle.primaryPower)?.notes }}
+            {{ selectedPrimaryPower?.notes }}
           </span>
         </label>
         <label class="grid gap-1 text-xs font-semibold uppercase tracking-wide text-zinc-500">
           <span>Available Spaces</span>
           <input :value="summary.availableSpaces" readonly class="h-11 rounded-md border border-zinc-200 bg-zinc-100 px-3 text-sm font-normal text-zinc-700 outline-none">
-          <span class="text-[11px] font-normal normal-case tracking-normal text-zinc-400">Derived from base spaces, power, and auxiliary drive consumption.</span>
+          <span class="text-[11px] font-normal normal-case tracking-normal text-zinc-400">Derived from base spaces, power choice, and auxiliary drive consumption.</span>
+        </label>
+        <label class="grid gap-1 text-xs font-semibold uppercase tracking-wide text-zinc-500">
+          <span>Installed Power Spaces</span>
+          <input :value="summary.powerPlantSpaces" readonly class="h-11 rounded-md border border-zinc-200 bg-zinc-100 px-3 text-sm font-normal text-zinc-700 outline-none">
+          <span class="text-[11px] font-normal normal-case tracking-normal text-zinc-400">Handbook-installed plant size reserved by the selected power source.</span>
+        </label>
+        <label class="grid gap-1 text-xs font-semibold uppercase tracking-wide text-zinc-500">
+          <span>Power Plant Summary</span>
+          <input :value="selectedPrimaryPower?.endurance || (selectedPrimaryPower?.powerPerSpace ? `${selectedPrimaryPower.powerPerSpace} Power/Space` : 'Baseline vehicle power')" readonly class="h-11 rounded-md border border-zinc-200 bg-zinc-100 px-3 text-sm font-normal text-zinc-700 outline-none">
+          <span class="text-[11px] font-normal normal-case tracking-normal text-zinc-400">Endurance and power density are shown here when the handbook defines them explicitly.</span>
+        </label>
+      </div>
+
+      <div v-if="selectedPrimaryPower?.supportsFusionPlusFuelType" class="mt-4 grid gap-4 md:max-w-md">
+        <label class="grid gap-1 text-xs font-semibold uppercase tracking-wide text-zinc-500">
+          <span>Fusion+ Fuel</span>
+          <select v-model="vehicle.fusionPlusFuelType" class="h-11 rounded-md border border-zinc-300 px-3 text-sm font-normal normal-case tracking-normal outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200">
+            <option value="water">Water</option>
+            <option value="deuterium-enriched-water">Deuterium-Enriched Water</option>
+          </select>
+          <span class="text-[11px] font-normal normal-case tracking-normal text-zinc-400">Deuterium-enriched water increases Fusion+ range by a further x3 but is specialised industrial fuel.</span>
         </label>
       </div>
     </section>
 
     <section class="rounded-md border border-cyan-400/20 bg-slate-950/30 p-4">
       <h3 class="text-sm font-semibold text-cyan-50">Customisations</h3>
+      <p class="mt-2 text-xs leading-5 text-zinc-400">
+        These are the builder controls that currently modify baseline performance directly. They are optional tuning inputs, not required chassis fields.
+      </p>
       <div class="mt-3 grid gap-4 md:grid-cols-3">
         <label class="grid gap-1 text-xs font-semibold uppercase tracking-wide text-zinc-500">
           <span>Speed Modification</span>
@@ -147,6 +172,9 @@ watch(
 
     <section class="rounded-md border border-cyan-400/20 bg-slate-950/30 p-4">
       <h3 class="text-sm font-semibold text-cyan-50">Derived Performance</h3>
+      <p class="mt-2 text-xs leading-5 text-zinc-400">
+        This summary shows the current result after family baseline, power, auxiliary drive, and selected customisations are applied.
+      </p>
       <div class="mt-3 grid gap-3 md:grid-cols-2">
         <label class="grid gap-1 text-xs font-semibold uppercase tracking-wide text-zinc-500">
           <span>Speed</span>
@@ -177,6 +205,9 @@ watch(
 
     <section class="rounded-md border border-cyan-400/20 bg-slate-950/30 p-4">
       <h3 class="text-sm font-semibold text-cyan-50">Auxiliary Drive</h3>
+      <p class="mt-2 text-xs leading-5 text-zinc-400">
+        Auxiliary drives add a secondary movement mode. They consume spaces and may change the derived performance shown above.
+      </p>
       <div class="mt-3 grid gap-4 md:grid-cols-2">
         <label class="grid gap-1 text-xs font-semibold uppercase tracking-wide text-zinc-500">
           <span>Auxiliary Drive</span>

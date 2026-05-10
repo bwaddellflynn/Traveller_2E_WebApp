@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import VehicleBuilderStringListEditor from '~/components/vehicles/VehicleBuilderStringListEditor.vue'
+import VehicleBuilderEquipmentListEditor from '~/components/vehicles/VehicleBuilderEquipmentListEditor.vue'
 import VehicleBuilderWeaponListEditor from '~/components/vehicles/VehicleBuilderWeaponListEditor.vue'
 import type { CustomVehicleDesign } from '~/types/vehicle'
 
@@ -7,11 +7,15 @@ defineProps<{
   vehicle: CustomVehicleDesign
   allowedFeatures: string[]
   equipmentSuggestions: string[]
+  availableSpaces: number
+  auxiliarySpaces: number
+  allocatedSpaces: number
+  remainingSpaces: number
 }>()
 
 defineEmits<{
   (event: 'toggle-feature', value: string): void
-  (event: 'add-equipment', value: string): void
+  (event: 'add-equipment'): void
   (event: 'remove-equipment', index: number): void
   (event: 'add-weapon'): void
   (event: 'remove-weapon', index: number): void
@@ -19,15 +23,37 @@ defineEmits<{
 </script>
 
 <template>
-  <!-- Armour and payload editing for the builder. -->
+  <!-- Systems, equipment, and mounted weapons are grouped after chassis and protection are locked in. -->
   <div class="grid gap-4">
     <section class="rounded-md border border-cyan-400/20 bg-slate-950/30 p-4">
-      <h3 class="text-sm font-semibold text-cyan-50">Armour</h3>
-      <div class="mt-3 grid gap-3 md:grid-cols-3">
-        <label v-for="facing in ['forward', 'port', 'dorsal', 'aft', 'starboard', 'ventral']" :key="facing" class="grid gap-1 text-xs font-semibold uppercase tracking-wide text-zinc-500">
-          <span>{{ facing }}</span>
-          <input v-model="vehicle.armour[facing]" class="h-10 rounded-md border border-zinc-300 px-3 text-sm font-normal outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200" placeholder="Armour value">
-        </label>
+      <div class="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h3 class="text-sm font-semibold text-cyan-50">Space Summary</h3>
+          <p class="mt-2 text-xs leading-5 text-zinc-400">
+            Use this step for features, internal equipment, and mounted weapons. The current builder tracks baseline available spaces and auxiliary-drive consumption here.
+          </p>
+          <p class="mt-2 text-xs leading-5 text-zinc-500">
+            Feature space costs are not encoded yet, so the current allocation summary counts armour, equipment, and mounted weapon spaces but not feature-specific occupancy.
+          </p>
+        </div>
+        <div class="grid gap-2 text-right text-sm">
+          <div class="rounded-md border border-cyan-400/20 bg-slate-950/40 px-3 py-2">
+            <p class="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Available Spaces</p>
+            <p class="mt-1 font-semibold text-cyan-50">{{ availableSpaces }}</p>
+          </div>
+          <div class="rounded-md border border-cyan-400/20 bg-slate-950/40 px-3 py-2">
+            <p class="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Allocated Systems</p>
+            <p class="mt-1 font-semibold text-cyan-50">{{ allocatedSpaces }}</p>
+          </div>
+          <div class="rounded-md border border-cyan-400/20 bg-slate-950/40 px-3 py-2">
+            <p class="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Remaining Spaces</p>
+            <p class="mt-1 font-semibold" :class="remainingSpaces < 0 ? 'text-amber-200' : 'text-cyan-50'">{{ remainingSpaces }}</p>
+          </div>
+          <div class="rounded-md border border-cyan-400/20 bg-slate-950/40 px-3 py-2">
+            <p class="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Auxiliary Allocation</p>
+            <p class="mt-1 font-semibold text-cyan-50">{{ auxiliarySpaces }}</p>
+          </div>
+        </div>
       </div>
     </section>
 
@@ -63,12 +89,10 @@ defineEmits<{
       </div>
     </section>
 
-    <VehicleBuilderStringListEditor
-      title="Equipment"
-      :items="vehicle.equipment"
+    <VehicleBuilderEquipmentListEditor
+      :items="vehicle.equipmentEntries"
       :suggestions="equipmentSuggestions"
-      add-label="Add equipment"
-      @add="$emit('add-equipment', $event)"
+      @add="$emit('add-equipment')"
       @remove="$emit('remove-equipment', $event)"
     />
 
