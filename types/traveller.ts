@@ -117,6 +117,15 @@ export type TravellerProfile = {
     traits?: string
     notes?: string
   }>
+  attacks: Array<{
+    id: string
+    weaponId?: string
+    label?: string
+    skill?: string
+    speciality?: string
+    damage?: string
+    notes?: string
+  }>
   armour: Array<{
     id: string
     name: string

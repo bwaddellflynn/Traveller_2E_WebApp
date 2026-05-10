@@ -67,6 +67,7 @@ export const createBlankTravellerProfile = (source: TravellerProfileSource = 'ma
     },
     equipment: [],
     weapons: [],
+    attacks: [],
     armour: [],
     augments: [],
     finances: {
@@ -204,6 +205,16 @@ export const normalizeTravellerProfile = (
       finalSuccess: typeof roll.finalSuccess === 'undefined' ? undefined : booleanOr(roll.finalSuccess, false),
       notes: stringOr(roll.notes, ''),
     })),
+  }))
+
+  profile.attacks = arrayOr<Record<string, unknown>>(value.attacks).map((attack, index) => ({
+    id: stringOr(attack.id, `attack-${index}`),
+    weaponId: stringOr(attack.weaponId, ''),
+    label: stringOr(attack.label, ''),
+    skill: stringOr(attack.skill, ''),
+    speciality: stringOr(attack.speciality, ''),
+    damage: stringOr(attack.damage, ''),
+    notes: stringOr(attack.notes, ''),
   }))
 
   profile.associates = {

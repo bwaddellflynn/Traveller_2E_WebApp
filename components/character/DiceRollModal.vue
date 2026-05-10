@@ -16,6 +16,7 @@ const props = withDefaults(defineProps<{
   kicker?: string
   jackpot?: boolean
   canReroll?: boolean
+  detailLines?: string[]
 }>(), {
   subtitle: '',
   modifier: 0,
@@ -24,6 +25,7 @@ const props = withDefaults(defineProps<{
   kicker: 'Roll Result',
   jackpot: false,
   canReroll: false,
+  detailLines: () => [],
 })
 
 const emit = defineEmits<{
@@ -91,6 +93,12 @@ const displayDice = computed(() => {
             <span class="dice-roll-modal__total" :class="{ 'is-settled': !rolling }">
               <span class="dice-roll-modal__total-frame" :class="{ 'is-jackpot': jackpot }">{{ total }}</span>
             </span>
+          </div>
+
+          <div v-if="detailLines.length && !rolling" class="dice-roll-modal__details">
+            <div v-for="(line, index) in detailLines" :key="`${title}-detail-${index}`" class="dice-roll-modal__detail-line">
+              {{ line }}
+            </div>
           </div>
         </div>
       </div>
@@ -279,6 +287,26 @@ const displayDice = computed(() => {
   align-items: center;
   justify-content: center;
   gap: 1rem;
+}
+
+.dice-roll-modal__details {
+  display: grid;
+  gap: 0.35rem;
+  margin-top: -0.1rem;
+  padding: 0.8rem 0.95rem 0.1rem;
+  border: 1px solid rgb(34 211 238 / 0.16);
+  background:
+    linear-gradient(180deg, rgb(7 16 28 / 0.8), rgb(4 10 20 / 0.8));
+  clip-path: polygon(0 0, calc(100% - 0.75rem) 0, 100% 0.75rem, 100% 100%, 0.75rem 100%, 0 calc(100% - 0.75rem));
+}
+
+.dice-roll-modal__detail-line {
+  color: rgb(226 232 240 / 0.92);
+  font-size: 0.86rem;
+  font-weight: 600;
+  line-height: 1.2;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
 }
 
 .dice-roll-modal__modifier {
