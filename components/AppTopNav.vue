@@ -76,6 +76,9 @@ onMounted(() => {
         <NuxtLink class="hud-link px-3 py-2 text-sm font-semibold" to="/shipyard">
           Shipyard
         </NuxtLink>
+        <NuxtLink class="hud-link px-3 py-2 text-sm font-semibold" to="/navigation">
+          Navigation
+        </NuxtLink>
         <NuxtLink v-if="isSysAdmin" class="app-top-nav-test-link h-10 px-3 text-sm font-semibold" to="/test">
           <AppIcon name="warning" />
           Test
