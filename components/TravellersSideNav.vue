@@ -71,6 +71,21 @@ const displayedCredits = computed(() => {
   return Number(activeProfile.value?.finances.cashOnHand) || 0
 })
 
+const displayedVoucherClaims = computed(() => {
+  const sourceProfile = (
+    activeProfile.value
+    && activeSheetRouteId.value
+    && activeProfile.value.id === activeSheetRouteId.value
+    && activeSheetDraftProfile.value
+  )
+    ? activeSheetDraftProfile.value
+    : activeProfile.value
+
+  if (!sourceProfile) return []
+
+  return sourceProfile.equipment.filter((item) => /voucher$/i.test(item.name) || /voucher/i.test(item.notes ?? ''))
+})
+
 const requestDeleteProfile = (profileId: string) => {
   pendingDeleteProfileId.value = profileId
 }
@@ -133,6 +148,22 @@ const confirmDeleteProfile = async (profileId: string) => {
       >
         <AppIcon name="plus" />
       </button>
+    </div>
+
+    <div
+      v-if="activeProfile && displayedVoucherClaims.length"
+      class="travellers-voucher-panel px-4 pb-4"
+    >
+      <div class="travellers-voucher-panel__label">Voucher Claims</div>
+      <div class="travellers-voucher-panel__list">
+        <span
+          v-for="voucher in displayedVoucherClaims"
+          :key="voucher.id"
+          class="travellers-voucher-chip"
+        >
+          {{ voucher.name }}
+        </span>
+      </div>
     </div>
 
     <div class="travellers-mobile-collapsible">
@@ -268,6 +299,40 @@ const confirmDeleteProfile = async (profileId: string) => {
 
 .travellers-utility-button__leave-icon {
   transform: rotate(90deg);
+}
+
+.travellers-voucher-panel {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.travellers-voucher-panel__label {
+  color: #cbd5e1;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.travellers-voucher-panel__list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.travellers-voucher-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.95rem;
+  padding: 0 0.75rem;
+  border: 1px solid rgba(250, 204, 21, 0.28);
+  border-radius: 10px 0 10px 0;
+  clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px));
+  background: rgba(69, 26, 3, 0.48);
+  color: #fde68a;
+  font-size: 0.76rem;
+  font-weight: 700;
+  line-height: 1;
 }
 
 .traveller-nav-entry {

@@ -64,7 +64,44 @@ const mobileSheetSections = [
 type MobileSheetSectionId = typeof mobileSheetSections[number]['id']
 const activeMobileSheetSection = ref<MobileSheetSectionId>('profile')
 const activeMobileSheetSectionLabel = computed(() => mobileSheetSections.find((section) => section.id === activeMobileSheetSection.value)?.label ?? 'Profile')
+const showOnlyTrainedSkills = ref(false)
 const trainingSkill = computed(() => draft.value.skills.find((skill) => skill.sources?.some((source) => /training/i.test(source))) ?? null)
+const isVoucherEquipment = (item: TravellerProfile['equipment'][number]) => /voucher$/i.test(item.name) || /voucher/i.test(item.notes ?? '')
+const voucherEquipmentEntries = computed(() => draft.value.equipment
+  .map((item, index) => ({ item, index }))
+  .filter(({ item }) => isVoucherEquipment(item)))
+const nonVoucherEquipmentEntries = computed(() => draft.value.equipment
+  .map((item, index) => ({ item, index }))
+  .filter(({ item }) => !isVoucherEquipment(item)))
+const voucherTypeThemes = {
+  weapon: 'sheet-voucher-card--weapon',
+  armour: 'sheet-voucher-card--armour',
+  equipment: 'sheet-voucher-card--equipment',
+  implant: 'sheet-voucher-card--implant',
+  vehicle: 'sheet-voucher-card--vehicle',
+  'small-craft': 'sheet-voucher-card--small-craft',
+  ship: 'sheet-voucher-card--ship',
+  generic: 'sheet-voucher-card--generic',
+} as const
+const voucherTypeLabelMap: Record<keyof typeof voucherTypeThemes, string> = {
+  weapon: 'Weapon Voucher',
+  armour: 'Armour Voucher',
+  equipment: 'Equipment Voucher',
+  implant: 'Implant Voucher',
+  vehicle: 'Vehicle Voucher',
+  'small-craft': 'Small Craft Voucher',
+  ship: 'Ship Voucher',
+  generic: 'Voucher Claim',
+}
+const voucherTypeOptions = [
+  { value: 'weapon', label: 'Weapon' },
+  { value: 'equipment', label: 'Equipment' },
+  { value: 'armour', label: 'Armour' },
+  { value: 'vehicle', label: 'Vehicle' },
+  { value: 'small-craft', label: 'Small Craft' },
+  { value: 'ship', label: 'Ship' },
+] as const
+const voucherTypeOptionLabelMap = Object.fromEntries(voucherTypeOptions.map((option) => [option.value, option.label])) as Record<(typeof voucherTypeOptions)[number]['value'], string>
 type SkillDefinition = {
   id: string
   name: string
@@ -260,6 +297,10 @@ const baseSkillDisplayLevel = (definition: SkillDefinition) => {
   if (sheetSkillHasSpecialities(definition) && sheetSkillMode(definition) === 'shared-zero' && baseSkillHasAnySpeciality(definition)) return 0
   return null
 }
+const hasTrainedSheetSkill = (definition: SkillDefinition) => {
+  if (baseSkillChecked(definition)) return true
+  return selectedSheetSpecialities(definition).length > 0
+}
 const specialitySkillChecked = (definition: SkillDefinition, speciality: string) => Boolean(specialitySkillEntry(definition, speciality))
 const specialitySkillDisplayLevel = (definition: SkillDefinition, speciality: string) => specialitySkillEntry(definition, speciality)?.record.level ?? null
 
@@ -377,10 +418,12 @@ const openSheetSkillDefinitionRoll = (definition: SkillDefinition, specialityNam
   startRollModal(label, 'Skill Check', explicitLevel ?? sheetRollModifier(definition, specialityName))
 }
 
-const skillGroups = computed<SheetSkillGroup[]>(() => sheetSkillDefinitions.value.map((definition) => ({
-  definition,
-  estimatedRows: 1 + selectedSheetSpecialities(definition).length,
-})))
+const skillGroups = computed<SheetSkillGroup[]>(() => sheetSkillDefinitions.value
+  .filter((definition) => !showOnlyTrainedSkills.value || hasTrainedSheetSkill(definition))
+  .map((definition) => ({
+    definition,
+    estimatedRows: 1 + selectedSheetSpecialities(definition).length,
+  })))
 const skillGroupColumns = computed(() => {
   if (skillColumnCount.value === 1) return [skillGroups.value]
 
@@ -390,6 +433,7 @@ const skillGroupColumns = computed(() => {
     skillGroups.value.slice(midpoint),
   ]
 })
+
 const rollModalOpen = ref(false)
 const rollModalRolling = ref(false)
 const rollModalTitle = ref('')
@@ -545,6 +589,57 @@ const addEquipment = () => {
     traits: '',
     notes: '',
   })
+}
+
+const detectVoucherType = (item: TravellerProfile['equipment'][number]) => {
+  const explicitType = (item.traits ?? '').trim().toLowerCase()
+  if (explicitType === 'weapon') return 'weapon'
+  if (explicitType === 'equipment') return 'equipment'
+  if (explicitType === 'armour' || explicitType === 'armor') return 'armour'
+  if (explicitType === 'vehicle') return 'vehicle'
+  if (explicitType === 'small-craft' || explicitType === 'small craft') return 'small-craft'
+  if (explicitType === 'ship') return 'ship'
+  const haystack = `${item.name} ${item.traits ?? ''} ${item.notes ?? ''}`.toLowerCase()
+  if (/(free trader|lab ship|scout ship|ship's boat|ships boat|yacht|ship voucher|ship claim)/i.test(haystack)) return 'ship'
+  if (/(small craft|small-craft|launch|launch craft|shuttle)/i.test(haystack)) return 'small-craft'
+  if (/(personal vehicle|vehicle voucher|vehicle claim)/i.test(haystack)) return 'vehicle'
+  if (/(cybernetic implant|combat implant|implant voucher|implant claim)/i.test(haystack)) return 'implant'
+  if (/(scientific equipment|equipment voucher|equipment claim)/i.test(haystack)) return 'equipment'
+  if (/(armour|armor)/i.test(haystack)) return 'armour'
+  if (/(weapon|gun|blade)/i.test(haystack)) return 'weapon'
+  return 'generic'
+}
+
+const voucherThemeClass = (item: TravellerProfile['equipment'][number]) => voucherTypeThemes[detectVoucherType(item)]
+const voucherTypeLabel = (item: TravellerProfile['equipment'][number]) => voucherTypeLabelMap[detectVoucherType(item)]
+
+const addVoucher = (type: keyof typeof voucherTypeThemes = 'generic') => {
+  const label = voucherTypeLabelMap[type]
+  draft.value.equipment.push({
+    id: `manual-voucher-${Date.now()}`,
+    name: label,
+    techLevel: '10',
+    kg: '',
+    traits: type === 'generic' ? '' : label.replace(/\s+Voucher$/i, ''),
+    notes: 'Manual voucher claim',
+  })
+}
+
+const voucherSelectedType = (item: TravellerProfile['equipment'][number]) => {
+  const value = (item.traits ?? '').trim().toLowerCase()
+  return voucherTypeOptions.some((option) => option.value === value) ? value as (typeof voucherTypeOptions)[number]['value'] : ''
+}
+
+const setVoucherType = (item: TravellerProfile['equipment'][number], value: string) => {
+  item.traits = value
+  item.name = value ? `${voucherTypeOptionLabelMap[value as keyof typeof voucherTypeOptionLabelMap]} Voucher` : 'Voucher Claim'
+}
+
+const voucherDisplayHeading = (item: TravellerProfile['equipment'][number]) => {
+  const selected = voucherSelectedType(item)
+  if (selected) return voucherTypeOptionLabelMap[selected]
+  const detected = detectVoucherType(item)
+  return detected === 'generic' ? 'Select Type' : voucherTypeLabelMap[detected].replace(/\s+Voucher$/i, '')
 }
 
 const removeEquipment = (index: number) => {
@@ -1065,7 +1160,23 @@ watch(
             </section>
 
             <section v-else-if="activeMobileSheetSection === 'skills'" class="sheet-panel sheet-panel--skills">
-              <header class="sheet-panel-title sheet-panel-title--side">Skills</header>
+              <header class="sheet-panel-title sheet-panel-title--side sheet-panel-title--actionable">
+                <span>Skills</span>
+                <button
+                  class="sheet-skill-visibility-toggle"
+                  :aria-label="showOnlyTrainedSkills ? 'Show all skills' : 'Show trained skills only'"
+                  :title="showOnlyTrainedSkills ? 'Show all skills' : 'Show trained skills only'"
+                  type="button"
+                  @click="showOnlyTrainedSkills = !showOnlyTrainedSkills"
+                >
+                  <svg v-if="showOnlyTrainedSkills" viewBox="0 0 24 24" class="sheet-skill-visibility-icon" aria-hidden="true">
+                    <path fill="currentColor" d="M12 5c5.6 0 9.57 4.13 10.82 6.13a1.5 1.5 0 0 1 0 1.74C21.57 14.87 17.6 19 12 19S2.43 14.87 1.18 12.87a1.5 1.5 0 0 1 0-1.74C2.43 9.13 6.4 5 12 5Zm0 2c-4.62 0-8.02 3.28-9.2 5 1.18 1.72 4.58 5 9.2 5s8.02-3.28 9.2-5C20.02 10.28 16.62 7 12 7Zm0 2.25A2.75 2.75 0 1 1 9.25 12 2.75 2.75 0 0 1 12 9.25Zm0 2A.75.75 0 1 0 12.75 12 .75.75 0 0 0 12 11.25Z" />
+                  </svg>
+                  <svg v-else viewBox="0 0 24 24" class="sheet-skill-visibility-icon" aria-hidden="true">
+                    <path fill="currentColor" d="M3.28 2.22 21.78 20.72l-1.06 1.06-3.07-3.06A12.3 12.3 0 0 1 12 20C6.4 20 2.43 15.87 1.18 13.87a1.5 1.5 0 0 1 0-1.74 18.2 18.2 0 0 1 5.07-5.19L2.22 3.28Zm8.01 8.01 2.48 2.48a1.75 1.75 0 0 0-2.48-2.48Zm5.09 5.09-1.45-1.45A4.75 4.75 0 0 1 8.13 9.07L7.09 8.03C5.19 9.17 3.7 10.81 2.8 12c1.18 1.72 4.58 6 9.2 6a10.2 10.2 0 0 0 4.38-1.68Zm1.65-1.18-1.45-1.45A9.45 9.45 0 0 0 21.2 12c-.69-1-2.25-2.82-4.62-4.07l-1.07-1.06c3.32 1.25 5.8 3.85 7.31 6.26a1.5 1.5 0 0 1 0 1.74 18.34 18.34 0 0 1-4.79 4.89Z" />
+                  </svg>
+                </button>
+              </header>
               <div class="sheet-skills-grid" :class="{ 'sheet-skills-grid--two-column': skillColumnCount === 2 }">
                 <div v-for="(column, columnIndex) in skillGroupColumns" :key="`mobile-skills-${columnIndex}`" class="sheet-skill-column">
                   <section v-for="group in column" :key="group.definition.id" class="sheet-skill-group">
@@ -1272,7 +1383,7 @@ watch(
                 <header class="sheet-panel-title sheet-panel-title--side">Equipment</header>
                 <div class="sheet-table">
                   <div class="sheet-table-body">
-                    <div v-for="(item, index) in draft.equipment" :key="item.id" class="sheet-table-row sheet-table-row--equipment">
+                    <div v-for="({ item, index }) in nonVoucherEquipmentEntries" :key="item.id" class="sheet-table-row sheet-table-row--equipment">
                       <div class="sheet-equipment-grid">
                         <div class="sheet-equipment-row sheet-equipment-row--top">
                           <input v-model="item.name" class="sheet-cell-input" placeholder="Name">
@@ -1288,8 +1399,47 @@ watch(
                         <AppIcon name="close" />
                       </button>
                     </div>
-                    <button class="sheet-add" type="button" @click="addEquipment">Add Equipment</button>
+                    <div class="sheet-loadout-actions">
+                      <button class="sheet-add" type="button" @click="addEquipment">Add Equipment</button>
+                    </div>
                   </div>
+                </div>
+              </section>
+
+              <section class="sheet-panel sheet-panel--vertical">
+                <header class="sheet-panel-title sheet-panel-title--side">Vouchers</header>
+                <div class="sheet-voucher-section sheet-voucher-section--standalone">
+                  <div class="sheet-voucher-section__header">
+                    <span>Voucher Claims</span>
+                    <button class="sheet-voucher-section__action" type="button" @click="addVoucher()">Add Voucher</button>
+                  </div>
+                  <div v-if="voucherEquipmentEntries.length" class="sheet-voucher-grid">
+                    <article
+                      v-for="({ item, index }) in voucherEquipmentEntries"
+                      :key="item.id"
+                      class="sheet-voucher-card"
+                      :class="voucherThemeClass(item)"
+                    >
+                      <div class="sheet-voucher-card__top">
+                        <div class="sheet-voucher-card__tl">TL{{ item.techLevel || 'X' }}</div>
+                        <div class="sheet-voucher-card__text">
+                          <div class="sheet-voucher-card__heading">{{ voucherDisplayHeading(item) }}</div>
+                          <div class="sheet-voucher-card__subheading">VOUCHER</div>
+                        </div>
+                        <button aria-label="Remove voucher" class="sheet-voucher-card__remove" title="Remove voucher" type="button" @click="removeEquipment(index)">
+                          <AppIcon name="close" />
+                        </button>
+                      </div>
+                      <div class="sheet-voucher-card__meta">
+                        <select :value="voucherSelectedType(item)" class="sheet-voucher-card__field sheet-voucher-card__field--select" @change="setVoucherType(item, ($event.target as HTMLSelectElement).value)">
+                          <option value="">Select type</option>
+                          <option v-for="option in voucherTypeOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
+                        </select>
+                        <input v-model="item.techLevel" class="sheet-voucher-card__field" placeholder="TL / scope">
+                      </div>
+                    </article>
+                  </div>
+                  <p v-else class="sheet-panel-empty">No voucher claims recorded.</p>
                 </div>
               </section>
             </template>
@@ -1566,7 +1716,7 @@ watch(
               <header class="sheet-panel-title sheet-panel-title--side">Equipment</header>
               <div class="sheet-table">
                 <div class="sheet-table-body">
-                  <div v-for="(item, index) in draft.equipment" :key="item.id" class="sheet-table-row sheet-table-row--equipment">
+                  <div v-for="({ item, index }) in nonVoucherEquipmentEntries" :key="item.id" class="sheet-table-row sheet-table-row--equipment">
                     <div class="sheet-equipment-grid">
                       <div class="sheet-equipment-row sheet-equipment-row--top">
                         <input v-model="item.name" class="sheet-cell-input" placeholder="Name">
@@ -1582,8 +1732,47 @@ watch(
                       <AppIcon name="close" />
                     </button>
                   </div>
-                  <button class="sheet-add" type="button" @click="addEquipment">Add Equipment</button>
+                  <div class="sheet-loadout-actions">
+                    <button class="sheet-add" type="button" @click="addEquipment">Add Equipment</button>
+                  </div>
                 </div>
+              </div>
+            </section>
+
+            <section class="sheet-panel sheet-panel--vertical">
+              <header class="sheet-panel-title sheet-panel-title--side">Vouchers</header>
+              <div class="sheet-voucher-section sheet-voucher-section--standalone">
+                <div class="sheet-voucher-section__header">
+                  <span>Voucher Claims</span>
+                  <button class="sheet-voucher-section__action" type="button" @click="addVoucher()">Add Voucher</button>
+                </div>
+                <div v-if="voucherEquipmentEntries.length" class="sheet-voucher-grid">
+                  <article
+                    v-for="({ item, index }) in voucherEquipmentEntries"
+                    :key="item.id"
+                    class="sheet-voucher-card"
+                    :class="voucherThemeClass(item)"
+                  >
+                    <div class="sheet-voucher-card__top">
+                      <div class="sheet-voucher-card__tl">TL{{ item.techLevel || 'X' }}</div>
+                      <div class="sheet-voucher-card__text">
+                        <div class="sheet-voucher-card__heading">{{ voucherDisplayHeading(item) }}</div>
+                        <div class="sheet-voucher-card__subheading">VOUCHER</div>
+                      </div>
+                      <button aria-label="Remove voucher" class="sheet-voucher-card__remove" title="Remove voucher" type="button" @click="removeEquipment(index)">
+                        <AppIcon name="close" />
+                      </button>
+                    </div>
+                    <div class="sheet-voucher-card__meta">
+                      <select :value="voucherSelectedType(item)" class="sheet-voucher-card__field sheet-voucher-card__field--select" @change="setVoucherType(item, ($event.target as HTMLSelectElement).value)">
+                        <option value="">Select type</option>
+                        <option v-for="option in voucherTypeOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
+                      </select>
+                      <input v-model="item.techLevel" class="sheet-voucher-card__field" placeholder="TL / scope">
+                    </div>
+                  </article>
+                </div>
+                <p v-else class="sheet-panel-empty">No voucher claims recorded.</p>
               </div>
             </section>
           </div>
@@ -1727,7 +1916,23 @@ watch(
             </section>
 
             <section class="sheet-panel sheet-panel--skills">
-              <header class="sheet-panel-title sheet-panel-title--side">Skills</header>
+              <header class="sheet-panel-title sheet-panel-title--side sheet-panel-title--actionable">
+                <span>Skills</span>
+                <button
+                  class="sheet-skill-visibility-toggle"
+                  :aria-label="showOnlyTrainedSkills ? 'Show all skills' : 'Show trained skills only'"
+                  :title="showOnlyTrainedSkills ? 'Show all skills' : 'Show trained skills only'"
+                  type="button"
+                  @click="showOnlyTrainedSkills = !showOnlyTrainedSkills"
+                >
+                  <svg v-if="showOnlyTrainedSkills" viewBox="0 0 24 24" class="sheet-skill-visibility-icon" aria-hidden="true">
+                    <path fill="currentColor" d="M12 5c5.6 0 9.57 4.13 10.82 6.13a1.5 1.5 0 0 1 0 1.74C21.57 14.87 17.6 19 12 19S2.43 14.87 1.18 12.87a1.5 1.5 0 0 1 0-1.74C2.43 9.13 6.4 5 12 5Zm0 2c-4.62 0-8.02 3.28-9.2 5 1.18 1.72 4.58 5 9.2 5s8.02-3.28 9.2-5C20.02 10.28 16.62 7 12 7Zm0 2.25A2.75 2.75 0 1 1 9.25 12 2.75 2.75 0 0 1 12 9.25Zm0 2A.75.75 0 1 0 12.75 12 .75.75 0 0 0 12 11.25Z" />
+                  </svg>
+                  <svg v-else viewBox="0 0 24 24" class="sheet-skill-visibility-icon" aria-hidden="true">
+                    <path fill="currentColor" d="M3.28 2.22 21.78 20.72l-1.06 1.06-3.07-3.06A12.3 12.3 0 0 1 12 20C6.4 20 2.43 15.87 1.18 13.87a1.5 1.5 0 0 1 0-1.74 18.2 18.2 0 0 1 5.07-5.19L2.22 3.28Zm8.01 8.01 2.48 2.48a1.75 1.75 0 0 0-2.48-2.48Zm5.09 5.09-1.45-1.45A4.75 4.75 0 0 1 8.13 9.07L7.09 8.03C5.19 9.17 3.7 10.81 2.8 12c1.18 1.72 4.58 6 9.2 6a10.2 10.2 0 0 0 4.38-1.68Zm1.65-1.18-1.45-1.45A9.45 9.45 0 0 0 21.2 12c-.69-1-2.25-2.82-4.62-4.07l-1.07-1.06c3.32 1.25 5.8 3.85 7.31 6.26a1.5 1.5 0 0 1 0 1.74 18.34 18.34 0 0 1-4.79 4.89Z" />
+                  </svg>
+                </button>
+              </header>
               <div class="sheet-skills-grid" :class="{ 'sheet-skills-grid--two-column': skillColumnCount === 2 }">
                 <div v-for="(column, columnIndex) in skillGroupColumns" :key="`skills-${columnIndex}`" class="sheet-skill-column">
                   <section v-for="group in column" :key="group.definition.id" class="sheet-skill-group">
@@ -3481,6 +3686,292 @@ watch(
   padding-bottom: 6px;
 }
 
+.sheet-loadout-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  margin-top: 0.7rem;
+}
+
+.sheet-voucher-section {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 1rem;
+  padding-top: 0.95rem;
+  border-top: 1px solid rgba(34, 211, 238, 0.12);
+}
+
+.sheet-voucher-section--standalone {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
+}
+
+.sheet-voucher-section__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  color: #cbd5e1;
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.sheet-voucher-section__action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 1.9rem;
+  padding: 0 0.72rem;
+  border: 1px solid rgba(34, 211, 238, 0.26);
+  border-radius: 10px 0 10px 0;
+  clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px));
+  background: rgba(8, 18, 32, 0.82);
+  color: #67e8f9;
+  font-size: 0.74rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.sheet-voucher-grid {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.sheet-voucher-card {
+  display: grid;
+  gap: 0.85rem;
+  padding: 1rem 1rem 0.95rem;
+  border: 1px solid rgba(34, 211, 238, 0.18);
+  border-radius: 16px 0 16px 0;
+  clip-path: polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 16px 100%, 0 calc(100% - 16px));
+  background:
+    linear-gradient(180deg, rgba(8, 18, 32, 0.96), rgba(5, 11, 21, 0.96)),
+    radial-gradient(circle at 0 0, rgba(34, 211, 238, 0.1), transparent 13rem);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.03),
+    0 0 18px rgba(8, 18, 32, 0.24);
+}
+
+.sheet-voucher-card--weapon {
+  border-color: rgba(52, 211, 153, 0.4);
+  background:
+    linear-gradient(180deg, rgba(9, 45, 31, 0.96), rgba(5, 21, 14, 0.96)),
+    radial-gradient(circle at 0 0, rgba(52, 211, 153, 0.14), transparent 13rem);
+  box-shadow: 0 0 22px rgba(52, 211, 153, 0.12);
+}
+
+.sheet-voucher-card--armour {
+  border-color: rgba(52, 211, 153, 0.4);
+  background:
+    linear-gradient(180deg, rgba(8, 45, 34, 0.96), rgba(4, 20, 15, 0.96)),
+    radial-gradient(circle at 0 0, rgba(52, 211, 153, 0.14), transparent 13rem);
+}
+
+.sheet-voucher-card--equipment {
+  border-color: rgba(226, 232, 240, 0.34);
+  background:
+    linear-gradient(180deg, rgba(48, 54, 66, 0.96), rgba(20, 24, 32, 0.96)),
+    radial-gradient(circle at 0 0, rgba(226, 232, 240, 0.16), transparent 13rem);
+}
+
+.sheet-voucher-card--implant {
+  border-color: rgba(226, 232, 240, 0.34);
+  background:
+    linear-gradient(180deg, rgba(48, 54, 66, 0.96), rgba(20, 24, 32, 0.96)),
+    radial-gradient(circle at 0 0, rgba(226, 232, 240, 0.16), transparent 13rem);
+}
+
+.sheet-voucher-card--vehicle {
+  border-color: rgba(34, 211, 238, 0.38);
+  background:
+    linear-gradient(180deg, rgba(7, 31, 40, 0.96), rgba(4, 14, 20, 0.96)),
+    radial-gradient(circle at 0 0, rgba(34, 211, 238, 0.14), transparent 13rem);
+}
+
+.sheet-voucher-card--small-craft {
+  border-color: rgba(168, 85, 247, 0.38);
+  background:
+    linear-gradient(180deg, rgba(38, 16, 64, 0.96), rgba(17, 8, 32, 0.96)),
+    radial-gradient(circle at 0 0, rgba(168, 85, 247, 0.14), transparent 13rem);
+}
+
+.sheet-voucher-card--ship {
+  border-color: rgba(251, 146, 60, 0.4);
+  background:
+    linear-gradient(180deg, rgba(70, 28, 10, 0.96), rgba(28, 12, 6, 0.96)),
+    radial-gradient(circle at 0 0, rgba(251, 146, 60, 0.14), transparent 13rem);
+}
+
+.sheet-voucher-card--generic {
+  border-color: rgba(148, 163, 184, 0.28);
+}
+
+.sheet-voucher-card__top {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: stretch;
+  gap: 0.75rem;
+}
+
+.sheet-voucher-card__tl {
+  display: grid;
+  place-items: center;
+  min-width: 3.6rem;
+  padding: 0.3rem 0.55rem;
+  border: 1px solid currentColor;
+  border-radius: 12px 0 12px 0;
+  clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px));
+  background: rgba(2, 6, 23, 0.3);
+  font-size: 1rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  grid-row: 1 / span 2;
+  align-self: stretch;
+}
+
+.sheet-voucher-card__text {
+  display: grid;
+  grid-template-rows: repeat(2, minmax(0, 1fr));
+  align-self: stretch;
+}
+
+.sheet-voucher-card__heading,
+.sheet-voucher-card__subheading {
+  display: flex;
+  align-items: center;
+  min-height: 1.55rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.sheet-voucher-card__heading {
+  font-size: 0.98rem;
+}
+
+.sheet-voucher-card__subheading {
+  font-size: 0.72rem;
+  opacity: 0.78;
+}
+
+.sheet-voucher-card__field {
+  width: 100%;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px 0 10px 0;
+  clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px));
+  background: rgba(2, 6, 23, 0.34);
+  color: inherit;
+}
+
+.sheet-voucher-card__remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 10px 0 10px 0;
+  clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px));
+  background: rgba(2, 6, 23, 0.42);
+  color: #e2e8f0;
+}
+
+.sheet-voucher-card__meta {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.65rem;
+}
+
+.sheet-voucher-card__field {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  min-height: 2.1rem;
+  padding: 0 0.7rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  border-color: color-mix(in srgb, currentColor 38%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, currentColor 18%, transparent);
+  color: currentColor;
+}
+
+.sheet-voucher-card__field::placeholder {
+  color: color-mix(in srgb, currentColor 62%, transparent);
+}
+
+.sheet-voucher-card__field--select {
+  background:
+    linear-gradient(180deg, color-mix(in srgb, currentColor 16%, rgba(2, 6, 23, 0.84)), rgba(2, 6, 23, 0.38));
+  -webkit-text-fill-color: currentColor;
+}
+
+.sheet-voucher-card__field--select option {
+  color: #e2e8f0;
+  background: #081220;
+}
+
+.sheet-skill-visibility-icon {
+  width: 1.25rem;
+  height: 1.25rem;
+  display: block;
+}
+
+.sheet-skill-visibility-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #67e8f9;
+}
+
+.sheet-skill-visibility-toggle:hover,
+.sheet-skill-visibility-toggle:focus-visible {
+  color: #cffafe;
+  outline: none;
+}
+
+.sheet-voucher-card--weapon,
+.sheet-voucher-card--armour {
+  color: #bbf7d0;
+}
+
+.sheet-voucher-card--equipment,
+.sheet-voucher-card--implant {
+  color: #f8fafc;
+}
+
+.sheet-voucher-card--vehicle {
+  color: #a5f3fc;
+}
+
+.sheet-voucher-card--small-craft {
+  color: #e9d5ff;
+}
+
+.sheet-voucher-card--ship {
+  color: #fdba74;
+}
+
+.sheet-voucher-card--generic {
+  color: #e2e8f0;
+}
+
+.sheet-panel-empty {
+  padding: 0.8rem 0.2rem 0.15rem;
+  color: #94a3b8;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
 .sheet-textarea--history {
   min-height: 220px;
   resize: vertical;
@@ -3576,6 +4067,10 @@ watch(
 
   .sheet-equipment-row--top {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .sheet-voucher-card__meta {
+    grid-template-columns: 1fr;
   }
 
   .sheet-characteristics-panel {

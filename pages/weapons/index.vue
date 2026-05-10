@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { storeToRefs } from 'pinia'
+import ArmoryPurchaseConfirmModal from '~/components/character/ArmoryPurchaseConfirmModal.vue'
 import type { TravellerArmorRecord, TravellerEquipmentRecord } from '~/types/armory'
+import type { TravellerProfile } from '~/types/traveller'
 import type { CustomWeaponDesign, TravellerWeaponRecord } from '~/types/weapon'
 import { useWeaponsStore } from '~/stores/weapons'
 import { useTravellersStore } from '~/stores/travellers'
@@ -56,6 +58,13 @@ type WeaponSortKey = 'name' | 'skill' | 'techLevel' | 'range' | 'damage' | 'mass
 type ArmorSortKey = 'name' | 'protection' | 'techLevel' | 'radiationProtection' | 'massKg' | 'costCredits' | 'requiredSkill'
 type EquipmentSortKey = 'name' | 'category' | 'techLevel' | 'massKg' | 'costCredits' | 'effect'
 type WeaponSortIcon = 'sort-asc' | 'sort-desc'
+type PendingArmoryPurchase =
+  | { kind: 'reference-weapon'; item: TravellerWeaponRecord }
+  | { kind: 'saved-weapon'; item: CustomWeaponDesign }
+  | { kind: 'designed-weapon'; item: CustomWeaponDesign }
+  | { kind: 'armor'; item: TravellerArmorRecord }
+  | { kind: 'equipment'; item: TravellerEquipmentRecord }
+type TravellerVoucher = { id: string; name: string; notes?: string; benefitType: string }
 
 type WeaponBuilderDraftCache = {
   draft: CustomWeaponDesign
@@ -95,6 +104,8 @@ const deleteWeaponConfirmOpen = ref(false)
 const traitInput = ref('')
 const accessoryInput = ref('')
 const weaponBuilderDraftRestored = ref(false)
+const pendingPurchase = ref<PendingArmoryPurchase | null>(null)
+const selectedVoucherId = ref('')
 
 const normalizeDraft = (weapon: CustomWeaponDesign) => {
   if (weapon.design.targetTechLevel === null || weapon.design.targetTechLevel === undefined) {
@@ -486,6 +497,31 @@ const formatCredits = (credits: number | null) => {
   return credits >= 1000000 ? `MCr${credits / 1000000}` : `Cr${credits.toLocaleString()}`
 }
 
+const activeTravellerDraftProfile = computed<TravellerProfile | null>(() => {
+  if (!activeProfile.value) return null
+  return loadBuilderDraft<TravellerProfile>(
+    manualTravellerDraftCacheKey(activeProfile.value.id),
+    MANUAL_TRAVELLER_DRAFT_CACHE_VERSION,
+  )
+})
+
+const activeTravellerSourceProfile = computed<TravellerProfile | null>(() => {
+  if (activeTravellerDraftProfile.value) return activeTravellerDraftProfile.value
+  return activeProfile.value ? cloneTravellerProfile(activeProfile.value) : null
+})
+const activeTravellerCredits = computed(() => Number(activeTravellerSourceProfile.value?.finances.cashOnHand) || 0)
+const activeTravellerVouchers = computed<TravellerVoucher[]>(() => {
+  const equipment = activeTravellerSourceProfile.value?.equipment ?? []
+  return equipment
+    .filter((item) => /voucher$/i.test(item.name) || /voucher/i.test(item.notes ?? ''))
+    .map((item) => ({
+      id: item.id,
+      name: item.name,
+      notes: item.notes,
+      benefitType: item.name.replace(/\s+voucher$/i, '').trim().toLowerCase(),
+    }))
+})
+
 const formatKg = (kg: number | null) => kg === null ? '-' : `${kg}kg`
 
 const selectedItem = (items: DesignTableItem[], id: string) => items.find((item) => item.id === id)
@@ -855,21 +891,135 @@ const saveWeapon = () => {
 const canBuyCompletedWeapon = computed(() => Boolean(
   designPreview.value.ready
   && activeProfile.value
-  && designPreview.value.costCredits <= activeProfile.value.finances.cashOnHand,
+  && designPreview.value.costCredits <= activeTravellerCredits.value,
 ))
 
 const buyCompletedWeaponDisabledReason = computed(() => {
   if (!designPreview.value.ready) return 'Complete the design first.'
   if (!activeProfile.value) return 'Select a Traveller to enable purchases.'
-  if (designPreview.value.costCredits > activeProfile.value.finances.cashOnHand) return 'Selected Traveller does not have enough credits.'
+  if (designPreview.value.costCredits > activeTravellerCredits.value) return 'Selected Traveller does not have enough credits.'
   return ''
 })
 
+const canAffordPurchase = (costCredits: number | null) => (
+  Boolean(activeProfile.value && costCredits !== null && costCredits <= activeTravellerCredits.value)
+)
+
+const hasMatchingVoucherForPurchase = (purchase: PendingArmoryPurchase) => {
+  return activeTravellerVouchers.value.some((voucher) => {
+    const type = voucher.benefitType
+    if (purchase.kind === 'armor') return type === 'armour'
+    if (purchase.kind === 'equipment') return type === 'scientific equipment'
+    const category = purchase.item.category
+    if (type === 'weapon') return true
+    if (type === 'blade') return category === 'melee'
+    if (type === 'gun') return category !== 'melee'
+    return false
+  })
+}
+
+const buyReferenceWeaponDisabledReason = (weapon: TravellerWeaponRecord) => {
+  if (!activeProfile.value) return 'Select a Traveller to enable purchases.'
+  if (weapon.costCredits === null) return 'This weapon does not have a purchase cost.'
+  if (hasMatchingVoucherForPurchase({ kind: 'reference-weapon', item: weapon })) return ''
+  if (weapon.costCredits > activeTravellerCredits.value) return 'Selected Traveller does not have enough credits.'
+  return ''
+}
+
+const buyArmorDisabledReason = (armor: TravellerArmorRecord) => {
+  if (!activeProfile.value) return 'Select a Traveller to enable purchases.'
+  if (armor.costCredits === null) return 'This armour does not have a purchase cost.'
+  if (hasMatchingVoucherForPurchase({ kind: 'armor', item: armor })) return ''
+  if (armor.costCredits > activeTravellerCredits.value) return 'Selected Traveller does not have enough credits.'
+  return ''
+}
+
+const buyEquipmentDisabledReason = (item: TravellerEquipmentRecord) => {
+  if (!activeProfile.value) return 'Select a Traveller to enable purchases.'
+  if (item.costCredits === null) return 'This equipment does not have a purchase cost.'
+  if (hasMatchingVoucherForPurchase({ kind: 'equipment', item })) return ''
+  if (item.costCredits > activeTravellerCredits.value) return 'Selected Traveller does not have enough credits.'
+  return ''
+}
+
+const buySavedWeaponDisabledReason = (weapon: CustomWeaponDesign) => {
+  if (!activeProfile.value) return 'Select a Traveller to enable purchases.'
+  if (weapon.costCredits === null) return 'This weapon does not have a purchase cost.'
+  if (hasMatchingVoucherForPurchase({ kind: 'saved-weapon', item: weapon })) return ''
+  if (weapon.costCredits > activeTravellerCredits.value) return 'Selected Traveller does not have enough credits.'
+  return ''
+}
+
+const openPurchaseConfirmation = (purchase: PendingArmoryPurchase) => {
+  pendingPurchase.value = purchase
+  selectedVoucherId.value = ''
+}
+
+const closePurchaseConfirmation = () => {
+  pendingPurchase.value = null
+  selectedVoucherId.value = ''
+}
+
+const pendingPurchaseCost = computed(() => pendingPurchase.value?.item.costCredits ?? 0)
+const pendingPurchaseItemName = computed(() => pendingPurchase.value?.item.name ?? '')
+const pendingPurchaseTypeLabel = computed(() => {
+  const purchase = pendingPurchase.value
+  if (!purchase) return ''
+  if (purchase.kind === 'armor') return 'Armour'
+  if (purchase.kind === 'equipment') return 'Equipment'
+  return 'Weapon'
+})
+
+const pendingPurchaseMatchingVouchers = computed<TravellerVoucher[]>(() => {
+  const purchase = pendingPurchase.value
+  if (!purchase) return []
+  return activeTravellerVouchers.value.filter((voucher) => {
+    const type = voucher.benefitType
+    if (purchase.kind === 'armor') return type === 'armour'
+    if (purchase.kind === 'equipment') return type === 'scientific equipment'
+
+    if (purchase.kind === 'reference-weapon' || purchase.kind === 'saved-weapon') {
+      const category = purchase.item.category
+      if (type === 'weapon') return true
+      if (type === 'blade') return category === 'melee'
+      if (type === 'gun') return category !== 'melee'
+    }
+    return false
+  })
+})
+
+const pendingPurchaseRemainingCredits = computed(() => {
+  if (selectedVoucherId.value) return activeTravellerCredits.value
+  return Math.max(0, activeTravellerCredits.value - pendingPurchaseCost.value)
+})
+
+const persistUpdatedTravellerDraft = (profile: ReturnType<typeof cloneTravellerProfile>) => {
+  saveBuilderDraft(
+    manualTravellerDraftCacheKey(profile.id),
+    MANUAL_TRAVELLER_DRAFT_CACHE_VERSION,
+    cloneTravellerProfile(profile),
+  )
+}
+
+const removeVoucherFromEquipment = (equipment: TravellerProfile['equipment']) => {
+  if (!selectedVoucherId.value) return equipment
+  return equipment.filter((item) => item.id !== selectedVoucherId.value)
+}
+
+const saveArmoryPurchaseToActiveTraveller = async (updater: (profile: TravellerProfile) => TravellerProfile) => {
+  const baseProfile = activeTravellerSourceProfile.value
+  if (!baseProfile) return null
+  const updatedProfile = await travellersStore.saveProfile(updater(cloneTravellerProfile(baseProfile)))
+  persistUpdatedTravellerDraft(updatedProfile)
+  return updatedProfile
+}
+
 const addCompletedWeaponToActiveTraveller = async () => {
-  if (!designPreview.value.ready || !activeProfile.value || designPreview.value.costCredits > activeProfile.value.finances.cashOnHand) return
+  if (!designPreview.value || !activeProfile.value) return
+  if (!selectedVoucherId.value && designPreview.value.costCredits > activeTravellerCredits.value) return
 
   const finalizedWeapon = weaponsStore.saveCustomWeapon(buildPersistedWeaponDraft())
-  const updatedProfile = await travellersStore.updateProfile(activeProfile.value.id, (profile) => ({
+  const updatedProfile = await saveArmoryPurchaseToActiveTraveller((profile) => ({
     ...profile,
     weapons: [
       {
@@ -885,19 +1035,138 @@ const addCompletedWeaponToActiveTraveller = async () => {
       },
       ...profile.weapons,
     ],
+    equipment: removeVoucherFromEquipment(profile.equipment),
     finances: {
       ...profile.finances,
-      cashOnHand: Math.max(0, profile.finances.cashOnHand - designPreview.value.costCredits),
+      cashOnHand: Math.max(0, profile.finances.cashOnHand - (selectedVoucherId.value ? 0 : designPreview.value.costCredits)),
     },
   }))
-  if (updatedProfile) {
-    saveBuilderDraft(
-      manualTravellerDraftCacheKey(updatedProfile.id),
-      MANUAL_TRAVELLER_DRAFT_CACHE_VERSION,
-      cloneTravellerProfile(updatedProfile),
-    )
-  }
+  if (!updatedProfile) return
   saveMessage.value = `Added ${finalizedWeapon.name} to ${activeProfile.value.identity.name || 'Traveller'}`
+}
+
+const purchaseReferenceWeapon = async (weapon: TravellerWeaponRecord) => {
+  if (!activeProfile.value || weapon.costCredits === null) return
+  if (!selectedVoucherId.value && weapon.costCredits > activeTravellerCredits.value) return
+  const updatedProfile = await saveArmoryPurchaseToActiveTraveller((profile) => ({
+    ...profile,
+    weapons: [
+      {
+        id: makeWeaponId(),
+        name: weapon.name,
+        techLevel: weapon.techLevel === null ? undefined : String(weapon.techLevel),
+        range: weapon.range,
+        damage: weapon.damage,
+        kg: weapon.massKg === null ? undefined : String(weapon.massKg),
+        magazine: weapon.magazine,
+        traits: weapon.traits.join(', '),
+        notes: `Purchased from Armory${weapon.sourceName ? ` · ${weapon.sourceName}` : ''}`,
+      },
+      ...profile.weapons,
+    ],
+    equipment: removeVoucherFromEquipment(profile.equipment),
+    finances: {
+      ...profile.finances,
+      cashOnHand: Math.max(0, profile.finances.cashOnHand - (selectedVoucherId.value ? 0 : weapon.costCredits)),
+    },
+  }))
+  if (!updatedProfile) return
+  saveMessage.value = `Purchased ${weapon.name} for ${activeProfile.value.identity.name || 'Traveller'}`
+}
+
+const purchaseSavedWeapon = async (weapon: CustomWeaponDesign) => {
+  if (!activeProfile.value || weapon.costCredits === null) return
+  if (!selectedVoucherId.value && weapon.costCredits > activeTravellerCredits.value) return
+  const updatedProfile = await saveArmoryPurchaseToActiveTraveller((profile) => ({
+    ...profile,
+    weapons: [
+      {
+        id: makeWeaponId(),
+        name: weapon.name,
+        techLevel: weapon.techLevel === null ? undefined : String(weapon.techLevel),
+        range: weapon.range,
+        damage: weapon.damage,
+        kg: weapon.massKg === null ? undefined : String(weapon.massKg),
+        magazine: weapon.magazine,
+        traits: weapon.traits.join(', '),
+        notes: `Purchased from Armory${weapon.family ? ` · ${titleCaseLabel(weapon.family)}` : ''}`,
+      },
+      ...profile.weapons,
+    ],
+    equipment: removeVoucherFromEquipment(profile.equipment),
+    finances: {
+      ...profile.finances,
+      cashOnHand: Math.max(0, profile.finances.cashOnHand - (selectedVoucherId.value ? 0 : weapon.costCredits)),
+    },
+  }))
+  if (!updatedProfile) return
+  saveMessage.value = `Purchased ${weapon.name} for ${activeProfile.value.identity.name || 'Traveller'}`
+}
+
+const purchaseArmor = async (armor: TravellerArmorRecord) => {
+  if (!activeProfile.value || armor.costCredits === null) return
+  if (!selectedVoucherId.value && armor.costCredits > activeTravellerCredits.value) return
+  const updatedProfile = await saveArmoryPurchaseToActiveTraveller((profile) => ({
+    ...profile,
+    armour: [
+      {
+        id: `armour-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        name: armor.name,
+        type: titleCaseLabel(armor.category),
+        techLevel: armor.techLevel === null ? undefined : String(armor.techLevel),
+        protection: armor.protection,
+        radiationProtection: armor.radiationProtection ?? undefined,
+        kg: armor.massKg === null ? undefined : String(armor.massKg),
+        options: armor.requiredSkill ? `Required skill: ${armor.requiredSkill}` : '',
+        traits: armor.traits.join(', '),
+        notes: `Purchased from Armory${armor.sourceName ? ` · ${armor.sourceName}` : ''}`,
+      },
+      ...profile.armour,
+    ],
+    equipment: removeVoucherFromEquipment(profile.equipment),
+    finances: {
+      ...profile.finances,
+      cashOnHand: Math.max(0, profile.finances.cashOnHand - (selectedVoucherId.value ? 0 : armor.costCredits)),
+    },
+  }))
+  if (!updatedProfile) return
+  saveMessage.value = `Purchased ${armor.name} for ${activeProfile.value.identity.name || 'Traveller'}`
+}
+
+const purchaseEquipment = async (item: TravellerEquipmentRecord) => {
+  if (!activeProfile.value || item.costCredits === null) return
+  if (!selectedVoucherId.value && item.costCredits > activeTravellerCredits.value) return
+  const updatedProfile = await saveArmoryPurchaseToActiveTraveller((profile) => ({
+    ...profile,
+    equipment: [
+      {
+        id: `equipment-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        name: item.name,
+        techLevel: item.techLevel === null ? undefined : String(item.techLevel),
+        kg: item.massKg === null ? undefined : String(item.massKg),
+        traits: item.traits.join(', '),
+        notes: [item.effect, item.sourceName ? `Purchased from ${item.sourceName}` : 'Purchased from Armory'].filter(Boolean).join(' · '),
+      },
+      ...removeVoucherFromEquipment(profile.equipment),
+    ],
+    finances: {
+      ...profile.finances,
+      cashOnHand: Math.max(0, profile.finances.cashOnHand - (selectedVoucherId.value ? 0 : item.costCredits)),
+    },
+  }))
+  if (!updatedProfile) return
+  saveMessage.value = `Purchased ${item.name} for ${activeProfile.value.identity.name || 'Traveller'}`
+}
+
+const confirmPendingPurchase = async () => {
+  const purchase = pendingPurchase.value
+  if (!purchase) return
+  pendingPurchase.value = null
+  if (purchase.kind === 'reference-weapon') await purchaseReferenceWeapon(purchase.item)
+  else if (purchase.kind === 'saved-weapon') await purchaseSavedWeapon(purchase.item)
+  else if (purchase.kind === 'designed-weapon') await addCompletedWeaponToActiveTraveller()
+  else if (purchase.kind === 'armor') await purchaseArmor(purchase.item)
+  else await purchaseEquipment(purchase.item)
 }
 
 const duplicateWeapon = () => {
@@ -964,40 +1233,6 @@ const toggleReceiverFeature = (id: string) => {
     : [...current, id]
 }
 
-const copyReferenceWeapon = (weapon: typeof referenceWeapons.value[number]) => {
-  const now = new Date().toISOString()
-  draft.value = {
-    ...cloneWeapon(weapon),
-    id: `custom-${weapon.id}-${Date.now()}`,
-    name: weaponDisplayName(weapon),
-    userId: weaponsStore.activeUserId,
-    sourceId: 'custom',
-    sourceName: 'Custom',
-    createdAt: now,
-    updatedAt: now,
-    design: {
-      rulesSource: 'mgt2e-field-catalogue',
-      targetTechLevel: weapon.techLevel,
-      weaponType: weapon.category === 'slug' ? 'projectile' : weapon.category,
-      mechanism: 'semi-automatic',
-      receiverFeatures: [],
-      receiverType: '',
-      ammunitionType: '',
-      specialAmmunition: '',
-      capacityModifierPercent: 0,
-      barrel: '',
-      heavyBarrel: false,
-      furniture: '',
-      feedDevice: '',
-      accessories: [],
-      notes: `Added from ${weapon.sourceId}: ${weaponDisplayName(weapon)}`,
-    },
-  }
-  draft.value = normalizeDraft(draft.value)
-  activeArmoryTab.value = 'create'
-  activeDesignStep.value = 0
-}
-
 const setArmoryTab = (tabId: string) => {
   activeArmoryTab.value = tabId
   weaponCategoryMenuOpen.value = false
@@ -1036,6 +1271,21 @@ const toggleExpandedEquipment = (itemId: string) => {
 
 <template>
   <main class="min-h-screen text-cyan-50">
+    <ArmoryPurchaseConfirmModal
+      :current-credits="activeTravellerCredits"
+      :item-cost="pendingPurchaseCost"
+      :item-name="pendingPurchaseItemName"
+      :item-type-label="pendingPurchaseTypeLabel"
+      :matching-vouchers="pendingPurchaseMatchingVouchers"
+      :open="Boolean(pendingPurchase)"
+      :remaining-credits="pendingPurchaseRemainingCredits"
+      :selected-voucher-id="selectedVoucherId"
+      :traveller-name="activeProfile?.identity.name || 'Traveller'"
+      @close="closePurchaseConfirmation"
+      @confirm="confirmPendingPurchase"
+      @select-voucher="selectedVoucherId = $event"
+    />
+
     <section class="relative z-20 mx-auto w-full max-w-[96rem] px-5 pt-6 sm:px-8 lg:px-10">
       <div class="mb-5">
         <p class="hud-kicker text-sm font-semibold uppercase tracking-wide">Armory</p>
@@ -1108,7 +1358,7 @@ const toggleExpandedEquipment = (itemId: string) => {
                       </span>
                     </button>
                   </th>
-                  <th class="px-3 py-2"></th>
+                  <th v-if="activeProfile" class="px-3 py-2"></th>
                 </tr>
               </thead>
               <tbody>
@@ -1127,14 +1377,20 @@ const toggleExpandedEquipment = (itemId: string) => {
                   <td class="px-3 py-2">{{ weapon.massKg ?? '-' }}kg</td>
                   <td class="px-3 py-2">{{ weapon.costCredits === null ? '-' : `Cr${weapon.costCredits}` }}</td>
                   <td class="max-w-xs px-3 py-2 text-zinc-600">{{ weapon.traits.join(', ') || '-' }}</td>
-                  <td class="px-3 py-2 text-right">
-                    <button class="rounded-md border border-zinc-300 px-2 py-1 text-xs font-semibold text-zinc-700 hover:border-amber-600" type="button" @click.stop.prevent="copyReferenceWeapon(weapon)">
-                      Add
+                  <td v-if="activeProfile" class="px-3 py-2 text-right">
+                    <button
+                      class="rounded-md border border-zinc-300 px-2 py-1 text-xs font-semibold text-zinc-700 hover:border-amber-600 disabled:cursor-not-allowed disabled:opacity-50"
+                      :disabled="Boolean(buyReferenceWeaponDisabledReason(weapon))"
+                      :title="buyReferenceWeaponDisabledReason(weapon)"
+                      type="button"
+                      @click.stop.prevent="openPurchaseConfirmation({ kind: 'reference-weapon', item: weapon })"
+                    >
+                      Buy
                     </button>
                   </td>
                 </tr>
                 <tr v-if="expandedWeaponId === weapon.id" class="mobile-detail-row border-t border-cyan-400/20">
-                  <td :colspan="sortableWeaponColumns.length + 1" class="px-3 py-3">
+                  <td :colspan="sortableWeaponColumns.length + (activeProfile ? 1 : 0)" class="px-3 py-3">
                     <div class="mobile-row-detail-grid">
                       <div><span>Skill</span><strong>{{ weaponSkillLabel(weapon) }}</strong></div>
                       <div><span>TL</span><strong>{{ weapon.techLevel ?? '-' }}</strong></div>
@@ -1144,10 +1400,14 @@ const toggleExpandedEquipment = (itemId: string) => {
                       <div><span>Cost</span><strong>{{ weapon.costCredits === null ? '-' : `Cr${weapon.costCredits}` }}</strong></div>
                       <div class="sm:col-span-2"><span>Traits</span><strong>{{ weapon.traits.join(', ') || '-' }}</strong></div>
                       <div class="flex flex-wrap gap-2 sm:col-span-2">
-                        <button class="mt-1 rounded-md border border-cyan-400/40 px-3 py-2 text-sm font-semibold text-cyan-100 hover:border-cyan-300" type="button">
-                          Add
-                        </button>
-                        <button class="mt-1 rounded-md border border-cyan-400/40 px-3 py-2 text-sm font-semibold text-cyan-100 hover:border-cyan-300" type="button">
+                        <button
+                          v-if="activeProfile"
+                          class="mt-1 rounded-md border border-cyan-400/40 px-3 py-2 text-sm font-semibold text-cyan-100 hover:border-cyan-300 disabled:cursor-not-allowed disabled:opacity-50"
+                          :disabled="Boolean(buyReferenceWeaponDisabledReason(weapon))"
+                          :title="buyReferenceWeaponDisabledReason(weapon)"
+                          type="button"
+                          @click.stop.prevent="openPurchaseConfirmation({ kind: 'reference-weapon', item: weapon })"
+                        >
                           Buy
                         </button>
                       </div>
@@ -1208,6 +1468,7 @@ const toggleExpandedEquipment = (itemId: string) => {
                   </button>
                 </th>
                 <th class="px-3 py-2">Traits</th>
+                <th v-if="activeProfile" class="px-3 py-2"></th>
               </tr>
             </thead>
             <tbody>
@@ -1226,9 +1487,20 @@ const toggleExpandedEquipment = (itemId: string) => {
                 <td class="px-3 py-2">{{ formatCredits(armor.costCredits) }}</td>
                 <td class="px-3 py-2">{{ armor.requiredSkill ?? 'None' }}</td>
                 <td class="max-w-xs px-3 py-2 text-zinc-600">{{ armor.traits.join(', ') || '-' }}</td>
+                <td v-if="activeProfile" class="px-3 py-2 text-right">
+                  <button
+                    class="rounded-md border border-zinc-300 px-2 py-1 text-xs font-semibold text-zinc-700 hover:border-amber-600 disabled:cursor-not-allowed disabled:opacity-50"
+                    :disabled="Boolean(buyArmorDisabledReason(armor))"
+                    :title="buyArmorDisabledReason(armor)"
+                    type="button"
+                    @click.stop.prevent="openPurchaseConfirmation({ kind: 'armor', item: armor })"
+                  >
+                    Buy
+                  </button>
+                </td>
               </tr>
               <tr v-if="expandedArmorId === armor.id" class="mobile-detail-row border-t border-cyan-400/20">
-                <td :colspan="sortableArmorColumns.length + 1" class="px-3 py-3">
+                <td :colspan="sortableArmorColumns.length + 1 + (activeProfile ? 1 : 0)" class="px-3 py-3">
                   <div class="mobile-row-detail-grid">
                     <div><span>Protection</span><strong>{{ armor.protection }}</strong></div>
                     <div><span>TL</span><strong>{{ armor.techLevel ?? '-' }}</strong></div>
@@ -1237,6 +1509,17 @@ const toggleExpandedEquipment = (itemId: string) => {
                     <div><span>Cost</span><strong>{{ formatCredits(armor.costCredits) }}</strong></div>
                     <div><span>Skill</span><strong>{{ armor.requiredSkill ?? 'None' }}</strong></div>
                     <div class="sm:col-span-2"><span>Traits</span><strong>{{ armor.traits.join(', ') || '-' }}</strong></div>
+                    <div v-if="activeProfile" class="flex flex-wrap gap-2 sm:col-span-2">
+                      <button
+                        class="mt-1 rounded-md border border-cyan-400/40 px-3 py-2 text-sm font-semibold text-cyan-100 hover:border-cyan-300 disabled:cursor-not-allowed disabled:opacity-50"
+                        :disabled="Boolean(buyArmorDisabledReason(armor))"
+                        :title="buyArmorDisabledReason(armor)"
+                        type="button"
+                        @click.stop.prevent="openPurchaseConfirmation({ kind: 'armor', item: armor })"
+                      >
+                        Buy
+                      </button>
+                    </div>
                   </div>
                 </td>
               </tr>
@@ -1293,6 +1576,7 @@ const toggleExpandedEquipment = (itemId: string) => {
                   </button>
                 </th>
                 <th class="px-3 py-2">Traits</th>
+                <th v-if="activeProfile" class="px-3 py-2"></th>
               </tr>
             </thead>
             <tbody>
@@ -1310,9 +1594,20 @@ const toggleExpandedEquipment = (itemId: string) => {
                 <td class="px-3 py-2">{{ formatCredits(item.costCredits) }}</td>
                 <td class="max-w-md px-3 py-2 text-zinc-700">{{ item.effect }}</td>
                 <td class="max-w-xs px-3 py-2 text-zinc-600">{{ item.traits.join(', ') || '-' }}</td>
+                <td v-if="activeProfile" class="px-3 py-2 text-right">
+                  <button
+                    class="rounded-md border border-zinc-300 px-2 py-1 text-xs font-semibold text-zinc-700 hover:border-amber-600 disabled:cursor-not-allowed disabled:opacity-50"
+                    :disabled="Boolean(buyEquipmentDisabledReason(item))"
+                    :title="buyEquipmentDisabledReason(item)"
+                    type="button"
+                    @click.stop.prevent="openPurchaseConfirmation({ kind: 'equipment', item })"
+                  >
+                    Buy
+                  </button>
+                </td>
               </tr>
               <tr v-if="expandedEquipmentId === item.id" class="mobile-detail-row border-t border-cyan-400/20">
-                <td :colspan="sortableEquipmentColumns.length + 1" class="px-3 py-3">
+                <td :colspan="sortableEquipmentColumns.length + 1 + (activeProfile ? 1 : 0)" class="px-3 py-3">
                   <div class="mobile-row-detail-grid">
                     <div><span>Category</span><strong class="capitalize">{{ item.category }}</strong></div>
                     <div><span>TL</span><strong>{{ item.techLevel ?? '-' }}</strong></div>
@@ -1320,6 +1615,17 @@ const toggleExpandedEquipment = (itemId: string) => {
                     <div><span>Cost</span><strong>{{ formatCredits(item.costCredits) }}</strong></div>
                     <div class="sm:col-span-2"><span>Effect</span><strong>{{ item.effect }}</strong></div>
                     <div class="sm:col-span-2"><span>Traits</span><strong>{{ item.traits.join(', ') || '-' }}</strong></div>
+                    <div v-if="activeProfile" class="flex flex-wrap gap-2 sm:col-span-2">
+                      <button
+                        class="mt-1 rounded-md border border-cyan-400/40 px-3 py-2 text-sm font-semibold text-cyan-100 hover:border-cyan-300 disabled:cursor-not-allowed disabled:opacity-50"
+                        :disabled="Boolean(buyEquipmentDisabledReason(item))"
+                        :title="buyEquipmentDisabledReason(item)"
+                        type="button"
+                        @click.stop.prevent="openPurchaseConfirmation({ kind: 'equipment', item })"
+                      >
+                        Buy
+                      </button>
+                    </div>
                   </div>
                 </td>
               </tr>
@@ -1338,16 +1644,37 @@ const toggleExpandedEquipment = (itemId: string) => {
             </button>
           </div>
           <div v-if="userWeapons.length" class="mt-4 grid gap-2">
-            <button
+            <div
               v-for="weapon in userWeapons"
               :key="weapon.id"
               class="rounded-md border border-zinc-200 bg-stone-50 p-3 text-left hover:border-amber-500 hover:bg-white"
-              type="button"
-              @click="editWeapon(weapon)"
             >
-              <p class="font-semibold text-zinc-950">{{ weapon.name }}</p>
-              <p class="mt-1 text-sm text-zinc-600">{{ weapon.damage }} · {{ weapon.range }} · TL {{ weapon.techLevel ?? '-' }}</p>
-            </button>
+              <div class="flex items-start justify-between gap-3">
+                <div>
+                  <p class="font-semibold text-zinc-950">{{ weapon.name }}</p>
+                  <p class="mt-1 text-sm text-zinc-600">{{ weapon.damage }} · {{ weapon.range }} · TL {{ weapon.techLevel ?? '-' }}</p>
+                </div>
+                <div class="flex items-center gap-2">
+                  <button
+                    class="rounded-md border border-zinc-300 px-2 py-1 text-xs font-semibold text-zinc-700 hover:border-amber-600"
+                    type="button"
+                    @click="editWeapon(weapon)"
+                  >
+                    Edit
+                  </button>
+                <button
+                  v-if="activeProfile"
+                  class="rounded-md border border-zinc-300 px-2 py-1 text-xs font-semibold text-zinc-700 hover:border-amber-600 disabled:cursor-not-allowed disabled:opacity-50"
+                  :disabled="Boolean(buySavedWeaponDisabledReason(weapon))"
+                  :title="buySavedWeaponDisabledReason(weapon)"
+                  type="button"
+                  @click.stop.prevent="openPurchaseConfirmation({ kind: 'saved-weapon', item: weapon })"
+                >
+                  Buy
+                </button>
+                </div>
+              </div>
+            </div>
           </div>
           <p v-else class="mt-4 rounded-md bg-stone-50 p-4 text-sm text-zinc-600">No custom weapons saved yet.</p>
         </section>
@@ -1794,11 +2121,11 @@ const toggleExpandedEquipment = (itemId: string) => {
                   class="weapon-final-card__action weapon-final-card__action--primary"
                   type="button"
                   :disabled="!canBuyCompletedWeapon"
-                  :title="buyCompletedWeaponDisabledReason || `Add to ${activeProfile?.identity.name || 'Traveller'}`"
-                  @click="addCompletedWeaponToActiveTraveller"
+                  :title="buyCompletedWeaponDisabledReason || `Buy for ${activeProfile?.identity.name || 'Traveller'}`"
+                  @click="openPurchaseConfirmation({ kind: 'designed-weapon', item: buildPersistedWeaponDraft() })"
                 >
                   <AppIcon name="plus" />
-                  <span>{{ activeProfile ? `Add to ${activeProfile.identity.name || 'Traveller'}` : 'Select Traveller to Buy' }}</span>
+                  <span>{{ activeProfile ? `Buy for ${activeProfile.identity.name || 'Traveller'}` : 'Select Traveller to Buy' }}</span>
                 </button>
               </div>
             </section>
