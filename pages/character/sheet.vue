@@ -2847,11 +2847,12 @@ watch(
 }
 
 .sheet-armour-grid {
+  position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 2.5rem;
+  grid-template-columns: minmax(0, 1fr);
   grid-template-rows: auto auto;
   gap: 6px;
-  padding: 0.85rem;
+  padding: 0.78rem 1.8rem 0.78rem 0.85rem;
   border: 1px solid rgba(34, 211, 238, 0.18);
   border-radius: 12px 0 12px 0;
   clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px));
@@ -2875,11 +2876,12 @@ watch(
 }
 
 .sheet-weapon-grid {
+  position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 2.5rem;
+  grid-template-columns: minmax(0, 1fr);
   grid-template-rows: auto auto;
   gap: 6px;
-  padding: 0.85rem;
+  padding: 0.78rem 1.8rem 0.78rem 0.85rem;
   border: 1px solid rgba(34, 211, 238, 0.2);
   border-radius: 12px 0 12px 0;
   clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px));
@@ -2906,11 +2908,12 @@ watch(
 }
 
 .sheet-equipment-grid {
+  position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 2.5rem;
+  grid-template-columns: minmax(0, 1fr);
   grid-template-rows: auto auto;
   gap: 6px;
-  padding: 0.85rem;
+  padding: 0.78rem 1.8rem 0.78rem 0.85rem;
   border: 1px solid rgba(34, 211, 238, 0.18);
   border-radius: 12px 0 12px 0;
   clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px));
@@ -2934,12 +2937,14 @@ watch(
 }
 
 .sheet-entry-actions {
-  grid-column: 2;
-  grid-row: 1 / span 2;
-  display: grid;
+  position: absolute;
+  top: 0.3rem;
+  right: 0.32rem;
+  display: inline-grid;
   align-content: start;
   justify-items: stretch;
-  gap: 6px;
+  gap: 0;
+  z-index: 2;
 }
 
 .sheet-entry-actions--single {
@@ -2951,12 +2956,12 @@ watch(
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 2rem;
-  height: 2rem;
+  width: 1.08rem;
+  height: 1.08rem;
   padding: 0;
-  border: 1px solid rgba(34, 211, 238, 0.3);
-  border-radius: 10px 0 10px 0;
-  clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px));
+  border: 1px solid rgba(34, 211, 238, 0.18);
+  border-radius: 6px 0 6px 0;
+  clip-path: polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px));
   background:
     linear-gradient(180deg, rgba(10, 18, 32, 0.92), rgba(3, 8, 18, 0.94)),
     radial-gradient(circle at 0 0, rgba(34, 211, 238, 0.12), transparent 4rem);
@@ -3002,8 +3007,8 @@ watch(
 }
 
 .sheet-entry-action :deep(svg) {
-  width: 0.78rem;
-  height: 0.78rem;
+  width: 0.42rem;
+  height: 0.42rem;
 }
 
 .sheet-inline-field {
@@ -3048,8 +3053,8 @@ watch(
 }
 
 .sheet-inline-field__action :deep(svg) {
-  width: 0.98rem;
-  height: 0.98rem;
+  width: 1.12rem;
+  height: 1.12rem;
 }
 
 .sheet-cell-input,
