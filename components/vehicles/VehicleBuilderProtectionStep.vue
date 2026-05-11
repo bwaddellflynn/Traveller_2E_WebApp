@@ -49,26 +49,37 @@ const decorateVehicleDiagram = (svgMarkup: string, idPrefix: string) => {
   const defsAndStyle = `
 <defs>
   <linearGradient id="${idPrefix}-body-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
-    <stop offset="0%" stop-color="#5ee7ff" />
-    <stop offset="52%" stop-color="#29d3ff" />
-    <stop offset="100%" stop-color="#0ea5e9" />
+    <stop offset="0%" stop-color="#12324a" />
+    <stop offset="52%" stop-color="#0f2740" />
+    <stop offset="100%" stop-color="#0a1b30" />
   </linearGradient>
+  <filter id="${idPrefix}-body-glow" x="-30%" y="-30%" width="160%" height="160%">
+    <feDropShadow dx="0" dy="0" stdDeviation="1.8" flood-color="#38bdf8" flood-opacity="0.22" />
+  </filter>
   <filter id="${idPrefix}-detail-glow" x="-40%" y="-40%" width="180%" height="180%">
-    <feDropShadow dx="0" dy="0" stdDeviation="2.4" flood-color="#9be7ff" flood-opacity="0.95" />
-    <feDropShadow dx="0" dy="0" stdDeviation="6" flood-color="#38bdf8" flood-opacity="0.45" />
+    <feDropShadow dx="0" dy="0" stdDeviation="2.8" flood-color="#c8f4ff" flood-opacity="0.95" />
+    <feDropShadow dx="0" dy="0" stdDeviation="6.5" flood-color="#38bdf8" flood-opacity="0.55" />
   </filter>
 </defs>
 <style>
   .body {
     fill: url(#${idPrefix}-body-gradient) !important;
+    stroke: #67e8f9;
+    stroke-width: 2.8;
+    paint-order: stroke fill;
+    filter: url(#${idPrefix}-body-glow);
   }
   .detail {
-    fill: #d7f7ff !important;
+    fill: #8fe9ff !important;
     filter: url(#${idPrefix}-detail-glow);
   }
 </style>`
 
-  return svgMarkup.replace(/<svg([^>]*)>/, `<svg$1>${defsAndStyle}`)
+  const svgWithRuntimeStyling = svgMarkup
+    .replace(/<style>[\s\S]*?<\/style>/, defsAndStyle)
+    .replace(/<svg([^>]*)>/, '<svg$1>')
+
+  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgWithRuntimeStyling)}`
 }
 
 const vehicleDiagramDesktop = computed(() => decorateVehicleDiagram(vehicleDiagramDesktopRaw, 'vehicle-armour-desktop'))
@@ -234,18 +245,20 @@ const applyHandbookArmourAllocation = () => {
               </button>
             </div>
 
-            <div class="absolute left-1/2 top-[58%] w-[20rem] -translate-x-1/2 -translate-y-1/2 md:top-[60%] md:w-[35rem]">
+            <div class="absolute left-1/2 top-[58%] w-[24rem] -translate-x-1/2 -translate-y-1/2 md:top-[60%] md:w-[42rem]">
               <div class="relative mx-auto">
-                <div
-                  class="vehicle-armour-diagram hidden w-full max-w-[35rem] select-none md:block"
-                  aria-hidden="true"
-                  v-html="vehicleDiagramDesktop"
-                />
-                <div
-                  class="vehicle-armour-diagram block w-full max-w-[20rem] select-none md:hidden"
-                  aria-hidden="true"
-                  v-html="vehicleDiagramMobile"
-                />
+                <img
+                  :src="vehicleDiagramDesktop"
+                  alt=""
+                  class="hidden w-full max-w-[42rem] select-none md:block"
+                  draggable="false"
+                >
+                <img
+                  :src="vehicleDiagramMobile"
+                  alt=""
+                  class="block w-full max-w-[24rem] select-none md:hidden"
+                  draggable="false"
+                >
               </div>
             </div>
           </div>
@@ -253,19 +266,3 @@ const applyHandbookArmourAllocation = () => {
     </section>
   </div>
 </template>
-
-<style scoped>
-.vehicle-armour-diagram :deep(svg) {
-  display: block;
-  width: 100%;
-  height: auto;
-}
-
-.vehicle-armour-diagram :deep(.body) {
-  transition: fill 180ms ease, filter 180ms ease;
-}
-
-.vehicle-armour-diagram :deep(.detail) {
-  transition: fill 180ms ease, filter 180ms ease, opacity 180ms ease;
-}
-</style>
