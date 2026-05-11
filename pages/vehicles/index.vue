@@ -342,6 +342,12 @@ const draftFieldInfoText: Record<DraftInfoKey, { title: string, body: string }> 
 }
 const buildDraftFamilyRule = computed(() => buildDraft.value ? vehicleFamilyRule(buildDraft.value.baseFamily) : null)
 const buildDraftConstructionSummary = computed(() => buildDraft.value ? vehicleConstructionSummary(buildDraft.value) : null)
+const buildDraftBaseCostCredits = computed(() => buildDraft.value?.costCredits ?? 0)
+const buildDraftTotalCostCredits = computed(() => (
+  buildDraftBaseCostCredits.value + (buildDraftConstructionSummary.value?.armourSummary.armourCost ?? 0)
+))
+const buildDraftTotalCostLabel = computed(() => formatCredits(Math.round(buildDraftTotalCostCredits.value)))
+const buildDraftBaseCostLabel = computed(() => formatCredits(Math.round(buildDraftBaseCostCredits.value)))
 const buildDraftPrimaryPowerOptions = computed(() => {
   if (!buildDraft.value) return allPrimaryPowerOptions
   return allPrimaryPowerOptions.filter((option) => !option.allowedFamilies || option.allowedFamilies.includes(buildDraft.value!.baseFamily))
@@ -875,7 +881,7 @@ watch(activeGarageTab, (tab) => {
                     <p class="mt-1 text-sm font-semibold leading-5">{{ buildDraftConstructionSummary?.allocatedSpaces ?? 0 }} / {{ buildDraftConstructionSummary?.availableSpaces ?? 0 }}</p>
                     <p class="mt-1 text-[11px] leading-4 text-zinc-400">{{ buildDraftConstructionSummary?.remainingSpaces ?? 0 }} remaining</p>
                   </button>
-                  <button class="hud-stat col-span-2 rounded-md border p-3 text-left transition hover:border-cyan-300/50 hover:bg-white/5" type="button" @click="activeDraftInfo = 'protection'">
+                  <button class="hud-stat rounded-md border p-3 text-left transition hover:border-cyan-300/50 hover:bg-white/5" type="button" @click="activeDraftInfo = 'protection'">
                     <p class="text-xs uppercase tracking-wide text-zinc-400">Protection</p>
                     <p class="mt-1 text-sm font-semibold leading-5 text-cyan-50">
                       Base +{{ buildDraftConstructionSummary?.armourSummary.baseProtection ?? 0 }}
@@ -883,6 +889,16 @@ watch(activeGarageTab, (tab) => {
                     </p>
                     <p class="mt-1 text-[11px] leading-4 text-zinc-400">
                       Armour Spaces {{ buildDraftConstructionSummary?.armourSummary.armourSpaces ?? 0 }}
+                    </p>
+                    <p class="mt-1 text-[11px] leading-4 text-zinc-400">
+                      Armour Cost {{ formatCredits(Math.round(buildDraftConstructionSummary?.armourSummary.armourCost ?? 0)) }}
+                    </p>
+                  </button>
+                  <button class="hud-stat rounded-md border p-3 text-left transition hover:border-cyan-300/50 hover:bg-white/5" type="button" @click="activeDraftInfo = 'cost'">
+                    <p class="text-xs uppercase tracking-wide text-zinc-400">Cost</p>
+                    <p class="mt-1 text-lg font-semibold">{{ buildDraftTotalCostLabel }}</p>
+                    <p class="mt-1 text-[11px] leading-4 text-zinc-400">
+                      Frame {{ buildDraftBaseCostLabel }}
                     </p>
                   </button>
                 </div>
@@ -902,10 +918,6 @@ watch(activeGarageTab, (tab) => {
                   <button class="hud-stat rounded-md border p-3 text-left transition hover:border-cyan-300/50 hover:bg-white/5" type="button" @click="activeDraftInfo = 'range'">
                     <p class="text-xs uppercase tracking-wide text-zinc-400">Range</p>
                     <p class="mt-1 text-lg font-semibold">{{ buildDraft.range || '-' }}</p>
-                  </button>
-                  <button class="hud-stat rounded-md border p-3 text-left transition hover:border-cyan-300/50 hover:bg-white/5" type="button" @click="activeDraftInfo = 'cost'">
-                    <p class="text-xs uppercase tracking-wide text-zinc-400">Cost</p>
-                    <p class="mt-1 text-lg font-semibold">{{ buildDraft.cost || '-' }}</p>
                   </button>
                 </div>
               </div>

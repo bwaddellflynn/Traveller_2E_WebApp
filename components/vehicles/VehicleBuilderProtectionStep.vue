@@ -488,8 +488,15 @@ const armourFacingFields: Array<{ key: ArmourFacing, label: string }> = [
 
               <div class="mt-4 grid gap-1 text-xs font-semibold uppercase tracking-wide text-zinc-500">
                 <span>Armour Allocation</span>
-                <div class="relative h-11 overflow-hidden rounded-md border border-cyan-400/30 bg-slate-950/78 p-1 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.03)]">
-                  <div class="absolute inset-1">
+                <div
+                  class="relative h-11 overflow-hidden rounded-md p-1"
+                  style="
+                    border: 1px solid rgba(34, 211, 238, 0.3);
+                    background: rgba(2, 6, 23, 0.78);
+                    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.03);
+                  "
+                >
+                  <div class="pointer-events-none absolute inset-1">
                     <div
                       class="h-full w-1/2 rounded-[5px] transition-[transform,background,box-shadow] duration-300 ease-out"
                       :style="{
@@ -502,16 +509,18 @@ const armourFacingFields: Array<{ key: ArmourFacing, label: string }> = [
                   <div class="relative z-10 grid h-full grid-cols-2">
                   <button
                     type="button"
-                    class="flex h-full items-center justify-center rounded-[5px] border-0 bg-transparent px-3 text-sm font-semibold shadow-none outline-none transition-colors duration-200 appearance-none"
+                    class="flex h-full items-center justify-center px-3 text-sm font-semibold transition-colors duration-200 outline-none"
                     :class="!reallocationUnlocked ? 'text-cyan-50' : 'text-cyan-200/70 hover:text-cyan-50'"
+                    style="appearance: none; border: 0; border-radius: 0; background: transparent; box-shadow: none;"
                     @click="setAllocationMode(false)"
                   >
                     Automatic
                   </button>
                   <button
                     type="button"
-                    class="flex h-full items-center justify-center rounded-[5px] border-0 bg-transparent px-3 text-sm font-semibold shadow-none outline-none transition-colors duration-200 appearance-none"
+                    class="flex h-full items-center justify-center px-3 text-sm font-semibold transition-colors duration-200 outline-none"
                     :class="reallocationUnlocked ? 'text-cyan-50' : 'text-cyan-200/70 hover:text-cyan-50'"
+                    style="appearance: none; border: 0; border-radius: 0; background: transparent; box-shadow: none;"
                     @click="setAllocationMode(true)"
                   >
                     Manual
@@ -545,11 +554,12 @@ const armourFacingFields: Array<{ key: ArmourFacing, label: string }> = [
               style="
                 background-color: rgba(2, 6, 23, 0.86);
                 background-image:
-                  linear-gradient(rgba(56, 189, 248, 0.12) 1px, transparent 1px),
-                  linear-gradient(90deg, rgba(56, 189, 248, 0.12) 1px, transparent 1px),
-                  linear-gradient(180deg, rgba(2, 6, 23, 0.62), rgba(2, 6, 23, 0.88));
-                background-size: 28px 28px, 28px 28px, 100% 100%;
-                background-position: 0 0, 0 0, 0 0;
+                  radial-gradient(circle at 50% 38%, rgba(34, 211, 238, 0.10), transparent 52%),
+                  linear-gradient(rgba(103, 232, 249, 0.16) 1px, transparent 1px),
+                  linear-gradient(90deg, rgba(56, 189, 248, 0.13) 1px, transparent 1px),
+                  linear-gradient(180deg, rgba(2, 6, 23, 0.56), rgba(2, 6, 23, 0.90));
+                background-size: 100% 100%, 18px 18px, 18px 18px, 100% 100%;
+                background-position: 0 0, 0 0, 0 0, 0 0;
                 box-shadow: inset 0 0 0 1px rgba(34, 211, 238, 0.04);
               "
             >
