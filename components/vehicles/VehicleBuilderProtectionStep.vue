@@ -3,6 +3,8 @@ import { computed, ref, watch } from 'vue'
 import type { CustomVehicleDesign } from '~/types/vehicle'
 import vehicleDiagramDesktopRaw from '~/assets/armoury_icons/vehicle_exploded_grouped_detailed_rotated_right.svg?raw'
 import vehicleDiagramMobileRaw from '~/assets/armoury_icons/vehicle_exploded_grouped_detailed.svg?raw'
+import vehicleDiagramDesktopOverlayRaw from '~/assets/armoury_icons/vehicle_exploded_grouped_preserved_guttered_overlay_rotated_right.svg?raw'
+import vehicleDiagramMobileOverlayRaw from '~/assets/armoury_icons/vehicle_exploded_grouped_preserved_guttered_overlay.svg?raw'
 
 const props = defineProps<{
   vehicle: CustomVehicleDesign
@@ -30,6 +32,15 @@ type ArmourRuleRow = {
   maximumProtection: number
 }
 
+const facingToRegionId: Record<ArmourFacing, string> = {
+  forward: 'front',
+  aft: 'back',
+  port: 'left-side',
+  starboard: 'right-side',
+  dorsal: 'roof',
+  ventral: 'cockpit',
+}
+
 const armourRuleRows: ArmourRuleRow[] = [
   { tl: '0-2', materials: 'Wood, Bone, etc.', baseProtection: 0, maximumProtection: 10 },
   { tl: '3-4', materials: 'Iron', baseProtection: 1, maximumProtection: 15 },
@@ -44,17 +55,116 @@ const armourRuleRows: ArmourRuleRow[] = [
 ]
 
 const handbookAddedArmourPoints = ref(0)
+const activeFacing = ref<ArmourFacing | null>(null)
+const purchaseInputDirty = ref(false)
+const reallocationUnlocked = ref(false)
 
-const decorateVehicleDiagram = (svgMarkup: string, idPrefix: string) => {
+const appliedAdditionalArmourPoints = computed(() => Math.max(0, Math.round(props.summary.armourSummary.equivalentAddedProtection)))
+const displayedAdditionalArmourPoints = computed(() => (
+  purchaseInputDirty.value
+    ? Math.max(0, Math.round(handbookAddedArmourPoints.value))
+    : appliedAdditionalArmourPoints.value
+))
+
+const previewArmourSpend = computed(() => {
+  const additionalArmourPoints = displayedAdditionalArmourPoints.value
+  const vehicleSpaces = Math.max(0, Number(props.vehicle.spaces) || 0)
+  const techLevel = Math.max(0, Number(props.vehicle.techLevel) || 0)
+  const currentRule = armourRuleRows.find((row) => {
+    if (row.tl === '18+') return techLevel >= 18
+    const [minTl, maxTl] = row.tl.split('-').map(Number)
+    return techLevel >= minTl && techLevel <= maxTl
+  }) ?? armourRuleRows[0]
+
+  const vehicleSpacesPerPointPercentByTl: Record<string, number> = {
+    '0-2': 0.025,
+    '3-4': 0.015,
+    '5-6': 0.01,
+    '7-9': 0.01,
+    '10-11': 0.005,
+    '12-13': 0.004,
+    '14-15': 0.0032,
+    '16': 0.002,
+    '17': 0.0016,
+    '18+': 0.001,
+  }
+
+  const costPerArmourSpaceByTl: Record<string, number> = {
+    '0-2': 1000,
+    '3-4': 5000,
+    '5-6': 7500,
+    '7-9': 12500,
+    '10-11': 50000,
+    '12-13': 75000,
+    '14-15': 125000,
+    '16': 375000,
+    '17': 500000,
+    '18+': 1000000,
+  }
+
+  const costPerPointPerVehicleSpaceByTl: Record<string, number> = {
+    '0-2': 25,
+    '3-4': 75,
+    '5-6': 75,
+    '7-9': 125,
+    '10-11': 250,
+    '12-13': 300,
+    '14-15': 400,
+    '16': 750,
+    '17': 800,
+    '18+': 1000,
+  }
+
+  const sizeBandMultiplier = (() => {
+    if (vehicleSpaces <= 3) return 2
+    if (vehicleSpaces <= 19) return 1.5
+    if (vehicleSpaces <= 99) return 1
+    if (vehicleSpaces <= 199) return 0.75
+    if (vehicleSpaces <= 999) return 0.5
+    if (vehicleSpaces <= 1999) return 0.4
+    return 0.25
+  })()
+
+  const rawArmourSpaces = vehicleSpaces
+    * vehicleSpacesPerPointPercentByTl[currentRule.tl]
+    * sizeBandMultiplier
+    * additionalArmourPoints
+
+  const armourSpaces = rawArmourSpaces > 0 ? Math.ceil(rawArmourSpaces) : 0
+  const armourCost = rawArmourSpaces > 0
+    ? (
+        Number.isInteger(rawArmourSpaces)
+          ? rawArmourSpaces * costPerArmourSpaceByTl[currentRule.tl]
+          : additionalArmourPoints * vehicleSpaces * sizeBandMultiplier * costPerPointPerVehicleSpaceByTl[currentRule.tl]
+      )
+    : 0
+
+  return {
+    armourSpaces,
+    armourCost,
+  }
+})
+
+const overallArmourRating = computed(() => (
+  props.summary.armourSummary.baseProtection + appliedAdditionalArmourPoints.value
+))
+
+const purchasedArmourCap = computed(() => (
+  Math.max(0, props.summary.armourSummary.maximumProtection - props.summary.armourSummary.baseProtection)
+))
+
+const buildVehicleDiagramImage = (svgMarkup: string, idPrefix: string) => {
+  const cleanedSvgMarkup = svgMarkup.replace(/<title>[\s\S]*?<\/title>/i, '')
   const defsAndStyle = `
 <defs>
   <linearGradient id="${idPrefix}-body-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
-    <stop offset="0%" stop-color="#12324a" />
-    <stop offset="52%" stop-color="#0f2740" />
-    <stop offset="100%" stop-color="#0a1b30" />
+    <stop offset="0%" stop-color="#0f2a40" />
+    <stop offset="52%" stop-color="#0b2135" />
+    <stop offset="100%" stop-color="#081727" />
   </linearGradient>
   <filter id="${idPrefix}-body-glow" x="-30%" y="-30%" width="160%" height="160%">
-    <feDropShadow dx="0" dy="0" stdDeviation="1.8" flood-color="#38bdf8" flood-opacity="0.22" />
+    <feDropShadow dx="0" dy="0" stdDeviation="3.8" flood-color="#c8f4ff" flood-opacity="0.7" />
+    <feDropShadow dx="0" dy="0" stdDeviation="8.5" flood-color="#38bdf8" flood-opacity="0.42" />
   </filter>
   <filter id="${idPrefix}-detail-glow" x="-40%" y="-40%" width="180%" height="180%">
     <feDropShadow dx="0" dy="0" stdDeviation="2.8" flood-color="#c8f4ff" flood-opacity="0.95" />
@@ -64,9 +174,6 @@ const decorateVehicleDiagram = (svgMarkup: string, idPrefix: string) => {
 <style>
   .body {
     fill: url(#${idPrefix}-body-gradient) !important;
-    stroke: #67e8f9;
-    stroke-width: 2.8;
-    paint-order: stroke fill;
     filter: url(#${idPrefix}-body-glow);
   }
   .detail {
@@ -75,29 +182,85 @@ const decorateVehicleDiagram = (svgMarkup: string, idPrefix: string) => {
   }
 </style>`
 
-  const svgWithRuntimeStyling = svgMarkup
-    .replace(/<style>[\s\S]*?<\/style>/, defsAndStyle)
-    .replace(/<svg([^>]*)>/, '<svg$1>')
+  const svgWithRuntimeStyling = cleanedSvgMarkup.replace(/<style>[\s\S]*?<\/style>/, defsAndStyle)
+  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgWithRuntimeStyling)}`
+}
+
+const buildVehicleDiagramRegionOverlay = (
+  svgMarkup: string,
+  idPrefix: string,
+  selectedFacing: ArmourFacing | null,
+) => {
+  const cleanedSvgMarkup = svgMarkup.replace(/<title>[\s\S]*?<\/title>/i, '')
+  const selectedRegionId = selectedFacing ? facingToRegionId[selectedFacing] : null
+  const defsAndStyle = `
+<defs>
+  <linearGradient id="${idPrefix}-region-active-fill" x1="0%" y1="0%" x2="0%" y2="100%">
+    <stop offset="0%" stop-color="rgba(120, 53, 15, 0.9)" />
+    <stop offset="100%" stop-color="rgba(69, 26, 3, 0.94)" />
+  </linearGradient>
+  <filter id="${idPrefix}-region-outline" x="-24%" y="-24%" width="148%" height="148%" color-interpolation-filters="sRGB">
+    <feDropShadow dx="0" dy="0" stdDeviation="2.4" flood-color="#67e8f9" flood-opacity="0.42" />
+    <feDropShadow dx="0" dy="0" stdDeviation="5.2" flood-color="#38bdf8" flood-opacity="0.2" />
+  </filter>
+  <filter id="${idPrefix}-region-active-outline" x="-34%" y="-34%" width="168%" height="168%" color-interpolation-filters="sRGB">
+    <feDropShadow dx="0" dy="0" stdDeviation="3.2" flood-color="#fde68a" flood-opacity="0.62" />
+    <feDropShadow dx="0" dy="0" stdDeviation="7.2" flood-color="#f59e0b" flood-opacity="0.34" />
+  </filter>
+</defs>
+<style>
+  .region-shape {
+    fill: transparent;
+    stroke: transparent;
+    stroke-width: 0;
+    stroke-linejoin: round;
+    stroke-linecap: round;
+    vector-effect: non-scaling-stroke;
+    paint-order: stroke;
+    filter: none;
+  }
+  ${selectedRegionId ? `#${selectedRegionId} .region-shape {
+    fill: url(#${idPrefix}-region-active-fill);
+    fill-opacity: 0.28;
+    stroke: rgba(251, 191, 36, 0.42);
+    stroke-width: 1.4;
+    filter: url(#${idPrefix}-region-active-outline);
+  }` : ''}
+</style>`
+
+  const svgWithRuntimeStyling = cleanedSvgMarkup.includes('<style>')
+    ? cleanedSvgMarkup.replace(/<style>[\s\S]*?<\/style>/, defsAndStyle)
+    : cleanedSvgMarkup.replace(/<svg([^>]*)>/, `<svg$1>${defsAndStyle}`)
 
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgWithRuntimeStyling)}`
 }
 
-const vehicleDiagramDesktop = computed(() => decorateVehicleDiagram(vehicleDiagramDesktopRaw, 'vehicle-armour-desktop'))
-const vehicleDiagramMobile = computed(() => decorateVehicleDiagram(vehicleDiagramMobileRaw, 'vehicle-armour-mobile'))
+const vehicleDiagramDesktop = computed(() => buildVehicleDiagramImage(
+  vehicleDiagramDesktopRaw,
+  'vehicle-armour-desktop',
+))
+
+const vehicleDiagramMobile = computed(() => buildVehicleDiagramImage(
+  vehicleDiagramMobileRaw,
+  'vehicle-armour-mobile',
+))
+
+const vehicleDiagramDesktopOverlay = computed(() => buildVehicleDiagramRegionOverlay(
+  vehicleDiagramDesktopOverlayRaw,
+  'vehicle-armour-desktop-overlay',
+  reallocationUnlocked.value ? activeFacing.value : null,
+))
+
+const vehicleDiagramMobileOverlay = computed(() => buildVehicleDiagramRegionOverlay(
+  vehicleDiagramMobileOverlayRaw,
+  'vehicle-armour-mobile-overlay',
+  reallocationUnlocked.value ? activeFacing.value : null,
+))
 
 const minimumDorsalProtection = computed(() => (
   props.vehicle.features.includes('Open-Topped') || props.vehicle.features.includes('Open Frame')
     ? 0
     : props.summary.armourSummary.baseProtection
-))
-
-const currentProtectionTotal = computed(() => (
-  currentFaceValues.value.forward
-  + currentFaceValues.value.port
-  + currentFaceValues.value.dorsal
-  + currentFaceValues.value.aft
-  + currentFaceValues.value.starboard
-  + currentFaceValues.value.ventral
 ))
 
 const parsedFacingValue = (rawValue: unknown, fallback: number) => {
@@ -132,16 +295,23 @@ watch(
       const addedAmount = Math.max(0, currentValue - previousMinimum)
       props.vehicle.armour[facing] = String(nextMinimum + addedAmount)
     }
+
+    purchaseInputDirty.value = false
   },
 )
 
 watch(
   () => props.summary.armourSummary.equivalentAddedProtection,
   (value) => {
+    if (purchaseInputDirty.value) return
     handbookAddedArmourPoints.value = Math.max(0, Math.round(value))
   },
   { immediate: true },
 )
+
+watch(reallocationUnlocked, (isUnlocked) => {
+  if (!isUnlocked) activeFacing.value = null
+})
 
 const applyHandbookArmourAllocation = () => {
   const addedPoints = Math.max(0, Math.round(handbookAddedArmourPoints.value))
@@ -154,7 +324,34 @@ const applyHandbookArmourAllocation = () => {
   props.vehicle.armour.starboard = String(baseProtection + addedPoints)
   props.vehicle.armour.dorsal = String(Math.max(minimumDorsalProtection.value, baseProtection + dorsalAndVentralAdded))
   props.vehicle.armour.ventral = String(baseProtection + dorsalAndVentralAdded)
+  purchaseInputDirty.value = false
 }
+
+const handlePurchasedArmourInput = () => {
+  purchaseInputDirty.value = true
+  if (!reallocationUnlocked.value) {
+    applyHandbookArmourAllocation()
+  }
+}
+
+const updateArmourFacingValue = (facing: ArmourFacing, rawValue: string) => {
+  props.vehicle.armour[facing] = rawValue
+  purchaseInputDirty.value = false
+}
+
+const handleArmourFacingFocus = (facing: ArmourFacing) => {
+  if (!reallocationUnlocked.value) return
+  activeFacing.value = facing
+}
+
+const armourFacingFields: Array<{ key: ArmourFacing, label: string }> = [
+  { key: 'forward', label: 'Forward' },
+  { key: 'aft', label: 'Aft' },
+  { key: 'port', label: 'Port' },
+  { key: 'starboard', label: 'Starboard' },
+  { key: 'dorsal', label: 'Dorsal' },
+  { key: 'ventral', label: 'Ventral' },
+]
 
 </script>
 
@@ -162,20 +359,70 @@ const applyHandbookArmourAllocation = () => {
   <div class="grid gap-4">
     <section class="rounded-md border border-cyan-400/20 bg-slate-950/35 p-4">
       <div class="grid gap-4">
-        <div class="grid gap-4 md:grid-cols-[minmax(0,1fr)_12rem_14rem]">
-            <div class="group relative">
-              <label class="grid gap-1 text-xs font-semibold uppercase tracking-wide text-zinc-500">
-                <span>Material</span>
+          <div class="relative min-h-[42rem] w-full overflow-hidden rounded-md border border-cyan-400/20 bg-[radial-gradient(circle_at_top,_rgba(34,211,238,0.08),_transparent_42%),linear-gradient(180deg,rgba(2,6,23,0.88),rgba(2,6,23,0.96))] p-4">
+            <div class="group/material absolute left-4 top-4 z-20 w-[16rem] rounded-md border border-cyan-400/20 bg-slate-950/80 p-4 shadow-[0_0_24px_rgba(34,211,238,0.10)]">
+              <div class="flex items-start justify-between gap-3">
+                <div>
+                  <p class="text-[11px] font-semibold uppercase tracking-[0.22em] text-cyan-200">Armour Context</p>
+                  <p class="mt-2 text-lg font-semibold text-cyan-50">+{{ overallArmourRating }} / +{{ summary.armourSummary.maximumProtection }}</p>
+                  <p class="mt-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-cyan-200/75">Purchased +{{ displayedAdditionalArmourPoints }} / +{{ purchasedArmourCap }}</p>
+                </div>
+                <div class="text-right">
+                  <p class="text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500">Spaces</p>
+                  <p class="mt-1 text-sm font-semibold text-cyan-50">{{ previewArmourSpend.armourSpaces }}</p>
+                </div>
+              </div>
+
+              <div class="mt-4 grid gap-3">
+                <label class="grid gap-1 text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                  <span>Purchased Armour</span>
+                  <input
+                    v-model.number="handbookAddedArmourPoints"
+                    type="number"
+                    min="0"
+                    :max="purchasedArmourCap"
+                    class="h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm font-normal text-zinc-900 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200"
+                    @input="handlePurchasedArmourInput"
+                  >
+                </label>
+
+                <label class="grid gap-1 text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                  <span>Cost</span>
+                  <input
+                    :value="`Cr${Math.round(previewArmourSpend.armourCost).toLocaleString()}`"
+                    readonly
+                    class="h-10 rounded-md border border-zinc-200 bg-zinc-100 px-3 text-sm font-normal text-zinc-700 outline-none"
+                  >
+                </label>
+
+                <label class="grid gap-1 text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                  <span>Material</span>
+                  <button
+                    type="button"
+                    class="flex h-10 items-center justify-between rounded-md border border-cyan-400/25 bg-slate-950/60 px-3 text-left text-sm font-semibold text-cyan-50 transition hover:border-cyan-300 hover:bg-slate-900/70"
+                  >
+                    <span>{{ summary.armourSummary.rule.materials }}</span>
+                    <span class="text-[11px] font-semibold uppercase tracking-[0.22em] text-cyan-200/75">TL</span>
+                  </button>
+                </label>
+              </div>
+
+              <div class="mt-4">
                 <button
                   type="button"
-                  class="flex h-11 items-center justify-between rounded-md border border-cyan-400/25 bg-slate-950/60 px-3 text-left text-sm font-semibold text-cyan-50 transition hover:border-cyan-300 hover:bg-slate-900/70"
+                  class="flex h-10 items-center justify-center gap-2 rounded-md border border-cyan-400/25 bg-slate-950/70 px-3 text-sm font-semibold text-cyan-50 transition hover:border-cyan-300 hover:bg-slate-900/80"
+                  @click="reallocationUnlocked = !reallocationUnlocked"
                 >
-                  <span>{{ summary.armourSummary.rule.materials }}</span>
-                  <span class="text-[11px] font-semibold uppercase tracking-[0.22em] text-cyan-200/75">TL</span>
+                  <span aria-hidden="true">{{ reallocationUnlocked ? '🔓' : '🔒' }}</span>
+                  <span>Manual</span>
                 </button>
-              </label>
+              </div>
 
-              <div class="pointer-events-none absolute left-0 top-full z-20 mt-2 hidden w-[30rem] rounded-md border border-cyan-400/35 bg-slate-950/95 p-4 shadow-[0_0_32px_rgba(34,211,238,0.16)] group-hover:block group-focus-within:block">
+              <p v-if="reallocationUnlocked" class="mt-3 text-xs leading-5 text-zinc-400">
+                Manual changes redistribute existing purchased armour between faces. They do not increase total purchased armour.
+              </p>
+
+              <div class="pointer-events-none absolute left-0 top-full z-20 mt-2 hidden w-[30rem] rounded-md border border-cyan-400/35 bg-slate-950/95 p-4 shadow-[0_0_32px_rgba(34,211,238,0.16)] group-hover/material:block group-focus-within/material:block">
                 <p class="text-[11px] font-semibold uppercase tracking-[0.22em] text-cyan-200">Armour Materials By Tech Level</p>
                 <div class="mt-3 overflow-hidden rounded-md border border-cyan-400/20">
                   <div class="grid grid-cols-[4.5rem_minmax(0,1fr)_6rem_7rem] bg-cyan-400/10 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-cyan-100/80">
@@ -197,68 +444,57 @@ const applyHandbookArmourAllocation = () => {
               </div>
             </div>
 
-            <label class="grid gap-1 text-xs font-semibold uppercase tracking-wide text-zinc-500">
-              <span>Additional Armour</span>
-              <input
-                v-model.number="handbookAddedArmourPoints"
-                type="number"
-                min="0"
-                :max="summary.armourSummary.maximumProtection - summary.armourSummary.baseProtection"
-                class="h-11 rounded-md border border-zinc-300 bg-white px-3 text-sm font-normal text-zinc-900 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200"
-              >
-            </label>
-
-            <label class="grid gap-1 text-xs font-semibold uppercase tracking-wide text-zinc-500">
-              <span>Purchased Armour Cost</span>
-              <input
-                :value="`Cr${Math.round(summary.armourSummary.armourCost).toLocaleString()}`"
-                readonly
-                class="h-11 rounded-md border border-zinc-200 bg-zinc-100 px-3 text-sm font-normal text-zinc-700 outline-none"
-              >
-            </label>
-          </div>
-
-          <div class="relative min-h-[42rem] w-full overflow-hidden rounded-md border border-cyan-400/20 bg-[radial-gradient(circle_at_top,_rgba(34,211,238,0.08),_transparent_42%),linear-gradient(180deg,rgba(2,6,23,0.88),rgba(2,6,23,0.96))] p-4">
-            <div class="absolute left-4 top-4 rounded-md border border-amber-300/35 bg-amber-300/10 px-3 py-2 shadow-[0_0_24px_rgba(251,191,36,0.10)]">
-              <p class="text-[11px] font-semibold uppercase tracking-[0.22em] text-amber-200">Added Armour</p>
-              <p class="mt-1 text-lg font-semibold text-amber-100">{{ currentProtectionTotal }} / {{ summary.armourSummary.maximumProtection }}</p>
+            <div class="absolute left-4 top-[19rem] z-10 grid w-[18rem] grid-cols-3 gap-x-3 gap-y-2">
+                <label
+                  v-for="field in armourFacingFields"
+                  :key="field.key"
+                  class="grid gap-1"
+                >
+                  <span class="text-[10px] font-semibold uppercase tracking-[0.18em] text-cyan-200/80">{{ field.label }}</span>
+                  <input
+                    type="text"
+                    inputmode="numeric"
+                    :value="currentFaceValues[field.key]"
+                    :readonly="!reallocationUnlocked"
+                    class="h-8 rounded-md border border-cyan-400/25 bg-slate-950/78 px-2 text-sm font-semibold text-cyan-50 outline-none transition focus:border-cyan-300 focus:ring-2 focus:ring-cyan-400/20 disabled:cursor-not-allowed disabled:border-cyan-400/10 disabled:text-cyan-200/60"
+                    :class="reallocationUnlocked ? '' : 'cursor-not-allowed border-cyan-400/10 text-cyan-200/60'"
+                    @focus="handleArmourFacingFocus(field.key)"
+                    @blur="activeFacing = null"
+                  @input="updateArmourFacingValue(field.key, ($event.target as HTMLInputElement).value)"
+                >
+              </label>
             </div>
 
-            <div class="absolute right-4 top-4 w-[16.5rem] rounded-md border border-cyan-400/20 bg-slate-950/70 p-4 shadow-[0_0_24px_rgba(34,211,238,0.10)]">
-              <p class="text-[11px] font-semibold uppercase tracking-[0.22em] text-cyan-200">Armour Context</p>
-              <dl class="mt-3 grid gap-3">
-                <div class="flex items-center justify-between gap-3">
-                  <dt class="text-xs font-semibold uppercase tracking-wide text-zinc-500">Base Protection</dt>
-                  <dd class="text-sm font-semibold text-cyan-50">+{{ summary.armourSummary.baseProtection }}</dd>
-                </div>
-                <div class="flex items-center justify-between gap-3">
-                  <dt class="text-xs font-semibold uppercase tracking-wide text-zinc-500">Armour Spaces</dt>
-                  <dd class="text-sm font-semibold text-cyan-50">{{ summary.armourSummary.armourSpaces }}</dd>
-                </div>
-              </dl>
-              <button
-                type="button"
-                class="mt-4 h-11 w-full rounded-md border border-amber-300/60 bg-amber-300/10 px-4 text-sm font-semibold text-amber-100 transition hover:border-amber-200 hover:bg-amber-300/15"
-                @click="applyHandbookArmourAllocation"
-              >
-                Auto-Allocate Armour
-              </button>
-            </div>
-
-            <div class="absolute left-1/2 top-[58%] w-[24rem] -translate-x-1/2 -translate-y-1/2 md:top-[60%] md:w-[42rem]">
+            <div class="absolute right-2 top-[58%] w-[24rem] -translate-y-1/2 md:right-4 md:top-[64%] md:w-[42rem]">
               <div class="relative mx-auto">
-                <img
-                  :src="vehicleDiagramDesktop"
-                  alt=""
-                  class="hidden w-full max-w-[42rem] select-none md:block"
-                  draggable="false"
-                >
-                <img
-                  :src="vehicleDiagramMobile"
-                  alt=""
-                  class="block w-full max-w-[24rem] select-none md:hidden"
-                  draggable="false"
-                >
+                <div class="vehicle-armour-diagram hidden w-full max-w-[42rem] select-none md:block" aria-hidden="true">
+                  <img
+                    :src="vehicleDiagramDesktopOverlay"
+                    alt=""
+                    class="vehicle-armour-diagram__overlay-img"
+                    draggable="false"
+                  >
+                  <img
+                    :src="vehicleDiagramDesktop"
+                    alt=""
+                    class="block w-full"
+                    draggable="false"
+                  >
+                </div>
+                <div class="vehicle-armour-diagram block w-full max-w-[24rem] select-none md:hidden" aria-hidden="true">
+                  <img
+                    :src="vehicleDiagramMobileOverlay"
+                    alt=""
+                    class="vehicle-armour-diagram__overlay-img"
+                    draggable="false"
+                  >
+                  <img
+                    :src="vehicleDiagramMobile"
+                    alt=""
+                    class="block w-full"
+                    draggable="false"
+                  >
+                </div>
               </div>
             </div>
           </div>
@@ -266,3 +502,25 @@ const applyHandbookArmourAllocation = () => {
     </section>
   </div>
 </template>
+
+<style scoped>
+.vehicle-armour-diagram :deep(svg) {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.vehicle-armour-diagram {
+  position: relative;
+}
+
+.vehicle-armour-diagram__overlay-img {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: block;
+  width: 100%;
+  height: auto;
+  pointer-events: none;
+}
+</style>
