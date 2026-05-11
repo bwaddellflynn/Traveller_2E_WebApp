@@ -90,6 +90,8 @@ export type TravellerVehicleFusionPlusFuelType =
 export type CustomVehicleEquipmentEntry = {
   name: string
   spaces: number
+  category?: string
+  catalogueId?: string
 }
 
 export type TravellerVehicleRecord = {

@@ -4,7 +4,9 @@
   "type": "module",
   "scripts": {
     "build": "nuxt build",
+    "clean": "nuxi cleanup",
     "dev": "nuxt dev",
+    "dev:reset": "nuxi cleanup && nuxt dev",
     "generate": "nuxt generate",
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare"

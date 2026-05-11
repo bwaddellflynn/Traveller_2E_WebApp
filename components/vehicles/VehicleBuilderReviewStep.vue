@@ -6,6 +6,12 @@ import { vehicleConstructionSummary, vehicleFamilyRule, vehiclePrimaryPowerOptio
 const props = defineProps<{
   vehicle: CustomVehicleDesign
   validationIssues: string[]
+  validationIssueSteps?: Record<string, number>
+  showValidation?: boolean
+}>()
+
+const emit = defineEmits<{
+  (event: 'jump-to-step', index: number): void
 }>()
 
 const primaryPowerLabels = Object.fromEntries(vehiclePrimaryPowerOptions().map((option) => [option.id, option.label]))
@@ -18,13 +24,25 @@ const summary = computed(() => vehicleConstructionSummary(props.vehicle))
   <div class="grid gap-4">
     <section class="rounded-md border border-cyan-400/20 bg-slate-950/30 p-4">
       <h3 class="text-sm font-semibold text-cyan-50">Validation</h3>
-      <ul v-if="props.validationIssues.length" class="mt-3 grid gap-2">
-        <li v-for="issue in props.validationIssues" :key="issue" class="rounded-md border border-amber-300/30 bg-amber-300/10 px-3 py-2 text-sm text-amber-100">
-          {{ issue }}
+      <ul v-if="props.showValidation && props.validationIssues.length" class="mt-3 grid gap-2">
+        <li v-for="issue in props.validationIssues" :key="issue">
+          <button
+            class="w-full rounded-md border border-amber-300/30 bg-amber-300/10 px-3 py-2 text-left text-sm text-amber-200 transition hover:border-amber-200 hover:bg-amber-300/15"
+            type="button"
+            @click="typeof props.validationIssueSteps?.[issue] === 'number' ? emit('jump-to-step', props.validationIssueSteps[issue]!) : undefined"
+          >
+            <span class="font-semibold text-amber-200">{{ issue }}</span>
+            <span v-if="typeof props.validationIssueSteps?.[issue] === 'number'" class="mt-1 block text-xs uppercase tracking-wide text-amber-300/80">
+              Go to {{ ['Chassis', 'Mobility', 'Protection', 'Payload', 'Weapons', 'Review'][props.validationIssueSteps[issue]!] }}
+            </span>
+          </button>
         </li>
       </ul>
-      <p v-else class="mt-3 rounded-md border border-emerald-300/30 bg-emerald-300/10 px-3 py-2 text-sm text-emerald-100">
+      <p v-else-if="props.showValidation" class="mt-3 rounded-md border border-emerald-300/30 bg-emerald-300/10 px-3 py-2 text-sm text-emerald-100">
         Vehicle build is valid and ready to save.
+      </p>
+      <p v-else class="mt-3 rounded-md border border-cyan-400/20 bg-white/5 px-3 py-2 text-sm text-cyan-100/80">
+        Review the final datasheet here. Validation will appear when you try to save the vehicle.
       </p>
     </section>
 

@@ -1,24 +1,47 @@
 <script setup lang="ts">
+import { ref } from 'vue'
 import AppIcon from '~/components/AppIcon.vue'
 import type { TravellerVehicleWeapon } from '~/types/vehicle'
+import type { VehicleBuilderStockWeaponOption } from '~/utils/traveller/vehicles'
 
 const props = defineProps<{
   weapons: TravellerVehicleWeapon[]
+  stockWeapons: VehicleBuilderStockWeaponOption[]
 }>()
 
 const emit = defineEmits<{
   (event: 'add'): void
+  (event: 'add-stock', stockWeaponId: string): void
   (event: 'remove', index: number): void
 }>()
+
+const selectedStockWeaponId = ref('')
+
+const addSelectedStockWeapon = () => {
+  if (!selectedStockWeaponId.value) return
+  emit('add-stock', selectedStockWeaponId.value)
+  selectedStockWeaponId.value = ''
+}
 </script>
 
 <template>
   <div class="grid gap-3 rounded-md border border-cyan-400/20 bg-slate-950/30 p-3">
     <div class="flex items-center justify-between gap-3">
       <p class="text-sm font-semibold text-cyan-50">Weapons</p>
-      <button class="rounded-md border border-zinc-300 px-3 py-2 text-sm font-semibold text-zinc-700 hover:border-amber-600" type="button" @click="emit('add')">
-        Add Weapon
-      </button>
+      <div class="flex flex-wrap items-center gap-2">
+        <select v-model="selectedStockWeaponId" class="h-10 min-w-[20rem] rounded-md border border-zinc-300 px-3 text-sm font-normal normal-case tracking-normal outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200">
+          <option value="">Load stock mounted weapon</option>
+          <option v-for="weapon in props.stockWeapons" :key="weapon.id" :value="weapon.id">
+            {{ weapon.label }}
+          </option>
+        </select>
+        <button class="rounded-md border border-zinc-300 px-3 py-2 text-sm font-semibold text-zinc-700 hover:border-amber-600 disabled:cursor-not-allowed disabled:opacity-50" :disabled="!selectedStockWeaponId" type="button" @click="addSelectedStockWeapon">
+          Load Stock Weapon
+        </button>
+        <button class="rounded-md border border-zinc-300 px-3 py-2 text-sm font-semibold text-zinc-700 hover:border-amber-600" type="button" @click="emit('add')">
+          Add Weapon
+        </button>
+      </div>
     </div>
 
     <div v-if="props.weapons.length" class="grid gap-3">

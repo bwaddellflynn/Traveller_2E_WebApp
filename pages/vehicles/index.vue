@@ -2,11 +2,13 @@
 import { storeToRefs } from 'pinia'
 import type { CustomVehicleDesign, TravellerVehicleCategory, TravellerVehicleRecord } from '~/types/vehicle'
 import VehicleBuilderCoreStep from '~/components/vehicles/VehicleBuilderCoreStep.vue'
-import VehicleBuilderLoadoutStep from '~/components/vehicles/VehicleBuilderLoadoutStep.vue'
+import VehicleBuilderInfoModal from '~/components/vehicles/VehicleBuilderInfoModal.vue'
+import VehicleBuilderPayloadStep from '~/components/vehicles/VehicleBuilderPayloadStep.vue'
 import VehicleBuilderPerformanceStep from '~/components/vehicles/VehicleBuilderPerformanceStep.vue'
 import VehicleBuilderProtectionStep from '~/components/vehicles/VehicleBuilderProtectionStep.vue'
 import VehicleBuilderReviewStep from '~/components/vehicles/VehicleBuilderReviewStep.vue'
 import VehicleBuilderTabs from '~/components/vehicles/VehicleBuilderTabs.vue'
+import VehicleBuilderWeaponsStep from '~/components/vehicles/VehicleBuilderWeaponsStep.vue'
 import { useVehiclesStore } from '~/stores/vehicles'
 import {
   applyVehicleHandbookDerivations,
@@ -25,6 +27,26 @@ import {
 
 type VehicleSortKey = 'name' | 'techLevel' | 'category' | 'speed' | 'agility' | 'spaces' | 'costCredits'
 type VehicleSortIcon = 'sort-asc' | 'sort-desc'
+type DraftInfoKey =
+  | 'techLevel'
+  | 'spaces'
+  | 'category'
+  | 'operatingSkill'
+  | 'hitDm'
+  | 'agility'
+  | 'usableSpaces'
+  | 'speed'
+  | 'range'
+  | 'crew'
+  | 'passengers'
+  | 'comfort'
+  | 'cargo'
+  | 'structure'
+  | 'remainingSpaces'
+  | 'cost'
+  | 'protection'
+  | 'spaceAccounting'
+  | 'traits'
 
 const vehiclesStore = useVehiclesStore()
 const { activeUserId, referenceVehicles, playerBuiltVehicles } = storeToRefs(vehiclesStore)
@@ -39,8 +61,10 @@ const expandedVehicleId = ref('')
 const categoryMenuOpen = ref(false)
 const saveMessage = ref('')
 const activeBuildStep = ref(0)
+const attemptedBuildSave = ref(false)
 const buildDraft = ref<CustomVehicleDesign | null>(null)
 const selectedCustomVehicleId = ref('')
+const activeDraftInfo = ref<DraftInfoKey | null>(null)
 let applyingBuildDraftDerivations = false
 
 type VehicleBuildStep = { id: string, label: string, title: string, description: string }
@@ -63,9 +87,10 @@ const garageTabs = [
 ]
 const builderSteps: VehicleBuildStep[] = [
   { id: 'core', label: 'Chassis', title: 'Chassis', description: 'Set the base family, size, hull class, and other foundational vehicle inputs.' },
-  { id: 'performance', label: 'Performance', title: 'Performance', description: 'Choose power, movement tuning, crew, and the operational profile.' },
+  { id: 'mobility', label: 'Mobility', title: 'Mobility', description: 'Choose power, movement tuning, auxiliary drive, and the operating profile.' },
   { id: 'protection', label: 'Protection', title: 'Protection', description: 'Define the armour profile once the chassis and performance are set.' },
-  { id: 'systems', label: 'Systems & Weapons', title: 'Systems & Weapons', description: 'Assign features, carried equipment, and mounted weapons.' },
+  { id: 'payload', label: 'Payload', title: 'Payload', description: 'Define occupancy, cargo, carried systems, and payload-space usage.' },
+  { id: 'weapons', label: 'Weapons', title: 'Weapons', description: 'Assign mounted weapons and combat-system loadout.' },
   { id: 'review', label: 'Review', title: 'Review', description: 'Validate the finished vehicle datasheet before saving it.' },
 ]
 const builderOptionSets = vehicleBuilderOptionSets()
@@ -185,6 +210,136 @@ const formatCredits = (credits: number | null) => {
 
 const categoryLabel = (category: string) => category.split('-').map((part) => `${part.charAt(0).toUpperCase()}${part.slice(1)}`).join(' ')
 const buildValidationIssues = computed(() => buildDraft.value ? validateCustomVehicle(buildDraft.value) : [])
+const buildStepIssues = computed(() => {
+  const issues = buildValidationIssues.value
+  return {
+    chassis: issues.filter((issue) => [
+      'Vehicle name is required.',
+      'Base vehicle type is required.',
+      'Structural reinforcement is required.',
+      'Operating skill is required.',
+      'Spaces must be greater than zero.',
+    ].includes(issue) || issue.startsWith('Tech level cannot be below')),
+    mobility: issues.filter((issue) => [
+      'Fuel capacity changes require TL 3+.',
+    ].includes(issue)
+      || issue.includes('power')
+      || issue.includes('Power')
+      || issue.includes('auxiliary')
+      || issue.includes('Auxiliary')
+      || issue.includes('speed modifications')
+      || issue.includes('fuel efficiency')
+      || issue.includes('Fusion+')),
+    protection: issues.filter((issue) => issue.startsWith('Armour for ') || issue.includes('armour cannot')),
+    payload: issues.filter((issue) => [
+      'Comfort level is required.',
+      'Crew value is required.',
+      'Passenger value is required.',
+    ].includes(issue)
+      || issue.startsWith('Equipment ')
+      || issue.includes('Allocated systems spaces')
+      || issue === 'Selected features must be allowed for the base vehicle type.'),
+    weapons: issues.filter((issue) => issue.startsWith('Weapon ')),
+  }
+})
+const buildValidationIssueSteps = computed<Record<string, number>>(() => {
+  const mapping: Record<string, number> = {}
+  for (const issue of buildStepIssues.value.chassis) mapping[issue] = 0
+  for (const issue of buildStepIssues.value.mobility) mapping[issue] = 1
+  for (const issue of buildStepIssues.value.protection) mapping[issue] = 2
+  for (const issue of buildStepIssues.value.payload) mapping[issue] = 3
+  for (const issue of buildStepIssues.value.weapons) mapping[issue] = 4
+  return mapping
+})
+const buildStepHasIssues = computed(() => {
+  if (!attemptedBuildSave.value) return [false, false, false, false, false, false]
+  return [
+    buildStepIssues.value.chassis.length > 0,
+    buildStepIssues.value.mobility.length > 0,
+    buildStepIssues.value.protection.length > 0,
+    buildStepIssues.value.payload.length > 0,
+    buildStepIssues.value.weapons.length > 0,
+    buildValidationIssues.value.length > 0,
+  ]
+})
+const draftFieldInfoText: Record<DraftInfoKey, { title: string, body: string }> = {
+  techLevel: {
+    title: 'Tech Level',
+    body: 'Tech Level determines which handbook technologies and construction assumptions are available. In this builder it directly affects armour materials and protection limits, power-plant legality, auxiliary-drive legality, and several baseline performance rules.',
+  },
+  spaces: {
+    title: 'Spaces',
+    body: 'Spaces are the primary chassis-size and internal-capacity value. They are not just seating. Spaces drive size band, hit DM, derived type, shipping, armour volume, installed power burden, and how much room remains for systems, crew, cargo, and weapons.',
+  },
+  category: {
+    title: 'Category',
+    body: 'Category is the high-level operating family derived from the chosen vehicle base type. It helps classify the vehicle as ground, grav, aircraft, watercraft, rail, walker, hovercraft, or biotech for rules and catalogue purposes.',
+  },
+  operatingSkill: {
+    title: 'Operating Skill',
+    body: 'Operating Skill is the rules-facing skill family and specialty needed to operate the vehicle. It usually follows directly from the base vehicle type, but some chassis features can change it. In this builder, ordinary ground vehicles default to Drive (wheel), Tracks changes the operating skill to Drive (track), and Tunneller changes it to Drive (mole).',
+  },
+  hitDm: {
+    title: 'Hit DM',
+    body: 'Hit DM is the target-size modifier applied when the vehicle is attacked. Larger vehicles are easier to hit and therefore gain higher positive modifiers. In this builder it is derived from Spaces using the handbook target-size table.',
+  },
+  agility: {
+    title: 'Agility',
+    body: 'Agility reflects how readily the vehicle responds to control inputs in motion. It is derived from the base family, modified by size and some features such as Agile, and then further affected by auxiliary-drive choices where applicable.',
+  },
+  usableSpaces: {
+    title: 'Usable Spaces',
+    body: 'Usable Spaces are the internal spaces available after chassis-scale rules, power-plant burden, and auxiliary-drive allocation are accounted for. This is the pool you are effectively spending on armour, equipment, and mounted systems.',
+  },
+  speed: {
+    title: 'Speed',
+    body: 'Speed is the current maximum speed band after the handbook baseline, size effects, feature modifiers, and any speed customisation steps are applied. It should be read together with Cruise Speed and Range when evaluating the final mobility profile.',
+  },
+  range: {
+    title: 'Range',
+    body: 'Range is the endurance distance derived from the family baseline, Tech Level, fuel-efficiency changes, fuel-capacity changes, and any relevant power-plant multipliers. Cruise Range reflects the same vehicle operated at cruising speed rather than top speed.',
+  },
+  crew: {
+    title: 'Crew',
+    body: 'Crew is the number of people needed to operate and support the vehicle under normal conditions. This is an operational requirement rather than a chassis-derived number, so it should be chosen to match the vehicle role and onboard systems.',
+  },
+  passengers: {
+    title: 'Passengers',
+    body: 'Passengers represent carried personnel beyond operating crew. This value is part of the vehicle role definition and should be considered alongside comfort and cargo when determining how the vehicle is actually used.',
+  },
+  comfort: {
+    title: 'Comfort',
+    body: 'Comfort indicates the habitability and travel quality expected for occupants. It is not just descriptive flavour; it expresses the intended travel standard and helps distinguish austere utility vehicles from civilian or luxury transports.',
+  },
+  cargo: {
+    title: 'Cargo',
+    body: 'Cargo is the carried load capacity recorded for the vehicle. It complements usable-space accounting by describing the actual transport role or payload expectation for the finished design.',
+  },
+  structure: {
+    title: 'Structure',
+    body: 'Structure is the vehicle’s derived durability based on hull class, family rules, and Spaces. It represents the underlying resilience of the chassis before armour allocation is considered separately.',
+  },
+  remainingSpaces: {
+    title: 'Remaining Spaces',
+    body: 'Remaining Spaces are the usable spaces left after current armour, equipment, and mounted-weapon allocations. Negative values mean the design is currently over-allocated and needs spaces freed or the chassis revised.',
+  },
+  cost: {
+    title: 'Cost',
+    body: 'Cost is the current derived credit total after baseline family cost per space, hull class, power plant, speed and range tuning, armour cost, and other modeled adjustments are applied. It is a running construction estimate for the current design state.',
+  },
+  protection: {
+    title: 'Protection',
+    body: 'Protection summarizes the active armour rule context: base protection from Tech Level, maximum protection, and current armour-space burden. This is the defensive rules layer that sits on top of the chassis and structure.',
+  },
+  spaceAccounting: {
+    title: 'Space Accounting',
+    body: 'Space Accounting shows where the build is currently spending internal capacity. Armour, equipment, mounted weapons, auxiliary-drive allocation, and power-plant burden all compete for the vehicle’s total design space.',
+  },
+  traits: {
+    title: 'Traits',
+    body: 'Traits are the distilled rules-facing qualities of the current design. They are derived from the selected base family, size band, auxiliary drive, and chosen features, and should be read as the vehicle’s resulting special rules profile.',
+  },
+}
 const buildDraftFamilyRule = computed(() => buildDraft.value ? vehicleFamilyRule(buildDraft.value.baseFamily) : null)
 const buildDraftConstructionSummary = computed(() => buildDraft.value ? vehicleConstructionSummary(buildDraft.value) : null)
 const buildDraftPrimaryPowerOptions = computed(() => {
@@ -195,8 +350,6 @@ const buildDraftAuxiliaryDriveOptions = computed(() => {
   if (!buildDraft.value) return allAuxiliaryDriveOptions
   return allAuxiliaryDriveOptions.filter((option) => !option.allowedFamilies || option.allowedFamilies.includes(buildDraft.value!.baseFamily) || option.id === 'none')
 })
-const activeBuildStepMeta = computed(() => builderSteps[activeBuildStep.value] ?? builderSteps[0])
-
 // Vehicle handbook derivations mutate the draft in place. This guard prevents
 // those derived writes from recursively retriggering the same synchronization
 // watcher during a single reactive flush.
@@ -211,42 +364,7 @@ const syncBuildDraftDerivations = () => {
   }
 }
 
-const coreStepComplete = computed(() => {
-  if (!buildDraft.value) return false
-  return Boolean(
-    buildDraft.value.name.trim()
-    && buildDraft.value.baseFamily
-    && buildDraft.value.hull.trim()
-    && buildDraft.value.spaces > 0,
-  )
-})
-
-const performanceStepComplete = computed(() => {
-  if (!buildDraft.value) return false
-  return Boolean(
-    buildDraft.value.speed.trim()
-    && buildDraft.value.comfortLevel.trim()
-    && buildDraft.value.crew.trim()
-    && buildDraft.value.passengers.trim()
-    && buildDraft.value.cost.trim(),
-  )
-})
-
-const loadoutStepComplete = computed(() => {
-  if (!buildDraft.value) return false
-  return Object.values(buildDraft.value.armour).every((value) => String(value ?? '').trim())
-})
-
-const canAccessBuildStep = (index: number) => {
-  if (index <= 0) return true
-  if (index === 1) return coreStepComplete.value
-  if (index === 2) return coreStepComplete.value && performanceStepComplete.value
-  if (index === 3) return coreStepComplete.value && performanceStepComplete.value && loadoutStepComplete.value
-  return coreStepComplete.value && performanceStepComplete.value && loadoutStepComplete.value
-}
-
 const setBuildStep = (index: number) => {
-  if (!canAccessBuildStep(index)) return
   activeBuildStep.value = index
 }
 
@@ -257,7 +375,7 @@ const goToPreviousBuildStep = () => {
 
 const goToNextBuildStep = () => {
   const nextIndex = activeBuildStep.value + 1
-  if (nextIndex >= builderSteps.length || !canAccessBuildStep(nextIndex)) return
+  if (nextIndex >= builderSteps.length) return
   activeBuildStep.value = nextIndex
 }
 
@@ -272,6 +390,7 @@ const newVehicle = () => {
   selectedCustomVehicleId.value = ''
   activeBuildStep.value = 0
   saveMessage.value = ''
+  attemptedBuildSave.value = false
   syncBuildDraftDerivations()
 }
 
@@ -283,11 +402,17 @@ const editVehicle = (vehicleId: string) => {
   selectedCustomVehicleId.value = vehicle.id
   activeBuildStep.value = 0
   saveMessage.value = ''
+  attemptedBuildSave.value = false
 }
 
 const saveVehicle = () => {
   if (!buildDraft.value) return
-  if (buildValidationIssues.value.length) return
+  attemptedBuildSave.value = true
+  if (buildValidationIssues.value.length) {
+    activeBuildStep.value = builderSteps.length - 1
+    saveMessage.value = ''
+    return
+  }
   const saved = vehiclesStore.saveCustomVehicle(buildDraft.value)
   buildDraft.value = cloneVehicle(saved)
   selectedCustomVehicleId.value = saved.id
@@ -302,6 +427,7 @@ const duplicateVehicle = (vehicleId: string) => {
   selectedCustomVehicleId.value = copy.id
   activeBuildStep.value = 0
   saveMessage.value = `Duplicated ${copy.name || 'Custom Vehicle'}`
+  attemptedBuildSave.value = false
 }
 
 const deleteVehicle = (vehicleId: string) => {
@@ -312,6 +438,7 @@ const deleteVehicle = (vehicleId: string) => {
     syncBuildDraftDerivations()
   }
   saveMessage.value = 'Deleted vehicle'
+  attemptedBuildSave.value = false
 }
 
 const toggleFeature = (value: string) => {
@@ -337,6 +464,14 @@ const removeEquipmentEntry = (index: number) => {
 const addVehicleWeapon = () => {
   ensureBuildDraft()
   buildDraft.value?.weapons.push(createBlankVehicleWeapon())
+}
+
+const addStockVehicleWeapon = (stockWeaponId: string) => {
+  ensureBuildDraft()
+  if (!buildDraft.value) return
+  const stockWeapon = builderOptionSets.stockWeaponLibrary.find((entry) => entry.id === stockWeaponId)
+  if (!stockWeapon) return
+  buildDraft.value.weapons.push(cloneVehicle(stockWeapon.weapon))
 }
 
 const removeVehicleWeapon = (index: number) => {
@@ -579,7 +714,7 @@ watch(activeGarageTab, (tab) => {
               </button>
               <button
                 class="rounded-md border border-zinc-300 px-3 py-2 text-sm font-semibold text-zinc-700 hover:border-amber-600 disabled:cursor-not-allowed disabled:opacity-50"
-                :disabled="!buildDraft || !!buildValidationIssues.length"
+                :disabled="!buildDraft"
                 type="button"
                 @click="saveVehicle"
               >
@@ -595,19 +730,12 @@ watch(activeGarageTab, (tab) => {
           <VehicleBuilderTabs
             :steps="builderSteps"
             :active-step="activeBuildStep"
-            :can-access-step="canAccessBuildStep"
+            :step-has-issues="buildStepHasIssues"
             @select-step="setBuildStep"
           />
 
           <div v-if="buildDraft" class="mt-5 rounded-md border border-zinc-200 p-5">
-            <div class="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <h3 class="text-lg font-semibold">{{ activeBuildStepMeta.title }}</h3>
-                <p class="mt-1 text-sm text-zinc-600">{{ activeBuildStepMeta.description }}</p>
-              </div>
-            </div>
-
-            <div class="mt-5">
+            <div>
               <VehicleBuilderCoreStep
                 v-if="activeBuildStep === 0"
                 :vehicle="buildDraft"
@@ -623,7 +751,6 @@ watch(activeGarageTab, (tab) => {
                 v-else-if="activeBuildStep === 1"
                 :vehicle="buildDraft"
                 :option-sets="{
-                  comfortLevels: builderOptionSets.comfortLevels,
                   primaryPowerOptions: buildDraftPrimaryPowerOptions,
                   auxiliaryDriveOptions: buildDraftAuxiliaryDriveOptions,
                 }"
@@ -637,11 +764,12 @@ watch(activeGarageTab, (tab) => {
                 :summary="buildDraftConstructionSummary ?? { armourSummary: { rule: { materials: '-' }, baseProtection: 0, maximumProtection: 0, equivalentAddedProtection: 0, armourSpaces: 0, armourCost: 0 } }"
               />
 
-              <VehicleBuilderLoadoutStep
+              <VehicleBuilderPayloadStep
                 v-else-if="activeBuildStep === 3"
                 :vehicle="buildDraft"
+                :comfort-levels="builderOptionSets.comfortLevels"
                 :allowed-features="buildDraftFamilyRule?.allowedFeatures ?? []"
-                :equipment-suggestions="builderOptionSets.equipmentLibrary"
+                :equipment-library="builderOptionSets.equipmentLibrary"
                 :available-spaces="buildDraftConstructionSummary?.availableSpaces ?? 0"
                 :auxiliary-spaces="buildDraftConstructionSummary?.auxiliarySpaces ?? 0"
                 :allocated-spaces="buildDraftConstructionSummary?.allocatedSpaces ?? 0"
@@ -649,7 +777,17 @@ watch(activeGarageTab, (tab) => {
                 @toggle-feature="toggleFeature"
                 @add-equipment="addEquipmentEntry"
                 @remove-equipment="removeEquipmentEntry"
+              />
+
+              <VehicleBuilderWeaponsStep
+                v-else-if="activeBuildStep === 4"
+                :vehicle="buildDraft"
+                :stock-weapon-library="builderOptionSets.stockWeaponLibrary"
+                :available-spaces="buildDraftConstructionSummary?.availableSpaces ?? 0"
+                :allocated-spaces="buildDraftConstructionSummary?.allocatedSpaces ?? 0"
+                :remaining-spaces="buildDraftConstructionSummary?.remainingSpaces ?? 0"
                 @add-weapon="addVehicleWeapon"
+                @add-stock-weapon="addStockVehicleWeapon"
                 @remove-weapon="removeVehicleWeapon"
               />
 
@@ -657,6 +795,9 @@ watch(activeGarageTab, (tab) => {
                 v-else
                 :vehicle="buildDraft"
                 :validation-issues="buildValidationIssues"
+                :validation-issue-steps="buildValidationIssueSteps"
+                :show-validation="attemptedBuildSave"
+                @jump-to-step="setBuildStep"
               />
             </div>
 
@@ -676,7 +817,7 @@ watch(activeGarageTab, (tab) => {
 
               <button
                 class="rounded-md border border-cyan-300/30 bg-cyan-300/10 px-4 py-2 text-sm font-semibold text-cyan-950 transition hover:border-cyan-300 disabled:cursor-not-allowed disabled:opacity-45"
-                :disabled="activeBuildStep >= builderSteps.length - 1 || !canAccessBuildStep(activeBuildStep + 1)"
+                :disabled="activeBuildStep >= builderSteps.length - 1"
                 type="button"
                 @click="goToNextBuildStep"
               >
@@ -699,27 +840,108 @@ watch(activeGarageTab, (tab) => {
               </span>
             </div>
 
-            <div v-if="buildDraft" class="mt-5 grid grid-cols-2 gap-3 text-sm">
-              <div class="hud-stat rounded-md border p-3">
-                <p class="text-xs uppercase tracking-wide text-zinc-400">TL</p>
-                <p class="mt-1 text-lg font-semibold">{{ buildDraft.techLevel }}</p>
+            <div v-if="buildDraft" class="mt-5 grid gap-4 text-sm">
+              <div>
+                <p class="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Hull &amp; Frame</p>
+                <div class="mt-2 grid grid-cols-2 gap-2">
+                  <button class="hud-stat rounded-md border p-3 text-left transition hover:border-cyan-300/50 hover:bg-white/5" type="button" @click="activeDraftInfo = 'techLevel'">
+                    <p class="text-xs uppercase tracking-wide text-zinc-400">TL</p>
+                    <p class="mt-1 text-lg font-semibold">{{ buildDraft.techLevel }}</p>
+                  </button>
+                  <button class="hud-stat rounded-md border p-3 text-left transition hover:border-cyan-300/50 hover:bg-white/5" type="button" @click="activeDraftInfo = 'category'">
+                    <p class="text-xs uppercase tracking-wide text-zinc-400">Category</p>
+                    <p class="mt-1 text-base font-semibold leading-5">{{ categoryLabel(buildDraft.category) }}</p>
+                  </button>
+                  <button class="hud-stat rounded-md border p-3 text-left transition hover:border-cyan-300/50 hover:bg-white/5" type="button" @click="activeDraftInfo = 'structure'">
+                    <p class="text-xs uppercase tracking-wide text-zinc-400">Structure</p>
+                    <p class="mt-1 text-lg font-semibold">{{ buildDraft.structure || '-' }}</p>
+                  </button>
+                  <button class="hud-stat rounded-md border p-3 text-left transition hover:border-cyan-300/50 hover:bg-white/5" type="button" @click="activeDraftInfo = 'hitDm'">
+                    <p class="text-xs uppercase tracking-wide text-zinc-400">Hit DM</p>
+                    <p class="mt-1 text-lg font-semibold">{{ buildDraft.hitDm }}</p>
+                  </button>
+                  <button class="hud-stat rounded-md border p-3 text-left transition hover:border-cyan-300/50 hover:bg-white/5" type="button" @click="activeDraftInfo = 'operatingSkill'">
+                    <p class="text-xs uppercase tracking-wide text-zinc-400">Operating Skill</p>
+                    <p class="mt-1 text-base font-semibold leading-5">{{ buildDraft.skill || '-' }}</p>
+                    <p
+                      v-if="buildDraftConstructionSummary?.operatingSkill && buildDraftConstructionSummary.operatingSkill !== buildDraftConstructionSummary.family.defaultSkill"
+                      class="mt-1 text-[11px] leading-4 text-amber-200"
+                    >
+                      From {{ buildDraftConstructionSummary.family.defaultSkill }} via features.
+                    </p>
+                  </button>
+                  <button class="hud-stat rounded-md border p-3 text-left transition hover:border-cyan-300/50 hover:bg-white/5" type="button" @click="activeDraftInfo = 'spaceAccounting'">
+                    <p class="text-xs uppercase tracking-wide text-zinc-400">Space</p>
+                    <p class="mt-1 text-sm font-semibold leading-5">{{ buildDraftConstructionSummary?.allocatedSpaces ?? 0 }} / {{ buildDraftConstructionSummary?.availableSpaces ?? 0 }}</p>
+                    <p class="mt-1 text-[11px] leading-4 text-zinc-400">{{ buildDraftConstructionSummary?.remainingSpaces ?? 0 }} remaining</p>
+                  </button>
+                  <button class="hud-stat col-span-2 rounded-md border p-3 text-left transition hover:border-cyan-300/50 hover:bg-white/5" type="button" @click="activeDraftInfo = 'protection'">
+                    <p class="text-xs uppercase tracking-wide text-zinc-400">Protection</p>
+                    <p class="mt-1 text-sm font-semibold leading-5 text-cyan-50">
+                      Base +{{ buildDraftConstructionSummary?.armourSummary.baseProtection ?? 0 }}
+                      · Max +{{ buildDraftConstructionSummary?.armourSummary.maximumProtection ?? 0 }}
+                    </p>
+                    <p class="mt-1 text-[11px] leading-4 text-zinc-400">
+                      Armour Spaces {{ buildDraftConstructionSummary?.armourSummary.armourSpaces ?? 0 }}
+                    </p>
+                  </button>
+                </div>
               </div>
-              <div class="hud-stat rounded-md border p-3">
-                <p class="text-xs uppercase tracking-wide text-zinc-400">Spaces</p>
-                <p class="mt-1 text-lg font-semibold">{{ buildDraft.spaces }}</p>
+
+              <div>
+                <p class="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Performance</p>
+                <div class="mt-2 grid grid-cols-2 gap-2">
+                  <button class="hud-stat rounded-md border p-3 text-left transition hover:border-cyan-300/50 hover:bg-white/5" type="button" @click="activeDraftInfo = 'agility'">
+                    <p class="text-xs uppercase tracking-wide text-zinc-400">Agility</p>
+                    <p class="mt-1 text-lg font-semibold">{{ buildDraft.agility || '-' }}</p>
+                  </button>
+                  <button class="hud-stat rounded-md border p-3 text-left transition hover:border-cyan-300/50 hover:bg-white/5" type="button" @click="activeDraftInfo = 'speed'">
+                    <p class="text-xs uppercase tracking-wide text-zinc-400">Speed</p>
+                    <p class="mt-1 text-lg font-semibold">{{ buildDraft.speed || '-' }}</p>
+                  </button>
+                  <button class="hud-stat rounded-md border p-3 text-left transition hover:border-cyan-300/50 hover:bg-white/5" type="button" @click="activeDraftInfo = 'range'">
+                    <p class="text-xs uppercase tracking-wide text-zinc-400">Range</p>
+                    <p class="mt-1 text-lg font-semibold">{{ buildDraft.range || '-' }}</p>
+                  </button>
+                  <button class="hud-stat rounded-md border p-3 text-left transition hover:border-cyan-300/50 hover:bg-white/5" type="button" @click="activeDraftInfo = 'cost'">
+                    <p class="text-xs uppercase tracking-wide text-zinc-400">Cost</p>
+                    <p class="mt-1 text-lg font-semibold">{{ buildDraft.cost || '-' }}</p>
+                  </button>
+                </div>
               </div>
-              <div class="hud-stat rounded-md border p-3">
-                <p class="text-xs uppercase tracking-wide text-zinc-400">Usable Spaces</p>
-                <p class="mt-1 text-lg font-semibold">{{ buildDraftConstructionSummary?.availableSpaces ?? 0 }}</p>
+
+              <div>
+                <p class="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Occupancy</p>
+                <div class="mt-2 grid grid-cols-2 gap-2">
+                  <button class="hud-stat rounded-md border p-3 text-left transition hover:border-cyan-300/50 hover:bg-white/5" type="button" @click="activeDraftInfo = 'crew'">
+                    <p class="text-xs uppercase tracking-wide text-zinc-400">Crew</p>
+                    <p class="mt-1 text-lg font-semibold">{{ buildDraft.crew || '-' }}</p>
+                  </button>
+                  <button class="hud-stat rounded-md border p-3 text-left transition hover:border-cyan-300/50 hover:bg-white/5" type="button" @click="activeDraftInfo = 'passengers'">
+                    <p class="text-xs uppercase tracking-wide text-zinc-400">Passengers</p>
+                    <p class="mt-1 text-lg font-semibold">{{ buildDraft.passengers || '-' }}</p>
+                  </button>
+                  <button class="hud-stat rounded-md border p-3 text-left transition hover:border-cyan-300/50 hover:bg-white/5" type="button" @click="activeDraftInfo = 'comfort'">
+                    <p class="text-xs uppercase tracking-wide text-zinc-400">Comfort</p>
+                    <p class="mt-1 text-base font-semibold leading-5">{{ buildDraft.comfortLevel || '-' }}</p>
+                  </button>
+                  <button class="hud-stat rounded-md border p-3 text-left transition hover:border-cyan-300/50 hover:bg-white/5" type="button" @click="activeDraftInfo = 'cargo'">
+                    <p class="text-xs uppercase tracking-wide text-zinc-400">Cargo</p>
+                    <p class="mt-1 text-base font-semibold leading-5">{{ buildDraft.cargo || '-' }}</p>
+                  </button>
+                </div>
               </div>
-              <div class="hud-stat rounded-md border p-3">
-                <p class="text-xs uppercase tracking-wide text-zinc-400">Speed</p>
-                <p class="mt-1 text-lg font-semibold">{{ buildDraft.speed || '-' }}</p>
-              </div>
-              <div class="hud-stat rounded-md border p-3">
-                <p class="text-xs uppercase tracking-wide text-zinc-400">Cost</p>
-                <p class="mt-1 text-lg font-semibold">{{ buildDraft.cost || '-' }}</p>
-              </div>
+            </div>
+
+            <div v-if="buildDraft && buildDraftConstructionSummary" class="mt-4 grid gap-3 text-sm">
+              <button v-if="buildDraft.traits.length" class="rounded-md border border-cyan-400/20 bg-white/5 px-3 py-3 text-left transition hover:border-cyan-300/50" type="button" @click="activeDraftInfo = 'traits'">
+                <p class="text-xs uppercase tracking-wide text-zinc-400">Traits</p>
+                <div class="mt-2 flex flex-wrap gap-2">
+                  <span v-for="trait in buildDraft.traits" :key="trait" class="rounded-md border border-cyan-300/25 bg-cyan-300/10 px-2 py-1 text-xs text-cyan-100">
+                    {{ trait }}
+                  </span>
+                </div>
+              </button>
             </div>
           </section>
 
@@ -757,5 +979,12 @@ watch(activeGarageTab, (tab) => {
         </aside>
       </div>
     </section>
+
+    <VehicleBuilderInfoModal
+      :open="activeDraftInfo !== null"
+      :title="activeDraftInfo ? draftFieldInfoText[activeDraftInfo].title : ''"
+      :body="activeDraftInfo ? draftFieldInfoText[activeDraftInfo].body : ''"
+      @close="activeDraftInfo = null"
+    />
   </main>
 </template>

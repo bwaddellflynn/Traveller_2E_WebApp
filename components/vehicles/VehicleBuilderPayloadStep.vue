@@ -1,16 +1,14 @@
 <script setup lang="ts">
 import VehicleBuilderEquipmentListEditor from '~/components/vehicles/VehicleBuilderEquipmentListEditor.vue'
-import VehicleBuilderWeaponListEditor from '~/components/vehicles/VehicleBuilderWeaponListEditor.vue'
 import type { CustomVehicleDesign } from '~/types/vehicle'
-import type { VehicleBuilderEquipmentCategoryGroup, VehicleBuilderStockWeaponOption } from '~/utils/traveller/vehicles'
+import type { VehicleBuilderEquipmentCategoryGroup } from '~/utils/traveller/vehicles'
 import { vehicleFeatureRuleText } from '~/utils/traveller/vehicles'
 
 const props = defineProps<{
   vehicle: CustomVehicleDesign
-  stepIssues?: string[]
+  comfortLevels: string[]
   allowedFeatures: string[]
   equipmentLibrary: VehicleBuilderEquipmentCategoryGroup[]
-  stockWeaponLibrary: VehicleBuilderStockWeaponOption[]
   availableSpaces: number
   auxiliarySpaces: number
   allocatedSpaces: number
@@ -21,9 +19,6 @@ defineEmits<{
   (event: 'toggle-feature', value: string): void
   (event: 'add-equipment'): void
   (event: 'remove-equipment', index: number): void
-  (event: 'add-weapon'): void
-  (event: 'add-stock-weapon', stockWeaponId: string): void
-  (event: 'remove-weapon', index: number): void
 }>()
 
 const featureHelpText = (feature: string) => (
@@ -33,32 +28,14 @@ const featureHelpText = (feature: string) => (
 </script>
 
 <template>
-  <!-- Systems, equipment, and mounted weapons are grouped after chassis and protection are locked in. -->
+  <!-- Payload groups occupancy, features, and non-weapon system allocation. -->
   <div class="grid gap-4">
-    <section v-if="props.stepIssues?.length" class="rounded-md border border-amber-300/30 bg-amber-300/10 p-4">
-      <p class="text-[11px] font-semibold uppercase tracking-wide text-amber-200">Still Required In This Step</p>
-      <ul class="mt-3 grid gap-2">
-        <li v-for="issue in props.stepIssues" :key="issue" class="text-sm text-amber-100">
-          {{ issue }}
-        </li>
-      </ul>
-    </section>
-
     <section class="rounded-md border border-cyan-400/20 bg-slate-950/30 p-4">
       <div class="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h3 class="text-sm font-semibold text-cyan-50">Rule Context</h3>
+          <h3 class="text-sm font-semibold text-cyan-50">Payload Space</h3>
           <p class="mt-2 text-xs leading-5 text-zinc-400">
-            The current builder counts armour, equipment, and mounted weapon spaces. Feature space costs and the wider options chapter are not fully encoded yet.
-          </p>
-        </div>
-      </div>
-
-      <div class="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h3 class="text-sm font-semibold text-cyan-50">Space Summary</h3>
-          <p class="mt-2 text-xs leading-5 text-zinc-400">
-            Add systems in this order: features first, then equipment, then mounted weapons. Watch the remaining spaces as you go.
+            Use this step for occupancy assumptions, carried systems, and non-weapon payload. The running space summary shows how much capacity the current chassis still has available.
           </p>
         </div>
         <div class="grid gap-2 text-right text-sm">
@@ -67,7 +44,7 @@ const featureHelpText = (feature: string) => (
             <p class="mt-1 font-semibold text-cyan-50">{{ availableSpaces }}</p>
           </div>
           <div class="rounded-md border border-cyan-400/20 bg-slate-950/40 px-3 py-2">
-            <p class="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Allocated Systems</p>
+            <p class="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Allocated Spaces</p>
             <p class="mt-1 font-semibold text-cyan-50">{{ allocatedSpaces }}</p>
           </div>
           <div class="rounded-md border border-cyan-400/20 bg-slate-950/40 px-3 py-2">
@@ -83,11 +60,33 @@ const featureHelpText = (feature: string) => (
     </section>
 
     <section class="rounded-md border border-cyan-400/20 bg-slate-950/30 p-4">
+      <h3 class="text-sm font-semibold text-cyan-50">Occupancy</h3>
+      <div class="mt-3 grid gap-4 md:grid-cols-2">
+        <label class="grid gap-1 text-xs font-semibold uppercase tracking-wide text-zinc-500">
+          <span>Crew</span>
+          <input v-model="vehicle.crew" class="h-11 rounded-md border border-zinc-300 px-3 text-sm font-normal outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200" placeholder="1">
+        </label>
+        <label class="grid gap-1 text-xs font-semibold uppercase tracking-wide text-zinc-500">
+          <span>Passengers</span>
+          <input v-model="vehicle.passengers" class="h-11 rounded-md border border-zinc-300 px-3 text-sm font-normal outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200" placeholder="4">
+        </label>
+        <label class="grid gap-1 text-xs font-semibold uppercase tracking-wide text-zinc-500">
+          <span>Comfort</span>
+          <input v-model="vehicle.comfortLevel" list="vehicle-builder-comfort-payload" class="h-11 rounded-md border border-zinc-300 px-3 text-sm font-normal normal-case tracking-normal outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200" placeholder="Comfort level">
+        </label>
+        <label class="grid gap-1 text-xs font-semibold uppercase tracking-wide text-zinc-500">
+          <span>Cargo</span>
+          <input v-model="vehicle.cargo" class="h-11 rounded-md border border-zinc-300 px-3 text-sm font-normal normal-case tracking-normal outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200" placeholder="0.25 tons">
+        </label>
+      </div>
+    </section>
+
+    <section class="rounded-md border border-cyan-400/20 bg-slate-950/30 p-4">
       <div class="flex items-center justify-between gap-3">
-        <h3 class="text-sm font-semibold text-cyan-50">Choose Features</h3>
+        <h3 class="text-sm font-semibold text-cyan-50">Features</h3>
         <span class="text-xs text-cyan-100/60">{{ vehicle.features.length }} selected</span>
       </div>
-      <p class="mt-2 text-xs text-zinc-400">This list is limited to features allowed by the current handbook base vehicle type. Selected features feed the derived trait line and any automated agility or speed modifiers.</p>
+      <p class="mt-2 text-xs text-zinc-400">This list is limited to features allowed by the current handbook base vehicle type. Selected features feed the derived trait line and any automated locomotion or agility modifiers.</p>
       <p class="mt-1 text-xs text-cyan-100/60">Hover a feature for its current rule context. Click a highlighted feature again to remove it.</p>
       <div class="mt-3 flex flex-wrap gap-2">
         <div
@@ -137,12 +136,8 @@ const featureHelpText = (feature: string) => (
       @remove="$emit('remove-equipment', $event)"
     />
 
-    <VehicleBuilderWeaponListEditor
-      :weapons="vehicle.weapons"
-      :stock-weapons="stockWeaponLibrary"
-      @add="$emit('add-weapon')"
-      @add-stock="$emit('add-stock-weapon', $event)"
-      @remove="$emit('remove-weapon', $event)"
-    />
+    <datalist id="vehicle-builder-comfort-payload">
+      <option v-for="option in comfortLevels" :key="option" :value="option" />
+    </datalist>
   </div>
 </template>

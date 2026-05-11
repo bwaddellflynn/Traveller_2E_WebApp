@@ -63,8 +63,10 @@ watch(
        values they control and which the builder calculates from those choices. -->
   <div class="grid gap-4">
     <section class="rounded-md border border-cyan-400/20 bg-slate-950/30 p-4">
-      <div class="grid gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(18rem,0.9fr)]">
-        <div class="grid gap-4 md:grid-cols-2">
+      <div class="grid gap-4 md:grid-cols-2">
+          <div class="md:col-span-2">
+            <p class="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Choose</p>
+          </div>
           <label class="grid gap-1 text-xs font-semibold uppercase tracking-wide text-zinc-500 md:col-span-2">
             <span>Vehicle Name</span>
             <input v-model="props.vehicle.name" class="h-11 rounded-md border border-zinc-300 px-3 text-base font-normal normal-case tracking-normal outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200" placeholder="Name">
@@ -79,12 +81,12 @@ watch(
           <label class="grid gap-1 text-xs font-semibold uppercase tracking-wide text-zinc-500">
             <span>Tech Level</span>
             <input v-model.number="props.vehicle.techLevel" class="h-11 rounded-md border border-zinc-300 px-3 text-sm font-normal outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200" min="0" type="number">
-            <span class="text-[11px] font-normal normal-case tracking-normal text-zinc-400">Minimum TL {{ familyRule.minimumTechLevel }} for {{ familyRule.label }}.</span>
+            <span class="text-[11px] font-normal normal-case tracking-normal text-zinc-400">Minimum TL {{ familyRule.minimumTechLevel }} for {{ familyRule.label }}. TL also determines the handbook armour row used later in Protection.</span>
           </label>
           <label class="grid gap-1 text-xs font-semibold uppercase tracking-wide text-zinc-500">
             <span>Spaces</span>
             <input v-model.number="props.vehicle.spaces" class="h-11 rounded-md border border-zinc-300 px-3 text-sm font-normal outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200" min="0" type="number">
-            <span class="text-[11px] font-normal normal-case tracking-normal text-zinc-400">Primary size and capacity value. Current handbook size band: {{ derivedSizeBand.label }}</span>
+            <span class="text-[11px] font-normal normal-case tracking-normal text-zinc-400">Primary chassis-size and internal-capacity value. This is not just seating. Most later handbook calculations key off Spaces first.</span>
           </label>
           <label class="grid gap-1 text-xs font-semibold uppercase tracking-wide text-zinc-500">
             <span>Hull Class</span>
@@ -94,6 +96,9 @@ watch(
             </select>
             <span class="text-[11px] font-normal normal-case tracking-normal text-zinc-400">Structural reinforcement choice. Light and Reinforced modify hull and total cost.</span>
           </label>
+          <div class="md:col-span-2">
+            <p class="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Advanced Override</p>
+          </div>
           <label class="grid gap-1 text-xs font-semibold uppercase tracking-wide text-zinc-500 md:col-span-2">
             <span>Operating Skill Override</span>
             <input v-model="props.vehicle.skill" list="vehicle-builder-skills" class="h-11 rounded-md border border-zinc-300 px-3 text-sm font-normal normal-case tracking-normal outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200" placeholder="Drive (wheel)">
@@ -103,30 +108,6 @@ watch(
             <span>Notes</span>
             <textarea v-model="props.vehicle.notes" class="min-h-[6rem] rounded-md border border-zinc-300 px-3 py-3 text-sm font-normal normal-case tracking-normal outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200" placeholder="Variant notes, caveats, or construction notes" />
           </label>
-        </div>
-
-        <aside class="rounded-md border border-cyan-400/20 bg-slate-950/40 p-4">
-          <h3 class="text-sm font-semibold text-cyan-50">Derived Summary</h3>
-          <div class="mt-4 grid gap-3">
-            <div class="rounded-md border border-cyan-400/15 bg-slate-950/30 px-3 py-2">
-              <p class="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Category</p>
-              <p class="mt-1 text-sm font-semibold text-cyan-50">{{ familyRule.category }}</p>
-            </div>
-            <div class="rounded-md border border-cyan-400/15 bg-slate-950/30 px-3 py-2">
-              <p class="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Derived Type</p>
-              <p class="mt-1 text-sm font-semibold text-cyan-50">{{ derivedType }}</p>
-            </div>
-            <div class="rounded-md border border-cyan-400/15 bg-slate-950/30 px-3 py-2">
-              <p class="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Hit DM</p>
-              <p class="mt-1 text-sm font-semibold text-cyan-50">{{ props.vehicle.hitDm }}</p>
-              <p class="mt-1 text-[11px] text-zinc-400">Derived from Spaces using the target-size table.</p>
-            </div>
-            <div class="rounded-md border border-cyan-400/15 bg-slate-950/30 px-3 py-2">
-              <p class="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Default Skill</p>
-              <p class="mt-1 text-sm font-semibold text-cyan-50">{{ familyRule.defaultSkill }}</p>
-            </div>
-          </div>
-        </aside>
       </div>
     </section>
 

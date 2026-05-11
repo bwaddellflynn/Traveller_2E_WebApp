@@ -2,7 +2,7 @@
 const props = defineProps<{
   steps: Array<{ id: string, label: string, title: string, description: string }>
   activeStep: number
-  canAccessStep: (index: number) => boolean
+  stepHasIssues?: boolean[]
 }>()
 
 const emit = defineEmits<{
@@ -18,11 +18,15 @@ const emit = defineEmits<{
       :key="step.id"
       class="-mb-px rounded-t-md border px-3 py-2 text-sm font-semibold"
       :class="[
-        props.activeStep === index ? 'border-zinc-300 border-b-white bg-white text-zinc-950' : 'border-transparent text-zinc-600',
-        props.canAccessStep(index) ? 'hover:text-zinc-950' : 'cursor-not-allowed opacity-45',
+        props.activeStep === index
+          ? (props.stepHasIssues?.[index]
+              ? 'border-amber-500 border-b-white bg-white text-amber-700'
+              : 'border-zinc-300 border-b-white bg-white text-zinc-950')
+          : (props.stepHasIssues?.[index]
+              ? 'border-amber-500/70 bg-amber-500/10 text-amber-200'
+              : 'border-transparent text-zinc-600 hover:text-zinc-950'),
       ]"
       type="button"
-      :disabled="!props.canAccessStep(index)"
       @click="emit('select-step', index)"
     >
       {{ index + 1 }}. {{ step.label }}

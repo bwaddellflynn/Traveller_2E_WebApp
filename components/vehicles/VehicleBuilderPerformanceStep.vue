@@ -6,7 +6,6 @@ import { vehicleFamilyRule } from '~/utils/traveller/vehicles'
 const props = defineProps<{
   vehicle: CustomVehicleDesign
   optionSets: {
-    comfortLevels: string[]
     primaryPowerOptions: Array<{ id: string, label: string, minimumTechLevel: number, notes: string, endurance?: string, powerPerSpace?: number, supportsFusionPlusFuelType?: boolean }>
     auxiliaryDriveOptions: Array<{ id: string, label: string, minimumTechLevel: number, notes: string }>
   }
@@ -24,6 +23,16 @@ const emit = defineEmits<{
 
 const familyRule = computed(() => vehicleFamilyRule(props.vehicle.baseFamily))
 const selectedPrimaryPower = computed(() => props.optionSets.primaryPowerOptions.find((option) => option.id === props.vehicle.primaryPower) ?? null)
+const primaryPowerTooltip = computed(() => {
+  if (!selectedPrimaryPower.value) return ''
+  const details = [
+    `Minimum TL ${selectedPrimaryPower.value.minimumTechLevel}+`,
+    selectedPrimaryPower.value.powerPerSpace ? `${selectedPrimaryPower.value.powerPerSpace} Power/Space` : '',
+    selectedPrimaryPower.value.endurance ? selectedPrimaryPower.value.endurance : '',
+    selectedPrimaryPower.value.notes,
+  ].filter(Boolean)
+  return details.join(' • ')
+})
 const speedStepOptions = [
   { value: -3, label: '-3 Bands' },
   { value: -2, label: '-2 Bands' },
@@ -100,15 +109,18 @@ watch(
     </section>
 
     <section class="rounded-md border border-cyan-400/20 bg-slate-950/30 p-4">
-      <h3 class="text-sm font-semibold text-cyan-50">Power and Available Spaces</h3>
+      <h3 class="text-sm font-semibold text-cyan-50">Choose Power</h3>
+      <p class="mt-2 text-xs leading-5 text-zinc-400">
+        Pick the main power plant first. This determines installed plant spaces and can radically change range, cost, and usable internal capacity.
+      </p>
       <div class="mt-3 grid gap-4 md:grid-cols-2">
         <label class="grid gap-1 text-xs font-semibold uppercase tracking-wide text-zinc-500">
           <span>Primary Power</span>
-          <select v-model="vehicle.primaryPower" class="h-11 rounded-md border border-zinc-300 px-3 text-sm font-normal normal-case tracking-normal outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200">
-            <option v-for="option in optionSets.primaryPowerOptions" :key="option.id" :value="option.id">{{ option.label }}</option>
+          <select v-model="vehicle.primaryPower" :title="primaryPowerTooltip" class="h-11 rounded-md border border-zinc-300 px-3 text-sm font-normal normal-case tracking-normal outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200">
+            <option v-for="option in optionSets.primaryPowerOptions" :key="option.id" :value="option.id">{{ option.label }} (TL {{ option.minimumTechLevel }})</option>
           </select>
           <span class="text-[11px] font-normal normal-case tracking-normal text-zinc-400">
-            {{ selectedPrimaryPower?.notes }}
+            TL {{ selectedPrimaryPower?.minimumTechLevel }}+<template v-if="selectedPrimaryPower?.notes"> · {{ selectedPrimaryPower?.notes }}</template>
           </span>
         </label>
         <label class="grid gap-1 text-xs font-semibold uppercase tracking-wide text-zinc-500">
@@ -123,7 +135,7 @@ watch(
         </label>
         <label class="grid gap-1 text-xs font-semibold uppercase tracking-wide text-zinc-500">
           <span>Power Plant Summary</span>
-          <input :value="selectedPrimaryPower?.endurance || (selectedPrimaryPower?.powerPerSpace ? `${selectedPrimaryPower.powerPerSpace} Power/Space` : 'Baseline vehicle power')" readonly class="h-11 rounded-md border border-zinc-200 bg-zinc-100 px-3 text-sm font-normal text-zinc-700 outline-none">
+          <input :value="selectedPrimaryPower?.endurance || (selectedPrimaryPower?.powerPerSpace ? `${selectedPrimaryPower.powerPerSpace} Power/Space` : 'Baseline vehicle power')" :title="primaryPowerTooltip" readonly class="h-11 rounded-md border border-zinc-200 bg-zinc-100 px-3 text-sm font-normal text-zinc-700 outline-none">
           <span class="text-[11px] font-normal normal-case tracking-normal text-zinc-400">Endurance and power density are shown here when the handbook defines them explicitly.</span>
         </label>
       </div>
@@ -141,9 +153,9 @@ watch(
     </section>
 
     <section class="rounded-md border border-cyan-400/20 bg-slate-950/30 p-4">
-      <h3 class="text-sm font-semibold text-cyan-50">Customisations</h3>
+      <h3 class="text-sm font-semibold text-cyan-50">Optional Tuning</h3>
       <p class="mt-2 text-xs leading-5 text-zinc-400">
-        These are the builder controls that currently modify baseline performance directly. They are optional tuning inputs, not required chassis fields.
+        These controls modify the baseline vehicle after its family and power assumptions are chosen. Use them only if you are intentionally trading spaces, range, or cost.
       </p>
       <div class="mt-3 grid gap-4 md:grid-cols-3">
         <label class="grid gap-1 text-xs font-semibold uppercase tracking-wide text-zinc-500">
@@ -171,42 +183,9 @@ watch(
     </section>
 
     <section class="rounded-md border border-cyan-400/20 bg-slate-950/30 p-4">
-      <h3 class="text-sm font-semibold text-cyan-50">Derived Performance</h3>
+      <h3 class="text-sm font-semibold text-cyan-50">Choose Auxiliary Drive</h3>
       <p class="mt-2 text-xs leading-5 text-zinc-400">
-        This summary shows the current result after family baseline, power, auxiliary drive, and selected customisations are applied.
-      </p>
-      <div class="mt-3 grid gap-3 md:grid-cols-2">
-        <label class="grid gap-1 text-xs font-semibold uppercase tracking-wide text-zinc-500">
-          <span>Speed</span>
-          <input :value="vehicle.speed" readonly class="h-11 rounded-md border border-zinc-200 bg-zinc-100 px-3 text-sm font-normal text-zinc-700 outline-none">
-        </label>
-        <label class="grid gap-1 text-xs font-semibold uppercase tracking-wide text-zinc-500">
-          <span>Cruise Speed</span>
-          <input :value="vehicle.cruiseSpeed" readonly class="h-11 rounded-md border border-zinc-200 bg-zinc-100 px-3 text-sm font-normal text-zinc-700 outline-none">
-        </label>
-        <label class="grid gap-1 text-xs font-semibold uppercase tracking-wide text-zinc-500">
-          <span>Range</span>
-          <input :value="vehicle.range" readonly class="h-11 rounded-md border border-zinc-200 bg-zinc-100 px-3 text-sm font-normal text-zinc-700 outline-none">
-        </label>
-        <label class="grid gap-1 text-xs font-semibold uppercase tracking-wide text-zinc-500">
-          <span>Cruise Range</span>
-          <input :value="vehicle.cruiseRange" readonly class="h-11 rounded-md border border-zinc-200 bg-zinc-100 px-3 text-sm font-normal text-zinc-700 outline-none">
-        </label>
-        <label class="grid gap-1 text-xs font-semibold uppercase tracking-wide text-zinc-500">
-          <span>Shipping</span>
-          <input :value="vehicle.shipping" readonly class="h-11 rounded-md border border-zinc-200 bg-zinc-100 px-3 text-sm font-normal text-zinc-700 outline-none">
-        </label>
-        <label class="grid gap-1 text-xs font-semibold uppercase tracking-wide text-zinc-500">
-          <span>Cost</span>
-          <input :value="vehicle.cost" readonly class="h-11 rounded-md border border-zinc-200 bg-zinc-100 px-3 text-sm font-normal text-zinc-700 outline-none">
-        </label>
-      </div>
-    </section>
-
-    <section class="rounded-md border border-cyan-400/20 bg-slate-950/30 p-4">
-      <h3 class="text-sm font-semibold text-cyan-50">Auxiliary Drive</h3>
-      <p class="mt-2 text-xs leading-5 text-zinc-400">
-        Auxiliary drives add a secondary movement mode. They consume spaces and may change the derived performance shown above.
+        Auxiliary drives add a secondary movement mode. Choose one only if the design actually needs another locomotion profile, because it consumes spaces and changes the derived performance.
       </p>
       <div class="mt-3 grid gap-4 md:grid-cols-2">
         <label class="grid gap-1 text-xs font-semibold uppercase tracking-wide text-zinc-500">
@@ -241,27 +220,5 @@ watch(
       </div>
     </section>
 
-    <section class="grid gap-4 md:grid-cols-2">
-      <label class="grid gap-1 text-xs font-semibold uppercase tracking-wide text-zinc-500">
-        <span>Crew</span>
-        <input v-model="vehicle.crew" class="h-11 rounded-md border border-zinc-300 px-3 text-sm font-normal outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200" placeholder="1">
-      </label>
-      <label class="grid gap-1 text-xs font-semibold uppercase tracking-wide text-zinc-500">
-        <span>Passengers</span>
-        <input v-model="vehicle.passengers" class="h-11 rounded-md border border-zinc-300 px-3 text-sm font-normal outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200" placeholder="4">
-      </label>
-      <label class="grid gap-1 text-xs font-semibold uppercase tracking-wide text-zinc-500">
-        <span>Comfort Level</span>
-        <input v-model="vehicle.comfortLevel" list="vehicle-builder-comfort" class="h-11 rounded-md border border-zinc-300 px-3 text-sm font-normal normal-case tracking-normal outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200" placeholder="Comfort level">
-      </label>
-      <label class="grid gap-1 text-xs font-semibold uppercase tracking-wide text-zinc-500">
-        <span>Cargo</span>
-        <input v-model="vehicle.cargo" class="h-11 rounded-md border border-zinc-300 px-3 text-sm font-normal normal-case tracking-normal outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200" placeholder="0.25 tons">
-      </label>
-    </section>
-
-    <datalist id="vehicle-builder-comfort">
-      <option v-for="option in optionSets.comfortLevels" :key="option" :value="option" />
-    </datalist>
   </div>
 </template>

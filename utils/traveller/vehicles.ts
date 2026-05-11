@@ -1,6 +1,9 @@
 import coreVehiclesData from '~/data/traveller2e/vehicles/core-vehicles.json'
 import fieldCatalogueVehiclesData from '~/data/traveller2e/vehicles/field-catalogue-vehicles.json'
 import vehicleHandbookData from '~/data/traveller2e/vehicles/vehicle-handbook-vehicles.json'
+import coreEquipmentData from '~/data/traveller2e/armory/core-equipment.json'
+import fieldCatalogueEquipmentData from '~/data/traveller2e/armory/field-catalogue-equipment.json'
+import centralSupplyEquipmentData from '~/data/traveller2e/armory/central-supply-catalogue-equipment.json'
 import type {
   CustomVehicleDesign,
   CustomVehicleEquipmentEntry,
@@ -95,6 +98,33 @@ type VehicleArmourRule = {
   costPerPointPerVehicleSpace: number
 }
 
+export type VehicleBuilderEquipmentLibraryItem = {
+  id: string
+  name: string
+  label: string
+  category: string
+  categoryLabel: string
+  techLevel: number | null
+  sourceName: string
+  sourcePage?: number
+  effect?: string
+  traits: string[]
+}
+
+export type VehicleBuilderEquipmentCategoryGroup = {
+  id: string
+  label: string
+  items: VehicleBuilderEquipmentLibraryItem[]
+}
+
+export type VehicleBuilderStockWeaponOption = {
+  id: string
+  label: string
+  sourceVehicle: string
+  sourcePage?: number
+  weapon: TravellerVehicleWeapon
+}
+
 const withSource = (
   records: Record<string, unknown>[],
   sourceId: TravellerVehicleRecord['sourceId'],
@@ -123,6 +153,12 @@ const normalizeVehicleFamilyName = (name: string) => {
     .trim()
 }
 
+const categoryLabel = (value: string) => value
+  .split(/[-_/ ]+/)
+  .filter(Boolean)
+  .map((part) => `${part.charAt(0).toUpperCase()}${part.slice(1)}`)
+  .join(' ')
+
 export const allReferenceVehicleVariants = (): TravellerVehicleRecord[] => [
   ...withSource(
     coreVehiclesData.vehicles,
@@ -146,6 +182,67 @@ const vehicleHandbookVariants = (): TravellerVehicleRecord[] => withSource(
   vehicleHandbookData.sourceId as TravellerVehicleRecord['sourceId'],
   vehicleHandbookData.sourceName,
 )
+
+type EquipmentSeedRecord = {
+  id: string
+  name: string
+  category: string
+  techLevel: number | null
+  effect?: string
+  traits?: string[]
+  sourcePage?: number
+}
+
+const allEquipmentSeedRecords = (): Array<EquipmentSeedRecord & { sourceName: string }> => [
+  ...coreEquipmentData.equipment.map((item) => ({ ...item, sourceName: coreEquipmentData.sourceName })),
+  ...fieldCatalogueEquipmentData.equipment.map((item) => ({ ...item, sourceName: fieldCatalogueEquipmentData.sourceName })),
+  ...centralSupplyEquipmentData.equipment.map((item) => ({ ...item, sourceName: centralSupplyEquipmentData.sourceName })),
+]
+
+const equipmentLabel = (item: EquipmentSeedRecord) => (
+  item.techLevel === null || item.techLevel === undefined
+    ? item.name
+    : `${item.name} · TL ${item.techLevel}`
+)
+
+const stockVehicleWeaponLibrary = (): VehicleBuilderStockWeaponOption[] => {
+  const seen = new Set<string>()
+  const options: VehicleBuilderStockWeaponOption[] = []
+
+  for (const vehicle of allReferenceVehicles()) {
+    for (const weapon of vehicle.weapons ?? []) {
+      if (!weapon.name?.trim() || !weapon.damage?.trim() || weapon.damage.trim() === '-') continue
+      const signature = JSON.stringify([
+        weapon.name,
+        weapon.range,
+        weapon.damage,
+        weapon.magazine,
+        weapon.fireControl,
+        weapon.traits,
+      ])
+      if (seen.has(signature)) continue
+      seen.add(signature)
+      options.push({
+        id: `stock-vehicle-weapon-${seen.size}`,
+        label: `${weapon.name} · ${weapon.damage} · ${weapon.range}`,
+        sourceVehicle: vehicle.name,
+        sourcePage: vehicle.sourcePage,
+        weapon: {
+          name: weapon.name,
+          range: weapon.range,
+          damage: weapon.damage,
+          magazine: weapon.magazine,
+          cost: weapon.cost,
+          traits: [...weapon.traits],
+          fireControl: weapon.fireControl,
+          spaces: weapon.spaces ?? 0,
+        },
+      })
+    }
+  }
+
+  return options.sort((left, right) => left.label.localeCompare(right.label, undefined, { sensitivity: 'base' }))
+}
 
 export const allReferenceVehicles = (): TravellerVehicleRecord[] => {
   const variants = allReferenceVehicleVariants()
@@ -191,6 +288,8 @@ export const createBlankVehicleWeapon = (): TravellerVehicleWeapon => ({
 export const createBlankVehicleEquipmentEntry = (): CustomVehicleEquipmentEntry => ({
   name: '',
   spaces: 0,
+  category: '',
+  catalogueId: '',
 })
 
 export const createBlankCustomVehicle = (userId = LOCAL_USER_ID): CustomVehicleDesign => {
@@ -210,7 +309,7 @@ export const createBlankCustomVehicle = (userId = LOCAL_USER_ID): CustomVehicleD
     spaces: 0,
     hitDm: '+0',
     hull: 'Standard',
-    techLevel: 1,
+    techLevel: 10,
     skill: 'Drive (varies)',
     agility: '+0',
     speed: '',
@@ -484,6 +583,38 @@ const featureAgilityModifiers: Record<string, number> = {
 const featureSpeedModifiers: Record<string, number> = {
   Fast: 1,
   Slow: -1,
+}
+
+// Feature help text is surfaced in the builder so users can see the handbook intent
+// of each selectable vehicle feature without leaving the workflow.
+export const vehicleFeatureRuleText: Record<string, string> = {
+  'AFV': 'Armoured fighting vehicle configuration. In the current builder this primarily matters for armour, tripling the handbook maximum protection.',
+  'Aerodyne': 'Airframe shaped for powered atmospheric flight with lift surfaces integrated into the body.',
+  'Agile': 'Improves handling. Current builder effect: +1 Agility.',
+  'ATV': 'All-terrain configuration intended to keep the vehicle functional across rough or mixed terrain.',
+  'Fast': 'Pushes the design one speed band higher. Current builder effect: +1 Speed Band.',
+  'Floats': 'Allows the vehicle to remain buoyant on water without requiring a full dedicated watercraft hull.',
+  'Folding Wings': 'Wing structure can be stowed or folded for compact storage or mixed-mode operation.',
+  'Hydrofoil': 'Uses lifting foils for higher-speed water travel while reducing hull drag.',
+  'Hypersonic': 'High-atmosphere or extreme high-speed airframe treatment intended for very high velocity flight.',
+  'Jet Engines': 'Aircraft propulsion feature representing jet-based thrust rather than propeller or rotor-only flight.',
+  'Locomotive': 'Heavy rail-oriented feature intended for very large tracked rail designs. Size-gated in the builder.',
+  'Monowheel': 'Single-wheel configuration with the stability and handling tradeoffs that implies.',
+  'Multi-Legged': 'Walker body plan with multiple legs instead of a simpler two-leg layout.',
+  'Off-Roader': 'Ground configuration tuned for rough terrain rather than ideal paved-road performance.',
+  'Open Frame': 'Exposed frame with little or no enclosed bodywork. Also affects armour expectations in the builder.',
+  'Open-Topped': 'Crew/passenger compartment is exposed above. Also affects dorsal armour handling in the builder.',
+  'Ornithopter': 'Winged flapping-flight configuration rather than conventional fixed-wing or rotary lift.',
+  'Rail Rider': 'Ground vehicle built to operate directly on rail infrastructure.',
+  'Rigid': 'Airship structure uses a rigid frame rather than a softer envelope-led form.',
+  'Slow': 'Drops the design one speed band. Current builder effect: -1 Speed Band.',
+  'Smart Wheels': 'Advanced wheel system for better adaptation to terrain and handling conditions.',
+  'STOL': 'Short take-off and landing treatment for aircraft needing reduced runway requirements.',
+  'Streamlined': 'Shape treatment intended to reduce drag and improve movement through atmosphere or fluid.',
+  'Supersonic': 'Airframe is suitable for sustained supersonic flight.',
+  'Tilt Engines': 'Engine or rotor arrangement can pivot between vertical-lift and forward-flight orientations.',
+  'Tracks': 'Tracked ground-drive configuration in place of ordinary wheels.',
+  'Tunneller': 'Vehicle is equipped or structured for subsurface boring/travel. Size-gated in the builder.',
 }
 
 const hullClassModifiers = {
@@ -1004,6 +1135,16 @@ export const vehicleDerivedTypeName = (family: TravellerVehicleBaseFamily, space
   return `${sizeLabel} ${familyRuleFor(family).typeLabel}`
 }
 
+const derivedOperatingSkillForVehicle = (
+  family: VehicleFamilyRule,
+  features: string[],
+) => {
+  if (family.id !== 'ground-vehicle') return family.defaultSkill
+  if (features.includes('Tracks')) return 'Drive (track)'
+  if (features.includes('Tunneller')) return 'Drive (mole)'
+  return 'Drive (wheel)'
+}
+
 export const vehicleConstructionSummary = (vehicle: CustomVehicleDesign) => {
   const family = familyRuleFor(vehicle.baseFamily || inferBaseFamily(vehicle))
   const power = primaryPowerRules[vehicle.primaryPower]
@@ -1059,6 +1200,7 @@ export const vehicleConstructionSummary = (vehicle: CustomVehicleDesign) => {
     power,
     auxiliary,
     baseline,
+    operatingSkill: derivedOperatingSkillForVehicle(family, vehicle.features ?? []),
     powerPlantSpaces,
     availableSpaces,
     auxiliarySpaces,
@@ -1085,10 +1227,14 @@ export const normalizeCustomVehicleDesign = (vehicle: CustomVehicleDesign): Cust
     ? normalized.equipmentEntries.map((entry) => ({
         name: String(entry?.name ?? '').trim(),
         spaces: Math.max(0, Number(entry?.spaces ?? 0)),
+        category: String(entry?.category ?? '').trim(),
+        catalogueId: String(entry?.catalogueId ?? '').trim(),
       }))
     : (Array.isArray(normalized.equipment) ? normalized.equipment : []).map((name) => ({
         name: String(name ?? '').trim(),
         spaces: 0,
+        category: '',
+        catalogueId: '',
       }))
   normalized.equipment = normalized.equipmentEntries.map((entry) => entry.name).filter(Boolean)
   normalized.weapons = Array.isArray(normalized.weapons)
@@ -1162,6 +1308,7 @@ export const applyVehicleHandbookDerivations = (vehicle: CustomVehicleDesign) =>
   }
 
   const derivedTraits = [...new Set([...family.defaultTraits ?? [], ...size.traits, ...selectedFeatures, ...effectiveAuxiliary.grantedTraits ?? []])]
+  const derivedOperatingSkill = derivedOperatingSkillForVehicle(family, selectedFeatures)
   const armourRule = armourRuleForTechLevel(vehicle.techLevel)
   const baseProtection = armourRule.baseProtection
   for (const facing of Object.keys(vehicle.armour) as Array<keyof TravellerVehicleArmour>) {
@@ -1174,7 +1321,9 @@ export const applyVehicleHandbookDerivations = (vehicle: CustomVehicleDesign) =>
   vehicle.type = vehicleDerivedTypeName(family.id, vehicle.spaces)
   vehicle.hitDm = size.hitDm
   vehicle.techLevel = Math.max(vehicle.techLevel, family.minimumTechLevel)
-  if (!vehicle.skill.trim()) vehicle.skill = family.defaultSkill
+  if (!vehicle.skill.trim() || vehicle.skill === family.defaultSkill || vehicle.skill === 'Drive (wheel)' || vehicle.skill === 'Drive (track)' || vehicle.skill === 'Drive (mole)') {
+    vehicle.skill = derivedOperatingSkill
+  }
   vehicle.agility = formatSignedNumber(family.baseAgility + size.agilityModifier + agilityFeatureModifier)
   vehicle.speed = maxSpeed
   vehicle.cruiseSpeed = cruiseSpeed
@@ -1192,6 +1341,33 @@ export const applyVehicleHandbookDerivations = (vehicle: CustomVehicleDesign) =>
 
 export const vehicleBuilderOptionSets = () => {
   const vehicles = vehicleHandbookVariants()
+  const equipmentByCategory = new Map<string, VehicleBuilderEquipmentLibraryItem[]>()
+
+  for (const item of allEquipmentSeedRecords()) {
+    const category = String(item.category || 'misc').trim() || 'misc'
+    const existing = equipmentByCategory.get(category) ?? []
+    existing.push({
+      id: item.id,
+      name: item.name,
+      label: equipmentLabel(item),
+      category,
+      categoryLabel: categoryLabel(category),
+      techLevel: item.techLevel,
+      sourceName: item.sourceName,
+      sourcePage: item.sourcePage,
+      effect: item.effect,
+      traits: [...(item.traits ?? [])],
+    })
+    equipmentByCategory.set(category, existing)
+  }
+
+  const equipmentLibrary = [...equipmentByCategory.entries()]
+    .map(([id, items]) => ({
+      id,
+      label: categoryLabel(id),
+      items: items.sort((left, right) => left.label.localeCompare(right.label, undefined, { sensitivity: 'base' })),
+    }))
+    .sort((left, right) => left.label.localeCompare(right.label, undefined, { sensitivity: 'base' }))
 
   return {
     baseFamilies: vehicleBuilderFamilyOptions(),
@@ -1202,7 +1378,8 @@ export const vehicleBuilderOptionSets = () => {
     cruiseSpeeds: uniqueSorted(vehicles.map((vehicle) => vehicle.cruiseSpeed)),
     comfortLevels: uniqueSorted(vehicles.map((vehicle) => vehicle.comfortLevel)),
     featureLibrary: uniqueSorted(Object.values(handbookFamilyRules).flatMap((rule) => rule.allowedFeatures)),
-    equipmentLibrary: uniqueSorted(vehicles.flatMap((vehicle) => vehicle.equipment)),
+    equipmentLibrary,
+    stockWeaponLibrary: stockVehicleWeaponLibrary(),
   }
 }
 
