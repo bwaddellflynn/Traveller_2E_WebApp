@@ -87,7 +87,7 @@ const garageTabs = [
 ]
 const builderSteps: VehicleBuildStep[] = [
   { id: 'core', label: 'Chassis', title: 'Chassis', description: 'Set the base family, size, hull class, and other foundational vehicle inputs.' },
-  { id: 'mobility', label: 'Mobility', title: 'Mobility', description: 'Choose power, movement tuning, auxiliary drive, and the operating profile.' },
+  { id: 'mobility', label: 'Performance', title: 'Performance', description: 'Choose power, movement tuning, auxiliary drive, and the operating profile.' },
   { id: 'protection', label: 'Protection', title: 'Protection', description: 'Define the armour profile once the chassis and performance are set.' },
   { id: 'payload', label: 'Payload', title: 'Payload', description: 'Define occupancy, cargo, carried systems, and payload-space usage.' },
   { id: 'weapons', label: 'Weapons', title: 'Weapons', description: 'Assign mounted weapons and combat-system loadout.' },
@@ -905,7 +905,7 @@ watch(activeGarageTab, (tab) => {
               </div>
 
               <div>
-                <p class="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Performance</p>
+                <p class="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Mobility</p>
                 <div class="mt-2 grid grid-cols-2 gap-2">
                   <button class="hud-stat rounded-md border p-3 text-left transition hover:border-cyan-300/50 hover:bg-white/5" type="button" @click="activeDraftInfo = 'agility'">
                     <p class="text-xs uppercase tracking-wide text-zinc-400">Agility</p>

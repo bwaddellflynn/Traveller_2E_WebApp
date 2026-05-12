@@ -98,6 +98,14 @@ type VehicleArmourRule = {
   costPerPointPerVehicleSpace: number
 }
 
+export type VehicleSizeReferenceRow = {
+  key: string
+  minSpaces: number
+  maxSpaces: number | null
+  form: string
+  example: string
+}
+
 export type VehicleBuilderEquipmentLibraryItem = {
   id: string
   name: string
@@ -306,7 +314,7 @@ export const createBlankCustomVehicle = (userId = LOCAL_USER_ID): CustomVehicleD
     baseFamily: 'ground-vehicle',
     category: 'ground',
     type: '',
-    spaces: 0,
+    spaces: 1,
     hitDm: '+0',
     hull: 'Standard',
     techLevel: 10,
@@ -562,6 +570,99 @@ const sizeProfiles: VehicleSizeProfile[] = [
   { label: 'Huge', hitDm: '+4', speedModifier: -1, agilityModifier: -2, armourVolumeMultiplier: 0.5, armourAllowedFeatures: ['AFV', 'Locomotive', 'Tunneller'], traits: ['Unresponsive'] },
   { label: 'Massive', hitDm: '+6', speedModifier: -1, agilityModifier: -4, armourVolumeMultiplier: 0.5, armourAllowedFeatures: ['AFV', 'Locomotive', 'Tunneller'], traits: ['Unresponsive'] },
 ]
+
+const vehicleSizeReferenceLibrary: Record<TravellerVehicleBaseFamily, VehicleSizeReferenceRow[]> = {
+  'ground-vehicle': [
+    { key: 'ground-bike', minSpaces: 1, maxSpaces: 2, form: 'bike-scale', example: 'motorcycle, ATV, microcar' },
+    { key: 'ground-compact', minSpaces: 3, maxSpaces: 4, form: 'compact utility', example: 'compact car, dune buggy, small pickup' },
+    { key: 'ground-car', minSpaces: 5, maxSpaces: 6, form: 'car-scale', example: 'sedan, jeep, utility 4x4' },
+    { key: 'ground-van', minSpaces: 7, maxSpaces: 10, form: 'van-scale', example: 'van, light truck, large SUV' },
+    { key: 'ground-carriage', minSpaces: 11, maxSpaces: 20, form: 'carrier-scale', example: 'APC, cargo truck, bus' },
+    { key: 'ground-heavy', minSpaces: 21, maxSpaces: 40, form: 'heavy transport', example: 'heavy transport, recovery vehicle, missile carrier' },
+    { key: 'ground-platform', minSpaces: 41, maxSpaces: null, form: 'mobile platform', example: 'super-heavy hauler, mobile base platform' },
+  ],
+  hovercraft: [
+    { key: 'hover-bike', minSpaces: 1, maxSpaces: 2, form: 'personal skimmer', example: 'personal skimmer, scout hover bike' },
+    { key: 'hover-light', minSpaces: 3, maxSpaces: 4, form: 'light sled', example: 'small utility hover sled, rescue skiff' },
+    { key: 'hover-car', minSpaces: 5, maxSpaces: 6, form: 'hovercar-scale', example: 'civilian hovercar, patrol skimmer' },
+    { key: 'hover-van', minSpaces: 7, maxSpaces: 10, form: 'cargo skimmer', example: 'passenger hover van, light cargo skirtcraft' },
+    { key: 'hover-landing', minSpaces: 11, maxSpaces: 20, form: 'landing craft', example: 'troop hovercraft, landing craft' },
+    { key: 'hover-heavy', minSpaces: 21, maxSpaces: 40, form: 'industrial lifter', example: 'large cargo hovercraft, industrial lifter' },
+    { key: 'hover-platform', minSpaces: 41, maxSpaces: null, form: 'bulk hover barge', example: 'heavy landing platform, bulk hover barge' },
+  ],
+  'grav-vehicle': [
+    { key: 'grav-bike', minSpaces: 1, maxSpaces: 2, form: 'grav bike', example: 'grav bike, courier sled' },
+    { key: 'grav-light', minSpaces: 3, maxSpaces: 4, form: 'light skimmer', example: 'light grav car, recon skimmer' },
+    { key: 'grav-runabout', minSpaces: 5, maxSpaces: 6, form: 'air/raft-scale', example: 'air/raft-scale runabout, grav jeep' },
+    { key: 'grav-transport', minSpaces: 7, maxSpaces: 10, form: 'utility transport', example: 'grav van, executive air/raft, light utility transport' },
+    { key: 'grav-carrier', minSpaces: 11, maxSpaces: 20, form: 'troop carrier', example: 'grav APC, troop carrier, patrol transport' },
+    { key: 'grav-heavy', minSpaces: 21, maxSpaces: 40, form: 'assault carrier', example: 'heavy grav transport, assault carrier' },
+    { key: 'grav-platform', minSpaces: 41, maxSpaces: null, form: 'lift platform', example: 'bulk grav hauler, large lift platform' },
+  ],
+  aeroplane: [
+    { key: 'plane-ultralight', minSpaces: 1, maxSpaces: 2, form: 'ultralight', example: 'ultralight, scout plane' },
+    { key: 'plane-light', minSpaces: 3, maxSpaces: 4, form: 'light aircraft', example: 'small prop aircraft, bush plane' },
+    { key: 'plane-utility', minSpaces: 5, maxSpaces: 6, form: 'utility plane', example: 'utility plane, light executive aircraft' },
+    { key: 'plane-shuttle', minSpaces: 7, maxSpaces: 10, form: 'light shuttle', example: 'regional shuttle, light gunship' },
+    { key: 'plane-transport', minSpaces: 11, maxSpaces: 20, form: 'transport aircraft', example: 'small transport aircraft, maritime patrol plane' },
+    { key: 'plane-heavy', minSpaces: 21, maxSpaces: 40, form: 'heavy transport', example: 'cargo aircraft, bomber-scale transport' },
+    { key: 'plane-strategic', minSpaces: 41, maxSpaces: null, form: 'strategic lifter', example: 'large transport plane, strategic lifter' },
+  ],
+  rotorcraft: [
+    { key: 'rotor-scout', minSpaces: 1, maxSpaces: 2, form: 'rotor scout', example: 'single-seat rotor scout, gyrocopter' },
+    { key: 'rotor-light', minSpaces: 3, maxSpaces: 4, form: 'light helicopter', example: 'light helicopter, medevac scout' },
+    { key: 'rotor-utility', minSpaces: 5, maxSpaces: 6, form: 'utility helicopter', example: 'utility helicopter, police rotorcraft' },
+    { key: 'rotor-troop', minSpaces: 7, maxSpaces: 10, form: 'troop rotorcraft', example: 'troop helicopter, naval utility rotorcraft' },
+    { key: 'rotor-heavy', minSpaces: 11, maxSpaces: 20, form: 'heavy gunship', example: 'heavy transport helicopter, gunship' },
+    { key: 'rotor-superheavy', minSpaces: 21, maxSpaces: 40, form: 'super-heavy transport', example: 'super-heavy rotor transport' },
+    { key: 'rotor-crane', minSpaces: 41, maxSpaces: null, form: 'flying crane', example: 'flying crane, industrial lift platform' },
+  ],
+  airship: [
+    { key: 'airship-micro', minSpaces: 1, maxSpaces: 2, form: 'micro blimp', example: 'personal observation balloon, micro blimp' },
+    { key: 'airship-survey', minSpaces: 3, maxSpaces: 4, form: 'survey blimp', example: 'small survey blimp, ad airship' },
+    { key: 'airship-light', minSpaces: 5, maxSpaces: 6, form: 'light airship', example: 'light civilian airship, watch platform' },
+    { key: 'airship-patrol', minSpaces: 7, maxSpaces: 10, form: 'patrol airship', example: 'cargo blimp, patrol airship' },
+    { key: 'airship-passenger', minSpaces: 11, maxSpaces: 20, form: 'passenger airship', example: 'passenger airship, heavy observation craft' },
+    { key: 'airship-cargo', minSpaces: 21, maxSpaces: 40, form: 'cargo airship', example: 'large cargo airship' },
+    { key: 'airship-freighter', minSpaces: 41, maxSpaces: null, form: 'sky-freighter', example: 'sky-freighter, airborne habitat block' },
+  ],
+  watercraft: [
+    { key: 'water-personal', minSpaces: 1, maxSpaces: 2, form: 'personal craft', example: 'jet ski, skiff, dinghy' },
+    { key: 'water-light', minSpaces: 3, maxSpaces: 4, form: 'light boat', example: 'runabout, fishing boat, rigid inflatable' },
+    { key: 'water-motorboat', minSpaces: 5, maxSpaces: 6, form: 'motorboat-scale', example: 'motorboat, cabin cruiser, light patrol boat' },
+    { key: 'water-yacht', minSpaces: 7, maxSpaces: 10, form: 'yacht-scale', example: 'yacht, coastal patrol craft, fast launch' },
+    { key: 'water-cutter', minSpaces: 11, maxSpaces: 20, form: 'cutter-scale', example: 'ferry, cutter, trawler' },
+    { key: 'water-freighter', minSpaces: 21, maxSpaces: 40, form: 'coastal freighter', example: 'coastal freighter, corvette-scale workboat' },
+    { key: 'water-ship', minSpaces: 41, maxSpaces: null, form: 'small ship', example: 'large yacht, river cargo vessel, small ship' },
+  ],
+  submersible: [
+    { key: 'sub-personal', minSpaces: 1, maxSpaces: 2, form: 'personal submersible', example: 'diver scooter, one-man mini-sub' },
+    { key: 'sub-mini', minSpaces: 3, maxSpaces: 4, form: 'mini-sub', example: 'research mini-sub, salvage pod' },
+    { key: 'sub-light', minSpaces: 5, maxSpaces: 6, form: 'light exploration sub', example: 'light exploration submersible' },
+    { key: 'sub-patrol', minSpaces: 7, maxSpaces: 10, form: 'patrol sub', example: 'patrol sub, survey submersible' },
+    { key: 'sub-research', minSpaces: 11, maxSpaces: 20, form: 'research submarine', example: 'research submarine, heavy rescue sub' },
+    { key: 'sub-military', minSpaces: 21, maxSpaces: 40, form: 'military submarine', example: 'small military submarine, deep-ocean support craft' },
+    { key: 'sub-longrange', minSpaces: 41, maxSpaces: null, form: 'long-range submarine', example: 'large submarine, long-range undersea transport' },
+  ],
+  walker: [
+    { key: 'walker-loader', minSpaces: 1, maxSpaces: 2, form: 'loader walker', example: 'loader walker, scout biped' },
+    { key: 'walker-light', minSpaces: 3, maxSpaces: 4, form: 'light utility walker', example: 'light utility walker, industrial frame' },
+    { key: 'walker-combat', minSpaces: 5, maxSpaces: 6, form: 'combat walker', example: 'combat walker, cargo walker' },
+    { key: 'walker-troop', minSpaces: 7, maxSpaces: 10, form: 'troop walker', example: 'troop walker, heavy industrial walker' },
+    { key: 'walker-siege', minSpaces: 11, maxSpaces: 20, form: 'siege walker', example: 'siege walker, mobile drilling frame' },
+    { key: 'walker-heavy', minSpaces: 21, maxSpaces: 40, form: 'super-heavy walker', example: 'super-heavy walker, mining platform' },
+    { key: 'walker-colossal', minSpaces: 41, maxSpaces: null, form: 'colossal walker', example: 'colossal industrial walker, moving fortress chassis' },
+  ],
+  structure: [
+    { key: 'structure-pod', minSpaces: 1, maxSpaces: 2, form: 'hab pod', example: 'kiosk, field shelter, tiny hab pod' },
+    { key: 'structure-cabin', minSpaces: 3, maxSpaces: 4, form: 'small module', example: 'small cabin, workshop, checkpoint office' },
+    { key: 'structure-shop', minSpaces: 5, maxSpaces: 6, form: 'shop-scale', example: 'house module, clinic pod, machine shop' },
+    { key: 'structure-block', minSpaces: 7, maxSpaces: 10, form: 'block-scale', example: 'warehouse unit, barracks block, garage' },
+    { key: 'structure-hangar', minSpaces: 11, maxSpaces: 20, form: 'hangar module', example: 'hangar module, command post, large workshop' },
+    { key: 'structure-outpost', minSpaces: 21, maxSpaces: 40, form: 'fortified outpost', example: 'industrial hall, depot building, fortified outpost' },
+    { key: 'structure-facility', minSpaces: 41, maxSpaces: null, form: 'facility-scale', example: 'major facility, habitat block, large hangar complex' },
+  ],
+}
 
 const armourRules: VehicleArmourRule[] = [
   { minTl: 0, maxTl: 2, materials: 'Wood, Bone, etc.', baseProtection: 0, maximumProtection: 10, vehicleSpacesPerPointPercent: 0.025, costPerArmourSpace: 1000, costPerPointPerVehicleSpace: 25 },
@@ -1119,6 +1220,15 @@ export const vehicleSizeBandForSpaces = (spaces: number): VehicleSizeProfile => 
 }
 
 export const vehicleHitDmForSpaces = (spaces: number) => vehicleSizeBandForSpaces(spaces).hitDm
+
+export const vehicleSizeReferenceRowsForFamily = (family: TravellerVehicleBaseFamily) => (
+  vehicleSizeReferenceLibrary[family] ?? vehicleSizeReferenceLibrary['ground-vehicle']
+)
+
+export const vehicleSizeReferenceForVehicle = (family: TravellerVehicleBaseFamily, spaces: number) => {
+  const rows = vehicleSizeReferenceRowsForFamily(family)
+  return rows.find((row) => spaces >= row.minSpaces && (row.maxSpaces === null || spaces <= row.maxSpaces)) ?? rows[rows.length - 1]
+}
 
 export const vehicleBuilderFamilyOptions = () => Object.values(handbookFamilyRules).map((rule) => ({
   id: rule.id,

@@ -32,6 +32,13 @@ type ArmourRuleRow = {
   maximumProtection: number
 }
 
+type ArmourRuleDisplayRow = {
+  tl: number
+  materials: string
+  baseProtection: number
+  maximumProtection: number
+}
+
 const facingToRegionId: Record<ArmourFacing, string> = {
   forward: 'front',
   aft: 'back',
@@ -53,6 +60,21 @@ const armourRuleRows: ArmourRuleRow[] = [
   { tl: '17', materials: 'Coherent Superdense', baseProtection: 15, maximumProtection: 100 },
   { tl: '18+', materials: 'Collapsium', baseProtection: 20, maximumProtection: 160 },
 ]
+
+const armourRuleDisplayRows: ArmourRuleDisplayRow[] = Array.from({ length: 21 }, (_, tl) => {
+  const currentRule = armourRuleRows.find((row) => {
+    if (row.tl === '18+') return tl >= 18
+    const [minTl, maxTl] = row.tl.split('-').map(Number)
+    return tl >= minTl && tl <= maxTl
+  }) ?? armourRuleRows[armourRuleRows.length - 1]
+
+  return {
+    tl,
+    materials: currentRule.materials,
+    baseProtection: currentRule.baseProtection,
+    maximumProtection: currentRule.maximumProtection,
+  }
+})
 
 const handbookAddedArmourPoints = ref(0)
 const activeFacing = ref<ArmourFacing | null>(null)
@@ -440,7 +462,7 @@ const armourFacingFields: Array<{ key: ArmourFacing, label: string }> = [
                     class="flex h-10 items-center justify-between rounded-md border border-cyan-400/25 bg-slate-950/60 px-3 text-left text-sm font-semibold text-cyan-50 transition hover:border-cyan-300 hover:bg-slate-900/70"
                   >
                     <span>{{ summary.armourSummary.rule.materials }}</span>
-                    <span class="text-[11px] font-semibold uppercase tracking-[0.22em] text-cyan-200/75">TL</span>
+                    <span class="text-[11px] font-semibold uppercase tracking-[0.22em] text-cyan-200/75">TL {{ vehicle.techLevel }}</span>
                   </button>
                   <div class="pointer-events-none absolute left-0 top-full z-30 mt-2 hidden w-[30rem] rounded-md border border-cyan-400/35 bg-slate-950/95 p-4 shadow-[0_0_32px_rgba(34,211,238,0.16)] group-hover/material-field:block group-focus-within/material-field:block">
                     <p class="text-[11px] font-semibold uppercase tracking-[0.22em] text-cyan-200">Armour Materials By Tech Level</p>
@@ -451,8 +473,13 @@ const armourFacingFields: Array<{ key: ArmourFacing, label: string }> = [
                         <span>Base</span>
                         <span>Max</span>
                       </div>
-                      <div v-for="row in armourRuleRows" :key="row.tl" class="grid grid-cols-[4.5rem_minmax(0,1fr)_6rem_7rem] border-t border-cyan-400/10 px-3 py-2 text-xs text-zinc-200">
-                        <span>{{ row.tl }}</span>
+                      <div
+                        v-for="row in armourRuleDisplayRows"
+                        :key="row.tl"
+                        class="grid grid-cols-[4.5rem_minmax(0,1fr)_6rem_7rem] border-t border-cyan-400/10 px-3 py-2 text-xs text-zinc-200"
+                        :class="row.tl === vehicle.techLevel ? 'bg-cyan-400/10 text-cyan-50' : ''"
+                      >
+                        <span>TL {{ row.tl }}</span>
                         <span>{{ row.materials }}</span>
                         <span>+{{ row.baseProtection }}</span>
                         <span>+{{ row.maximumProtection }}</span>
