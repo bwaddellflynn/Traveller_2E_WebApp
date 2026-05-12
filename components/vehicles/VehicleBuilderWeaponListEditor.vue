@@ -27,7 +27,10 @@ const addSelectedStockWeapon = () => {
 <template>
   <div class="grid gap-3 rounded-md border border-cyan-400/20 bg-slate-950/30 p-3">
     <div class="flex items-center justify-between gap-3">
-      <p class="text-sm font-semibold text-cyan-50">Weapons</p>
+      <div>
+        <p class="text-sm font-semibold text-cyan-50">Mounted Weapon Loadout</p>
+        <p class="mt-1 text-xs leading-5 text-zinc-400">Load a stock mounted weapon as a starting point, or add a custom entry and fill in the combat details manually.</p>
+      </div>
       <div class="flex flex-wrap items-center gap-2">
         <select v-model="selectedStockWeaponId" class="h-10 min-w-[20rem] rounded-md border border-zinc-300 px-3 text-sm font-normal normal-case tracking-normal outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200">
           <option value="">Load stock mounted weapon</option>
@@ -50,7 +53,8 @@ const addSelectedStockWeapon = () => {
         :key="`vehicle-weapon-${index}`"
         class="rounded-md border border-cyan-400/20 bg-slate-950/40 p-3"
       >
-        <div class="mb-3 flex justify-end">
+        <div class="mb-3 flex items-center justify-between gap-3">
+          <p class="text-xs font-semibold uppercase tracking-wide text-cyan-100/75">Weapon {{ index + 1 }}</p>
           <button class="inline-flex items-center text-red-300 hover:text-red-200" type="button" @click="emit('remove', index)">
             <AppIcon class="h-4 w-4" name="close" />
           </button>

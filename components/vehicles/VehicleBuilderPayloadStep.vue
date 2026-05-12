@@ -1,16 +1,14 @@
 <script setup lang="ts">
+import VehicleBuilderCoreOptionsPanel from '~/components/vehicles/VehicleBuilderCoreOptionsPanel.vue'
 import VehicleBuilderEquipmentListEditor from '~/components/vehicles/VehicleBuilderEquipmentListEditor.vue'
 import type { CustomVehicleDesign } from '~/types/vehicle'
-import type { VehicleBuilderEquipmentCategoryGroup } from '~/utils/traveller/vehicles'
+import type { VehicleBuilderCoreOptionFamily, VehicleBuilderEquipmentCategoryGroup } from '~/utils/traveller/vehicles'
 
 const props = defineProps<{
   vehicle: CustomVehicleDesign
   comfortLevels: string[]
+  coreOptionFamilies: VehicleBuilderCoreOptionFamily[]
   equipmentLibrary: VehicleBuilderEquipmentCategoryGroup[]
-  availableSpaces: number
-  auxiliarySpaces: number
-  allocatedSpaces: number
-  remainingSpaces: number
 }>()
 
 defineEmits<{
@@ -22,35 +20,6 @@ defineEmits<{
 <template>
   <!-- Options groups occupancy assumptions and later-installed non-weapon systems. -->
   <div class="grid gap-4">
-    <section class="rounded-md border border-cyan-400/20 bg-slate-950/30 p-4">
-      <div class="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h3 class="text-sm font-semibold text-cyan-50">Options Space</h3>
-          <p class="mt-2 text-xs leading-5 text-zinc-400">
-            Use this step for occupancy assumptions, installed options, and non-weapon loadout. These are later-stage systems and fittings, not the inherent configuration features chosen earlier in the build.
-          </p>
-        </div>
-        <div class="grid gap-2 text-right text-sm">
-          <div class="rounded-md border border-cyan-400/20 bg-slate-950/40 px-3 py-2">
-            <p class="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Available Spaces</p>
-            <p class="mt-1 font-semibold text-cyan-50">{{ availableSpaces }}</p>
-          </div>
-          <div class="rounded-md border border-cyan-400/20 bg-slate-950/40 px-3 py-2">
-            <p class="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Allocated Spaces</p>
-            <p class="mt-1 font-semibold text-cyan-50">{{ allocatedSpaces }}</p>
-          </div>
-          <div class="rounded-md border border-cyan-400/20 bg-slate-950/40 px-3 py-2">
-            <p class="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Remaining Spaces</p>
-            <p class="mt-1 font-semibold" :class="remainingSpaces < 0 ? 'text-amber-200' : 'text-cyan-50'">{{ remainingSpaces }}</p>
-          </div>
-          <div class="rounded-md border border-cyan-400/20 bg-slate-950/40 px-3 py-2">
-            <p class="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Auxiliary Allocation</p>
-            <p class="mt-1 font-semibold text-cyan-50">{{ auxiliarySpaces }}</p>
-          </div>
-        </div>
-      </div>
-    </section>
-
     <section class="rounded-md border border-cyan-400/20 bg-slate-950/30 p-4">
       <h3 class="text-sm font-semibold text-cyan-50">Occupancy</h3>
       <div class="mt-3 grid gap-4 md:grid-cols-2">
@@ -72,6 +41,11 @@ defineEmits<{
         </label>
       </div>
     </section>
+
+    <VehicleBuilderCoreOptionsPanel
+      :vehicle="vehicle"
+      :families="coreOptionFamilies"
+    />
 
     <VehicleBuilderEquipmentListEditor
       :items="vehicle.equipmentEntries"

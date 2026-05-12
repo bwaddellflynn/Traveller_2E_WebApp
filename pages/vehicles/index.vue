@@ -20,6 +20,7 @@ import {
   normalizeCustomVehicleDesign,
   validateCustomVehicle,
   vehicleAuxiliaryDriveOptions,
+  vehicleBuilderCoreOptionFamilies,
   vehicleBuilderOptionSets,
   vehicleConstructionSummary,
   vehicleFamilyRule,
@@ -96,6 +97,7 @@ const builderSteps: VehicleBuildStep[] = [
   { id: 'review', label: 'Review', title: 'Review', description: 'Validate the finished vehicle datasheet before saving it.' },
 ]
 const builderOptionSets = vehicleBuilderOptionSets()
+const builderCoreOptionFamilies = vehicleBuilderCoreOptionFamilies()
 const allPrimaryPowerOptions = vehiclePrimaryPowerOptions()
 const allAuxiliaryDriveOptions = vehicleAuxiliaryDriveOptions()
 const sortableVehicleColumns: { key: VehicleSortKey, label: string }[] = [
@@ -242,6 +244,7 @@ const buildStepIssues = computed(() => {
       'Passenger value is required.',
     ].includes(issue)
       || issue.startsWith('Equipment ')
+      || issue.startsWith('Option ')
       || issue.includes('Allocated systems spaces')),
     weapons: issues.filter((issue) => issue.startsWith('Weapon ')),
   }
@@ -279,11 +282,11 @@ const draftFieldInfoText: Record<DraftInfoKey, { title: string, body: string }> 
   },
   category: {
     title: 'Category',
-    body: 'Category is the high-level operating family derived from the chosen vehicle base type. It helps classify the vehicle as ground, grav, aircraft, watercraft, rail, walker, hovercraft, or biotech for rules and catalogue purposes.',
+    body: 'Category is the high-level operating family derived from the chosen vehicle base type and any locomotion-defining feature overrides. It helps classify the vehicle as ground, grav, aircraft, watercraft, rail, walker, hovercraft, or biotech for rules and catalogue purposes. In the current builder, Rail Rider can shift a ground design into the rail category.',
   },
   operatingSkill: {
     title: 'Operating Skill',
-    body: 'Operating Skill is the rules-facing skill family and specialty needed to operate the vehicle. It usually follows directly from the base vehicle type, but some chassis features can change it. In this builder, ordinary ground vehicles default to Drive (wheel), Tracks changes the operating skill to Drive (track), and Tunneller changes it to Drive (mole).',
+    body: 'Operating Skill is the rules-facing skill family and specialty needed to operate the vehicle. It usually follows directly from the base vehicle type, but some chassis features can change it. In this builder, ordinary ground vehicles default to Drive (wheel), Tracks changes the operating skill to Drive (track), and Tunneller changes it to Drive (mole). Rail Rider currently keeps Drive (wheel) while shifting the vehicle into rail configuration.',
   },
   hitDm: {
     title: 'Hit DM',
@@ -787,11 +790,8 @@ watch(activeGarageTab, (tab) => {
                 v-else-if="activeBuildStep === 4"
                 :vehicle="buildDraft"
                 :comfort-levels="builderOptionSets.comfortLevels"
+                :core-option-families="builderCoreOptionFamilies"
                 :equipment-library="builderOptionSets.equipmentLibrary"
-                :available-spaces="buildDraftConstructionSummary?.availableSpaces ?? 0"
-                :auxiliary-spaces="buildDraftConstructionSummary?.auxiliarySpaces ?? 0"
-                :allocated-spaces="buildDraftConstructionSummary?.allocatedSpaces ?? 0"
-                :remaining-spaces="buildDraftConstructionSummary?.remainingSpaces ?? 0"
                 @add-equipment="addEquipmentEntry"
                 @remove-equipment="removeEquipmentEntry"
               />
@@ -800,9 +800,6 @@ watch(activeGarageTab, (tab) => {
                 v-else-if="activeBuildStep === 5"
                 :vehicle="buildDraft"
                 :stock-weapon-library="builderOptionSets.stockWeaponLibrary"
-                :available-spaces="buildDraftConstructionSummary?.availableSpaces ?? 0"
-                :allocated-spaces="buildDraftConstructionSummary?.allocatedSpaces ?? 0"
-                :remaining-spaces="buildDraftConstructionSummary?.remainingSpaces ?? 0"
                 @add-weapon="addVehicleWeapon"
                 @add-stock-weapon="addStockVehicleWeapon"
                 @remove-weapon="removeVehicleWeapon"

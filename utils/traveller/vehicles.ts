@@ -122,7 +122,24 @@ export type VehicleBuilderEquipmentLibraryItem = {
 export type VehicleBuilderEquipmentCategoryGroup = {
   id: string
   label: string
+  description: string
+  chapterId: string
+  chapterLabel: string
+  chapterDescription: string
+  chapterOrder: number
   items: VehicleBuilderEquipmentLibraryItem[]
+}
+
+export type VehicleBuilderCoreOptionFamily = {
+  id: string
+  label: string
+  description: string
+  category: string
+  options: Array<{
+    id: string
+    label: string
+    name: string
+  }>
 }
 
 export type VehicleBuilderStockWeaponOption = {
@@ -166,6 +183,84 @@ const categoryLabel = (value: string) => value
   .filter(Boolean)
   .map((part) => `${part.charAt(0).toUpperCase()}${part.slice(1)}`)
   .join(' ')
+
+const handbookOptionGroupForEquipmentCategory = (category: string) => {
+  switch (category) {
+    case 'communications':
+      return {
+        id: 'communications',
+        label: 'Communications',
+        description: 'Transmitters, receivers, relays, and long-range comms systems.',
+        chapterId: 'core-options',
+        chapterLabel: 'Core Options',
+        chapterDescription: 'Control, computing, communications, and sensor systems that define the vehicle’s operational baseline.',
+        chapterOrder: 1,
+      }
+    case 'computers':
+    case 'software':
+      return {
+        id: 'computers-control',
+        label: 'Computers & Control',
+        description: 'Computers, software packages, processors, and control-support systems.',
+        chapterId: 'core-options',
+        chapterLabel: 'Core Options',
+        chapterDescription: 'Control, computing, communications, and sensor systems that define the vehicle’s operational baseline.',
+        chapterOrder: 1,
+      }
+    case 'sensors':
+      return {
+        id: 'sensors-detection',
+        label: 'Sensors & Detection',
+        description: 'Detection, scanning, survey, and observation systems.',
+        chapterId: 'core-options',
+        chapterLabel: 'Core Options',
+        chapterDescription: 'Control, computing, communications, and sensor systems that define the vehicle’s operational baseline.',
+        chapterOrder: 1,
+      }
+    case 'medical':
+    case 'drugs':
+      return {
+        id: 'medical-crew-support',
+        label: 'Medical & Crew Support',
+        description: 'Medical fittings, treatment support, and crew-sustainment supplies.',
+        chapterId: 'internal-environmental',
+        chapterLabel: 'Internal & Environmental',
+        chapterDescription: 'Crew protection, survivability, medical support, and interior-life systems.',
+        chapterOrder: 2,
+      }
+    case 'survival':
+      return {
+        id: 'environmental-life-support',
+        label: 'Environmental & Life Support',
+        description: 'Environmental protection, survival gear, and life-support oriented systems.',
+        chapterId: 'internal-environmental',
+        chapterLabel: 'Internal & Environmental',
+        chapterDescription: 'Crew protection, survivability, medical support, and interior-life systems.',
+        chapterOrder: 2,
+      }
+    case 'support':
+    case 'tools':
+      return {
+        id: 'utility-systems',
+        label: 'Utility Systems',
+        description: 'Utility fittings, service gear, field tools, and mission support systems.',
+        chapterId: 'external-utility',
+        chapterLabel: 'External & Utility',
+        chapterDescription: 'Mission fittings, support gear, external utility systems, and field-service additions.',
+        chapterOrder: 3,
+      }
+    default:
+      return {
+        id: 'general-options',
+        label: 'General Options',
+        description: 'General installed systems and non-weapon fittings.',
+        chapterId: 'other-options',
+        chapterLabel: 'Other Options',
+        chapterDescription: 'Catch-all installed systems that do not map cleanly to the earlier handbook chapters.',
+        chapterOrder: 4,
+      }
+  }
+}
 
 export const allReferenceVehicleVariants = (): TravellerVehicleRecord[] => [
   ...withSource(
@@ -684,15 +779,16 @@ const featureAgilityModifiers: Record<string, number> = {
 const featureSpeedModifiers: Record<string, number> = {
   Fast: 1,
   Slow: -1,
+  Tracks: -1,
 }
 
 // Feature help text is surfaced in the builder so users can see the handbook intent
 // of each selectable vehicle feature without leaving the workflow.
 export const vehicleFeatureRuleText: Record<string, string> = {
-  'AFV': 'Armoured fighting vehicle configuration. In the current builder this primarily matters for armour, tripling the handbook maximum protection.',
+  'AFV': 'An armoured fighting vehicle is designed for combat conditions, using a reinforced frame and composite materials to support three times the maximum armour.',
   'Aerodyne': 'Airframe shaped for powered atmospheric flight with lift surfaces integrated into the body.',
   'Agile': 'Improves handling. Current builder effect: +1 Agility.',
-  'ATV': 'All-terrain configuration intended to keep the vehicle functional across rough or mixed terrain.',
+  'ATV': 'An all-terrain vehicle is designed with rough ground in mind and can negotiate terrain inaccessible to other vehicles.',
   'Fast': 'Pushes the design one speed band higher. Current builder effect: +1 Speed Band.',
   'Floats': 'Allows the vehicle to remain buoyant on water without requiring a full dedicated watercraft hull.',
   'Folding Wings': 'Wing structure can be stowed or folded for compact storage or mixed-mode operation.',
@@ -702,20 +798,150 @@ export const vehicleFeatureRuleText: Record<string, string> = {
   'Locomotive': 'Heavy rail-oriented feature intended for very large tracked rail designs. Size-gated in the builder.',
   'Monowheel': 'Single-wheel configuration with the stability and handling tradeoffs that implies.',
   'Multi-Legged': 'Walker body plan with multiple legs instead of a simpler two-leg layout.',
-  'Off-Roader': 'Ground configuration tuned for rough terrain rather than ideal paved-road performance.',
-  'Open Frame': 'Exposed frame with little or no enclosed bodywork. Also affects armour expectations in the builder.',
-  'Open-Topped': 'Crew/passenger compartment is exposed above. Also affects dorsal armour handling in the builder.',
+  'Off-Roader': 'An off-roader has its drive and suspension system modified to give it an improved ability to travel over unprepared surfaces such as brushland, low hills and muddy tracks.',
+  'Open Frame': 'An open-frame vehicle leaves riders exposed. In collisions, unsecured occupants are thrown 10 metres per Speed Band travelled and take additional impact damage.',
+  'Open-Topped': 'An open-topped vehicle is like an air/raft, speedboat or jeep with no cover. It is lighter and cheaper, but its dorsal face has no armour and its sides provide only half cover.',
   'Ornithopter': 'Winged flapping-flight configuration rather than conventional fixed-wing or rotary lift.',
-  'Rail Rider': 'Ground vehicle built to operate directly on rail infrastructure.',
+  'Rail Rider': 'A rail rider is a ground vehicle built to operate directly on rail infrastructure and benefit from the track type it runs on.',
   'Rigid': 'Airship structure uses a rigid frame rather than a softer envelope-led form.',
   'Slow': 'Drops the design one speed band. Current builder effect: -1 Speed Band.',
-  'Smart Wheels': 'Advanced wheel system for better adaptation to terrain and handling conditions.',
-  'STOL': 'Short take-off and landing treatment for aircraft needing reduced runway requirements.',
-  'Streamlined': 'Shape treatment intended to reduce drag and improve movement through atmosphere or fluid.',
+  'Smart Wheels': 'Smart wheels reduce all aspects of terrain penalties by one, but do not let an unsuitable vehicle ignore the need for proper terrain traits.',
+  'STOL': 'A STOL aeroplane is designed to operate from runways and landing fields in half the length of a conventional aeroplane and can maintain flight at Very Slow if its maximum Speed Band is Slow.',
+  'Streamlined': 'Streamlining improves atmospheric performance. A grav vehicle with the streamlined feature can exceed Subsonic speeds in atmosphere if its other features allow it.',
   'Supersonic': 'Airframe is suitable for sustained supersonic flight.',
   'Tilt Engines': 'Engine or rotor arrangement can pivot between vertical-lift and forward-flight orientations.',
-  'Tracks': 'Tracked ground-drive configuration in place of ordinary wheels.',
+  'Tracks': 'A tracked vehicle is designed to overcome the roughest terrain. A tracked vehicle normally has its Speed Band reduced by one.',
   'Tunneller': 'Vehicle is equipped or structured for subsurface boring/travel. Size-gated in the builder.',
+}
+
+export const vehicleFeatureMechanicalEffects = (
+  feature: string,
+  context: {
+    familyId?: TravellerVehicleBaseFamily
+    techLevel?: number
+  } = {},
+) => {
+  const effects: string[] = []
+
+  switch (feature) {
+    case 'AFV':
+      effects.push('Triples handbook maximum protection in Protection.')
+      break
+    case 'Agile':
+      effects.push('+1 Agility.')
+      break
+    case 'Fast':
+      effects.push('+1 Speed Band.')
+      break
+    case 'Slow':
+      effects.push('-1 Speed Band.')
+      break
+    case 'Tracks':
+      if (context.familyId === 'ground-vehicle') effects.push('Operating Skill becomes Drive (track).')
+      effects.push('-1 Speed Band.')
+      effects.push('Added to derived Traits.')
+      break
+    case 'Rail Rider':
+      effects.push('Vehicle category shifts to rail configuration.')
+      effects.push('Operating Skill remains Drive (wheel) in the current rules data.')
+      effects.push('Added to derived Traits.')
+      break
+    case 'Tunneller':
+      if (context.familyId === 'ground-vehicle') effects.push('Operating Skill becomes Drive (mole).')
+      effects.push('Requires Heavy size band or larger (20+ spaces).')
+      effects.push('Added to derived Traits.')
+      break
+    case 'Hydrofoil':
+      effects.push('Remains selected as a high-speed water-motion feature.')
+      effects.push('No automated hydrofoil speed shift is encoded yet.')
+      effects.push('Added to derived Traits.')
+      break
+    case 'ATV':
+      effects.push('Remains selected as a terrain-capability feature.')
+      effects.push('No additional automated ATV modifier is encoded yet.')
+      effects.push('Added to derived Traits.')
+      break
+    case 'Off-Roader':
+      effects.push('Remains selected as a rough-terrain handling feature.')
+      effects.push('No additional automated off-road modifier is encoded yet.')
+      effects.push('Added to derived Traits.')
+      break
+    case 'Smart Wheels':
+      effects.push('Remains selected as an advanced wheel-system feature.')
+      effects.push('No automated Smart Wheels mobility modifier is encoded yet.')
+      effects.push('Added to derived Traits.')
+      break
+    case 'Open Frame':
+      effects.push('Dorsal armour can be reduced to 0 when reallocating armour.')
+      effects.push('Added to derived Traits.')
+      break
+    case 'Open-Topped':
+      effects.push('Dorsal armour can be reduced to 0 when reallocating armour.')
+      effects.push('Added to derived Traits.')
+      break
+    default:
+      effects.push('Added to derived Traits.')
+      break
+  }
+
+  return effects
+}
+
+export const vehicleFeatureHasExplicitMechanicalEffect = (
+  feature: string,
+  context: {
+    familyId?: TravellerVehicleBaseFamily
+    techLevel?: number
+  } = {},
+) => {
+  const meaningfulEffects = vehicleFeatureMechanicalEffects(feature, context)
+    .filter((effect) => effect !== 'Added to derived Traits.')
+
+  return meaningfulEffects.length > 0
+}
+
+export const vehicleFeatureImpactTags = (
+  feature: string,
+  context: {
+    familyId?: TravellerVehicleBaseFamily
+    techLevel?: number
+  } = {},
+) => {
+  const tags: string[] = []
+  const effects = vehicleFeatureMechanicalEffects(feature, context)
+
+  if (effects.some((effect) => effect.includes('Operating Skill becomes') || effect.includes('rail feature') || effect.includes('water-motion feature'))) {
+    tags.push('Locomotion')
+  }
+  if (effects.some((effect) => effect.includes('Speed Band') || effect.includes('Agility') || effect.includes('terrain') || effect.includes('wheel-system'))) {
+    tags.push('Mobility')
+  }
+  if (effects.some((effect) => effect.includes('Protection') || effect.includes('armour') || effect.includes('dorsal'))) {
+    tags.push('Protection')
+  }
+  if (!vehicleFeatureHasExplicitMechanicalEffect(feature, context)) {
+    tags.push('Partial')
+  }
+
+  return [...new Set(tags)]
+}
+
+const derivedVehicleCategoryForVehicle = (
+  family: VehicleFamilyRule,
+  features: string[],
+): TravellerVehicleCategory => {
+  if (family.id === 'ground-vehicle' && features.includes('Rail Rider')) return 'rail'
+  return family.category
+}
+
+const derivedVehicleTypeNameForVehicle = (
+  family: VehicleFamilyRule,
+  spaces: number,
+  features: string[],
+) => {
+  const sizeLabel = vehicleSizeBandForSpaces(spaces).label
+  if (family.id === 'ground-vehicle' && features.includes('Rail Rider')) return `${sizeLabel} Rail Vehicle`
+  return `${sizeLabel} ${family.typeLabel}`
 }
 
 const hullClassModifiers = {
@@ -1240,6 +1466,100 @@ export const vehicleFamilyRule = (family: TravellerVehicleBaseFamily) => familyR
 export const vehiclePrimaryPowerOptions = () => Object.values(primaryPowerRules)
 export const vehicleAuxiliaryDriveOptions = () => Object.values(auxiliaryDriveRules)
 
+export const vehicleBuilderCoreOptionFamilies = (): VehicleBuilderCoreOptionFamily[] => ([
+  {
+    id: 'autopilot',
+    label: 'Autopilot',
+    description: 'Automated driving and pilot-assistance systems.',
+    category: 'computers-control',
+    options: [
+      { id: 'autopilot-basic', label: 'Basic', name: 'Autopilot (basic)' },
+      { id: 'autopilot-improved', label: 'Improved', name: 'Autopilot (improved)' },
+      { id: 'autopilot-enhanced', label: 'Enhanced', name: 'Autopilot (enhanced)' },
+      { id: 'autopilot-advanced', label: 'Advanced', name: 'Autopilot (advanced)' },
+    ],
+  },
+  {
+    id: 'control-system',
+    label: 'Control Systems',
+    description: 'Primary vehicle control systems and brains.',
+    category: 'computers-control',
+    options: [
+      { id: 'control-system-basic', label: 'Basic', name: 'Control System (basic)' },
+      { id: 'control-system-improved', label: 'Improved', name: 'Control System (improved)' },
+      { id: 'control-system-enhanced', label: 'Enhanced', name: 'Control System (enhanced)' },
+      { id: 'control-systems-improved', label: 'Improved (systems)', name: 'Control Systems (improved)' },
+      { id: 'control-systems-enhanced', label: 'Enhanced (systems)', name: 'Control Systems (enhanced)' },
+      { id: 'control-systems-advanced', label: 'Advanced (systems)', name: 'Control Systems (advanced)' },
+      { id: 'combat-vehicle-brain-basic', label: 'Combat Brain (basic)', name: 'Combat Vehicle Brain (basic)' },
+      { id: 'combat-vehicle-brain-advanced', label: 'Combat Brain (advanced)', name: 'Combat Vehicle Brain (advanced)' },
+      { id: 'vehicle-brain-interface', label: 'Vehicle Brain Interface', name: 'Vehicle Brain Interface' },
+    ],
+  },
+  {
+    id: 'communications',
+    label: 'Communications',
+    description: 'Transceivers and encrypted communications systems.',
+    category: 'communications',
+    options: [
+      { id: 'transceiver-basic', label: 'Transceiver (basic)', name: 'Transceiver (basic)' },
+      { id: 'transceiver-improved', label: 'Transceiver (improved)', name: 'Transceiver (improved)' },
+      { id: 'transceiver-enhanced', label: 'Transceiver (enhanced)', name: 'Transceiver (enhanced)' },
+      { id: 'transceiver-advanced', label: 'Transceiver (advanced)', name: 'Transceiver (advanced)' },
+      { id: 'transceiver-superior', label: 'Transceiver (superior)', name: 'Transceiver (superior)' },
+      { id: 'communication-system-improved-encrypted', label: 'Comms (improved, encrypted)', name: 'Communication System (improved, encrypted)' },
+      { id: 'communication-system-advanced-encrypted', label: 'Comms (advanced, encrypted)', name: 'Communication System (advanced, encrypted)' },
+    ],
+  },
+  {
+    id: 'navigation',
+    label: 'Navigation',
+    description: 'Navigation and route-planning systems.',
+    category: 'computers-control',
+    options: [
+      { id: 'navigation-basic', label: 'Basic', name: 'Navigation System (basic)' },
+      { id: 'navigation-improved', label: 'Improved', name: 'Navigation System (improved)' },
+      { id: 'navigation-advanced', label: 'Advanced', name: 'Navigation System (advanced)' },
+    ],
+  },
+  {
+    id: 'sensors',
+    label: 'Sensors',
+    description: 'Sensor, scan, and hardened detection suites.',
+    category: 'sensors-detection',
+    options: [
+      { id: 'sensor-system-basic', label: 'Sensor System (basic)', name: 'Sensor System (basic)' },
+      { id: 'sensor-system-improved', label: 'Sensor System (improved)', name: 'Sensor System (improved)' },
+      { id: 'sensor-system-enhanced', label: 'Sensor System (enhanced)', name: 'Sensor System (enhanced)' },
+      { id: 'sensor-system-advanced', label: 'Sensor System (advanced)', name: 'Sensor System (advanced)' },
+      { id: 'sensor-system-underwater', label: 'Sensor System (underwater)', name: 'Sensor System (underwater)' },
+      { id: 'sensors-basic', label: 'Sensors (basic)', name: 'Sensors (basic)' },
+      { id: 'sensors-improved', label: 'Sensors (improved)', name: 'Sensors (improved)' },
+      { id: 'sensors-improved-hardened', label: 'Sensors (improved, hardened)', name: 'Sensors (improved, hardened)' },
+    ],
+  },
+  {
+    id: 'camouflage',
+    label: 'Camouflage',
+    description: 'Visual and signature-reduction camouflage systems.',
+    category: 'general-options',
+    options: [
+      { id: 'camouflage-basic', label: 'Basic', name: 'Camouflage (basic)' },
+      { id: 'camouflage-improved', label: 'Improved', name: 'Camouflage (improved)' },
+      { id: 'camouflage-advanced', label: 'Advanced', name: 'Camouflage (advanced)' },
+    ],
+  },
+  {
+    id: 'stealth',
+    label: 'Stealth',
+    description: 'Vehicle stealth systems and low-signature packages.',
+    category: 'general-options',
+    options: [
+      { id: 'stealth-improved', label: 'Improved', name: 'Stealth (improved)' },
+    ],
+  },
+])
+
 export const vehicleDerivedTypeName = (family: TravellerVehicleBaseFamily, spaces: number) => {
   const sizeLabel = vehicleSizeBandForSpaces(spaces).label
   return `${sizeLabel} ${familyRuleFor(family).typeLabel}`
@@ -1427,8 +1747,8 @@ export const applyVehicleHandbookDerivations = (vehicle: CustomVehicleDesign) =>
     }
   }
 
-  vehicle.category = family.category
-  vehicle.type = vehicleDerivedTypeName(family.id, vehicle.spaces)
+  vehicle.category = derivedVehicleCategoryForVehicle(family, selectedFeatures)
+  vehicle.type = derivedVehicleTypeNameForVehicle(family, vehicle.spaces, selectedFeatures)
   vehicle.hitDm = size.hitDm
   vehicle.techLevel = Math.max(vehicle.techLevel, family.minimumTechLevel)
   if (!vehicle.skill.trim() || vehicle.skill === family.defaultSkill || vehicle.skill === 'Drive (wheel)' || vehicle.skill === 'Drive (track)' || vehicle.skill === 'Drive (mole)') {
@@ -1451,33 +1771,45 @@ export const applyVehicleHandbookDerivations = (vehicle: CustomVehicleDesign) =>
 
 export const vehicleBuilderOptionSets = () => {
   const vehicles = vehicleHandbookVariants()
-  const equipmentByCategory = new Map<string, VehicleBuilderEquipmentLibraryItem[]>()
+  const equipmentByCategory = new Map<string, VehicleBuilderEquipmentCategoryGroup>()
 
   for (const item of allEquipmentSeedRecords()) {
-    const category = String(item.category || 'misc').trim() || 'misc'
-    const existing = equipmentByCategory.get(category) ?? []
-    existing.push({
+    const sourceCategory = String(item.category || 'misc').trim() || 'misc'
+    const optionGroup = handbookOptionGroupForEquipmentCategory(sourceCategory)
+    const existing = equipmentByCategory.get(optionGroup.id) ?? {
+      id: optionGroup.id,
+      label: optionGroup.label,
+      description: optionGroup.description,
+      chapterId: optionGroup.chapterId,
+      chapterLabel: optionGroup.chapterLabel,
+      chapterDescription: optionGroup.chapterDescription,
+      chapterOrder: optionGroup.chapterOrder,
+      items: [],
+    }
+    existing.items.push({
       id: item.id,
       name: item.name,
       label: equipmentLabel(item),
-      category,
-      categoryLabel: categoryLabel(category),
+      category: optionGroup.id,
+      categoryLabel: optionGroup.label,
       techLevel: item.techLevel,
       sourceName: item.sourceName,
       sourcePage: item.sourcePage,
       effect: item.effect,
       traits: [...(item.traits ?? [])],
     })
-    equipmentByCategory.set(category, existing)
+    equipmentByCategory.set(optionGroup.id, existing)
   }
 
-  const equipmentLibrary = [...equipmentByCategory.entries()]
-    .map(([id, items]) => ({
-      id,
-      label: categoryLabel(id),
-      items: items.sort((left, right) => left.label.localeCompare(right.label, undefined, { sensitivity: 'base' })),
+  const equipmentLibrary = [...equipmentByCategory.values()]
+    .map((group) => ({
+      ...group,
+      items: group.items.sort((left, right) => left.label.localeCompare(right.label, undefined, { sensitivity: 'base' })),
     }))
-    .sort((left, right) => left.label.localeCompare(right.label, undefined, { sensitivity: 'base' }))
+    .sort((left, right) => (
+      left.chapterOrder - right.chapterOrder
+      || left.label.localeCompare(right.label, undefined, { sensitivity: 'base' })
+    ))
 
   return {
     baseFamilies: vehicleBuilderFamilyOptions(),
@@ -1543,7 +1875,7 @@ export const validateCustomVehicle = (vehicle: CustomVehicleDesign): string[] =>
   })
 
   ;(vehicle.equipmentEntries ?? []).forEach((entry, index) => {
-    const prefix = `Equipment ${index + 1}`
+    const prefix = `Option ${index + 1}`
     if (!entry.name.trim()) issues.push(`${prefix} name is required.`)
     if (Number(entry.spaces ?? 0) < 0) issues.push(`${prefix} spaces cannot be negative.`)
   })
