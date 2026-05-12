@@ -146,7 +146,7 @@ watch(
     </section>
 
     <section class="rounded-md border border-cyan-400/20 bg-slate-950/30 p-4">
-      <h3 class="text-sm font-semibold text-cyan-50">Tuning</h3>
+      <h3 class="text-sm font-semibold text-cyan-50">Performance Tuning</h3>
       <div class="mt-3 grid auto-rows-fr gap-4 md:grid-cols-3">
         <label class="flex h-full flex-col gap-1 text-xs font-semibold uppercase tracking-wide text-zinc-500">
           <span class="min-h-4 leading-4">Speed Tuning</span>
@@ -173,7 +173,7 @@ watch(
     </section>
 
     <section class="rounded-md border border-cyan-400/20 bg-slate-950/30 p-4">
-      <h3 class="text-sm font-semibold text-cyan-50">Result</h3>
+      <h3 class="text-sm font-semibold text-cyan-50">Customisation Result</h3>
       <div class="mt-3 grid auto-rows-fr gap-4 md:grid-cols-2 xl:grid-cols-3">
         <label class="flex h-full flex-col gap-1 text-xs font-semibold uppercase tracking-wide text-zinc-500">
           <span class="min-h-4 leading-4">Secondary Movement</span>

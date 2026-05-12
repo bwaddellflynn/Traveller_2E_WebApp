@@ -144,13 +144,13 @@ watch(
             </label>
           </div>
           <div class="grid gap-2 text-xs font-semibold uppercase tracking-wide text-zinc-500 self-start">
-            <span class="min-h-4 leading-4">Size/Capacity Spaces</span>
+            <span class="min-h-4 leading-4 text-transparent select-none">Size/Capacity Spaces</span>
             <input v-model.number="props.vehicle.spaces" class="h-11 rounded-md border border-zinc-300 px-3 text-sm font-normal outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200" min="1" type="number">
             <span class="min-h-[1.5rem] text-[11px] font-normal normal-case tracking-normal text-zinc-400">Primary chassis-size and internal-capacity value. This is not just seating. Most later handbook calculations key off Spaces first.</span>
+            <span class="min-h-4 leading-4">Vehicle Size Reference</span>
             <div class="overflow-hidden rounded-md border border-cyan-400/20 bg-slate-950/45">
               <div class="border-b border-cyan-400/10 bg-cyan-400/5 px-3 py-2">
-                <p class="text-[10px] font-semibold uppercase tracking-[0.18em] text-cyan-200/85">Rough Size Guidance</p>
-                <p class="mt-1 text-sm font-semibold normal-case tracking-normal text-cyan-50">
+                <p class="text-sm font-semibold normal-case tracking-normal text-cyan-50">
                   {{ familyRule.label }} at {{ props.vehicle.spaces }} spaces reads as {{ currentSizeReference.form }}: {{ currentSizeReference.example }}.
                 </p>
               </div>

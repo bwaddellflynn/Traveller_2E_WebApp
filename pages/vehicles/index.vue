@@ -2,6 +2,7 @@
 import { storeToRefs } from 'pinia'
 import type { CustomVehicleDesign, TravellerVehicleCategory, TravellerVehicleRecord } from '~/types/vehicle'
 import VehicleBuilderCoreStep from '~/components/vehicles/VehicleBuilderCoreStep.vue'
+import VehicleBuilderFeaturesStep from '~/components/vehicles/VehicleBuilderFeaturesStep.vue'
 import VehicleBuilderInfoModal from '~/components/vehicles/VehicleBuilderInfoModal.vue'
 import VehicleBuilderPayloadStep from '~/components/vehicles/VehicleBuilderPayloadStep.vue'
 import VehicleBuilderPerformanceStep from '~/components/vehicles/VehicleBuilderPerformanceStep.vue'
@@ -87,9 +88,10 @@ const garageTabs = [
 ]
 const builderSteps: VehicleBuildStep[] = [
   { id: 'core', label: 'Chassis', title: 'Chassis', description: 'Set the base family, size, hull class, and other foundational vehicle inputs.' },
-  { id: 'mobility', label: 'Performance', title: 'Performance', description: 'Choose power, movement tuning, auxiliary drive, and the operating profile.' },
+  { id: 'features', label: 'Features', title: 'Features', description: 'Choose inherent vehicle features and locomotion-defining configuration traits.' },
+  { id: 'customisation', label: 'Customisation', title: 'Customisation', description: 'Choose power, performance tuning, auxiliary drive, and other engineering modifications.' },
   { id: 'protection', label: 'Protection', title: 'Protection', description: 'Define the armour profile once the chassis and performance are set.' },
-  { id: 'payload', label: 'Payload', title: 'Payload', description: 'Define occupancy, cargo, carried systems, and payload-space usage.' },
+  { id: 'options', label: 'Options', title: 'Options', description: 'Define occupancy, cargo, and later installed non-weapon systems.' },
   { id: 'weapons', label: 'Weapons', title: 'Weapons', description: 'Assign mounted weapons and combat-system loadout.' },
   { id: 'review', label: 'Review', title: 'Review', description: 'Validate the finished vehicle datasheet before saving it.' },
 ]
@@ -220,7 +222,10 @@ const buildStepIssues = computed(() => {
       'Operating skill is required.',
       'Spaces must be greater than zero.',
     ].includes(issue) || issue.startsWith('Tech level cannot be below')),
-    mobility: issues.filter((issue) => [
+    features: issues.filter((issue) => [
+      'Selected features must be allowed for the base vehicle type.',
+    ]),
+    customisation: issues.filter((issue) => [
       'Fuel capacity changes require TL 3+.',
     ].includes(issue)
       || issue.includes('power')
@@ -231,33 +236,34 @@ const buildStepIssues = computed(() => {
       || issue.includes('fuel efficiency')
       || issue.includes('Fusion+')),
     protection: issues.filter((issue) => issue.startsWith('Armour for ') || issue.includes('armour cannot')),
-    payload: issues.filter((issue) => [
+    options: issues.filter((issue) => [
       'Comfort level is required.',
       'Crew value is required.',
       'Passenger value is required.',
     ].includes(issue)
       || issue.startsWith('Equipment ')
-      || issue.includes('Allocated systems spaces')
-      || issue === 'Selected features must be allowed for the base vehicle type.'),
+      || issue.includes('Allocated systems spaces')),
     weapons: issues.filter((issue) => issue.startsWith('Weapon ')),
   }
 })
 const buildValidationIssueSteps = computed<Record<string, number>>(() => {
   const mapping: Record<string, number> = {}
   for (const issue of buildStepIssues.value.chassis) mapping[issue] = 0
-  for (const issue of buildStepIssues.value.mobility) mapping[issue] = 1
-  for (const issue of buildStepIssues.value.protection) mapping[issue] = 2
-  for (const issue of buildStepIssues.value.payload) mapping[issue] = 3
-  for (const issue of buildStepIssues.value.weapons) mapping[issue] = 4
+  for (const issue of buildStepIssues.value.features) mapping[issue] = 1
+  for (const issue of buildStepIssues.value.customisation) mapping[issue] = 2
+  for (const issue of buildStepIssues.value.protection) mapping[issue] = 3
+  for (const issue of buildStepIssues.value.options) mapping[issue] = 4
+  for (const issue of buildStepIssues.value.weapons) mapping[issue] = 5
   return mapping
 })
 const buildStepHasIssues = computed(() => {
-  if (!attemptedBuildSave.value) return [false, false, false, false, false, false]
+  if (!attemptedBuildSave.value) return [false, false, false, false, false, false, false]
   return [
     buildStepIssues.value.chassis.length > 0,
-    buildStepIssues.value.mobility.length > 0,
+    buildStepIssues.value.features.length > 0,
+    buildStepIssues.value.customisation.length > 0,
     buildStepIssues.value.protection.length > 0,
-    buildStepIssues.value.payload.length > 0,
+    buildStepIssues.value.options.length > 0,
     buildStepIssues.value.weapons.length > 0,
     buildValidationIssues.value.length > 0,
   ]
@@ -753,8 +759,15 @@ watch(activeGarageTab, (tab) => {
                 @sync-derivations="syncBuildDraftDerivations"
               />
 
-              <VehicleBuilderPerformanceStep
+              <VehicleBuilderFeaturesStep
                 v-else-if="activeBuildStep === 1"
+                :vehicle="buildDraft"
+                :allowed-features="buildDraftFamilyRule?.allowedFeatures ?? []"
+                @toggle-feature="toggleFeature"
+              />
+
+              <VehicleBuilderPerformanceStep
+                v-else-if="activeBuildStep === 2"
                 :vehicle="buildDraft"
                 :option-sets="{
                   primaryPowerOptions: buildDraftPrimaryPowerOptions,
@@ -765,28 +778,26 @@ watch(activeGarageTab, (tab) => {
               />
 
               <VehicleBuilderProtectionStep
-                v-else-if="activeBuildStep === 2"
+                v-else-if="activeBuildStep === 3"
                 :vehicle="buildDraft"
                 :summary="buildDraftConstructionSummary ?? { armourSummary: { rule: { materials: '-' }, baseProtection: 0, maximumProtection: 0, equivalentAddedProtection: 0, armourSpaces: 0, armourCost: 0 } }"
               />
 
               <VehicleBuilderPayloadStep
-                v-else-if="activeBuildStep === 3"
+                v-else-if="activeBuildStep === 4"
                 :vehicle="buildDraft"
                 :comfort-levels="builderOptionSets.comfortLevels"
-                :allowed-features="buildDraftFamilyRule?.allowedFeatures ?? []"
                 :equipment-library="builderOptionSets.equipmentLibrary"
                 :available-spaces="buildDraftConstructionSummary?.availableSpaces ?? 0"
                 :auxiliary-spaces="buildDraftConstructionSummary?.auxiliarySpaces ?? 0"
                 :allocated-spaces="buildDraftConstructionSummary?.allocatedSpaces ?? 0"
                 :remaining-spaces="buildDraftConstructionSummary?.remainingSpaces ?? 0"
-                @toggle-feature="toggleFeature"
                 @add-equipment="addEquipmentEntry"
                 @remove-equipment="removeEquipmentEntry"
               />
 
               <VehicleBuilderWeaponsStep
-                v-else-if="activeBuildStep === 4"
+                v-else-if="activeBuildStep === 5"
                 :vehicle="buildDraft"
                 :stock-weapon-library="builderOptionSets.stockWeaponLibrary"
                 :available-spaces="buildDraftConstructionSummary?.availableSpaces ?? 0"
