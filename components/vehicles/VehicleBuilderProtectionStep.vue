@@ -499,20 +499,34 @@ const hideMaterialPopup = () => {
       </div>
 
       <div class="grid min-h-[38rem] gap-6 p-4 sm:p-5 xl:grid-cols-[minmax(24rem,0.8fr)_minmax(22rem,1fr)]">
-            <div class="group/material h-[35.75rem] min-h-[35.75rem] w-full overflow-y-auto rounded-md border border-cyan-400/20 bg-slate-950/80 p-4 shadow-[0_0_24px_rgba(34,211,238,0.10)]">
+            <div class="group/material flex h-[35.75rem] min-h-[35.75rem] w-full flex-col gap-3 overflow-hidden rounded-md border border-cyan-400/20 bg-slate-950/80 p-4 shadow-[0_0_24px_rgba(34,211,238,0.10)]">
               <div class="flex items-start justify-between gap-3">
                 <div>
                   <p class="text-[11px] font-semibold uppercase tracking-[0.22em] text-cyan-200">Armour Context</p>
                   <p class="mt-2 text-lg font-semibold text-cyan-50">+{{ overallArmourRating }} / +{{ summary.armourSummary.maximumProtection }}</p>
-                  <p class="mt-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-cyan-200/75">Purchased +{{ purchasedAdditionalArmourPoints }} / +{{ purchasedArmourCap }}</p>
                 </div>
                 <div class="text-right">
-                  <p class="text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500">Spaces</p>
-                  <p class="mt-1 text-sm font-semibold text-cyan-50">{{ previewArmourSpend.armourSpaces }}</p>
+                  <p class="text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500">Purchased</p>
+                  <p class="mt-1 text-sm font-semibold text-cyan-50">+{{ purchasedAdditionalArmourPoints }} / +{{ purchasedArmourCap }}</p>
                 </div>
               </div>
 
-              <div class="mt-4 grid gap-3">
+              <div class="grid grid-cols-3 gap-2 text-sm">
+                <div class="rounded-md border border-cyan-400/15 bg-slate-950/45 px-3 py-2">
+                  <p class="text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500">Base</p>
+                  <p class="mt-1 font-semibold text-cyan-50">+{{ summary.armourSummary.baseProtection }}</p>
+                </div>
+                <div class="rounded-md border border-cyan-400/15 bg-slate-950/45 px-3 py-2">
+                  <p class="text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500">Spaces</p>
+                  <p class="mt-1 font-semibold text-cyan-50">{{ previewArmourSpend.armourSpaces }}</p>
+                </div>
+                <div class="rounded-md border border-cyan-400/15 bg-slate-950/45 px-3 py-2">
+                  <p class="text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500">Cost</p>
+                  <p class="mt-1 font-semibold text-cyan-50">Cr{{ Math.round(previewArmourSpend.armourCost).toLocaleString() }}</p>
+                </div>
+              </div>
+
+              <div class="grid gap-3">
                 <label class="grid gap-1 text-xs font-semibold uppercase tracking-wide text-zinc-500">
                   <span>Buy Additional Armour</span>
                   <div class="grid grid-cols-[minmax(0,1fr)_minmax(0,2fr)] gap-3">
@@ -551,20 +565,26 @@ const hideMaterialPopup = () => {
                 </div>
               </div>
 
-              <div class="mt-4 grid grid-cols-2 gap-x-2 gap-y-2">
+              <div class="grid grid-cols-2 gap-x-2 gap-y-2">
                 <label
                   v-for="field in armourFacingFields"
                   :key="field.key"
                   class="grid gap-1"
+                  :class="reallocationUnlocked ? '' : 'opacity-70'"
                 >
-                  <span class="text-[10px] font-semibold uppercase tracking-[0.18em] text-cyan-200/80">{{ field.label }}</span>
+                  <span
+                    class="text-[10px] font-semibold uppercase tracking-[0.18em] transition-colors"
+                    :class="reallocationUnlocked ? 'text-cyan-200/80' : 'text-cyan-200/35'"
+                  >{{ field.label }}</span>
                   <input
                     type="text"
                     inputmode="numeric"
                     :value="currentFaceValues[field.key]"
                     :readonly="!reallocationUnlocked"
-                    class="h-8 w-full rounded-md border border-cyan-400/25 bg-slate-950/78 px-2 text-sm font-semibold text-cyan-50 outline-none transition focus:border-cyan-300 focus:ring-2 focus:ring-cyan-400/20 disabled:cursor-not-allowed disabled:border-cyan-400/10 disabled:text-cyan-200/60"
-                    :class="reallocationUnlocked ? '' : 'cursor-not-allowed border-cyan-400/10 text-cyan-200/60'"
+                    class="h-8 w-full rounded-md border px-2 text-sm font-semibold outline-none transition focus:border-cyan-300 focus:ring-2 focus:ring-cyan-400/20"
+                    :class="reallocationUnlocked
+                      ? 'border-cyan-400/25 bg-slate-950/78 text-cyan-50'
+                      : 'cursor-not-allowed border-cyan-400/10 bg-slate-900/35 text-cyan-200/35 shadow-none'"
                     @focus="handleArmourFacingFocus(field.key)"
                     @blur="activeFacing = null"
                     @input="updateArmourFacingValue(field.key, ($event.target as HTMLInputElement).value)"
@@ -572,12 +592,9 @@ const hideMaterialPopup = () => {
                 </label>
               </div>
 
-              <p v-if="reallocationUnlocked" class="mt-3 text-xs leading-5 text-zinc-400">
-                Manual changes redistribute existing purchased armour between faces. They do not increase total purchased armour.
-              </p>
               <div
                 v-if="reallocationUnlocked"
-                class="mt-3 rounded-md border px-3 py-2"
+                class="mt-auto rounded-md border px-3 py-2"
                 style="
                   border-color: rgba(251, 191, 36, 0.42);
                   background: linear-gradient(180deg, rgba(120, 53, 15, 0.9), rgba(69, 26, 3, 0.94));
@@ -585,10 +602,15 @@ const hideMaterialPopup = () => {
                   box-shadow:
                     inset 0 0 0 1px rgba(255, 255, 255, 0.05),
                     0 0 16px rgba(251, 191, 36, 0.12);
-                "
+                  "
               >
-                <p class="text-[10px] font-semibold uppercase tracking-[0.18em]" style="color: rgb(254 243 199);">Unallocated Armour</p>
-                <p class="mt-1 text-sm font-semibold" style="color: rgb(254 243 199);">{{ manualReallocationPool }}</p>
+                <div class="flex items-center justify-between gap-3">
+                  <div>
+                    <p class="text-[10px] font-semibold uppercase tracking-[0.18em]" style="color: rgb(254 243 199);">Unallocated Armour</p>
+                    <p class="mt-1 text-xs leading-4" style="color: rgb(254 243 199);">Manual changes redistribute purchased armour between faces.</p>
+                  </div>
+                  <p class="text-lg font-black" style="color: rgb(254 243 199);">{{ manualReallocationPool }}</p>
+                </div>
               </div>
             </div>
 

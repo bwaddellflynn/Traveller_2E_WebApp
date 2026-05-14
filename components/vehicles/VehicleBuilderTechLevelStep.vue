@@ -27,14 +27,6 @@ const formatTlRange = (minimum: number, maximum?: number) => maximum === undefin
 const formatCredits = (value: number) => value >= 1000000 ? `MCr${value / 1000000}` : `Cr${value.toLocaleString()}`
 const formatPercent = (value: number) => `${(value * 100).toFixed(value < 0.01 ? 2 : 1).replace(/\.0$/, '')}%`
 
-const techLevelContext = computed(() => [
-  'Vehicle type availability and baseline speed/range tables.',
-  'Feature availability, including advanced locomotion and high-speed airframes.',
-  'Power plant options such as grid, beamed, fission, fusion, Fusion+, solar, and antimatter.',
-  'Speed and range customisation limits.',
-  'Armour materials, base protection, maximum protection, armour volume, and armour cost.',
-])
-
 watch(
   () => props.vehicle.techLevel,
   () => {
@@ -84,9 +76,9 @@ watch(
                 Base Protection +{{ currentArmourRule.baseProtection }} / Maximum Protection +{{ currentArmourRule.maximumProtection }}
               </p>
             </div>
-            <ul class="grid gap-2 text-sm leading-5 text-zinc-300">
-              <li v-for="item in techLevelContext" :key="item" class="rounded-md border border-cyan-400/15 bg-slate-950/35 px-3 py-2">{{ item }}</li>
-            </ul>
+            <p class="rounded-md border border-cyan-400/15 bg-slate-950/35 px-3 py-2 text-sm leading-5 text-zinc-300">
+              Tech Level affects all following vehicle design steps.
+            </p>
           </div>
         </div>
 

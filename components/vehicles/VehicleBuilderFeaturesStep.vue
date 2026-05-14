@@ -2,6 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import type { CustomVehicleDesign } from '~/types/vehicle'
 import { vehicleFeatureRules } from '~/utils/traveller/vehicles'
+import { hasWalkerSilhouetteAsset, vehicleSilhouetteSource } from '~/utils/vehicleBuilderSilhouettes'
 
 const props = defineProps<{
   vehicle: CustomVehicleDesign
@@ -79,6 +80,14 @@ const featureVisualKind = computed(() => {
   if (visualFeature === 'Open-Topped') return 'open-topped'
   return props.vehicle.baseFamily
 })
+const featureUsesWalkerVisual = computed(() => props.vehicle.baseFamily === 'walker' || featureVisualKind.value.startsWith('walker'))
+const useWalkerFallback = computed(() => featureUsesWalkerVisual.value && !hasWalkerSilhouetteAsset())
+const silhouetteSource = computed(() => vehicleSilhouetteSource(featureUsesWalkerVisual.value ? 'walker' : 'wheeled'))
+const silhouetteImageClass = computed(() => (
+  featureUsesWalkerVisual.value
+    ? 'h-80 w-[40rem]'
+    : 'h-64 w-[32rem]'
+))
 </script>
 
 <template>
@@ -126,7 +135,15 @@ const featureVisualKind = computed(() => {
               <h4 class="text-3xl font-black uppercase leading-none tracking-wide text-cyan-50">{{ selectedRule.name }}</h4>
               <p class="mt-3 max-w-xl text-sm leading-5 text-zinc-300">{{ selectedRule.description }}</p>
             </div>
-            <svg class="pointer-events-none absolute inset-x-8 bottom-8 z-0 h-56 w-[calc(100%-4rem)] text-cyan-100/55 drop-shadow-[0_0_22px_rgba(103,232,249,0.22)]" viewBox="0 0 360 190" role="img" aria-label="Feature silhouette">
+            <img
+              v-if="!useWalkerFallback"
+              :src="silhouetteSource"
+              alt=""
+              class="pointer-events-none absolute bottom-7 left-1/2 z-0 max-w-[calc(100%-4rem)] -translate-x-1/2 object-contain object-bottom opacity-95 drop-shadow-[0_0_32px_rgba(103,232,249,0.32)]"
+              :class="silhouetteImageClass"
+              draggable="false"
+            >
+            <svg v-else class="pointer-events-none absolute inset-x-8 bottom-8 z-0 h-56 w-[calc(100%-4rem)] text-cyan-100/55 drop-shadow-[0_0_22px_rgba(103,232,249,0.22)]" viewBox="0 0 360 190" role="img" aria-label="Feature silhouette">
               <g fill="currentColor">
                 <g v-if="featureVisualKind === 'walker-multi'">
                   <rect x="118" y="42" width="124" height="54" rx="10" />

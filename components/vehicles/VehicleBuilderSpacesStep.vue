@@ -2,6 +2,7 @@
 import { computed, watch } from 'vue'
 import type { CustomVehicleDesign } from '~/types/vehicle'
 import { vehicleFamilyRule, vehicleHitDmForSpaces, vehicleSizeBandForSpaces, vehicleSizeReferenceRowsForFamily } from '~/utils/traveller/vehicles'
+import { hasWalkerSilhouetteAsset, vehicleSilhouetteSource } from '~/utils/vehicleBuilderSilhouettes'
 
 const props = defineProps<{
   vehicle: CustomVehicleDesign
@@ -17,6 +18,13 @@ const currentSize = computed(() => vehicleSizeBandForSpaces(props.vehicle.spaces
 const currentRow = computed(() => sizeRows.value.find((row) => props.vehicle.spaces >= row.minSpaces && (row.maxSpaces === null || props.vehicle.spaces <= row.maxSpaces)) ?? sizeRows.value[0])
 const currentType = computed(() => `${currentSize.value.label} ${familyRule.value.typeLabel}`)
 const visualKind = computed(() => props.vehicle.baseFamily)
+const useWalkerFallback = computed(() => visualKind.value === 'walker' && !hasWalkerSilhouetteAsset())
+const silhouetteSource = computed(() => vehicleSilhouetteSource(visualKind.value === 'walker' ? 'walker' : 'wheeled'))
+const silhouetteImageClass = computed(() => (
+  visualKind.value === 'walker'
+    ? 'h-80 w-[40rem]'
+    : 'h-64 w-[32rem]'
+))
 const formatSpacesRange = (minimum: number, maximum: number | null) => maximum === null ? `${minimum}+` : `${minimum}-${maximum}`
 const formattedShipping = computed(() => {
   const value = props.vehicle.spaces * familyRule.value.shippingRatio
@@ -82,56 +90,22 @@ watch(
             </p>
           </div>
 
-          <svg class="pointer-events-none absolute inset-x-8 bottom-8 z-0 h-56 w-[calc(100%-4rem)] text-cyan-100/55 drop-shadow-[0_0_22px_rgba(103,232,249,0.22)]" viewBox="0 0 360 190" role="img" aria-label="Vehicle silhouette">
+          <img
+            v-if="!useWalkerFallback"
+            :src="silhouetteSource"
+            alt=""
+            class="pointer-events-none absolute bottom-7 left-1/2 z-0 max-w-[calc(100%-4rem)] -translate-x-1/2 object-contain object-bottom opacity-95 drop-shadow-[0_0_32px_rgba(103,232,249,0.32)]"
+            :class="silhouetteImageClass"
+            draggable="false"
+          >
+          <svg v-else class="pointer-events-none absolute inset-x-8 bottom-8 z-0 h-56 w-[calc(100%-4rem)] text-cyan-100/55 drop-shadow-[0_0_22px_rgba(103,232,249,0.22)]" viewBox="0 0 360 190" role="img" aria-label="Vehicle silhouette">
             <g fill="currentColor">
-              <g v-if="visualKind === 'walker'">
-                <rect x="126" y="38" width="112" height="58" rx="10" />
-                <rect x="148" y="92" width="22" height="42" rx="6" />
-                <rect x="198" y="92" width="22" height="42" rx="6" />
-                <rect x="132" y="132" width="48" height="12" rx="6" />
-                <rect x="188" y="132" width="48" height="12" rx="6" />
-                <rect x="232" y="55" width="46" height="14" rx="7" />
-              </g>
-              <g v-else-if="visualKind === 'ground-vehicle'">
-                <path d="M62 104h34l22-34h122l44 34h32v24H62z" />
-                <circle cx="118" cy="137" r="18" />
-                <circle cx="260" cy="137" r="18" />
-              </g>
-              <g v-else-if="visualKind === 'aeroplane'">
-                <path d="M38 96h284l-40 22H188l-42 42h-36l24-42H72z" />
-                <path d="M154 34h44l44 62H98z" />
-              </g>
-              <g v-else-if="visualKind === 'airship'">
-                <ellipse cx="180" cy="78" rx="138" ry="44" />
-                <rect x="132" y="114" width="96" height="24" rx="6" />
-                <path d="M286 62l40-28v88z" />
-              </g>
-              <g v-else-if="visualKind === 'grav-vehicle'">
-                <path d="M74 78h190l42 34-38 28H96l-42-32z" />
-                <ellipse cx="124" cy="152" rx="54" ry="8" />
-                <ellipse cx="238" cy="152" rx="54" ry="8" />
-              </g>
-              <g v-else-if="visualKind === 'hovercraft'">
-                <path d="M58 84h226l42 34-34 26H82l-48-32z" />
-                <rect x="78" y="126" width="210" height="22" rx="11" />
-              </g>
-              <g v-else-if="visualKind === 'rotorcraft'">
-                <rect x="124" y="78" width="116" height="44" rx="18" />
-                <rect x="96" y="50" width="168" height="8" rx="4" />
-                <rect x="176" y="28" width="8" height="52" rx="4" />
-                <path d="M238 90h58l28 18h-86z" />
-                <rect x="138" y="128" width="84" height="8" rx="4" />
-              </g>
-              <g v-else-if="visualKind === 'structure'">
-                <path d="M142 34h76l18 124H124z" />
-                <rect x="112" y="158" width="136" height="12" rx="3" />
-                <rect x="156" y="58" width="48" height="12" rx="2" fill="#020617" opacity="0.55" />
-                <rect x="150" y="88" width="60" height="12" rx="2" fill="#020617" opacity="0.55" />
-              </g>
-              <g v-else>
-                <path d="M48 108h232c-18 30-54 46-108 46s-96-16-124-46z" />
-                <path d="M130 72h86l54 36H76z" />
-              </g>
+              <rect x="126" y="38" width="112" height="58" rx="10" />
+              <rect x="148" y="92" width="22" height="42" rx="6" />
+              <rect x="198" y="92" width="22" height="42" rx="6" />
+              <rect x="132" y="132" width="48" height="12" rx="6" />
+              <rect x="188" y="132" width="48" height="12" rx="6" />
+              <rect x="232" y="55" width="46" height="14" rx="7" />
             </g>
           </svg>
         </div>

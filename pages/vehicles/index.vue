@@ -3,8 +3,10 @@ import { storeToRefs } from 'pinia'
 import type { CustomVehicleDesign, TravellerVehicleCategory, TravellerVehicleRecord } from '~/types/vehicle'
 import VehicleBuilderCoreStep from '~/components/vehicles/VehicleBuilderCoreStep.vue'
 import VehicleBuilderCustomisationsStep from '~/components/vehicles/VehicleBuilderCustomisationsStep.vue'
+import VehicleBuilderAutomationStep from '~/components/vehicles/VehicleBuilderAutomationStep.vue'
 import VehicleBuilderFeaturesStep from '~/components/vehicles/VehicleBuilderFeaturesStep.vue'
 import VehicleBuilderInfoModal from '~/components/vehicles/VehicleBuilderInfoModal.vue'
+import VehicleBuilderOptionsStep from '~/components/vehicles/VehicleBuilderOptionsStep.vue'
 import VehicleBuilderProtectionStep from '~/components/vehicles/VehicleBuilderProtectionStep.vue'
 import VehicleBuilderSpacesStep from '~/components/vehicles/VehicleBuilderSpacesStep.vue'
 import VehicleBuilderTabs from '~/components/vehicles/VehicleBuilderTabs.vue'
@@ -87,7 +89,8 @@ const categories: { id: TravellerVehicleCategory | 'all', label: string }[] = [
 
 const garageTabs = [
   { id: 'reference', label: 'Pre-Fab Vehicles' },
-  { id: 'builds', label: 'Custom Vehicles' },
+  { id: 'custom', label: 'Custom Vehicles' },
+  { id: 'builder', label: 'Vehicle Builder' },
 ]
 const builderSteps: VehicleBuildStep[] = [
   { id: 'tech-level', label: 'TL', title: 'Tech Level', description: 'Choose the construction era and rules availability.' },
@@ -96,6 +99,8 @@ const builderSteps: VehicleBuildStep[] = [
   { id: 'features', label: 'Features', title: 'Features', description: 'Add chassis features allowed by the selected vehicle type.' },
   { id: 'customisations', label: 'Custom', title: 'Customisations', description: 'Choose power, performance, and auxiliary movement systems.' },
   { id: 'protection', label: 'Protection', title: 'Protection', description: 'Set armour and structural reinforcement.' },
+  { id: 'options', label: 'Options', title: 'Options', description: 'Install core, external, and internal vehicle options.' },
+  { id: 'automation', label: 'Automation', title: 'Automation', description: 'Install computers, software, drone control, and vehicle brains.' },
 ]
 const builderOptionSets = vehicleBuilderOptionSets()
 const builderCoreOptionFamilies = vehicleBuilderCoreOptionFamilies()
@@ -267,6 +272,8 @@ const buildStepHasIssues = computed(() => {
     buildStepIssues.value.features.length > 0,
     buildStepIssues.value.customisations.length > 0,
     buildStepIssues.value.protection.length > 0,
+    false,
+    false,
   ]
 })
 const draftFieldInfoText: Record<DraftInfoKey, { title: string, body: string }> = {
@@ -401,6 +408,7 @@ const ensureBuildDraft = () => {
 const newVehicle = () => {
   buildDraft.value = createBlankCustomVehicle(activeUserId.value)
   selectedCustomVehicleId.value = ''
+  activeGarageTab.value = 'builder'
   activeBuildStep.value = 0
   saveMessage.value = ''
   attemptedBuildSave.value = false
@@ -413,6 +421,7 @@ const editVehicle = (vehicleId: string) => {
   buildDraft.value = normalizeCustomVehicleDesign(cloneVehicle(vehicle))
   syncBuildDraftDerivations()
   selectedCustomVehicleId.value = vehicle.id
+  activeGarageTab.value = 'builder'
   activeBuildStep.value = 0
   saveMessage.value = ''
   attemptedBuildSave.value = false
@@ -438,6 +447,7 @@ const duplicateVehicle = (vehicleId: string) => {
   buildDraft.value = normalizeCustomVehicleDesign(cloneVehicle(copy))
   syncBuildDraftDerivations()
   selectedCustomVehicleId.value = copy.id
+  activeGarageTab.value = 'builder'
   activeBuildStep.value = 0
   saveMessage.value = `Duplicated ${copy.name || 'Custom Vehicle'}`
   attemptedBuildSave.value = false
@@ -531,7 +541,7 @@ const removeVehicleWeapon = (index: number) => {
 }
 
 watch(activeGarageTab, (tab) => {
-  if (tab === 'builds') ensureBuildDraft()
+  if (tab === 'builder') ensureBuildDraft()
 }, { immediate: true })
 </script>
 
@@ -749,7 +759,7 @@ watch(activeGarageTab, (tab) => {
       </aside>
     </section>
 
-    <section v-else class="mx-auto w-full max-w-[96rem] px-5 py-6 sm:px-8 lg:px-10">
+    <section v-else-if="activeGarageTab === 'builder'" class="mx-auto w-full max-w-[96rem] px-5 py-6 sm:px-8 lg:px-10">
       <div class="grid gap-5 xl:grid-cols-[minmax(0,1fr)_24rem]">
         <section class="hud-panel rounded-lg border p-5 shadow-sm">
           <div class="flex flex-wrap items-start justify-between gap-3">
@@ -836,9 +846,21 @@ watch(activeGarageTab, (tab) => {
               />
 
               <VehicleBuilderProtectionStep
-                v-else
+                v-else-if="activeBuildStep === 5"
                 :vehicle="buildDraft"
                 :summary="buildDraftConstructionSummary ?? { armourSummary: { rule: { materials: '-' }, baseProtection: 0, maximumProtection: 0, equivalentAddedProtection: 0, armourSpaces: 0, armourCost: 0 } }"
+              />
+
+              <VehicleBuilderOptionsStep
+                v-else-if="activeBuildStep === 6"
+                :vehicle="buildDraft"
+                @sync-derivations="syncBuildDraftDerivations"
+              />
+
+              <VehicleBuilderAutomationStep
+                v-else
+                :vehicle="buildDraft"
+                @sync-derivations="syncBuildDraftDerivations"
               />
             </div>
 
@@ -938,6 +960,36 @@ watch(activeGarageTab, (tab) => {
                 <p v-else class="mt-2 text-xs text-zinc-400">None selected</p>
               </div>
 
+              <div class="rounded-md border border-cyan-400/20 bg-white/5 px-3 py-3">
+                <p class="text-xs uppercase tracking-wide text-zinc-400">Options</p>
+                <div v-if="buildDraft.equipmentEntries.filter((entry) => entry.category !== 'Automation').length" class="mt-2 grid gap-2">
+                  <div
+                    v-for="(entry, index) in buildDraft.equipmentEntries.filter((entry) => entry.category !== 'Automation')"
+                    :key="`${entry.name}-${index}`"
+                    class="rounded-md border border-cyan-300/20 bg-slate-950/40 px-2 py-2"
+                  >
+                    <p class="text-xs font-semibold text-cyan-100">{{ entry.name }}</p>
+                    <p class="mt-1 text-[11px] text-cyan-100/60">{{ entry.category || 'Option' }} · {{ entry.spaces }} Spaces</p>
+                  </div>
+                </div>
+                <p v-else class="mt-2 text-xs text-zinc-400">None installed</p>
+              </div>
+
+              <div class="rounded-md border border-cyan-400/20 bg-white/5 px-3 py-3">
+                <p class="text-xs uppercase tracking-wide text-zinc-400">Automation</p>
+                <div v-if="buildDraft.equipmentEntries.filter((entry) => entry.category === 'Automation').length" class="mt-2 grid gap-2">
+                  <div
+                    v-for="(entry, index) in buildDraft.equipmentEntries.filter((entry) => entry.category === 'Automation')"
+                    :key="`${entry.name}-${index}`"
+                    class="rounded-md border border-cyan-300/20 bg-slate-950/40 px-2 py-2"
+                  >
+                    <p class="text-xs font-semibold text-cyan-100">{{ entry.name }}</p>
+                    <p class="mt-1 text-[11px] text-cyan-100/60">{{ entry.spaces }} Spaces</p>
+                  </div>
+                </div>
+                <p v-else class="mt-2 text-xs text-zinc-400">None installed</p>
+              </div>
+
               <button v-if="buildDraft.traits.length" class="rounded-md border border-cyan-400/20 bg-white/5 px-3 py-3 text-left transition hover:border-cyan-300/50" type="button" @click="activeDraftInfo = 'traits'">
                 <p class="text-xs uppercase tracking-wide text-zinc-400">Traits</p>
                 <div class="mt-2 flex flex-wrap gap-2">
@@ -948,40 +1000,57 @@ watch(activeGarageTab, (tab) => {
               </button>
             </div>
           </section>
-
-          <section class="hud-panel rounded-lg border p-5 shadow-sm">
-            <div class="flex items-center justify-between gap-3">
-              <h3 class="text-lg font-semibold">Saved Vehicles</h3>
-              <span class="text-xs text-zinc-500">{{ playerBuiltVehicles.length }} saved</span>
-            </div>
-
-            <div v-if="playerBuiltVehicles.length" class="mt-4 grid gap-2">
-              <div
-                v-for="vehicle in playerBuiltVehicles"
-                :key="vehicle.id"
-                class="rounded-md border p-3"
-                :class="selectedCustomVehicleId === vehicle.id ? 'border-cyan-400/50 bg-cyan-50/5' : 'border-zinc-200 bg-stone-50/30'"
-              >
-                <div class="flex items-start justify-between gap-3">
-                  <button class="min-w-0 text-left" type="button" @click="editVehicle(vehicle.id)">
-                    <p class="font-semibold text-zinc-950">{{ vehicle.name || 'Unnamed Vehicle' }}</p>
-                    <p class="mt-1 text-sm text-zinc-600">{{ vehicle.type || '-' }} · TL {{ vehicle.techLevel }}</p>
-                  </button>
-                  <div class="flex items-center gap-2">
-                    <button class="rounded-md border border-zinc-300 px-2 py-1 text-xs font-semibold text-zinc-700 hover:border-amber-600" type="button" @click="duplicateVehicle(vehicle.id)">
-                      Duplicate
-                    </button>
-                    <button class="rounded-md border border-red-300 px-2 py-1 text-xs font-semibold text-red-700 hover:border-red-500" type="button" @click="deleteVehicle(vehicle.id)">
-                      Delete
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <p v-else class="mt-4 rounded-md bg-stone-50 p-4 text-sm text-zinc-600">No custom vehicles saved yet.</p>
-          </section>
         </aside>
       </div>
+    </section>
+
+    <section v-else-if="activeGarageTab === 'custom'" class="mx-auto w-full max-w-[96rem] px-5 py-6 sm:px-8 lg:px-10">
+      <section class="hud-panel rounded-lg border p-5 shadow-sm">
+        <div class="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p class="hud-kicker text-sm font-semibold uppercase tracking-wide">Player Builds</p>
+            <h2 class="mt-2 text-2xl font-semibold">Custom Vehicles</h2>
+            <p class="mt-2 max-w-3xl text-sm leading-6 text-zinc-600">
+              Saved custom vehicle designs. Open one to continue editing in the builder.
+            </p>
+          </div>
+          <button class="rounded-md border border-zinc-300 px-3 py-2 text-sm font-semibold text-zinc-700 hover:border-amber-600" type="button" @click="newVehicle">
+            New Vehicle
+          </button>
+        </div>
+
+        <div class="mt-5 flex items-center justify-between gap-3 border-b border-cyan-400/20 pb-3">
+          <h3 class="text-lg font-semibold">Saved Vehicles</h3>
+          <span class="text-xs text-zinc-500">{{ playerBuiltVehicles.length }} saved</span>
+        </div>
+
+        <div v-if="playerBuiltVehicles.length" class="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          <div
+            v-for="vehicle in playerBuiltVehicles"
+            :key="vehicle.id"
+            class="rounded-md border p-4"
+            :class="selectedCustomVehicleId === vehicle.id ? 'border-cyan-400/50 bg-cyan-50/5' : 'border-zinc-200 bg-stone-50/30'"
+          >
+            <button class="block min-w-0 text-left" type="button" @click="editVehicle(vehicle.id)">
+              <p class="font-semibold text-zinc-950">{{ vehicle.name || 'Unnamed Vehicle' }}</p>
+              <p class="mt-1 text-sm text-zinc-600">{{ vehicle.type || '-' }} · TL {{ vehicle.techLevel }}</p>
+              <p class="mt-2 text-xs text-zinc-500">{{ vehicle.spaces }} Spaces · {{ vehicle.speed || 'Speed pending' }} · {{ formatCredits(vehicle.costCredits) }}</p>
+            </button>
+            <div class="mt-4 flex flex-wrap items-center gap-2">
+              <button class="rounded-md border border-zinc-300 px-2 py-1 text-xs font-semibold text-zinc-700 hover:border-amber-600" type="button" @click="editVehicle(vehicle.id)">
+                Edit
+              </button>
+              <button class="rounded-md border border-zinc-300 px-2 py-1 text-xs font-semibold text-zinc-700 hover:border-amber-600" type="button" @click="duplicateVehicle(vehicle.id)">
+                Duplicate
+              </button>
+              <button class="rounded-md border border-red-300 px-2 py-1 text-xs font-semibold text-red-700 hover:border-red-500" type="button" @click="deleteVehicle(vehicle.id)">
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+        <p v-else class="mt-4 rounded-md bg-stone-50 p-4 text-sm text-zinc-600">No custom vehicles saved yet.</p>
+      </section>
     </section>
 
     <VehicleBuilderInfoModal
