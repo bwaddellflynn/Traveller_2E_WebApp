@@ -23,7 +23,7 @@ defineEmits<{
         <div>
           <h3 class="text-sm font-semibold text-cyan-50">Weapons</h3>
           <p class="mt-2 text-xs leading-5 text-zinc-400">
-            Add mounted weapons here after chassis, features, customisation, and protection are settled. This step currently covers weapon entries and stock mounted-weapon loading. Mount mechanics, fire-control treatment, and linked-weapon rules still need a fuller handbook pass.
+            Add mounted weapons after the frame, protection, systems, occupants, and cargo are settled.
           </p>
         </div>
         <span class="text-xs text-cyan-100/60">{{ vehicle.weapons.length }} mounted</span>

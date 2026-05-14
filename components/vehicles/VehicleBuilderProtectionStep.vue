@@ -81,6 +81,9 @@ const activeFacing = ref<ArmourFacing | null>(null)
 const purchaseInputDirty = ref(false)
 const reallocationUnlocked = ref(false)
 const manualAllocationDirty = ref(false)
+const materialButton = ref<HTMLElement | null>(null)
+const materialPopupVisible = ref(false)
+const materialPopupPosition = ref({ left: 0, top: 0 })
 
 const appliedAdditionalArmourPoints = computed(() => Math.max(0, Math.round(props.summary.armourSummary.equivalentAddedProtection)))
 const purchasedAdditionalArmourPoints = computed(() => Math.max(0, Math.round(handbookAddedArmourPoints.value)))
@@ -414,15 +417,89 @@ const armourFacingFields: Array<{ key: ArmourFacing, label: string }> = [
   { key: 'ventral', label: 'Ventral' },
 ]
 
+const materialPopupStyle = computed(() => ({
+  left: `${materialPopupPosition.value.left}px`,
+  top: `${materialPopupPosition.value.top}px`,
+}))
+
+const showMaterialPopup = () => {
+  const button = materialButton.value
+  if (!button || typeof window === 'undefined') return
+  const rect = button.getBoundingClientRect()
+  const popupWidth = 480
+  const viewportPadding = 16
+  materialPopupPosition.value = {
+    left: Math.min(
+      Math.max(viewportPadding, rect.left),
+      Math.max(viewportPadding, window.innerWidth - popupWidth - viewportPadding),
+    ),
+    top: rect.bottom + 8,
+  }
+  materialPopupVisible.value = true
+}
+
+const hideMaterialPopup = () => {
+  materialPopupVisible.value = false
+}
+
 </script>
 
 <template>
   <div class="grid gap-4">
-    <section class="rounded-md border border-cyan-400/20 bg-slate-950/35 p-4">
-      <div class="grid gap-4">
-          <div class="w-full overflow-hidden rounded-md border border-cyan-400/20 bg-[radial-gradient(circle_at_top,_rgba(34,211,238,0.08),_transparent_42%),linear-gradient(180deg,rgba(2,6,23,0.88),rgba(2,6,23,0.96))] p-4">
-            <div class="grid min-h-[42rem] gap-6 xl:grid-cols-[minmax(16rem,0.82fr)_minmax(0,2.18fr)]">
-            <div class="group/material rounded-md border border-cyan-400/20 bg-slate-950/80 p-4 shadow-[0_0_24px_rgba(34,211,238,0.10)]">
+    <section class="overflow-hidden rounded-md border border-cyan-400/25 bg-slate-950/45 text-cyan-50 shadow-[0_0_28px_rgba(34,211,238,0.08)]">
+      <div class="border-b border-cyan-400/30 bg-cyan-400/10 px-4 py-3 sm:px-5">
+        <div class="grid gap-3 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-end">
+          <div>
+            <p class="text-[11px] font-semibold uppercase tracking-[0.2em] text-cyan-200/80">Vehicle Design Step 6</p>
+            <h3 class="mt-1 text-xl font-black uppercase tracking-wide text-cyan-50">Set Protection</h3>
+          </div>
+          <div class="grid gap-1 text-xs font-semibold uppercase tracking-wide text-zinc-400">
+            <span>Armour Allocation</span>
+            <div
+              class="relative h-11 overflow-hidden rounded-md p-1"
+              style="
+                border: 1px solid rgba(34, 211, 238, 0.3);
+                background: rgba(2, 6, 23, 0.78);
+                box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.03);
+              "
+            >
+              <div class="pointer-events-none absolute inset-1">
+                <div
+                  class="h-full w-1/2 rounded-[5px] transition-[transform,background,box-shadow] duration-300 ease-out"
+                  :style="{
+                    transform: reallocationUnlocked ? 'translateX(100%)' : 'translateX(0)',
+                    background: 'linear-gradient(180deg, rgba(56, 189, 248, 0.32), rgba(8, 145, 178, 0.26))',
+                    boxShadow: 'inset 0 0 0 1px rgba(103, 232, 249, 0.42), 0 0 0 1px rgba(34, 211, 238, 0.18), 0 0 24px rgba(34, 211, 238, 0.18)',
+                  }"
+                />
+              </div>
+              <div class="relative z-10 grid h-full grid-cols-2">
+                <button
+                  type="button"
+                  class="flex h-full items-center justify-center px-3 text-sm font-semibold transition-colors duration-200 outline-none"
+                  :class="!reallocationUnlocked ? 'text-cyan-50' : 'text-cyan-200/70 hover:text-cyan-50'"
+                  style="appearance: none; border: 0; border-radius: 0; background: transparent; box-shadow: none;"
+                  @click="setAllocationMode(false)"
+                >
+                  Automatic
+                </button>
+                <button
+                  type="button"
+                  class="flex h-full items-center justify-center px-3 text-sm font-semibold transition-colors duration-200 outline-none"
+                  :class="reallocationUnlocked ? 'text-cyan-50' : 'text-cyan-200/70 hover:text-cyan-50'"
+                  style="appearance: none; border: 0; border-radius: 0; background: transparent; box-shadow: none;"
+                  @click="setAllocationMode(true)"
+                >
+                  Manual
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid min-h-[38rem] gap-6 p-4 sm:p-5 xl:grid-cols-[minmax(24rem,0.8fr)_minmax(22rem,1fr)]">
+            <div class="group/material h-[35.75rem] min-h-[35.75rem] w-full overflow-y-auto rounded-md border border-cyan-400/20 bg-slate-950/80 p-4 shadow-[0_0_24px_rgba(34,211,238,0.10)]">
               <div class="flex items-start justify-between gap-3">
                 <div>
                   <p class="text-[11px] font-semibold uppercase tracking-[0.22em] text-cyan-200">Armour Context</p>
@@ -455,40 +532,22 @@ const armourFacingFields: Array<{ key: ArmourFacing, label: string }> = [
                   </div>
                 </label>
 
-                <div class="group/material-field relative grid gap-1 text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                <div
+                  class="relative grid gap-1 text-xs font-semibold uppercase tracking-wide text-zinc-500"
+                  @mouseleave="hideMaterialPopup"
+                >
                   <span>Material</span>
                   <button
+                    ref="materialButton"
                     type="button"
                     class="flex h-10 items-center justify-between rounded-md border border-cyan-400/25 bg-slate-950/60 px-3 text-left text-sm font-semibold text-cyan-50 transition hover:border-cyan-300 hover:bg-slate-900/70"
+                    @focus="showMaterialPopup"
+                    @mouseenter="showMaterialPopup"
+                    @blur="hideMaterialPopup"
                   >
                     <span>{{ summary.armourSummary.rule.materials }}</span>
                     <span class="text-[11px] font-semibold uppercase tracking-[0.22em] text-cyan-200/75">TL {{ vehicle.techLevel }}</span>
                   </button>
-                  <div class="pointer-events-none absolute left-0 top-full z-30 mt-2 hidden w-[30rem] rounded-md border border-cyan-400/35 bg-slate-950/95 p-4 shadow-[0_0_32px_rgba(34,211,238,0.16)] group-hover/material-field:block group-focus-within/material-field:block">
-                    <p class="text-[11px] font-semibold uppercase tracking-[0.22em] text-cyan-200">Armour Materials By Tech Level</p>
-                    <div class="mt-3 overflow-hidden rounded-md border border-cyan-400/20">
-                      <div class="grid grid-cols-[4.5rem_minmax(0,1fr)_6rem_7rem] bg-cyan-400/10 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-cyan-100/80">
-                        <span>TL</span>
-                        <span>Material</span>
-                        <span>Base</span>
-                        <span>Max</span>
-                      </div>
-                      <div
-                        v-for="row in armourRuleDisplayRows"
-                        :key="row.tl"
-                        class="grid grid-cols-[4.5rem_minmax(0,1fr)_6rem_7rem] border-t border-cyan-400/10 px-3 py-2 text-xs text-zinc-200"
-                        :class="row.tl === vehicle.techLevel ? 'bg-cyan-400/10 text-cyan-50' : ''"
-                      >
-                        <span>TL {{ row.tl }}</span>
-                        <span>{{ row.materials }}</span>
-                        <span>+{{ row.baseProtection }}</span>
-                        <span>+{{ row.maximumProtection }}</span>
-                      </div>
-                    </div>
-                    <p class="mt-3 text-xs leading-5 text-zinc-400">
-                      Base protection applies to every face. Additional armour is purchased separately and layered on top of that base.
-                    </p>
-                  </div>
                 </div>
               </div>
 
@@ -513,49 +572,6 @@ const armourFacingFields: Array<{ key: ArmourFacing, label: string }> = [
                 </label>
               </div>
 
-              <div class="mt-4 grid gap-1 text-xs font-semibold uppercase tracking-wide text-zinc-500">
-                <span>Armour Allocation</span>
-                <div
-                  class="relative h-11 overflow-hidden rounded-md p-1"
-                  style="
-                    border: 1px solid rgba(34, 211, 238, 0.3);
-                    background: rgba(2, 6, 23, 0.78);
-                    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.03);
-                  "
-                >
-                  <div class="pointer-events-none absolute inset-1">
-                    <div
-                      class="h-full w-1/2 rounded-[5px] transition-[transform,background,box-shadow] duration-300 ease-out"
-                      :style="{
-                        transform: reallocationUnlocked ? 'translateX(100%)' : 'translateX(0)',
-                        background: 'linear-gradient(180deg, rgba(56, 189, 248, 0.32), rgba(8, 145, 178, 0.26))',
-                        boxShadow: 'inset 0 0 0 1px rgba(103, 232, 249, 0.42), 0 0 0 1px rgba(34, 211, 238, 0.18), 0 0 24px rgba(34, 211, 238, 0.18)',
-                      }"
-                    />
-                  </div>
-                  <div class="relative z-10 grid h-full grid-cols-2">
-                  <button
-                    type="button"
-                    class="flex h-full items-center justify-center px-3 text-sm font-semibold transition-colors duration-200 outline-none"
-                    :class="!reallocationUnlocked ? 'text-cyan-50' : 'text-cyan-200/70 hover:text-cyan-50'"
-                    style="appearance: none; border: 0; border-radius: 0; background: transparent; box-shadow: none;"
-                    @click="setAllocationMode(false)"
-                  >
-                    Automatic
-                  </button>
-                  <button
-                    type="button"
-                    class="flex h-full items-center justify-center px-3 text-sm font-semibold transition-colors duration-200 outline-none"
-                    :class="reallocationUnlocked ? 'text-cyan-50' : 'text-cyan-200/70 hover:text-cyan-50'"
-                    style="appearance: none; border: 0; border-radius: 0; background: transparent; box-shadow: none;"
-                    @click="setAllocationMode(true)"
-                  >
-                    Manual
-                  </button>
-                  </div>
-                </div>
-              </div>
-
               <p v-if="reallocationUnlocked" class="mt-3 text-xs leading-5 text-zinc-400">
                 Manual changes redistribute existing purchased armour between faces. They do not increase total purchased armour.
               </p>
@@ -577,7 +593,7 @@ const armourFacingFields: Array<{ key: ArmourFacing, label: string }> = [
             </div>
 
             <div
-              class="flex min-h-[28rem] items-center justify-center rounded-md border border-cyan-400/15 p-4 md:p-5"
+              class="flex min-h-[35.75rem] items-center justify-center rounded-md border border-cyan-400/15 p-4 md:p-5"
               style="
                 background-color: rgba(2, 6, 23, 0.86);
                 background-image:
@@ -621,10 +637,39 @@ const armourFacingFields: Array<{ key: ArmourFacing, label: string }> = [
                 </div>
               </div>
             </div>
-            </div>
+      </div>
+    </section>
+    <Teleport to="body">
+      <div
+        v-if="materialPopupVisible"
+        class="pointer-events-none fixed z-[9999] max-h-[70vh] w-[30rem] overflow-y-auto rounded-md border border-cyan-400/35 bg-slate-950/95 p-4 text-cyan-50 shadow-[0_0_32px_rgba(34,211,238,0.22)]"
+        :style="materialPopupStyle"
+      >
+        <p class="text-[11px] font-semibold uppercase tracking-[0.22em] text-cyan-200">Armour Materials By Tech Level</p>
+        <div class="mt-3 overflow-hidden rounded-md border border-cyan-400/20">
+          <div class="grid grid-cols-[4.5rem_minmax(0,1fr)_6rem_7rem] bg-cyan-400/10 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-cyan-100/80">
+            <span>TL</span>
+            <span>Material</span>
+            <span>Base</span>
+            <span>Max</span>
+          </div>
+          <div
+            v-for="row in armourRuleDisplayRows"
+            :key="row.tl"
+            class="grid grid-cols-[4.5rem_minmax(0,1fr)_6rem_7rem] border-t border-cyan-400/10 px-3 py-2 text-xs text-zinc-200"
+            :class="row.tl === vehicle.techLevel ? 'bg-cyan-400/10 text-cyan-50' : ''"
+          >
+            <span>TL {{ row.tl }}</span>
+            <span>{{ row.materials }}</span>
+            <span>+{{ row.baseProtection }}</span>
+            <span>+{{ row.maximumProtection }}</span>
           </div>
         </div>
-    </section>
+        <p class="mt-3 text-xs leading-5 text-zinc-400">
+          Base protection applies to every face. Additional armour is purchased separately and layered on top of that base.
+        </p>
+      </div>
+    </Teleport>
   </div>
 </template>
 

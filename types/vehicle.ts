@@ -94,6 +94,19 @@ export type CustomVehicleEquipmentEntry = {
   catalogueId?: string
 }
 
+export type CustomVehicleOccupantEntry = {
+  role: string
+  count: number
+  spacesEach: number
+  category: 'crew' | 'passenger'
+}
+
+export type CustomVehicleCargoEntry = {
+  name: string
+  spaces: number
+  tons: number
+}
+
 export type TravellerVehicleRecord = {
   id: string
   name: string
@@ -136,6 +149,8 @@ export type CustomVehicleDesign = TravellerVehicleRecord & {
   primaryPower: TravellerVehiclePrimaryPower
   fusionPlusFuelType: TravellerVehicleFusionPlusFuelType
   auxiliaryDrive: TravellerVehicleAuxiliaryDrive
+  occupantEntries: CustomVehicleOccupantEntry[]
+  cargoEntries: CustomVehicleCargoEntry[]
   equipmentEntries: CustomVehicleEquipmentEntry[]
   speedModificationSteps: number
   fuelEfficiencySteps: number

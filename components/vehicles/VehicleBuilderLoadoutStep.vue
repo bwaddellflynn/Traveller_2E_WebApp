@@ -28,7 +28,7 @@ defineEmits<{
 
 const featureHelpText = (feature: string) => (
   vehicleFeatureRuleText[feature]
-  ?? 'This feature is allowed for the current handbook vehicle family. Detailed option-space and cost treatment may still be expanded in a later pass.'
+  ?? 'This feature is available for the current vehicle type.'
 )
 </script>
 
@@ -47,9 +47,9 @@ const featureHelpText = (feature: string) => (
     <section class="rounded-md border border-cyan-400/20 bg-slate-950/30 p-4">
       <div class="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h3 class="text-sm font-semibold text-cyan-50">Rule Context</h3>
+          <h3 class="text-sm font-semibold text-cyan-50">Space Summary</h3>
           <p class="mt-2 text-xs leading-5 text-zinc-400">
-            The current builder counts armour, equipment, and mounted weapon spaces. Feature space costs and the wider options chapter are not fully encoded yet.
+            Review available and reserved Spaces before adding more systems.
           </p>
         </div>
       </div>

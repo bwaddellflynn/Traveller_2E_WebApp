@@ -1,15 +1,10 @@
 <script setup lang="ts">
 import { computed, watch } from 'vue'
 import type { CustomVehicleDesign } from '~/types/vehicle'
-import { vehicleFamilyRule, vehicleHitDmForSpaces, vehicleSizeBandForSpaces } from '~/utils/traveller/vehicles'
+import { vehicleFamilyRule, vehicleHitDmForSpaces, vehicleSizeBandForSpaces, vehicleSizeReferenceRowsForFamily } from '~/utils/traveller/vehicles'
 
 const props = defineProps<{
   vehicle: CustomVehicleDesign
-  optionSets: {
-    baseFamilies: Array<{ id: string, label: string, category: string }>
-    hulls: string[]
-    skills: string[]
-  }
 }>()
 
 const emit = defineEmits<{
@@ -17,64 +12,36 @@ const emit = defineEmits<{
 }>()
 
 const familyRule = computed(() => vehicleFamilyRule(props.vehicle.baseFamily))
-const derivedSizeBand = computed(() => vehicleSizeBandForSpaces(props.vehicle.spaces))
-const derivedType = computed(() => `${derivedSizeBand.value.label} ${familyRule.value.typeLabel}`)
-const formatCredits = (value: number) => value >= 1000000 ? `MCr${value / 1000000}` : `Cr${value}`
-const formatNumber = (value: number) => Number.isInteger(value) ? String(value) : String(value)
-const formatTlBand = (minimum: number, maximum?: number) => maximum === undefined
-  ? `${minimum}+`
-  : minimum === maximum
-    ? String(minimum)
-    : `${minimum}-${maximum}`
-const formatRange = (range: number) => range > 0 ? String(range) : '0'
-const typeStats = computed(() => [
-  { label: 'Tech Level', value: String(familyRule.value.minimumTechLevel) },
-  { label: 'Skill', value: familyRule.value.defaultSkill },
-  { label: 'Agility', value: `${familyRule.value.baseAgility >= 0 ? '+' : ''}${familyRule.value.baseAgility}` },
-  { label: 'Hull', value: `${formatNumber(familyRule.value.hullPerSpace)} per Space` },
-  { label: 'Shipping', value: `${formatNumber(familyRule.value.shippingRatio)} tons per Space` },
-  ...(familyRule.value.defaultTraits?.length ? [{ label: 'Traits', value: familyRule.value.defaultTraits.join(', ') }] : []),
-  { label: 'Cost', value: `${formatCredits(familyRule.value.baseCostPerSpace)} per Space` },
-  { label: 'Examples', value: familyRule.value.examples },
-  { label: 'Allowed Features', value: familyRule.value.allowedFeatures.join(', ') },
-])
+const sizeRows = computed(() => vehicleSizeReferenceRowsForFamily(props.vehicle.baseFamily))
+const currentSize = computed(() => vehicleSizeBandForSpaces(props.vehicle.spaces))
+const currentRow = computed(() => sizeRows.value.find((row) => props.vehicle.spaces >= row.minSpaces && (row.maxSpaces === null || props.vehicle.spaces <= row.maxSpaces)) ?? sizeRows.value[0])
+const currentType = computed(() => `${currentSize.value.label} ${familyRule.value.typeLabel}`)
 const visualKind = computed(() => props.vehicle.baseFamily)
+const formatSpacesRange = (minimum: number, maximum: number | null) => maximum === null ? `${minimum}+` : `${minimum}-${maximum}`
+const formattedShipping = computed(() => {
+  const value = props.vehicle.spaces * familyRule.value.shippingRatio
+  return Number.isInteger(value) ? String(value) : value.toFixed(2).replace(/\.?0+$/, '')
+})
+const sizeEffects = computed(() => [
+  { label: 'Size', value: currentSize.value.label },
+  { label: 'Type', value: currentType.value },
+  { label: 'Hit DM', value: currentSize.value.hitDm },
+  { label: 'Agility', value: `${currentSize.value.agilityModifier >= 0 ? '+' : ''}${currentSize.value.agilityModifier}` },
+  { label: 'Speed', value: `${currentSize.value.speedModifier >= 0 ? '+' : ''}${currentSize.value.speedModifier} band` },
+  { label: 'Shipping', value: `${formattedShipping.value} tons` },
+])
 
-// Switching the base vehicle family resets handbook-driven defaults that should follow
-// from the family definition rather than remain stuck on a value from a prior family.
-watch(
-  () => props.vehicle.baseFamily,
-  () => {
-    const nextCategory = familyRule.value.category
-    const nextType = derivedType.value
-    const nextTechLevel = Math.max(props.vehicle.techLevel, familyRule.value.minimumTechLevel)
-    const nextSkill = familyRule.value.defaultSkill
-    if (props.vehicle.category !== nextCategory) props.vehicle.category = nextCategory
-    if (props.vehicle.type !== nextType) props.vehicle.type = nextType
-    if (props.vehicle.techLevel !== nextTechLevel) props.vehicle.techLevel = nextTechLevel
-    if (props.vehicle.skill !== nextSkill) props.vehicle.skill = nextSkill
-    emit('sync-derivations')
-  },
-)
-
-// Type and target-size modifiers both flow from Spaces in the handbook construction sequence.
 watch(
   () => props.vehicle.spaces,
   () => {
+    if (!Number.isFinite(props.vehicle.spaces) || props.vehicle.spaces < 1) props.vehicle.spaces = 1
     const nextHitDm = vehicleHitDmForSpaces(props.vehicle.spaces)
-    const nextType = derivedType.value
+    const nextType = currentType.value
     if (props.vehicle.hitDm !== nextHitDm) props.vehicle.hitDm = nextHitDm
     if (props.vehicle.type !== nextType) props.vehicle.type = nextType
     emit('sync-derivations')
   },
   { immediate: true },
-)
-
-watch(
-  () => [props.vehicle.techLevel, props.vehicle.hull],
-  () => {
-    emit('sync-derivations')
-  },
 )
 </script>
 
@@ -82,16 +49,20 @@ watch(
   <div class="grid gap-4">
     <section class="overflow-hidden rounded-md border border-cyan-400/25 bg-slate-950/45 text-cyan-50 shadow-[0_0_28px_rgba(34,211,238,0.08)]">
       <div class="border-b border-cyan-400/30 bg-cyan-400/10 px-4 py-3 sm:px-5">
-        <div class="grid gap-3 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-end">
+        <div class="grid gap-3 lg:grid-cols-[minmax(0,1fr)_16rem] lg:items-end">
           <div>
-            <p class="text-[11px] font-semibold uppercase tracking-[0.2em] text-cyan-200/80">Vehicle Design Step 2</p>
-            <h3 class="mt-1 text-xl font-black uppercase tracking-wide text-cyan-50">Pick Vehicle Type</h3>
+            <p class="text-[11px] font-semibold uppercase tracking-[0.2em] text-cyan-200/80">Vehicle Design Step 3</p>
+            <h3 class="mt-1 text-xl font-black uppercase tracking-wide text-cyan-50">Pick Size In Spaces</h3>
           </div>
           <label class="grid gap-1 text-xs font-semibold uppercase tracking-wide text-zinc-400">
-            <span>Vehicle Type</span>
-            <select v-model="props.vehicle.baseFamily" class="h-11 rounded-md border border-zinc-300 bg-white px-3 text-sm font-normal normal-case tracking-normal text-zinc-950 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200">
-              <option v-for="option in props.optionSets.baseFamilies" :key="option.id" :value="option.id">{{ option.label }}</option>
-            </select>
+            <span>Spaces</span>
+            <input
+              v-model.number="props.vehicle.spaces"
+              class="h-11 rounded-md border border-zinc-300 bg-white px-3 text-sm font-normal normal-case tracking-normal text-zinc-950 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200"
+              min="1"
+              step="1"
+              type="number"
+            >
           </label>
         </div>
       </div>
@@ -105,9 +76,12 @@ watch(
           />
           <div aria-hidden="true" class="pointer-events-none absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-slate-950/95 to-transparent" />
           <div class="relative z-10 min-h-[12rem]">
-            <h4 class="text-3xl font-black uppercase leading-none tracking-wide text-cyan-50">{{ familyRule.label }}</h4>
-            <p class="mt-3 line-clamp-6 max-w-xl text-sm leading-5 text-zinc-300">{{ familyRule.description }}</p>
+            <h4 class="text-3xl font-black uppercase leading-none tracking-wide text-cyan-50">{{ currentSize.label }} {{ familyRule.typeLabel }}</h4>
+            <p class="mt-3 max-w-xl text-sm leading-5 text-zinc-300">
+              A usable Space is one quarter of a spacecraft ton. This size sets the vehicle scale, target profile, shipping burden, structure baseline, and the pool later spent on armour, systems, crew, cargo, and weapons. The reference chart is tailored to the selected vehicle type.
+            </p>
           </div>
+
           <svg class="pointer-events-none absolute inset-x-8 bottom-8 z-0 h-56 w-[calc(100%-4rem)] text-cyan-100/55 drop-shadow-[0_0_22px_rgba(103,232,249,0.22)]" viewBox="0 0 360 190" role="img" aria-label="Vehicle silhouette">
             <g fill="currentColor">
               <g v-if="visualKind === 'walker'">
@@ -163,27 +137,30 @@ watch(
         </div>
 
         <div class="grid min-h-[35.75rem] content-start gap-5">
-          <div class="grid min-h-[20rem] content-start gap-px">
-            <div v-for="row in typeStats" :key="row.label" class="grid grid-cols-[8.25rem_minmax(0,1fr)] items-stretch text-sm">
-              <div class="bg-cyan-400/20 px-2 py-1 font-black uppercase tracking-wide text-cyan-100">{{ row.label }}</div>
-              <div class="border-b border-cyan-400/25 px-2 py-1 leading-5 text-zinc-200">{{ row.value }}</div>
+          <div class="grid content-start gap-px">
+            <div class="grid grid-cols-[5.5rem_7.5rem_minmax(0,1fr)] text-xs font-black uppercase tracking-wide text-cyan-100">
+              <div class="bg-cyan-400/20 px-2 py-2">Spaces</div>
+              <div class="bg-cyan-400/20 px-2 py-2">Size</div>
+              <div class="bg-cyan-400/20 px-2 py-2">Examples</div>
+            </div>
+            <div
+              v-for="row in sizeRows"
+              :key="row.key"
+              class="grid grid-cols-[5.5rem_7.5rem_minmax(0,1fr)] border-b border-cyan-400/25 text-sm"
+              :class="row === currentRow ? 'bg-amber-300/10 text-amber-100' : 'text-zinc-200'"
+            >
+              <div class="border-r border-cyan-400/25 px-2 py-1">{{ formatSpacesRange(row.minSpaces, row.maxSpaces) }}</div>
+              <div class="border-r border-cyan-400/25 px-2 py-1 font-semibold capitalize">{{ row.form }}</div>
+              <div class="px-2 py-1 leading-5">{{ row.example }}</div>
             </div>
           </div>
 
-          <div class="min-h-[12rem] max-w-sm">
-            <div class="grid grid-cols-[4.75rem_minmax(0,1fr)_5.5rem] text-sm font-bold text-cyan-100">
-              <span class="px-2 py-1">TL</span>
-              <span class="px-2 py-1">Speed</span>
-              <span class="px-2 py-1">Range</span>
-            </div>
-            <div
-              v-for="row in familyRule.speedBaselines"
-              :key="`${row.minTl}-${row.maxTl ?? 'plus'}`"
-              class="grid grid-cols-[4.75rem_minmax(0,1fr)_5.5rem] border-x border-t border-cyan-400/30 text-sm text-zinc-200 last:border-b"
-            >
-              <span class="border-r border-cyan-400/30 px-2 py-1">{{ formatTlBand(row.minTl, row.maxTl) }}</span>
-              <span class="border-r border-cyan-400/30 px-2 py-1">{{ row.speed }}</span>
-              <span class="px-2 py-1">{{ formatRange(row.range) }}</span>
+          <div class="grid gap-2 rounded-md border border-cyan-400/20 bg-slate-950/35 p-3 text-sm">
+            <div class="grid grid-cols-[8rem_minmax(0,1fr)] gap-px">
+              <template v-for="row in sizeEffects" :key="row.label">
+                <div class="bg-cyan-400/20 px-2 py-1 font-black uppercase tracking-wide text-cyan-100">{{ row.label }}</div>
+                <div class="border-b border-cyan-400/25 px-2 py-1 text-zinc-200">{{ row.value }}</div>
+              </template>
             </div>
           </div>
         </div>

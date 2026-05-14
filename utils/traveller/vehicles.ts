@@ -6,7 +6,9 @@ import fieldCatalogueEquipmentData from '~/data/traveller2e/armory/field-catalog
 import centralSupplyEquipmentData from '~/data/traveller2e/armory/central-supply-catalogue-equipment.json'
 import type {
   CustomVehicleDesign,
+  CustomVehicleCargoEntry,
   CustomVehicleEquipmentEntry,
+  CustomVehicleOccupantEntry,
   TravellerVehicleArmour,
   TravellerVehicleAuxiliaryDrive,
   TravellerVehicleBaseFamily,
@@ -23,6 +25,7 @@ type VehicleSpeedBaseline = { minTl: number, maxTl?: number, speed: SpeedBand, r
 type VehicleFamilyRule = {
   id: TravellerVehicleBaseFamily
   label: string
+  description: string
   category: TravellerVehicleCategory
   typeLabel: string
   minimumTechLevel: number
@@ -31,6 +34,7 @@ type VehicleFamilyRule = {
   hullPerSpace: number
   shippingRatio: number
   baseCostPerSpace: number
+  examples: string
   defaultTraits?: string[]
   allowedFeatures: string[]
   speedBaselines: VehicleSpeedBaseline[]
@@ -146,8 +150,27 @@ export type VehicleBuilderStockWeaponOption = {
   id: string
   label: string
   sourceVehicle: string
+  sourceTechLevel: number
   sourcePage?: number
   weapon: TravellerVehicleWeapon
+}
+
+export type VehicleComfortLevelRule = {
+  id: string
+  minimum: number
+  maximum: number | null
+  label: string
+  effect: string
+  description: string
+}
+
+export type VehicleOccupantComfortSummary = {
+  category: CustomVehicleOccupantEntry['category']
+  label: string
+  count: number
+  spaces: number
+  comfortLevel: number
+  rule: VehicleComfortLevelRule
 }
 
 const withSource = (
@@ -183,6 +206,98 @@ const categoryLabel = (value: string) => value
   .filter(Boolean)
   .map((part) => `${part.charAt(0).toUpperCase()}${part.slice(1)}`)
   .join(' ')
+
+const vehicleComfortLevelRules: VehicleComfortLevelRule[] = [
+  {
+    id: 'intolerable',
+    minimum: 0,
+    maximum: 0.5,
+    label: 'Intolerable',
+    effect: 'Immediate DM-2 to all tasks, plus DM-2 per 4 hours.',
+    description: 'Emergency-only crowding. Occupants cannot function normally for any length of time.',
+  },
+  {
+    id: 'uncomfortable-seating',
+    minimum: 0.5,
+    maximum: 1,
+    label: 'Uncomfortable Seating',
+    effect: 'DM-1 after 4 hours, plus DM-1 per 4 hours.',
+    description: 'Cramped short-term seating suitable for brief trips or tactical transport.',
+  },
+  {
+    id: 'basic-seating',
+    minimum: 1,
+    maximum: 1.25,
+    label: 'Basic Seating',
+    effect: 'DM-1 after 8 hours, plus DM-1 per 8 hours.',
+    description: 'Standard vehicle seating. Fine for routine travel, tiring over longer periods.',
+  },
+  {
+    id: 'long-duration-seating',
+    minimum: 1.25,
+    maximum: 1.5,
+    label: 'Long Duration Seating',
+    effect: 'DM-1 after 24 hours, plus DM-1 per 24 hours.',
+    description: 'Better seating for long trips and extended watch periods.',
+  },
+  {
+    id: 'extended-seating',
+    minimum: 1.5,
+    maximum: 2,
+    label: 'Extended Seating',
+    effect: 'DM-1 after 48 hours, plus DM-1 per 24 hours.',
+    description: 'Generous seating with enough room to delay fatigue and discomfort.',
+  },
+  {
+    id: 'basic-comfort',
+    minimum: 2,
+    maximum: 4,
+    label: 'Basic Comfort',
+    effect: 'DM-1 after 1 week, plus DM-1 per week, limited to DM-2.',
+    description: 'Livable interior space for routine multi-day occupancy.',
+  },
+  {
+    id: 'standard-comfort',
+    minimum: 4,
+    maximum: 8,
+    label: 'Standard Comfort',
+    effect: 'DM-1 after 1 month, plus DM-1 per month, limited to DM-2.',
+    description: 'Comfortable accommodation for sustained operations.',
+  },
+  {
+    id: 'good-comfort',
+    minimum: 8,
+    maximum: 24,
+    label: 'Good Comfort',
+    effect: 'No negative effect.',
+    description: 'High-quality space that avoids travel fatigue penalties.',
+  },
+  {
+    id: 'excellent-comfort',
+    minimum: 24,
+    maximum: 40,
+    label: 'Excellent Comfort',
+    effect: 'No negative effect; recovery for Comfort Levels 2-8.',
+    description: 'Excellent accommodation with enough quality and space to aid recovery.',
+  },
+  {
+    id: 'luxury-comfort',
+    minimum: 40,
+    maximum: null,
+    label: 'Luxury Comfort',
+    effect: 'For society elites; recovery for Comfort Levels 2-8.',
+    description: 'Luxury accommodation with elite-level space and amenities.',
+  },
+]
+
+export const vehicleComfortLevels = () => vehicleComfortLevelRules
+
+export const vehicleComfortLevelRuleForValue = (value: number) => {
+  const comfortLevel = Math.max(0, Number.isFinite(value) ? value : 0)
+  return vehicleComfortLevelRules.find((rule) => (
+    comfortLevel >= rule.minimum && (rule.maximum === null || comfortLevel < rule.maximum)
+  )) ?? vehicleComfortLevelRules[0]
+}
 
 const handbookOptionGroupForEquipmentCategory = (category: string) => {
   switch (category) {
@@ -329,6 +444,7 @@ const stockVehicleWeaponLibrary = (): VehicleBuilderStockWeaponOption[] => {
         id: `stock-vehicle-weapon-${seen.size}`,
         label: `${weapon.name} · ${weapon.damage} · ${weapon.range}`,
         sourceVehicle: vehicle.name,
+        sourceTechLevel: vehicle.techLevel,
         sourcePage: vehicle.sourcePage,
         weapon: {
           name: weapon.name,
@@ -395,6 +511,19 @@ export const createBlankVehicleEquipmentEntry = (): CustomVehicleEquipmentEntry 
   catalogueId: '',
 })
 
+export const createBlankVehicleOccupantEntry = (category: CustomVehicleOccupantEntry['category'] = 'crew'): CustomVehicleOccupantEntry => ({
+  role: category === 'crew' ? 'Crew' : 'Passengers',
+  count: 1,
+  spacesEach: 1,
+  category,
+})
+
+export const createBlankVehicleCargoEntry = (): CustomVehicleCargoEntry => ({
+  name: 'Cargo',
+  spaces: 0,
+  tons: 0,
+})
+
 export const createBlankCustomVehicle = (userId = LOCAL_USER_ID): CustomVehicleDesign => {
   const timestamp = new Date().toISOString()
   return {
@@ -412,7 +541,7 @@ export const createBlankCustomVehicle = (userId = LOCAL_USER_ID): CustomVehicleD
     spaces: 1,
     hitDm: '+0',
     hull: 'Standard',
-    techLevel: 10,
+    techLevel: 1,
     skill: 'Drive (varies)',
     agility: '+0',
     speed: '',
@@ -432,6 +561,8 @@ export const createBlankCustomVehicle = (userId = LOCAL_USER_ID): CustomVehicleD
     primaryPower: 'standard',
     fusionPlusFuelType: 'water',
     auxiliaryDrive: 'none',
+    occupantEntries: [],
+    cargoEntries: [],
     armour: createBlankVehicleArmour(),
     equipment: [],
     equipmentEntries: [],
@@ -451,6 +582,7 @@ const handbookFamilyRules: Record<TravellerVehicleBaseFamily, VehicleFamilyRule>
   aeroplane: {
     id: 'aeroplane',
     label: 'Aeroplane',
+    description: 'A heavier-than-air vehicle that flies using aerodynamic lift from fixed wings. Aircraft need an atmosphere and usually require a runway unless features reduce or remove that requirement.',
     category: 'aircraft',
     typeLabel: 'Aeroplane',
     minimumTechLevel: 4,
@@ -459,6 +591,7 @@ const handbookFamilyRules: Record<TravellerVehicleBaseFamily, VehicleFamilyRule>
     hullPerSpace: 0.5,
     shippingRatio: 1,
     baseCostPerSpace: 15000,
+    examples: 'Light aircraft, bomber, transport',
     allowedFeatures: ['Agile', 'Fast', 'Floats', 'Folding Wings', 'Hypersonic', 'Jet Engines', 'Open Frame', 'Open-Topped', 'Slow', 'STOL', 'Supersonic', 'Tilt Engines'],
     speedBaselines: [
       { minTl: 4, maxTl: 4, speed: 'Medium', range: 300 },
@@ -472,6 +605,7 @@ const handbookFamilyRules: Record<TravellerVehicleBaseFamily, VehicleFamilyRule>
   airship: {
     id: 'airship',
     label: 'Airship',
+    description: 'A lighter-than-air flying machine that needs an atmosphere and has no minimum speed limitation. Most airships are Heavy or larger and rely on a gas envelope for lift.',
     category: 'aircraft',
     typeLabel: 'Airship',
     minimumTechLevel: 3,
@@ -480,6 +614,7 @@ const handbookFamilyRules: Record<TravellerVehicleBaseFamily, VehicleFamilyRule>
     hullPerSpace: 0.2,
     shippingRatio: 0.1,
     baseCostPerSpace: 300,
+    examples: 'Balloon, blimp, zeppelin',
     defaultTraits: ['VTOL'],
     allowedFeatures: ['Agile', 'Fast', 'Open Frame', 'Rigid', 'Slow', 'Streamlined'],
     speedBaselines: [
@@ -494,6 +629,7 @@ const handbookFamilyRules: Record<TravellerVehicleBaseFamily, VehicleFamilyRule>
   'grav-vehicle': {
     id: 'grav-vehicle',
     label: 'Grav Vehicle',
+    description: 'A vehicle using gravitic drives to fly without aerodynamic lift. Grav vehicles do not need an atmosphere and can travel up to 10 planetary diameters from a world.',
     category: 'grav',
     typeLabel: 'Grav Vehicle',
     minimumTechLevel: 8,
@@ -502,6 +638,7 @@ const handbookFamilyRules: Record<TravellerVehicleBaseFamily, VehicleFamilyRule>
     hullPerSpace: 2,
     shippingRatio: 0.5,
     baseCostPerSpace: 30000,
+    examples: 'G/bike, air/raft, G/carrier',
     defaultTraits: ['VTOL'],
     allowedFeatures: ['AFV', 'Agile', 'Fast', 'Open Frame', 'Open-Topped', 'Slow', 'Streamlined'],
     speedBaselines: [
@@ -515,6 +652,7 @@ const handbookFamilyRules: Record<TravellerVehicleBaseFamily, VehicleFamilyRule>
   'ground-vehicle': {
     id: 'ground-vehicle',
     label: 'Ground Vehicle',
+    description: 'A vehicle restricted to solid surfaces, usually using wheels by default. Size and features can alter the exact locomotion, from bikes and cars to tanks and heavy haulers.',
     category: 'ground',
     typeLabel: 'Ground Vehicle',
     minimumTechLevel: 1,
@@ -523,6 +661,7 @@ const handbookFamilyRules: Record<TravellerVehicleBaseFamily, VehicleFamilyRule>
     hullPerSpace: 2,
     shippingRatio: 0.5,
     baseCostPerSpace: 750,
+    examples: 'Motorcycle, automobile, truck, tank',
     allowedFeatures: ['AFV', 'Agile', 'ATV', 'Fast', 'Monowheel', 'Off-Roader', 'Open Frame', 'Open-Topped', 'Rail Rider', 'Slow', 'Smart Wheels', 'Streamlined', 'Tracks', 'Tunneller'],
     speedBaselines: [
       { minTl: 1, maxTl: 2, speed: 'Idle', range: 0 },
@@ -537,6 +676,7 @@ const handbookFamilyRules: Record<TravellerVehicleBaseFamily, VehicleFamilyRule>
   hovercraft: {
     id: 'hovercraft',
     label: 'Hovercraft',
+    description: 'A vehicle riding on a cushion of air, able to cross flat ground and water. Hovercraft handle marshy terrain well but are not true off-road vehicles.',
     category: 'hovercraft',
     typeLabel: 'Hovercraft',
     minimumTechLevel: 5,
@@ -545,6 +685,7 @@ const handbookFamilyRules: Record<TravellerVehicleBaseFamily, VehicleFamilyRule>
     hullPerSpace: 0.5,
     shippingRatio: 0.5,
     baseCostPerSpace: 10000,
+    examples: 'Hover jeep, landing craft, ferry',
     allowedFeatures: ['Agile', 'Fast', 'Open Frame', 'Open-Topped', 'Slow'],
     speedBaselines: [
       { minTl: 5, maxTl: 5, speed: 'Slow', range: 300 },
@@ -557,6 +698,7 @@ const handbookFamilyRules: Record<TravellerVehicleBaseFamily, VehicleFamilyRule>
   rotorcraft: {
     id: 'rotorcraft',
     label: 'Rotorcraft',
+    description: 'An aircraft using a rotating or moving surface to generate lift and thrust. Rotorcraft have VTOL capability and include helicopters, aerodynes and ornithopters.',
     category: 'aircraft',
     typeLabel: 'Rotorcraft',
     minimumTechLevel: 5,
@@ -565,6 +707,7 @@ const handbookFamilyRules: Record<TravellerVehicleBaseFamily, VehicleFamilyRule>
     hullPerSpace: 0.5,
     shippingRatio: 1,
     baseCostPerSpace: 25000,
+    examples: 'Helicopter, aerodyne, ornithopter',
     defaultTraits: ['VTOL'],
     allowedFeatures: ['Aerodyne', 'Agile', 'Fast', 'Floats', 'Folding Wings', 'Open Frame', 'Open-Topped', 'Ornithopter', 'Slow', 'Streamlined'],
     speedBaselines: [
@@ -577,6 +720,7 @@ const handbookFamilyRules: Record<TravellerVehicleBaseFamily, VehicleFamilyRule>
   structure: {
     id: 'structure',
     label: 'Structure',
+    description: 'A stationary construction built with vehicle-scale rules. Structures lack primary locomotion and normally gain extra internal capacity because they do not need vehicle drive systems.',
     category: 'other',
     typeLabel: 'Structure',
     minimumTechLevel: 0,
@@ -585,6 +729,7 @@ const handbookFamilyRules: Record<TravellerVehicleBaseFamily, VehicleFamilyRule>
     hullPerSpace: 1,
     shippingRatio: 0.5,
     baseCostPerSpace: 50,
+    examples: 'House, fortress, outpost, rocket stage',
     allowedFeatures: ['AFV', 'Open Frame', 'Open-Topped', 'Streamlined'],
     speedBaselines: [
       { minTl: 0, speed: 'Stopped', range: 0 },
@@ -593,6 +738,7 @@ const handbookFamilyRules: Record<TravellerVehicleBaseFamily, VehicleFamilyRule>
   submersible: {
     id: 'submersible',
     label: 'Submersible',
+    description: 'A vehicle designed to travel under water or another liquid. Submersibles include hostile environment protection and require life support to determine submerged endurance.',
     category: 'watercraft',
     typeLabel: 'Submersible',
     minimumTechLevel: 4,
@@ -601,6 +747,7 @@ const handbookFamilyRules: Record<TravellerVehicleBaseFamily, VehicleFamilyRule>
     hullPerSpace: 3,
     shippingRatio: 0.5,
     baseCostPerSpace: 50000,
+    examples: 'Submarine, diving bell',
     allowedFeatures: ['AFV', 'Agile', 'Fast', 'Open Frame', 'Open-Topped', 'Slow', 'Tunneller'],
     speedBaselines: [
       { minTl: 4, maxTl: 4, speed: 'Idle', range: 50 },
@@ -615,6 +762,7 @@ const handbookFamilyRules: Record<TravellerVehicleBaseFamily, VehicleFamilyRule>
   walker: {
     id: 'walker',
     label: 'Walker',
+    description: 'A vehicle using computer-controlled legs to traverse the ground. Walkers are larger than powered armour and may have more than two legs for stability.',
     category: 'walker',
     typeLabel: 'Walker',
     minimumTechLevel: 8,
@@ -623,6 +771,7 @@ const handbookFamilyRules: Record<TravellerVehicleBaseFamily, VehicleFamilyRule>
     hullPerSpace: 2,
     shippingRatio: 0.5,
     baseCostPerSpace: 10000,
+    examples: 'Load lifter, AT-AT',
     defaultTraits: ['ATV'],
     allowedFeatures: ['AFV', 'Agile', 'Fast', 'Multi-Legged', 'Open Frame', 'Open-Topped', 'Slow', 'Tunneller'],
     speedBaselines: [
@@ -636,6 +785,7 @@ const handbookFamilyRules: Record<TravellerVehicleBaseFamily, VehicleFamilyRule>
   watercraft: {
     id: 'watercraft',
     label: 'Watercraft',
+    description: 'A vehicle that travels across the surface of a body of water or other liquid, from small craft to ships. Larger vessels have considerably greater range than small craft.',
     category: 'watercraft',
     typeLabel: 'Watercraft',
     minimumTechLevel: 0,
@@ -644,6 +794,7 @@ const handbookFamilyRules: Record<TravellerVehicleBaseFamily, VehicleFamilyRule>
     hullPerSpace: 2,
     shippingRatio: 0.5,
     baseCostPerSpace: 2000,
+    examples: 'Canoe, speedboat, sailboat, tanker',
     allowedFeatures: ['AFV', 'Agile', 'Fast', 'Floats', 'Hydrofoil', 'Open Frame', 'Open-Topped', 'Slow'],
     speedBaselines: [
       { minTl: 0, maxTl: 2, speed: 'Idle', range: 0 },
@@ -668,94 +819,74 @@ const sizeProfiles: VehicleSizeProfile[] = [
 
 const vehicleSizeReferenceLibrary: Record<TravellerVehicleBaseFamily, VehicleSizeReferenceRow[]> = {
   'ground-vehicle': [
-    { key: 'ground-bike', minSpaces: 1, maxSpaces: 5, form: 'light wheeled', example: 'bicycle, rickshaw, motorcycle, ATV' },
-    { key: 'ground-car', minSpaces: 6, maxSpaces: 10, form: 'car-scale', example: 'microcar, sedan, jeep, utility 4x4' },
-    { key: 'ground-van', minSpaces: 11, maxSpaces: 20, form: 'light carrier', example: 'van, light truck, APC, large SUV' },
-    { key: 'ground-carriage', minSpaces: 21, maxSpaces: 40, form: 'carrier-scale', example: 'IFV, cargo truck, bus, mobile workshop' },
-    { key: 'ground-heavy', minSpaces: 41, maxSpaces: 80, form: 'heavy armour', example: 'main battle tank, self-propelled gun, recovery vehicle' },
-    { key: 'ground-superheavy', minSpaces: 81, maxSpaces: 160, form: 'super-heavy armour', example: 'super-heavy tank, missile carrier, mobile artillery battery' },
-    { key: 'ground-platform', minSpaces: 161, maxSpaces: null, form: 'mobile platform', example: 'mobile command base, crawler fortress, land carrier' },
+    { key: 'ground-small', minSpaces: 1, maxSpaces: 3, form: 'Small', example: 'bicycle, rickshaw, motorcycle, ATV' },
+    { key: 'ground-light', minSpaces: 4, maxSpaces: 19, form: 'Light', example: 'microcar, sedan, jeep, utility 4x4, van, light truck' },
+    { key: 'ground-heavy', minSpaces: 20, maxSpaces: 199, form: 'Heavy', example: 'APC, IFV, cargo truck, bus, mobile workshop, main battle tank, mobile artillery battery' },
+    { key: 'ground-huge', minSpaces: 200, maxSpaces: 1999, form: 'Huge', example: 'super-heavy tank, missile carrier, mobile command base, crawler fortress, land carrier' },
+    { key: 'ground-massive', minSpaces: 2000, maxSpaces: null, form: 'Massive', example: 'mobile city, continent-scale crawler, fortress convoy platform' },
   ],
   hovercraft: [
-    { key: 'hover-bike', minSpaces: 1, maxSpaces: 5, form: 'personal skimmer', example: 'personal skimmer, scout hover bike, rescue sled' },
-    { key: 'hover-car', minSpaces: 6, maxSpaces: 10, form: 'hovercar-scale', example: 'civilian hovercar, patrol skimmer, cargo sled' },
-    { key: 'hover-van', minSpaces: 11, maxSpaces: 20, form: 'cargo skimmer', example: 'passenger hover van, light cargo skirtcraft' },
-    { key: 'hover-landing', minSpaces: 21, maxSpaces: 40, form: 'landing craft', example: 'troop hovercraft, assault landing craft' },
-    { key: 'hover-heavy', minSpaces: 41, maxSpaces: 80, form: 'industrial lifter', example: 'large cargo hovercraft, hover APC, industrial lifter' },
-    { key: 'hover-platform', minSpaces: 81, maxSpaces: 160, form: 'bulk hover barge', example: 'heavy landing platform, bulk hover barge, mobile SAM raft' },
-    { key: 'hover-fortress', minSpaces: 161, maxSpaces: null, form: 'hover platform', example: 'hover base, massive amphibious carrier, floating assault dock' },
+    { key: 'hover-small', minSpaces: 1, maxSpaces: 3, form: 'Small', example: 'personal skimmer, scout hover bike, rescue sled' },
+    { key: 'hover-light', minSpaces: 4, maxSpaces: 19, form: 'Light', example: 'civilian hovercar, patrol skimmer, cargo sled, passenger hover van' },
+    { key: 'hover-heavy', minSpaces: 20, maxSpaces: 199, form: 'Heavy', example: 'troop hovercraft, assault landing craft, hover APC, bulk hover barge, mobile SAM raft' },
+    { key: 'hover-huge', minSpaces: 200, maxSpaces: 1999, form: 'Huge', example: 'heavy landing platform, hover base, massive amphibious carrier, floating assault dock' },
+    { key: 'hover-massive', minSpaces: 2000, maxSpaces: null, form: 'Massive', example: 'mobile sea base, floating city, theatre-scale hover platform' },
   ],
   'grav-vehicle': [
-    { key: 'grav-bike', minSpaces: 1, maxSpaces: 5, form: 'grav bike', example: 'grav bike, courier sled, recon skimmer' },
-    { key: 'grav-runabout', minSpaces: 6, maxSpaces: 10, form: 'air/raft-scale', example: 'air/raft, grav jeep, light grav car' },
-    { key: 'grav-transport', minSpaces: 11, maxSpaces: 20, form: 'utility transport', example: 'grav van, executive air/raft, light utility transport' },
-    { key: 'grav-carrier', minSpaces: 21, maxSpaces: 40, form: 'troop carrier', example: 'grav APC, grav IFV, patrol transport' },
-    { key: 'grav-heavy', minSpaces: 41, maxSpaces: 80, form: 'assault carrier', example: 'grav tank, heavy grav transport, assault carrier' },
-    { key: 'grav-platform', minSpaces: 81, maxSpaces: 160, form: 'lift platform', example: 'super-heavy grav tank, bulk grav hauler, mobile lift platform' },
-    { key: 'grav-fortress', minSpaces: 161, maxSpaces: null, form: 'grav fortress', example: 'grav carrier, flying base, city-lifter platform' },
+    { key: 'grav-small', minSpaces: 1, maxSpaces: 3, form: 'Small', example: 'grav bike, courier sled, recon skimmer' },
+    { key: 'grav-light', minSpaces: 4, maxSpaces: 19, form: 'Light', example: 'air/raft, grav jeep, light grav car, grav van, executive air/raft' },
+    { key: 'grav-heavy', minSpaces: 20, maxSpaces: 199, form: 'Heavy', example: 'grav APC, grav IFV, patrol transport, grav tank, bulk grav hauler' },
+    { key: 'grav-huge', minSpaces: 200, maxSpaces: 1999, form: 'Huge', example: 'super-heavy grav tank, grav carrier, flying base, city-lifter platform' },
+    { key: 'grav-massive', minSpaces: 2000, maxSpaces: null, form: 'Massive', example: 'flying city, orbital-scale lift platform, mobile grav fortress' },
   ],
   aeroplane: [
-    { key: 'plane-ultralight', minSpaces: 1, maxSpaces: 5, form: 'light aircraft', example: 'ultralight, scout plane, trainer jet' },
-    { key: 'plane-utility', minSpaces: 6, maxSpaces: 10, form: 'utility aircraft', example: 'bush plane, utility plane, light strike jet' },
-    { key: 'plane-shuttle', minSpaces: 11, maxSpaces: 20, form: 'light shuttle', example: 'regional shuttle, gunship, patrol aircraft' },
-    { key: 'plane-transport', minSpaces: 21, maxSpaces: 40, form: 'transport aircraft', example: 'small transport aircraft, bomber, maritime patrol plane' },
-    { key: 'plane-heavy', minSpaces: 41, maxSpaces: 80, form: 'heavy transport', example: 'cargo aircraft, strategic bomber, tanker' },
-    { key: 'plane-strategic', minSpaces: 81, maxSpaces: 160, form: 'strategic lifter', example: 'large transport plane, flying command post, airborne carrier' },
-    { key: 'plane-supercarrier', minSpaces: 161, maxSpaces: null, form: 'supercarrier-scale', example: 'flying aircraft carrier, heli-carrier, airborne fortress' },
+    { key: 'plane-small', minSpaces: 1, maxSpaces: 3, form: 'Small', example: 'ultralight, scout plane, trainer jet' },
+    { key: 'plane-light', minSpaces: 4, maxSpaces: 19, form: 'Light', example: 'bush plane, utility plane, light strike jet, regional shuttle, patrol aircraft' },
+    { key: 'plane-heavy', minSpaces: 20, maxSpaces: 199, form: 'Heavy', example: 'transport aircraft, bomber, maritime patrol plane, cargo aircraft, strategic bomber, tanker' },
+    { key: 'plane-huge', minSpaces: 200, maxSpaces: 1999, form: 'Huge', example: 'large transport plane, flying command post, airborne carrier, flying aircraft carrier' },
+    { key: 'plane-massive', minSpaces: 2000, maxSpaces: null, form: 'Massive', example: 'flying city, airborne fortress, theatre-scale air carrier' },
   ],
   rotorcraft: [
-    { key: 'rotor-scout', minSpaces: 1, maxSpaces: 5, form: 'rotor scout', example: 'gyrocopter, scout rotorcraft, medevac scout' },
-    { key: 'rotor-utility', minSpaces: 6, maxSpaces: 10, form: 'utility helicopter', example: 'light helicopter, utility helicopter, scout gunship' },
-    { key: 'rotor-troop', minSpaces: 11, maxSpaces: 20, form: 'troop rotorcraft', example: 'troop helicopter, naval utility rotorcraft' },
-    { key: 'rotor-heavy', minSpaces: 21, maxSpaces: 40, form: 'heavy gunship', example: 'heavy transport helicopter, attack gunship' },
-    { key: 'rotor-superheavy', minSpaces: 41, maxSpaces: 80, form: 'super-heavy transport', example: 'super-heavy rotor transport, airborne assault crane' },
-    { key: 'rotor-crane', minSpaces: 81, maxSpaces: 160, form: 'flying crane', example: 'flying crane, industrial lift platform, rotor carrier' },
-    { key: 'rotor-helicarrier', minSpaces: 161, maxSpaces: null, form: 'heli-carrier', example: 'flying deck carrier, rotor fortress, airborne shipyard' },
+    { key: 'rotor-small', minSpaces: 1, maxSpaces: 3, form: 'Small', example: 'gyrocopter, scout rotorcraft, medevac scout' },
+    { key: 'rotor-light', minSpaces: 4, maxSpaces: 19, form: 'Light', example: 'light helicopter, utility helicopter, scout gunship, troop helicopter' },
+    { key: 'rotor-heavy', minSpaces: 20, maxSpaces: 199, form: 'Heavy', example: 'heavy transport helicopter, attack gunship, super-heavy rotor transport, flying crane, rotor carrier' },
+    { key: 'rotor-huge', minSpaces: 200, maxSpaces: 1999, form: 'Huge', example: 'industrial lift platform, flying deck carrier, rotor fortress, airborne shipyard' },
+    { key: 'rotor-massive', minSpaces: 2000, maxSpaces: null, form: 'Massive', example: 'aerial city, mobile sky dock, massive rotor fortress' },
   ],
   airship: [
-    { key: 'airship-micro', minSpaces: 1, maxSpaces: 5, form: 'micro blimp', example: 'personal observation balloon, micro blimp, survey blimp' },
-    { key: 'airship-light', minSpaces: 6, maxSpaces: 10, form: 'light airship', example: 'light civilian airship, watch platform, command blimp' },
-    { key: 'airship-patrol', minSpaces: 11, maxSpaces: 20, form: 'patrol airship', example: 'cargo blimp, patrol airship, passenger airship' },
-    { key: 'airship-cargo', minSpaces: 21, maxSpaces: 40, form: 'cargo airship', example: 'large cargo airship, military sky transport' },
-    { key: 'airship-freighter', minSpaces: 41, maxSpaces: 80, form: 'sky-freighter', example: 'sky-freighter, airborne habitat block, flying carrier' },
-    { key: 'airship-platform', minSpaces: 81, maxSpaces: 160, form: 'sky platform', example: 'airborne refinery, mobile dock, floating city block' },
-    { key: 'airship-fortress', minSpaces: 161, maxSpaces: null, form: 'sky fortress', example: 'airship carrier, floating fortress, aerial dreadnought' },
+    { key: 'airship-small', minSpaces: 1, maxSpaces: 3, form: 'Small', example: 'personal observation balloon, micro blimp, survey blimp' },
+    { key: 'airship-light', minSpaces: 4, maxSpaces: 19, form: 'Light', example: 'light civilian airship, watch platform, command blimp, patrol airship' },
+    { key: 'airship-heavy', minSpaces: 20, maxSpaces: 199, form: 'Heavy', example: 'passenger airship, large cargo airship, military sky transport, sky-freighter, flying carrier' },
+    { key: 'airship-huge', minSpaces: 200, maxSpaces: 1999, form: 'Huge', example: 'airborne refinery, mobile dock, airship carrier, floating fortress, aerial dreadnought' },
+    { key: 'airship-massive', minSpaces: 2000, maxSpaces: null, form: 'Massive', example: 'floating city, sky fortress complex, atmospheric habitat platform' },
   ],
   watercraft: [
-    { key: 'water-personal', minSpaces: 1, maxSpaces: 5, form: 'personal craft', example: 'jet ski, skiff, dinghy, runabout' },
-    { key: 'water-motorboat', minSpaces: 6, maxSpaces: 10, form: 'motorboat-scale', example: 'motorboat, cabin cruiser, light patrol boat' },
-    { key: 'water-yacht', minSpaces: 11, maxSpaces: 20, form: 'yacht-scale', example: 'yacht, coastal patrol craft, missile boat' },
-    { key: 'water-cutter', minSpaces: 21, maxSpaces: 40, form: 'cutter-scale', example: 'ferry, cutter, trawler, corvette' },
-    { key: 'water-freighter', minSpaces: 41, maxSpaces: 80, form: 'warship-scale', example: 'frigate, destroyer, coastal freighter' },
-    { key: 'water-capital', minSpaces: 81, maxSpaces: 160, form: 'capital ship', example: 'battleship, carrier, cruiser, amphibious assault ship' },
-    { key: 'water-supercapital', minSpaces: 161, maxSpaces: null, form: 'supercapital', example: 'fleet carrier, floating fortress, mobile sea base' },
+    { key: 'water-small', minSpaces: 1, maxSpaces: 3, form: 'Small', example: 'jet ski, skiff, dinghy, runabout' },
+    { key: 'water-light', minSpaces: 4, maxSpaces: 19, form: 'Light', example: 'motorboat, cabin cruiser, light patrol boat, yacht, coastal patrol craft' },
+    { key: 'water-heavy', minSpaces: 20, maxSpaces: 199, form: 'Heavy', example: 'missile boat, ferry, cutter, trawler, corvette, frigate, destroyer, coastal freighter' },
+    { key: 'water-huge', minSpaces: 200, maxSpaces: 1999, form: 'Huge', example: 'battleship, carrier, cruiser, amphibious assault ship, fleet carrier, floating fortress' },
+    { key: 'water-massive', minSpaces: 2000, maxSpaces: null, form: 'Massive', example: 'mobile sea base, floating city, oceanic fortress platform' },
   ],
   submersible: [
-    { key: 'sub-personal', minSpaces: 1, maxSpaces: 5, form: 'personal submersible', example: 'diver scooter, one-man mini-sub, salvage pod' },
-    { key: 'sub-light', minSpaces: 6, maxSpaces: 10, form: 'light exploration sub', example: 'light exploration submersible, diver support sub, patrol sub' },
-    { key: 'sub-research', minSpaces: 11, maxSpaces: 20, form: 'research submarine', example: 'research submarine, heavy rescue sub' },
-    { key: 'sub-military', minSpaces: 21, maxSpaces: 40, form: 'military submarine', example: 'attack submarine, missile submarine, deep-ocean support craft' },
-    { key: 'sub-longrange', minSpaces: 41, maxSpaces: 80, form: 'long-range submarine', example: 'fleet submarine, ballistic submarine, undersea transport' },
-    { key: 'sub-carrying', minSpaces: 81, maxSpaces: 160, form: 'undersea carrier', example: 'undersea carrier, large support submarine, sea-base sub' },
-    { key: 'sub-fortress', minSpaces: 161, maxSpaces: null, form: 'undersea fortress', example: 'mobile undersea fortress, giant carrier-sub, abyssal habitat ship' },
+    { key: 'sub-small', minSpaces: 1, maxSpaces: 3, form: 'Small', example: 'diver scooter, one-man mini-sub, salvage pod' },
+    { key: 'sub-light', minSpaces: 4, maxSpaces: 19, form: 'Light', example: 'light exploration submersible, diver support sub, patrol sub, research submarine' },
+    { key: 'sub-heavy', minSpaces: 20, maxSpaces: 199, form: 'Heavy', example: 'heavy rescue sub, attack submarine, missile submarine, deep-ocean support craft, undersea carrier' },
+    { key: 'sub-huge', minSpaces: 200, maxSpaces: 1999, form: 'Huge', example: 'large support submarine, sea-base sub, mobile undersea fortress, giant carrier-sub' },
+    { key: 'sub-massive', minSpaces: 2000, maxSpaces: null, form: 'Massive', example: 'abyssal habitat ship, mobile undersea city, deep-ocean fortress complex' },
   ],
   walker: [
-    { key: 'walker-loader', minSpaces: 1, maxSpaces: 5, form: 'light walker', example: 'loader walker, scout biped, industrial frame' },
-    { key: 'walker-combat', minSpaces: 6, maxSpaces: 10, form: 'combat walker', example: 'combat walker, cargo walker, troop walker' },
-    { key: 'walker-siege', minSpaces: 11, maxSpaces: 20, form: 'siege walker', example: 'siege walker, mobile drilling frame, scout titan' },
-    { key: 'walker-heavy', minSpaces: 21, maxSpaces: 40, form: 'super-heavy walker', example: 'super-heavy walker, artillery walker, mining platform' },
-    { key: 'walker-colossal', minSpaces: 41, maxSpaces: 80, form: 'colossal walker', example: 'colossal industrial walker, titan-scale war walker' },
-    { key: 'walker-fortress', minSpaces: 81, maxSpaces: 160, form: 'fortress walker', example: 'fortress walker, mobile citadel, siege titan' },
-    { key: 'walker-megafauna', minSpaces: 161, maxSpaces: null, form: 'mega-walker', example: 'continent crawler, world-engine walker, god-machine' },
+    { key: 'walker-small', minSpaces: 1, maxSpaces: 3, form: 'Small', example: 'loader walker, scout biped, industrial frame' },
+    { key: 'walker-light', minSpaces: 4, maxSpaces: 19, form: 'Light', example: 'combat walker, cargo walker, troop walker, mobile drilling frame' },
+    { key: 'walker-heavy', minSpaces: 20, maxSpaces: 199, form: 'Heavy', example: 'siege walker, super-heavy walker, artillery walker, mining platform, mobile citadel' },
+    { key: 'walker-huge', minSpaces: 200, maxSpaces: 1999, form: 'Huge', example: 'fortress walker, siege titan, continent crawler, world-engine walker' },
+    { key: 'walker-massive', minSpaces: 2000, maxSpaces: null, form: 'Massive', example: 'walking city, planetary construction walker, colossal siege platform' },
   ],
   structure: [
-    { key: 'structure-pod', minSpaces: 1, maxSpaces: 5, form: 'small module', example: 'kiosk, field shelter, tiny hab pod, checkpoint office' },
-    { key: 'structure-shop', minSpaces: 6, maxSpaces: 10, form: 'shop-scale', example: 'small cabin, workshop, clinic pod, machine shop' },
-    { key: 'structure-block', minSpaces: 11, maxSpaces: 20, form: 'block-scale', example: 'warehouse unit, barracks block, garage' },
-    { key: 'structure-hangar', minSpaces: 21, maxSpaces: 40, form: 'hangar module', example: 'hangar module, command post, large workshop' },
-    { key: 'structure-outpost', minSpaces: 41, maxSpaces: 80, form: 'fortified outpost', example: 'industrial hall, depot building, fortified outpost' },
-    { key: 'structure-facility', minSpaces: 81, maxSpaces: 160, form: 'facility-scale', example: 'major facility, habitat block, large hangar complex' },
-    { key: 'structure-complex', minSpaces: 161, maxSpaces: null, form: 'mega-facility', example: 'arcology wing, carrier yard, fortress complex' },
+    { key: 'structure-small', minSpaces: 1, maxSpaces: 3, form: 'Small', example: 'kiosk, field shelter, tiny hab pod, checkpoint office' },
+    { key: 'structure-light', minSpaces: 4, maxSpaces: 19, form: 'Light', example: 'small cabin, workshop, clinic pod, machine shop, warehouse unit, barracks block' },
+    { key: 'structure-heavy', minSpaces: 20, maxSpaces: 199, form: 'Heavy', example: 'garage, hangar module, command post, large workshop, depot building, fortified outpost' },
+    { key: 'structure-huge', minSpaces: 200, maxSpaces: 1999, form: 'Huge', example: 'major facility, habitat block, large hangar complex, arcology wing, carrier yard' },
+    { key: 'structure-massive', minSpaces: 2000, maxSpaces: null, form: 'Massive', example: 'fortress complex, arcology, city-scale habitat, orbital construction yard' },
   ],
 }
 
@@ -771,6 +902,8 @@ const armourRules: VehicleArmourRule[] = [
   { minTl: 17, maxTl: 17, materials: 'Coherent Superdense', baseProtection: 15, maximumProtection: 100, vehicleSpacesPerPointPercent: 0.0016, costPerArmourSpace: 500000, costPerPointPerVehicleSpace: 800 },
   { minTl: 18, materials: 'Collapsium', baseProtection: 20, maximumProtection: 160, vehicleSpacesPerPointPercent: 0.001, costPerArmourSpace: 1000000, costPerPointPerVehicleSpace: 1000 },
 ]
+
+export const vehicleArmourRules = () => armourRules.map((rule) => ({ ...rule }))
 
 const featureAgilityModifiers: Record<string, number> = {
   Agile: 1,
@@ -814,6 +947,366 @@ export const vehicleFeatureRuleText: Record<string, string> = {
   'Tunneller': 'Vehicle is equipped or structured for subsurface boring/travel. Size-gated in the builder.',
 }
 
+export type VehicleFeatureRuleDetail = {
+  name: string
+  minimumTechLevel: number
+  appliesTo: string[]
+  description: string
+  effect: string
+  traits?: string[]
+  prerequisite?: string
+  notCompatible?: string[]
+  sizeLimits?: string
+  minimumSpaces?: number
+  agility?: string
+  speed?: string
+  range?: string
+  shipping?: string
+  addedCost?: string
+}
+
+export const vehicleFeatureRules: Record<string, VehicleFeatureRuleDetail> = {
+  'Aerodyne': {
+    name: 'Aerodyne',
+    minimumTechLevel: 7,
+    appliesTo: ['Rotorcraft'],
+    description: 'Transforms a rotorcraft into a wingless aircraft propelled by vectored jet engines. It can hover and perform VTOL like a helicopter, but flies faster with jet thrust.',
+    effect: 'Jet-propelled wingless flying craft.',
+    prerequisite: 'Powered',
+    notCompatible: ['Folding Wings', 'Ornithopter'],
+    speed: '+1 Speed Band',
+    shipping: 'x0.5',
+    addedCost: '+30% base Cost',
+  },
+  'AFV': {
+    name: 'AFV',
+    minimumTechLevel: 5,
+    appliesTo: ['Grav Vehicle', 'Ground Vehicle', 'Structure', 'Submersible', 'Walker', 'Watercraft'],
+    description: 'An Armoured Fighting Vehicle is built for battlefield conditions, increasing armour limits and reinforcing the hull.',
+    effect: '3x armour limit, +50% Hull, reduced Speed.',
+    traits: ['AFV', 'Off-Roader'],
+    notCompatible: ['Hydrofoil', 'Open-Topped'],
+    speed: '-1 Speed Band',
+    addedCost: '+100% base Cost',
+  },
+  'Agile': {
+    name: 'Agile',
+    minimumTechLevel: 1,
+    appliesTo: ['Aeroplane', 'Airship', 'Grav Vehicle', 'Ground Vehicle', 'Hovercraft', 'Rotorcraft', 'Submersible', 'Walker', 'Watercraft'],
+    description: 'Designed to be especially manoeuvrable through tighter turning geometry, control surfaces, gyroscopes, or similar handling improvements.',
+    effect: 'Locomotion optimised for greater Agility.',
+    notCompatible: ['Rail Rider'],
+    agility: '+1',
+    addedCost: '+100% base Cost',
+  },
+  'ATV': {
+    name: 'ATV',
+    minimumTechLevel: 0,
+    appliesTo: ['Ground Vehicle'],
+    description: 'The All-Terrain Vehicle feature improves rough-ground handling with additional wheels, higher ground clearance, or improved suspension.',
+    effect: 'No penalty for off-road travel. Able to traverse rough terrain.',
+    traits: ['ATV'],
+    notCompatible: ['Off-Roader', 'Rail Rider', 'Tracks'],
+    addedCost: '+30% base Cost',
+  },
+  'Biotech': {
+    name: 'Biotech',
+    minimumTechLevel: 0,
+    appliesTo: ['Aeroplane', 'Airship', 'Ground Vehicle', 'Hovercraft', 'Rotorcraft', 'Structure', 'Submersible', 'Walker', 'Watercraft'],
+    description: 'A living vehicle, constructed, modified, or trained. Its full construction rules are handled in the Biotech chapter.',
+    effect: 'See Biotech Chapter.',
+    traits: ['Biotech (see text)'],
+    agility: 'varies',
+    speed: 'varies',
+    range: 'varies',
+    shipping: 'varies',
+    addedCost: 'varies',
+  },
+  'Fast': {
+    name: 'Fast',
+    minimumTechLevel: 0,
+    appliesTo: ['Aeroplane', 'Airship', 'Grav Vehicle', 'Ground Vehicle', 'Hovercraft', 'Rotorcraft', 'Submersible', 'Walker', 'Watercraft'],
+    description: 'Uses a more powerful engine at the cost of fuel efficiency or capacity.',
+    effect: 'Trades bigger engine for less fuel.',
+    notCompatible: ['Slow', 'Supersonic'],
+    speed: '+1 Speed Band',
+    range: 'x0.5',
+    addedCost: '+100% base Cost',
+  },
+  'Floats': {
+    name: 'Floats',
+    minimumTechLevel: 4,
+    appliesTo: ['Aeroplane', 'Rotorcraft'],
+    description: 'Allows an aircraft to land on and take off from liquid surfaces using outriggers or a buoyant body.',
+    effect: 'Floats or body of aircraft supports water landings.',
+    speed: '-1 Speed Band',
+    addedCost: '+20% base Cost',
+  },
+  'Folding Wings': {
+    name: 'Folding Wings',
+    minimumTechLevel: 4,
+    appliesTo: ['Aeroplane', 'Rotorcraft'],
+    description: 'Wings or blades fold against the body so the vehicle can be stored or transported in a smaller area.',
+    effect: 'Wings or rotors fold to reduce shipping volume.',
+    notCompatible: ['Aerodyne'],
+    shipping: 'x0.75',
+    addedCost: '+20% base Cost',
+  },
+  'Hydrofoil': {
+    name: 'Hydrofoil',
+    minimumTechLevel: 3,
+    appliesTo: ['Watercraft'],
+    description: 'Uses struts to raise the body above the surface at speed, reducing friction and improving top speed.',
+    effect: 'Raises body of watercraft to reduce friction and increase Speed.',
+    notCompatible: ['AFV'],
+    speed: '+1 Speed Band',
+    addedCost: '+200% base Cost',
+  },
+  'Hypersonic': {
+    name: 'Hypersonic',
+    minimumTechLevel: 8,
+    appliesTo: ['Aeroplane'],
+    description: 'Aerodynamics, materials, and intakes support extremely fast atmospheric flight.',
+    effect: 'Changes aeroplane Speed Band to Hypersonic.',
+    prerequisite: 'Jet',
+    notCompatible: ['Open Frame', 'Open-Topped', 'Supersonic'],
+    range: 'x0.5',
+    addedCost: '+400% base Cost',
+  },
+  'Jet Engines': {
+    name: 'Jet Engines',
+    minimumTechLevel: 6,
+    appliesTo: ['Aeroplane'],
+    description: 'Uses jet thrust instead of propeller engines and is a prerequisite for supersonic or hypersonic flight.',
+    effect: 'Uses Jet instead of propeller engines.',
+    prerequisite: 'Powered',
+    speed: '+1 Speed Band',
+    range: 'x1.5',
+    addedCost: '+200% base Cost',
+  },
+  'Locomotive': {
+    name: 'Locomotive',
+    minimumTechLevel: 3,
+    appliesTo: ['Grav Vehicle', 'Ground Vehicle', 'Submersible', 'Walker', 'Watercraft'],
+    description: 'Optimised for towing or pushing heavy loads, trading responsiveness for much greater hauling capacity.',
+    effect: 'x4 towing capacity, Unresponsive, triple power points.',
+    traits: ['Unresponsive'],
+    prerequisite: 'Powered',
+    sizeLimits: 'Size 20+',
+    minimumSpaces: 20,
+    agility: '-1',
+    addedCost: '+50% base Cost',
+  },
+  'Monowheel': {
+    name: 'Monowheel',
+    minimumTechLevel: 9,
+    appliesTo: ['Ground Vehicle'],
+    description: 'A one-wheeled motorcycle-like vehicle with components and occupants inside the wheel.',
+    effect: 'Manoeuvrable single wheel.',
+    prerequisite: 'Powered',
+    notCompatible: ['Tracks'],
+    agility: '+2',
+    speed: '+1 Speed Band',
+    shipping: 'x0.5',
+    addedCost: '+200% base Cost',
+  },
+  'Multi-Legged': {
+    name: 'Multi-Legged',
+    minimumTechLevel: 8,
+    appliesTo: ['Walker'],
+    description: 'Adds legs to a walker for improved stability and performance in rough terrain.',
+    effect: 'Walker with more than two legs. DM+1 on rough terrain.',
+    prerequisite: 'Powered',
+    agility: '+1',
+    addedCost: '+100% base Cost',
+  },
+  'Off-Roader': {
+    name: 'Off-Roader',
+    minimumTechLevel: 0,
+    appliesTo: ['Ground Vehicle'],
+    description: 'Allows a wheeled ground vehicle to operate normally off-road and venture into rough terrain.',
+    effect: 'No penalty for off-road travel. Able to traverse rough terrain.',
+    traits: ['Off-Roader'],
+    notCompatible: ['ATV', 'Rail Rider', 'Tracks'],
+    addedCost: '+15% base Cost',
+  },
+  'Open Frame': {
+    name: 'Open Frame',
+    minimumTechLevel: 0,
+    appliesTo: ['Aeroplane', 'Airship', 'Grav Vehicle', 'Ground Vehicle', 'Hovercraft', 'Rotorcraft', 'Structure', 'Submersible', 'Walker', 'Watercraft'],
+    description: 'Riders sit on the vehicle rather than inside it, gaining visibility and easy exit but losing armour protection.',
+    effect: 'Riders sit outside vehicle with no armour protection.',
+    traits: ['Open Vehicle'],
+    notCompatible: ['Hypersonic', 'Open-Topped', 'Supersonic'],
+    sizeLimits: 'Size 1-3',
+    agility: '+1',
+    speed: '+1 Speed Band',
+    range: 'x0.8',
+    shipping: 'x0.5',
+    addedCost: '-30% base Cost',
+  },
+  'Open-Topped': {
+    name: 'Open-Topped',
+    minimumTechLevel: 0,
+    appliesTo: ['Aeroplane', 'Grav Vehicle', 'Ground Vehicle', 'Hovercraft', 'Rotorcraft', 'Structure', 'Submersible', 'Walker', 'Watercraft'],
+    description: 'Has no integral roof or top surface. Occupants have wide visibility but no top armour and only partial side cover.',
+    effect: 'No top armour, sides provide half cover.',
+    traits: ['Open-Topped'],
+    notCompatible: ['AFV', 'Hypersonic', 'Open Frame', 'Supersonic'],
+    addedCost: '-15% base Cost',
+  },
+  'Ornithopter': {
+    name: 'Ornithopter',
+    minimumTechLevel: 8,
+    appliesTo: ['Rotorcraft'],
+    description: 'A rotorcraft variant that flies like a bird using moving wings and Flyer (ornithopter) skill.',
+    effect: 'Flies like a bird using moving wings.',
+    notCompatible: ['Aerodyne'],
+    agility: '+1',
+    speed: '-1 Speed Band',
+    range: 'x0.75',
+    shipping: 'x0.75',
+    addedCost: '+20% base Cost',
+  },
+  'Rail Rider': {
+    name: 'Rail Rider',
+    minimumTechLevel: 1,
+    appliesTo: ['Ground Vehicle'],
+    description: 'Designed to operate on rails, tracks, or monorails. Powered rail riders can combine with locomotive designs for train operations.',
+    effect: 'Locomotion limited to railroad tracks or monorails.',
+    notCompatible: ['Agile', 'ATV', 'Off-Roader', 'Tracks'],
+    agility: '-2',
+    speed: '+1 Speed Band',
+    addedCost: '+50% base Cost',
+  },
+  'Responsive': {
+    name: 'Responsive',
+    minimumTechLevel: 0,
+    appliesTo: ['Aeroplane', 'Airship', 'Grav Vehicle', 'Ground Vehicle', 'Hovercraft', 'Rotorcraft', 'Submersible', 'Walker', 'Watercraft'],
+    description: 'Accelerates and decelerates quickly, reducing the time required to change speed bands.',
+    effect: 'Reduces to half the time required to change Speed Bands.',
+    traits: ['Responsive'],
+    notCompatible: ['Unresponsive'],
+    range: 'x0.75',
+    addedCost: '+100% base Cost',
+  },
+  'Rigid': {
+    name: 'Rigid',
+    minimumTechLevel: 4,
+    appliesTo: ['Airship'],
+    description: 'A rigid airship uses a fixed frame around its lift envelope, improving range but making shipping and storage harder.',
+    effect: 'Rigid frame to provide better range, but harder to ship or store.',
+    range: 'x1.5',
+    shipping: 'x5',
+    addedCost: '+200% base Cost',
+  },
+  'Slow': {
+    name: 'Slow',
+    minimumTechLevel: 0,
+    appliesTo: ['Aeroplane', 'Airship', 'Grav Vehicle', 'Ground Vehicle', 'Hovercraft', 'Rotorcraft', 'Submersible', 'Walker', 'Watercraft'],
+    description: 'Sacrifices power for range, using a smaller engine and usually larger fuel tanks.',
+    effect: 'Trades smaller engine for more fuel.',
+    notCompatible: ['Fast'],
+    speed: '-1 Speed Band',
+    range: 'x1.5',
+    addedCost: '-25% base Cost',
+  },
+  'Smart Wheels': {
+    name: 'Smart Wheels',
+    minimumTechLevel: 9,
+    appliesTo: ['Ground Vehicle'],
+    description: 'Sensors and adaptive wheels compensate for terrain, improving adverse-condition driving checks and range.',
+    effect: 'DM+1 in adverse conditions; +10% range; lowers terrain penalty by 1.',
+    agility: '+1',
+    range: 'x1.1',
+    addedCost: '+130% base Cost',
+  },
+  'STOL': {
+    name: 'STOL',
+    minimumTechLevel: 4,
+    appliesTo: ['Aeroplane'],
+    description: 'Short takeoff and landing design requiring half the normal runway or landing-field length.',
+    effect: 'Take-offs and landings require half runway space.',
+    addedCost: '+30% base Cost',
+  },
+  'Streamlined': {
+    name: 'Streamlined',
+    minimumTechLevel: 1,
+    appliesTo: ['Airship', 'Grav Vehicle', 'Ground Vehicle', 'Hovercraft', 'Rotorcraft', 'Structure'],
+    description: 'An aerodynamic hull that improves performance and allows some non-aeroplanes to exceed Subsonic speeds in atmosphere.',
+    effect: 'Aerodynamic hulls for non-aeroplanes.',
+    notCompatible: ['Tunneller'],
+    agility: '+1',
+    speed: '+1 Speed Band',
+    addedCost: '+200% base Cost',
+  },
+  'Supersonic': {
+    name: 'Supersonic',
+    minimumTechLevel: 6,
+    appliesTo: ['Aeroplane'],
+    description: 'Aeroplane requirements for sustained faster-than-sound flight.',
+    effect: 'Changes aeroplane Speed Band to Supersonic.',
+    prerequisite: 'Jet',
+    notCompatible: ['Fast', 'Hypersonic', 'Open Frame', 'Open-Topped'],
+    range: 'x0.8',
+    addedCost: '+200% base Cost',
+  },
+  'Tilt Engines': {
+    name: 'Tilt Engines',
+    minimumTechLevel: 8,
+    appliesTo: ['Aeroplane'],
+    description: 'Engines rotate to generate vertical thrust for VTOL operations.',
+    effect: 'Aeroplane engines tilt to allow VTOL.',
+    traits: ['VTOL'],
+    speed: '-1 Speed Band',
+    addedCost: '+100% base Cost',
+  },
+  'Tracks': {
+    name: 'Tracks',
+    minimumTechLevel: 5,
+    appliesTo: ['Ground Vehicle'],
+    description: 'Uses treads instead of wheels for superior rough-terrain performance at the cost of overall speed.',
+    effect: 'Allow ground vehicle to traverse rough terrain but Speed reduced.',
+    traits: ['Tracked'],
+    notCompatible: ['ATV', 'Monowheel', 'Off-Roader'],
+    speed: '-1 Speed Band',
+    addedCost: '+100% base Cost',
+  },
+  'Tunneller': {
+    name: 'Tunneller',
+    minimumTechLevel: 7,
+    appliesTo: ['Ground Vehicle', 'Submersible', 'Walker'],
+    description: 'Large drills or boring equipment let Heavy or larger vehicles tunnel through solid rock, regolith, or hard soil.',
+    effect: 'Allows ground vehicle to tunnel through rock at a rate of TLx1 m/hour, doubled at TL8+.',
+    notCompatible: ['Streamlined'],
+    sizeLimits: 'Size 20+',
+    minimumSpaces: 20,
+    agility: '-1',
+    speed: '-1 Speed Band',
+    addedCost: '+800% base Cost',
+  },
+  'Unresponsive': {
+    name: 'Unresponsive',
+    minimumTechLevel: 0,
+    appliesTo: ['Aeroplane', 'Airship', 'Grav Vehicle', 'Ground Vehicle', 'Hovercraft', 'Rotorcraft', 'Submersible', 'Walker', 'Watercraft'],
+    description: 'The vehicle accelerates and decelerates slowly, taking twice as long to change speed bands.',
+    effect: 'Doubles time needed to change a Speed Band.',
+    traits: ['Unresponsive'],
+    notCompatible: ['Locomotive', 'Responsive'],
+    addedCost: '-25% base Cost',
+  },
+}
+
+const vehicleFeatureAppliesToFamily = (feature: string, family: VehicleFamilyRule) => {
+  const rule = vehicleFeatureRules[feature]
+  return !rule || rule.appliesTo.includes(family.label)
+}
+
+export const vehicleQualifiedFeatureNamesForFamily = (familyId: TravellerVehicleBaseFamily) => {
+  const family = familyRuleFor(familyId)
+  return family.allowedFeatures.filter((feature) => vehicleFeatureAppliesToFamily(feature, family))
+}
+
 export const vehicleFeatureMechanicalEffects = (
   feature: string,
   context: {
@@ -852,23 +1345,19 @@ export const vehicleFeatureMechanicalEffects = (
       effects.push('Added to derived Traits.')
       break
     case 'Hydrofoil':
-      effects.push('Remains selected as a high-speed water-motion feature.')
-      effects.push('No automated hydrofoil speed shift is encoded yet.')
+      effects.push('High-speed water-motion feature.')
       effects.push('Added to derived Traits.')
       break
     case 'ATV':
-      effects.push('Remains selected as a terrain-capability feature.')
-      effects.push('No additional automated ATV modifier is encoded yet.')
+      effects.push('Improves all-terrain operation.')
       effects.push('Added to derived Traits.')
       break
     case 'Off-Roader':
-      effects.push('Remains selected as a rough-terrain handling feature.')
-      effects.push('No additional automated off-road modifier is encoded yet.')
+      effects.push('Improves rough-terrain handling.')
       effects.push('Added to derived Traits.')
       break
     case 'Smart Wheels':
-      effects.push('Remains selected as an advanced wheel-system feature.')
-      effects.push('No automated Smart Wheels mobility modifier is encoded yet.')
+      effects.push('Improves wheel-system terrain handling.')
       effects.push('Added to derived Traits.')
       break
     case 'Open Frame':
@@ -949,6 +1438,12 @@ const hullClassModifiers = {
   Standard: { hull: 0, cost: 0 },
   Reinforced: { hull: 0.1, cost: 0.5 },
 } as const
+
+const hullClassAdjustedHull = (baseHull: number, hullClass: keyof typeof hullClassModifiers) => {
+  if (hullClass === 'Reinforced') return Math.max(baseHull + 1, roundHalfUp(baseHull * 1.1))
+  if (hullClass === 'Light') return Math.max(1, Math.min(baseHull - 1, roundHalfUp(baseHull * 0.75)))
+  return baseHull
+}
 
 const formatSignedNumber = (value: number) => `${value >= 0 ? '+' : ''}${value}`
 
@@ -1575,6 +2070,104 @@ const derivedOperatingSkillForVehicle = (
   return 'Drive (wheel)'
 }
 
+const parseLeadingNumber = (value: unknown) => {
+  const match = String(value ?? '').match(/\d+(?:\.\d+)?/)
+  if (!match) return 0
+  const parsed = Number(match[0])
+  return Number.isFinite(parsed) ? parsed : 0
+}
+
+const normalizeOccupantEntries = (vehicle: CustomVehicleDesign): CustomVehicleOccupantEntry[] => {
+  if (Array.isArray(vehicle.occupantEntries) && vehicle.occupantEntries.length) {
+    return vehicle.occupantEntries.map((entry) => ({
+      role: String(entry?.role ?? '').trim() || (entry?.category === 'passenger' ? 'Passengers' : 'Crew'),
+      count: Math.max(0, Number(entry?.count ?? 0)),
+      spacesEach: Math.max(0, Number(entry?.spacesEach ?? 1)),
+      category: entry?.category === 'passenger' ? 'passenger' : 'crew',
+    }))
+  }
+
+  const entries: CustomVehicleOccupantEntry[] = []
+  const crewCount = parseLeadingNumber(vehicle.crew)
+  const passengerCount = parseLeadingNumber(vehicle.passengers)
+
+  if (crewCount > 0) entries.push({
+    role: 'Crew',
+    count: crewCount,
+    spacesEach: 1,
+    category: 'crew',
+  })
+  if (passengerCount > 0) entries.push({
+    role: 'Passengers',
+    count: passengerCount,
+    spacesEach: 1,
+    category: 'passenger',
+  })
+
+  return entries
+}
+
+const normalizeCargoEntries = (vehicle: CustomVehicleDesign): CustomVehicleCargoEntry[] => {
+  if (Array.isArray(vehicle.cargoEntries) && vehicle.cargoEntries.length) {
+    return vehicle.cargoEntries.map((entry) => ({
+      name: String(entry?.name ?? '').trim() || 'Cargo',
+      spaces: Math.max(0, Number(entry?.spaces ?? 0)),
+      tons: Math.max(0, Number(entry?.tons ?? 0)),
+    }))
+  }
+
+  const cargoSpaces = parseLeadingNumber(vehicle.cargo)
+  return cargoSpaces > 0
+    ? [{ name: 'Cargo', spaces: cargoSpaces, tons: cargoSpaces * 0.25 }]
+    : []
+}
+
+const formatCountSummary = (entries: CustomVehicleOccupantEntry[], category: CustomVehicleOccupantEntry['category']) => {
+  const count = entries
+    .filter((entry) => entry.category === category)
+    .reduce((total, entry) => total + Math.max(0, Number(entry.count ?? 0)), 0)
+  return count ? String(count) : '0'
+}
+
+const formatCargoSummary = (entries: CustomVehicleCargoEntry[]) => {
+  const spaces = entries.reduce((total, entry) => total + Math.max(0, Number(entry.spaces ?? 0)), 0)
+  const tons = entries.reduce((total, entry) => total + Math.max(0, Number(entry.tons ?? 0)), 0)
+  if (!spaces && !tons) return '0'
+  if (tons) return `${spaces} Spaces / ${tons.toLocaleString()} tons`
+  return `${spaces} Spaces`
+}
+
+export const vehicleOccupantComfortSummaries = (entries: CustomVehicleOccupantEntry[]): VehicleOccupantComfortSummary[] => {
+  const summaries: VehicleOccupantComfortSummary[] = []
+
+  for (const category of ['crew', 'passenger'] as const) {
+    const categoryEntries = (entries ?? []).filter((entry) => entry.category === category)
+    const count = categoryEntries.reduce((total, entry) => total + Math.max(0, Number(entry.count ?? 0)), 0)
+    if (count <= 0) continue
+
+    const spaces = categoryEntries.reduce((total, entry) => (
+      total + (Math.max(0, Number(entry.count ?? 0)) * Math.max(0, Number(entry.spacesEach ?? 0)))
+    ), 0)
+    const comfortLevel = spaces / count
+    summaries.push({
+      category,
+      label: category === 'crew' ? 'Crew' : 'Passengers',
+      count,
+      spaces,
+      comfortLevel,
+      rule: vehicleComfortLevelRuleForValue(comfortLevel),
+    })
+  }
+
+  return summaries
+}
+
+const formatComfortSummary = (entries: CustomVehicleOccupantEntry[]) => {
+  const summaries = vehicleOccupantComfortSummaries(entries)
+  if (!summaries.length) return ''
+  return summaries.map((summary) => `${summary.label}: ${summary.rule.label}`).join('; ')
+}
+
 export const vehicleConstructionSummary = (vehicle: CustomVehicleDesign) => {
   const family = familyRuleFor(vehicle.baseFamily || inferBaseFamily(vehicle))
   const power = primaryPowerRules[vehicle.primaryPower]
@@ -1620,9 +2213,11 @@ export const vehicleConstructionSummary = (vehicle: CustomVehicleDesign) => {
 
   const armourSummary = armourSummaryForVehicle(vehicle)
   const featureAllocatedSpaces = 0
+  const occupantAllocatedSpaces = (vehicle.occupantEntries ?? []).reduce((total, entry) => total + (Math.max(0, Number(entry.count ?? 0)) * Math.max(0, Number(entry.spacesEach ?? 0))), 0)
+  const cargoAllocatedSpaces = (vehicle.cargoEntries ?? []).reduce((total, entry) => total + Math.max(0, Number(entry.spaces ?? 0)), 0)
   const equipmentAllocatedSpaces = (vehicle.equipmentEntries ?? []).reduce((total, entry) => total + Math.max(0, Number(entry.spaces ?? 0)), 0)
   const weaponAllocatedSpaces = (vehicle.weapons ?? []).reduce((total, weapon) => total + Math.max(0, Number(weapon.spaces ?? 0)), 0)
-  const allocatedSpaces = featureAllocatedSpaces + equipmentAllocatedSpaces + weaponAllocatedSpaces + armourSummary.armourSpaces
+  const allocatedSpaces = featureAllocatedSpaces + occupantAllocatedSpaces + cargoAllocatedSpaces + equipmentAllocatedSpaces + weaponAllocatedSpaces + armourSummary.armourSpaces
   const remainingSpaces = availableSpaces - allocatedSpaces
 
   return {
@@ -1637,6 +2232,8 @@ export const vehicleConstructionSummary = (vehicle: CustomVehicleDesign) => {
     auxiliarySummary,
     armourSummary,
     featureAllocatedSpaces,
+    occupantAllocatedSpaces,
+    cargoAllocatedSpaces,
     equipmentAllocatedSpaces,
     weaponAllocatedSpaces,
     allocatedSpaces,
@@ -1653,6 +2250,8 @@ export const normalizeCustomVehicleDesign = (vehicle: CustomVehicleDesign): Cust
     : 'standard')
   normalized.fusionPlusFuelType = normalized.fusionPlusFuelType === 'deuterium-enriched-water' ? 'deuterium-enriched-water' : 'water'
   normalized.auxiliaryDrive = normalized.auxiliaryDrive || 'none'
+  normalized.occupantEntries = normalizeOccupantEntries(normalized)
+  normalized.cargoEntries = normalizeCargoEntries(normalized)
   normalized.equipmentEntries = Array.isArray(normalized.equipmentEntries)
     ? normalized.equipmentEntries.map((entry) => ({
         name: String(entry?.name ?? '').trim(),
@@ -1697,7 +2296,8 @@ export const applyVehicleHandbookDerivations = (vehicle: CustomVehicleDesign) =>
   }
   const effectivePower = primaryPowerRules[vehicle.primaryPower]
   const effectiveAuxiliary = auxiliaryDriveRules[vehicle.auxiliaryDrive]
-  const selectedFeatures = [...new Set((vehicle.features ?? []).filter((feature) => family.allowedFeatures.includes(feature) && (size.armourAllowedFeatures.length === 0 || !['AFV', 'Locomotive', 'Tunneller'].includes(feature) || size.armourAllowedFeatures.includes(feature))))]
+  const qualifiedFeatures = vehicleQualifiedFeatureNamesForFamily(family.id)
+  const selectedFeatures = [...new Set((vehicle.features ?? []).filter((feature) => qualifiedFeatures.includes(feature) && (size.armourAllowedFeatures.length === 0 || !['AFV', 'Locomotive', 'Tunneller'].includes(feature) || size.armourAllowedFeatures.includes(feature))))]
   const speedFeatureModifier = selectedFeatures.reduce((total, feature) => total + (featureSpeedModifiers[feature] ?? 0), 0)
   const agilityFeatureModifier = selectedFeatures.reduce((total, feature) => total + (featureAgilityModifiers[feature] ?? 0), 0)
   const speedSizeModifier = family.ignoreSizeSpeedModifier ? 0 : size.speedModifier
@@ -1719,7 +2319,7 @@ export const applyVehicleHandbookDerivations = (vehicle: CustomVehicleDesign) =>
   const cruiseRange = roundHalfUp(derivedRange * 1.5)
   const hullClassModifier = hullClassModifiers[hullClass]
   const baseHull = Math.max(1, roundHalfUp(vehicle.spaces * family.hullPerSpace))
-  const derivedHull = Math.max(1, roundHalfUp(baseHull * (1 + hullClassModifier.hull)))
+  const derivedHull = hullClassAdjustedHull(baseHull, hullClass)
   const derivedStructure = Math.max(1, Math.ceil(derivedHull / 10))
   const installedPowerSpaces = installedPowerPlantSpaces(vehicle, effectivePower)
   const costModifier = hullClassModifier.cost
@@ -1766,6 +2366,10 @@ export const applyVehicleHandbookDerivations = (vehicle: CustomVehicleDesign) =>
   vehicle.cost = formatCost(derivedCost)
   vehicle.traits = derivedTraits
   vehicle.features = selectedFeatures
+  vehicle.crew = formatCountSummary(vehicle.occupantEntries ?? [], 'crew')
+  vehicle.passengers = formatCountSummary(vehicle.occupantEntries ?? [], 'passenger')
+  vehicle.comfortLevel = formatComfortSummary(vehicle.occupantEntries ?? [])
+  vehicle.cargo = formatCargoSummary(vehicle.cargoEntries ?? [])
   vehicle.equipment = (vehicle.equipmentEntries ?? []).map((entry) => entry.name).filter(Boolean)
 }
 
@@ -1836,10 +2440,9 @@ export const validateCustomVehicle = (vehicle: CustomVehicleDesign): string[] =>
   if (!vehicle.baseFamily) issues.push('Base vehicle type is required.')
   if (!vehicle.hull.trim()) issues.push('Structural reinforcement is required.')
   if (!vehicle.skill.trim()) issues.push('Operating skill is required.')
-  if (!vehicle.comfortLevel.trim()) issues.push('Comfort level is required.')
-  if (!vehicle.crew.trim()) issues.push('Crew value is required.')
-  if (!vehicle.passengers.trim()) issues.push('Passenger value is required.')
+  if (!(vehicle.occupantEntries ?? []).some((entry) => entry.category === 'crew' && Number(entry.count) > 0)) issues.push('At least one crew station is required.')
   if (vehicle.spaces <= 0) issues.push('Spaces must be greater than zero.')
+  if (vehicle.spaces === 1 && vehicle.hull !== 'Standard') issues.push('One-Space vehicles cannot use Light or Reinforced hull modification.')
   if (vehicle.techLevel < family.minimumTechLevel) issues.push(`Tech level cannot be below ${family.minimumTechLevel} for ${family.label}.`)
   if (vehicle.costCredits !== null && vehicle.costCredits < 0) issues.push('Credit cost cannot be negative.')
   if (vehicle.speedModificationSteps > 3 || vehicle.speedModificationSteps < -3) issues.push('Speed modifications are limited to three steps in either direction.')
@@ -1851,7 +2454,8 @@ export const validateCustomVehicle = (vehicle: CustomVehicleDesign): string[] =>
   if (power.supportsFusionPlusFuelType && vehicle.fusionPlusFuelType === 'deuterium-enriched-water' && vehicle.techLevel < 10) issues.push('Deuterium-enriched Fusion+ fuel requires TL 10+ support infrastructure.')
   if (auxiliary.allowedFamilies && !auxiliary.allowedFamilies.includes(family.id)) issues.push(`${auxiliary.label} is not allowed for ${family.label}.`)
   if (vehicle.auxiliaryDrive !== 'none' && vehicle.techLevel < auxiliary.minimumTechLevel) issues.push(`${auxiliary.label} requires TL ${auxiliary.minimumTechLevel}+.`)
-  if (vehicle.features.some((feature) => !family.allowedFeatures.includes(feature))) issues.push('Selected features must be allowed for the base vehicle type.')
+  const qualifiedFeatures = vehicleQualifiedFeatureNamesForFamily(family.id)
+  if (vehicle.features.some((feature) => !qualifiedFeatures.includes(feature))) issues.push('Selected features must be allowed for the base vehicle type.')
   if (Math.abs(vehicle.speedModificationSteps) > 1 && vehicle.techLevel < 5) issues.push('Two-step speed modifications require TL 5+.')
   if (Math.abs(vehicle.speedModificationSteps) > 2 && vehicle.techLevel < 6) issues.push('Three-step speed modifications require TL 6+.')
   if (Math.abs(vehicle.fuelEfficiencySteps) > 1 && vehicle.techLevel < 4) issues.push('Two-step fuel efficiency changes require TL 4+.')
@@ -1878,6 +2482,20 @@ export const validateCustomVehicle = (vehicle: CustomVehicleDesign): string[] =>
     const prefix = `Option ${index + 1}`
     if (!entry.name.trim()) issues.push(`${prefix} name is required.`)
     if (Number(entry.spaces ?? 0) < 0) issues.push(`${prefix} spaces cannot be negative.`)
+  })
+
+  ;(vehicle.occupantEntries ?? []).forEach((entry, index) => {
+    const prefix = `Occupant row ${index + 1}`
+    if (!entry.role.trim()) issues.push(`${prefix} role is required.`)
+    if (Number(entry.count ?? 0) <= 0) issues.push(`${prefix} count must be greater than zero.`)
+    if (Number(entry.spacesEach ?? 0) < 0) issues.push(`${prefix} spaces cannot be negative.`)
+  })
+
+  ;(vehicle.cargoEntries ?? []).forEach((entry, index) => {
+    const prefix = `Cargo row ${index + 1}`
+    if (!entry.name.trim()) issues.push(`${prefix} name is required.`)
+    if (Number(entry.spaces ?? 0) < 0) issues.push(`${prefix} spaces cannot be negative.`)
+    if (Number(entry.tons ?? 0) < 0) issues.push(`${prefix} tons cannot be negative.`)
   })
 
   const summary = vehicleConstructionSummary(vehicle)

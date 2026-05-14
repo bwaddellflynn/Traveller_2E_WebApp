@@ -17,6 +17,7 @@ const emit = defineEmits<{
 const primaryPowerLabels = Object.fromEntries(vehiclePrimaryPowerOptions().map((option) => [option.id, option.label]))
 const auxiliaryDriveLabels = Object.fromEntries(vehicleAuxiliaryDriveOptions().map((option) => [option.id, option.label]))
 const summary = computed(() => vehicleConstructionSummary(props.vehicle))
+const stepLabels = ['Frame', 'Features', 'Power', 'Protection', 'Options', 'Automation', 'Occupants', 'Cargo', 'Weapons', 'Review']
 </script>
 
 <template>
@@ -33,7 +34,7 @@ const summary = computed(() => vehicleConstructionSummary(props.vehicle))
           >
             <span class="font-semibold text-amber-200">{{ issue }}</span>
             <span v-if="typeof props.validationIssueSteps?.[issue] === 'number'" class="mt-1 block text-xs uppercase tracking-wide text-amber-300/80">
-              Go to {{ ['Chassis', 'Mobility', 'Protection', 'Payload', 'Weapons', 'Review'][props.validationIssueSteps[issue]!] }}
+              Go to {{ stepLabels[props.validationIssueSteps[issue]!] ?? 'Step' }}
             </span>
           </button>
         </li>
@@ -49,7 +50,7 @@ const summary = computed(() => vehicleConstructionSummary(props.vehicle))
     <section class="rounded-md border border-cyan-400/20 bg-slate-950/30 p-4">
       <div class="grid gap-4 xl:grid-cols-2">
         <section class="rounded-md border border-cyan-400/15 bg-slate-950/30 p-4">
-          <h3 class="text-sm font-semibold text-cyan-50">Chassis</h3>
+          <h3 class="text-sm font-semibold text-cyan-50">Frame</h3>
           <div class="mt-3 grid gap-3 sm:grid-cols-2">
             <div><span class="text-xs uppercase tracking-wide text-zinc-400">Vehicle</span><p class="mt-1 text-base font-semibold text-cyan-50">{{ props.vehicle.name || 'Unnamed Vehicle' }}</p></div>
             <div><span class="text-xs uppercase tracking-wide text-zinc-400">Base Type</span><p class="mt-1 text-base font-semibold text-cyan-50">{{ vehicleFamilyRule(props.vehicle.baseFamily).label }}</p></div>
@@ -77,7 +78,7 @@ const summary = computed(() => vehicleConstructionSummary(props.vehicle))
         </section>
 
         <section class="rounded-md border border-cyan-400/15 bg-slate-950/30 p-4">
-          <h3 class="text-sm font-semibold text-cyan-50">Payload and Crew</h3>
+          <h3 class="text-sm font-semibold text-cyan-50">Occupants and Cargo</h3>
           <div class="mt-3 grid gap-3 sm:grid-cols-2">
             <div><span class="text-xs uppercase tracking-wide text-zinc-400">Crew</span><p class="mt-1 text-base font-semibold text-cyan-50">{{ props.vehicle.crew || '-' }}</p></div>
             <div><span class="text-xs uppercase tracking-wide text-zinc-400">Passengers</span><p class="mt-1 text-base font-semibold text-cyan-50">{{ props.vehicle.passengers || '-' }}</p></div>
@@ -85,6 +86,8 @@ const summary = computed(() => vehicleConstructionSummary(props.vehicle))
             <div><span class="text-xs uppercase tracking-wide text-zinc-400">Cargo</span><p class="mt-1 text-base font-semibold text-cyan-50">{{ props.vehicle.cargo || '-' }}</p></div>
             <div><span class="text-xs uppercase tracking-wide text-zinc-400">Allocated Systems</span><p class="mt-1 text-base font-semibold text-cyan-50">{{ summary.allocatedSpaces }}</p></div>
             <div><span class="text-xs uppercase tracking-wide text-zinc-400">Remaining Spaces</span><p class="mt-1 text-base font-semibold text-cyan-50">{{ summary.remainingSpaces }}</p></div>
+            <div><span class="text-xs uppercase tracking-wide text-zinc-400">Occupant Spaces</span><p class="mt-1 text-base font-semibold text-cyan-50">{{ summary.occupantAllocatedSpaces }}</p></div>
+            <div><span class="text-xs uppercase tracking-wide text-zinc-400">Cargo Spaces</span><p class="mt-1 text-base font-semibold text-cyan-50">{{ summary.cargoAllocatedSpaces }}</p></div>
             <div class="sm:col-span-2"><span class="text-xs uppercase tracking-wide text-zinc-400">Traits</span><p class="mt-1 text-base font-semibold text-cyan-50">{{ props.vehicle.traits.join(', ') || '-' }}</p></div>
           </div>
         </section>

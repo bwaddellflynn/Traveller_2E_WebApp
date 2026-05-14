@@ -6,7 +6,7 @@ import { vehicleFamilyRule } from '~/utils/traveller/vehicles'
 const props = defineProps<{
   vehicle: CustomVehicleDesign
   optionSets: {
-    primaryPowerOptions: Array<{ id: string, label: string, minimumTechLevel: number, notes: string, endurance?: string, powerPerSpace?: number, supportsFusionPlusFuelType?: boolean }>
+    primaryPowerOptions: Array<{ id: string, label: string, minimumTechLevel: number, notes: string, endurance?: string, powerPerSpace?: number, rangeMultiplier?: number, supportsFusionPlusFuelType?: boolean }>
     auxiliaryDriveOptions: Array<{ id: string, label: string, minimumTechLevel: number, notes: string }>
   }
   summary: {
@@ -29,10 +29,41 @@ const primaryPowerTooltip = computed(() => {
   const details = [
     `Minimum TL ${selectedPrimaryPower.value.minimumTechLevel}+`,
     selectedPrimaryPower.value.powerPerSpace ? `${selectedPrimaryPower.value.powerPerSpace} Power/Space` : '',
+    selectedPrimaryPower.value.rangeMultiplier ? `Range x${selectedPrimaryPower.value.rangeMultiplier}` : '',
     selectedPrimaryPower.value.endurance ? selectedPrimaryPower.value.endurance : '',
     selectedPrimaryPower.value.notes,
   ].filter(Boolean)
   return details.join(' • ')
+})
+const powerRoleSummary = computed(() => {
+  const power = selectedPrimaryPower.value
+  if (!power) return ''
+  if (power.id.startsWith('fusion-plus')) {
+    return 'Fusion+ is the range plant: it burns water or enriched water and multiplies the vehicle range.'
+  }
+  if (power.id.startsWith('fusion-')) {
+    return 'Fusion is a high-output reactor: it gives decades of service life and spacecraft-scale Power, but does not multiply range.'
+  }
+  if (power.id.startsWith('fission-')) {
+    return 'Fission is a long-life reactor with radiation handling requirements and no range multiplier.'
+  }
+  if (power.powerPerSpace) {
+    return 'This plant supplies spacecraft-scale Power for demanding systems without changing base range.'
+  }
+  return power.notes
+})
+const rangeContributionSummary = computed(() => {
+  const power = selectedPrimaryPower.value
+  if (!power) return 'Baseline range'
+  if (power.rangeMultiplier) {
+    const fuelMultiplier = props.vehicle.fusionPlusFuelType === 'deuterium-enriched-water' ? 3 : 1
+    const totalMultiplier = power.rangeMultiplier * fuelMultiplier
+    return fuelMultiplier > 1 ? `Range x${totalMultiplier} with enriched water` : `Range x${power.rangeMultiplier}`
+  }
+  if (power.id.startsWith('fusion-') || power.id.startsWith('fission-') || power.powerPerSpace) {
+    return 'No range multiplier'
+  }
+  return 'Baseline range'
 })
 const currentMovementProfile = computed(() => ({
   operatingSkill: props.vehicle.skill || familyRule.value.defaultSkill,
@@ -129,7 +160,12 @@ watch(
         <label class="flex h-full flex-col gap-1 text-xs font-semibold uppercase tracking-wide text-zinc-500">
           <span class="min-h-4 leading-4">Power Summary</span>
           <input :value="selectedPrimaryPower?.endurance || (selectedPrimaryPower?.powerPerSpace ? `${selectedPrimaryPower.powerPerSpace} Power/Space` : 'Baseline vehicle power')" :title="primaryPowerTooltip" readonly class="h-11 rounded-md border border-zinc-200 bg-zinc-100 px-3 text-sm font-normal text-zinc-700 outline-none">
-          <span class="min-h-[1.5rem] text-[11px] font-normal normal-case tracking-normal text-zinc-400">Shows the most important power-note from the selected plant.</span>
+          <span class="min-h-[1.5rem] text-[11px] font-normal normal-case tracking-normal text-zinc-400">{{ powerRoleSummary }}</span>
+        </label>
+        <label class="flex h-full flex-col gap-1 text-xs font-semibold uppercase tracking-wide text-zinc-500">
+          <span class="min-h-4 leading-4">Range Effect</span>
+          <input :value="rangeContributionSummary" readonly class="h-11 rounded-md border border-zinc-200 bg-zinc-100 px-3 text-sm font-normal text-zinc-700 outline-none">
+          <span class="min-h-[1.5rem] text-[11px] font-normal normal-case tracking-normal text-zinc-400">Fusion+ changes range. Fusion and fission provide reactor endurance and Power instead.</span>
         </label>
       </div>
 
@@ -173,7 +209,7 @@ watch(
     </section>
 
     <section class="rounded-md border border-cyan-400/20 bg-slate-950/30 p-4">
-      <h3 class="text-sm font-semibold text-cyan-50">Customisation Result</h3>
+      <h3 class="text-sm font-semibold text-cyan-50">Power Result</h3>
       <div class="mt-3 grid auto-rows-fr gap-4 md:grid-cols-2 xl:grid-cols-3">
         <label class="flex h-full flex-col gap-1 text-xs font-semibold uppercase tracking-wide text-zinc-500">
           <span class="min-h-4 leading-4">Secondary Movement</span>

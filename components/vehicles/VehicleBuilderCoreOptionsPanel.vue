@@ -43,7 +43,7 @@ const updateFamilySelection = (family: VehicleBuilderCoreOptionFamily, selectedN
       <div>
         <h3 class="text-sm font-semibold text-cyan-50">Core Options</h3>
         <p class="mt-2 text-xs leading-5 text-zinc-400">
-          Quick-add the main handbook vehicle systems here first. These write into the installed options list below, where spaces can still be adjusted manually until exact option-space rules are encoded.
+          Choose the main operating systems for the vehicle. Any selected system is added to the installed options list.
         </p>
       </div>
     </div>
