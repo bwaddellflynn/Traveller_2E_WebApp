@@ -762,8 +762,11 @@ const currentTravellerSkillGroups = computed(() => {
 
 .current-traveller-skills {
   display: grid;
+  align-content: start;
+  align-items: start;
   flex: 1;
   gap: 0.7rem;
+  grid-auto-rows: min-content;
   min-height: 0;
   overflow-x: hidden;
   overflow-y: auto;
@@ -773,7 +776,9 @@ const currentTravellerSkillGroups = computed(() => {
 .current-traveller-skills__group {
   position: relative;
   display: grid;
+  align-self: start;
   gap: 0.5rem;
+  min-height: 4.25rem;
   border: 1px solid rgb(251 191 36 / 0.22);
   background:
     linear-gradient(180deg, rgb(94 36 8 / 0.26), rgb(70 23 8 / 0.34)),
@@ -829,6 +834,7 @@ const currentTravellerSkillGroups = computed(() => {
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 0.75rem;
   align-items: center;
+  min-height: 2.45rem;
 }
 
 .current-traveller-skills__name,
