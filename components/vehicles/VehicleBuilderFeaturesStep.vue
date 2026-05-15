@@ -2,7 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import type { CustomVehicleDesign } from '~/types/vehicle'
 import { vehicleFeatureRules } from '~/utils/traveller/vehicles'
-import { hasWalkerSilhouetteAsset, vehicleSilhouetteSource } from '~/utils/vehicleBuilderSilhouettes'
+import { hasVehicleSilhouetteAsset, vehicleSilhouetteImageClass, vehicleSilhouetteKindForFeature, vehicleSilhouetteSource } from '~/utils/vehicleBuilderSilhouettes'
 
 const props = defineProps<{
   vehicle: CustomVehicleDesign
@@ -67,27 +67,11 @@ const toggleSelectedFeature = () => {
 
 const featureVisualKind = computed(() => {
   const visualFeature = selectedFeatureName.value || props.vehicle.features[0] || ''
-  if (visualFeature === 'Multi-Legged') return 'walker-multi'
-  if (visualFeature === 'Tracks') return 'tracked'
-  if (visualFeature === 'Rail Rider') return 'rail'
-  if (visualFeature === 'Monowheel') return 'monowheel'
-  if (visualFeature === 'Tunneller') return 'tunneller'
-  if (visualFeature === 'Hydrofoil') return 'hydrofoil'
-  if (visualFeature === 'Floats') return 'floats'
-  if (visualFeature === 'Aerodyne') return 'aerodyne'
-  if (visualFeature === 'Ornithopter') return 'ornithopter'
-  if (visualFeature === 'Open Frame') return 'open-frame'
-  if (visualFeature === 'Open-Topped') return 'open-topped'
-  return props.vehicle.baseFamily
+  return vehicleSilhouetteKindForFeature(visualFeature, props.vehicle.baseFamily)
 })
-const featureUsesWalkerVisual = computed(() => props.vehicle.baseFamily === 'walker' || featureVisualKind.value.startsWith('walker'))
-const useWalkerFallback = computed(() => featureUsesWalkerVisual.value && !hasWalkerSilhouetteAsset())
-const silhouetteSource = computed(() => vehicleSilhouetteSource(featureUsesWalkerVisual.value ? 'walker' : 'wheeled'))
-const silhouetteImageClass = computed(() => (
-  featureUsesWalkerVisual.value
-    ? 'h-80 w-[40rem]'
-    : 'h-64 w-[32rem]'
-))
+const useSilhouetteFallback = computed(() => !hasVehicleSilhouetteAsset(featureVisualKind.value))
+const silhouetteSource = computed(() => vehicleSilhouetteSource(featureVisualKind.value))
+const silhouetteImageClass = computed(() => vehicleSilhouetteImageClass(featureVisualKind.value))
 </script>
 
 <template>
@@ -136,7 +120,7 @@ const silhouetteImageClass = computed(() => (
               <p class="mt-3 max-w-xl text-sm leading-5 text-zinc-300">{{ selectedRule.description }}</p>
             </div>
             <img
-              v-if="!useWalkerFallback"
+              v-if="!useSilhouetteFallback"
               :src="silhouetteSource"
               alt=""
               class="pointer-events-none absolute bottom-7 left-1/2 z-0 max-w-[calc(100%-4rem)] -translate-x-1/2 object-contain object-bottom opacity-95 drop-shadow-[0_0_32px_rgba(103,232,249,0.32)]"

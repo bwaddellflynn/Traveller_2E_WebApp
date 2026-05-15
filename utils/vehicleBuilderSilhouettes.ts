@@ -1,6 +1,7 @@
 import wheeledVehicleSvgRaw from '~/assets/vehicle_builder/ground_vehicles/ground_vehicles_wheeled/SciFi_Car_Silhouette.svg?raw'
+import type { TravellerVehicleBaseFamily } from '~/types/vehicle'
 
-type VehicleSilhouetteKind = 'wheeled' | 'walker'
+type VehicleSilhouetteKind = TravellerVehicleBaseFamily | 'wheeled' | 'tracked' | 'rail' | 'monowheel' | 'tunneller' | 'hydrofoil' | 'floats' | 'aerodyne' | 'ornithopter' | 'walker-multi' | 'open-frame' | 'open-topped'
 
 const vehicleBuilderSvgModules = import.meta.glob('../assets/vehicle_builder/**/*.svg', {
   eager: true,
@@ -8,9 +9,44 @@ const vehicleBuilderSvgModules = import.meta.glob('../assets/vehicle_builder/**/
   import: 'default',
 }) as Record<string, string>
 
-const walkerSvgRaw = Object.entries(vehicleBuilderSvgModules).find(([path]) => (
-  path.includes('/ground_vehicles_walker_biped/')
-))?.[1]
+const svgEntries = Object.entries(vehicleBuilderSvgModules)
+
+const findSvgByPath = (...segments: string[]) => svgEntries.find(([path]) => segments.every((segment) => path.includes(segment)))?.[1]
+
+const vehicleSvgByKind: Partial<Record<VehicleSilhouetteKind, string>> = {
+  aeroplane: findSvgByPath('/aeroplane_vehicles/'),
+  airship: findSvgByPath('/airship_vehicles/'),
+  'grav-vehicle': findSvgByPath('/grav_vehicles/'),
+  'ground-vehicle': findSvgByPath('/ground_vehicles_wheeled/'),
+  hovercraft: findSvgByPath('/hovercraft_vehicles/'),
+  rotorcraft: findSvgByPath('/rotorcraft_vehicles/'),
+  structure: findSvgByPath('/structure_vehicles/') ?? findSvgByPath('/stucture_vehicles/'),
+  submersible: findSvgByPath('/submersible_vehicles/'),
+  walker: findSvgByPath('/ground_vehicles_walker_biped/'),
+  watercraft: findSvgByPath('/watercraft_vehicles/'),
+  wheeled: findSvgByPath('/ground_vehicles_wheeled/'),
+}
+
+const fallbackKindByVisual: Partial<Record<VehicleSilhouetteKind, VehicleSilhouetteKind>> = {
+  tracked: 'ground-vehicle',
+  rail: 'ground-vehicle',
+  monowheel: 'ground-vehicle',
+  tunneller: 'ground-vehicle',
+  hydrofoil: 'watercraft',
+  floats: 'watercraft',
+  aerodyne: 'rotorcraft',
+  ornithopter: 'rotorcraft',
+  'walker-multi': 'walker',
+  'open-frame': 'ground-vehicle',
+  'open-topped': 'ground-vehicle',
+}
+
+const resolvedKind = (kind: VehicleSilhouetteKind): VehicleSilhouetteKind => {
+  if (vehicleSvgByKind[kind]) return kind
+  const fallback = fallbackKindByVisual[kind]
+  if (fallback && vehicleSvgByKind[fallback]) return fallback
+  return 'ground-vehicle'
+}
 
 const stripSvgChrome = (svgMarkup: string) => (
   svgMarkup
@@ -68,8 +104,37 @@ const applySilhouetteStyling = (svgMarkup: string, idPrefix: string) => {
 }
 
 export const vehicleSilhouetteSource = (kind: VehicleSilhouetteKind) => {
-  const svgMarkup = kind === 'walker' && walkerSvgRaw ? walkerSvgRaw : wheeledVehicleSvgRaw
-  return applySilhouetteStyling(svgMarkup, `vehicle-builder-${kind}`)
+  const silhouetteKind = resolvedKind(kind)
+  const svgMarkup = vehicleSvgByKind[silhouetteKind] ?? wheeledVehicleSvgRaw
+  return applySilhouetteStyling(svgMarkup, `vehicle-builder-${silhouetteKind}`)
 }
 
-export const hasWalkerSilhouetteAsset = () => Boolean(walkerSvgRaw)
+export const vehicleSilhouetteImageClass = (kind: VehicleSilhouetteKind) => {
+  const silhouetteKind = resolvedKind(kind)
+  if (silhouetteKind === 'walker') return 'max-h-[24rem] w-[42rem]'
+  if (silhouetteKind === 'airship') return 'max-h-[20rem] w-[38rem]'
+  if (silhouetteKind === 'structure') return 'max-h-[19rem] w-[33rem]'
+  if (silhouetteKind === 'watercraft') return 'max-h-[27rem] w-[50rem] -translate-y-1'
+  if (silhouetteKind === 'hovercraft') return 'max-h-[20rem] w-[36rem] translate-y-6'
+  if (silhouetteKind === 'ground-vehicle') return 'max-h-[19rem] w-[34rem] -translate-y-1'
+  return 'max-h-[20rem] w-[36rem]'
+}
+
+export const vehicleSilhouetteKindForFeature = (featureName: string, baseFamily: TravellerVehicleBaseFamily): VehicleSilhouetteKind => {
+  if (featureName === 'Multi-Legged') return 'walker-multi'
+  if (featureName === 'Tracks') return 'tracked'
+  if (featureName === 'Rail Rider') return 'rail'
+  if (featureName === 'Monowheel') return 'monowheel'
+  if (featureName === 'Tunneller') return 'tunneller'
+  if (featureName === 'Hydrofoil') return 'hydrofoil'
+  if (featureName === 'Floats') return 'floats'
+  if (featureName === 'Aerodyne') return 'aerodyne'
+  if (featureName === 'Ornithopter') return 'ornithopter'
+  if (featureName === 'Open Frame') return 'open-frame'
+  if (featureName === 'Open-Topped') return 'open-topped'
+  return baseFamily
+}
+
+export const hasVehicleSilhouetteAsset = (kind: VehicleSilhouetteKind) => Boolean(vehicleSvgByKind[resolvedKind(kind)])
+
+export const hasWalkerSilhouetteAsset = () => Boolean(vehicleSvgByKind.walker)

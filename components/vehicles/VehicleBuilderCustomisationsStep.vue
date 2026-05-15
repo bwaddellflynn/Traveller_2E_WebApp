@@ -2,7 +2,7 @@
 import { computed, watch } from 'vue'
 import type { CustomVehicleDesign } from '~/types/vehicle'
 import { vehicleFamilyRule } from '~/utils/traveller/vehicles'
-import { hasWalkerSilhouetteAsset, vehicleSilhouetteSource } from '~/utils/vehicleBuilderSilhouettes'
+import { hasVehicleSilhouetteAsset, vehicleSilhouetteImageClass, vehicleSilhouetteSource } from '~/utils/vehicleBuilderSilhouettes'
 
 type PrimaryPowerOption = {
   id: string
@@ -44,13 +44,9 @@ const emit = defineEmits<{
 const familyRule = computed(() => vehicleFamilyRule(props.vehicle.baseFamily))
 const selectedPrimaryPower = computed(() => props.optionSets.primaryPowerOptions.find((option) => option.id === props.vehicle.primaryPower) ?? null)
 const selectedAuxiliaryDrive = computed(() => props.optionSets.auxiliaryDriveOptions.find((option) => option.id === props.vehicle.auxiliaryDrive) ?? null)
-const useWalkerFallback = computed(() => props.vehicle.baseFamily === 'walker' && !hasWalkerSilhouetteAsset())
-const silhouetteSource = computed(() => vehicleSilhouetteSource(props.vehicle.baseFamily === 'walker' ? 'walker' : 'wheeled'))
-const silhouetteImageClass = computed(() => (
-  props.vehicle.baseFamily === 'walker'
-    ? 'h-80 w-[40rem]'
-    : 'h-64 w-[32rem]'
-))
+const useSilhouetteFallback = computed(() => !hasVehicleSilhouetteAsset(props.vehicle.baseFamily))
+const silhouetteSource = computed(() => vehicleSilhouetteSource(props.vehicle.baseFamily))
+const silhouetteImageClass = computed(() => vehicleSilhouetteImageClass(props.vehicle.baseFamily))
 
 const speedStepOptions = [-3, -2, -1, 0, 1, 2, 3]
 const rangeEfficiencyOptions = [-3, -2, -1, 0, 1, 2, 3]
@@ -231,7 +227,7 @@ watch(
 
             <div class="relative z-10 mt-auto flex min-h-[16rem] items-end justify-center">
               <img
-                v-if="!useWalkerFallback"
+                v-if="!useSilhouetteFallback"
                 :src="silhouetteSource"
                 alt=""
                 class="pointer-events-none max-w-[calc(100%-4rem)] object-contain object-bottom opacity-95 drop-shadow-[0_0_32px_rgba(103,232,249,0.32)]"

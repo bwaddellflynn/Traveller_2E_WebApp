@@ -2,7 +2,7 @@
 import { computed, watch } from 'vue'
 import type { CustomVehicleDesign } from '~/types/vehicle'
 import { vehicleFamilyRule, vehicleHitDmForSpaces, vehicleSizeBandForSpaces } from '~/utils/traveller/vehicles'
-import { hasWalkerSilhouetteAsset, vehicleSilhouetteSource } from '~/utils/vehicleBuilderSilhouettes'
+import { hasVehicleSilhouetteAsset, vehicleSilhouetteImageClass, vehicleSilhouetteSource } from '~/utils/vehicleBuilderSilhouettes'
 
 const props = defineProps<{
   vehicle: CustomVehicleDesign
@@ -40,13 +40,9 @@ const typeStats = computed(() => [
   { label: 'Allowed Features', value: familyRule.value.allowedFeatures.join(', ') },
 ])
 const visualKind = computed(() => props.vehicle.baseFamily)
-const useWalkerFallback = computed(() => visualKind.value === 'walker' && !hasWalkerSilhouetteAsset())
-const silhouetteSource = computed(() => vehicleSilhouetteSource(visualKind.value === 'walker' ? 'walker' : 'wheeled'))
-const silhouetteImageClass = computed(() => (
-  visualKind.value === 'walker'
-    ? 'h-80 w-[40rem]'
-    : 'h-64 w-[32rem]'
-))
+const useSilhouetteFallback = computed(() => !hasVehicleSilhouetteAsset(visualKind.value))
+const silhouetteSource = computed(() => vehicleSilhouetteSource(visualKind.value))
+const silhouetteImageClass = computed(() => vehicleSilhouetteImageClass(visualKind.value))
 
 // Switching the base vehicle family resets handbook-driven defaults that should follow
 // from the family definition rather than remain stuck on a value from a prior family.
@@ -117,7 +113,7 @@ watch(
             <p class="mt-3 line-clamp-6 max-w-xl text-sm leading-5 text-zinc-300">{{ familyRule.description }}</p>
           </div>
           <img
-            v-if="!useWalkerFallback"
+            v-if="!useSilhouetteFallback"
             :src="silhouetteSource"
             alt=""
             class="pointer-events-none absolute bottom-7 left-1/2 z-0 max-w-[calc(100%-4rem)] -translate-x-1/2 object-contain object-bottom opacity-95 drop-shadow-[0_0_32px_rgba(103,232,249,0.32)]"

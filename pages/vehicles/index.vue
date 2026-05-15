@@ -3,10 +3,12 @@ import { storeToRefs } from 'pinia'
 import type { CustomVehicleDesign, TravellerVehicleCategory, TravellerVehicleRecord } from '~/types/vehicle'
 import VehicleBuilderCoreStep from '~/components/vehicles/VehicleBuilderCoreStep.vue'
 import VehicleBuilderCustomisationsStep from '~/components/vehicles/VehicleBuilderCustomisationsStep.vue'
+import VehicleBuilderCargoAllocationStep from '~/components/vehicles/VehicleBuilderCargoAllocationStep.vue'
 import VehicleBuilderAutomationStep from '~/components/vehicles/VehicleBuilderAutomationStep.vue'
 import VehicleBuilderFeaturesStep from '~/components/vehicles/VehicleBuilderFeaturesStep.vue'
 import VehicleBuilderInfoModal from '~/components/vehicles/VehicleBuilderInfoModal.vue'
 import VehicleBuilderOptionsStep from '~/components/vehicles/VehicleBuilderOptionsStep.vue'
+import VehicleBuilderOccupancyStep from '~/components/vehicles/VehicleBuilderOccupancyStep.vue'
 import VehicleBuilderProtectionStep from '~/components/vehicles/VehicleBuilderProtectionStep.vue'
 import VehicleBuilderSpacesStep from '~/components/vehicles/VehicleBuilderSpacesStep.vue'
 import VehicleBuilderTabs from '~/components/vehicles/VehicleBuilderTabs.vue'
@@ -101,6 +103,8 @@ const builderSteps: VehicleBuildStep[] = [
   { id: 'protection', label: 'Protection', title: 'Protection', description: 'Set armour and structural reinforcement.' },
   { id: 'options', label: 'Options', title: 'Options', description: 'Install core, external, and internal vehicle options.' },
   { id: 'automation', label: 'Automation', title: 'Automation', description: 'Install computers, software, drone control, and vehicle brains.' },
+  { id: 'occupancy', label: 'Occupants', title: 'Crew & Passengers', description: 'Assign crew stations, passengers, and comfort level.' },
+  { id: 'cargo', label: 'Cargo', title: 'Cargo', description: 'Reserve internal Spaces for freight, stores, and mission payload.' },
 ]
 const builderOptionSets = vehicleBuilderOptionSets()
 const builderCoreOptionFamilies = vehicleBuilderCoreOptionFamilies()
@@ -251,6 +255,8 @@ const buildStepIssues = computed(() => {
       || issue.includes('Supercavitating')
     )),
     protection: issues.filter((issue) => issue.startsWith('Armour for ') || issue.includes('armour cannot')),
+    occupancy: issues.filter((issue) => issue.includes('crew station') || issue.startsWith('Occupant row ')),
+    cargo: issues.filter((issue) => issue.startsWith('Cargo row ')),
   }
 })
 const buildValidationIssueSteps = computed<Record<string, number>>(() => {
@@ -261,6 +267,8 @@ const buildValidationIssueSteps = computed<Record<string, number>>(() => {
   for (const issue of buildStepIssues.value.features) mapping[issue] = 3
   for (const issue of buildStepIssues.value.customisations) mapping[issue] = 4
   for (const issue of buildStepIssues.value.protection) mapping[issue] = 5
+  for (const issue of buildStepIssues.value.occupancy) mapping[issue] = 8
+  for (const issue of buildStepIssues.value.cargo) mapping[issue] = 9
   return mapping
 })
 const buildStepHasIssues = computed(() => {
@@ -274,6 +282,8 @@ const buildStepHasIssues = computed(() => {
     buildStepIssues.value.protection.length > 0,
     false,
     false,
+    buildStepIssues.value.occupancy.length > 0,
+    buildStepIssues.value.cargo.length > 0,
   ]
 })
 const draftFieldInfoText: Record<DraftInfoKey, { title: string, body: string }> = {
@@ -858,8 +868,26 @@ watch(activeGarageTab, (tab) => {
               />
 
               <VehicleBuilderAutomationStep
+                v-else-if="activeBuildStep === 7"
+                :vehicle="buildDraft"
+                @sync-derivations="syncBuildDraftDerivations"
+              />
+
+              <VehicleBuilderOccupancyStep
+                v-else-if="activeBuildStep === 8"
+                :vehicle="buildDraft"
+                :occupant-spaces="buildDraftConstructionSummary?.occupantAllocatedSpaces ?? 0"
+                @add-occupant="addOccupantEntry"
+                @remove-occupant="removeOccupantEntry"
+                @sync-derivations="syncBuildDraftDerivations"
+              />
+
+              <VehicleBuilderCargoAllocationStep
                 v-else
                 :vehicle="buildDraft"
+                :cargo-spaces="buildDraftConstructionSummary?.cargoAllocatedSpaces ?? 0"
+                @add-cargo="addCargoEntry"
+                @remove-cargo="removeCargoEntry"
                 @sync-derivations="syncBuildDraftDerivations"
               />
             </div>

@@ -2,7 +2,7 @@
 import { computed, watch } from 'vue'
 import type { CustomVehicleDesign } from '~/types/vehicle'
 import { vehicleFamilyRule, vehicleHitDmForSpaces, vehicleSizeBandForSpaces, vehicleSizeReferenceRowsForFamily } from '~/utils/traveller/vehicles'
-import { hasWalkerSilhouetteAsset, vehicleSilhouetteSource } from '~/utils/vehicleBuilderSilhouettes'
+import { hasVehicleSilhouetteAsset, vehicleSilhouetteImageClass, vehicleSilhouetteSource } from '~/utils/vehicleBuilderSilhouettes'
 
 const props = defineProps<{
   vehicle: CustomVehicleDesign
@@ -18,13 +18,9 @@ const currentSize = computed(() => vehicleSizeBandForSpaces(props.vehicle.spaces
 const currentRow = computed(() => sizeRows.value.find((row) => props.vehicle.spaces >= row.minSpaces && (row.maxSpaces === null || props.vehicle.spaces <= row.maxSpaces)) ?? sizeRows.value[0])
 const currentType = computed(() => `${currentSize.value.label} ${familyRule.value.typeLabel}`)
 const visualKind = computed(() => props.vehicle.baseFamily)
-const useWalkerFallback = computed(() => visualKind.value === 'walker' && !hasWalkerSilhouetteAsset())
-const silhouetteSource = computed(() => vehicleSilhouetteSource(visualKind.value === 'walker' ? 'walker' : 'wheeled'))
-const silhouetteImageClass = computed(() => (
-  visualKind.value === 'walker'
-    ? 'h-80 w-[40rem]'
-    : 'h-64 w-[32rem]'
-))
+const useSilhouetteFallback = computed(() => !hasVehicleSilhouetteAsset(visualKind.value))
+const silhouetteSource = computed(() => vehicleSilhouetteSource(visualKind.value))
+const silhouetteImageClass = computed(() => vehicleSilhouetteImageClass(visualKind.value))
 const formatSpacesRange = (minimum: number, maximum: number | null) => maximum === null ? `${minimum}+` : `${minimum}-${maximum}`
 const formattedShipping = computed(() => {
   const value = props.vehicle.spaces * familyRule.value.shippingRatio
@@ -91,7 +87,7 @@ watch(
           </div>
 
           <img
-            v-if="!useWalkerFallback"
+            v-if="!useSilhouetteFallback"
             :src="silhouetteSource"
             alt=""
             class="pointer-events-none absolute bottom-7 left-1/2 z-0 max-w-[calc(100%-4rem)] -translate-x-1/2 object-contain object-bottom opacity-95 drop-shadow-[0_0_32px_rgba(103,232,249,0.32)]"
