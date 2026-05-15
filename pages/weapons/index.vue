@@ -1033,7 +1033,7 @@ const addCompletedWeaponToActiveTraveller = async () => {
         kg: finalizedWeapon.massKg === null ? undefined : String(finalizedWeapon.massKg),
         magazine: finalizedWeapon.magazine,
         traits: finalizedWeapon.traits.join(', '),
-        notes: `Purchased from Armory${finalizedWeapon.family ? ` · ${titleCaseLabel(finalizedWeapon.family)}` : ''}`,
+        notes: `Purchased from Equipment${finalizedWeapon.family ? ` · ${titleCaseLabel(finalizedWeapon.family)}` : ''}`,
       },
       ...profile.weapons,
     ],
@@ -1064,7 +1064,7 @@ const purchaseReferenceWeapon = async (weapon: TravellerWeaponRecord) => {
         kg: weapon.massKg === null ? undefined : String(weapon.massKg),
         magazine: weapon.magazine,
         traits: weapon.traits.join(', '),
-        notes: `Purchased from Armory${weapon.sourceName ? ` · ${weapon.sourceName}` : ''}`,
+        notes: `Purchased from Equipment${weapon.sourceName ? ` · ${weapon.sourceName}` : ''}`,
       },
       ...profile.weapons,
     ],
@@ -1095,7 +1095,7 @@ const purchaseSavedWeapon = async (weapon: CustomWeaponDesign) => {
         kg: weapon.massKg === null ? undefined : String(weapon.massKg),
         magazine: weapon.magazine,
         traits: weapon.traits.join(', '),
-        notes: `Purchased from Armory${weapon.family ? ` · ${titleCaseLabel(weapon.family)}` : ''}`,
+        notes: `Purchased from Equipment${weapon.family ? ` · ${titleCaseLabel(weapon.family)}` : ''}`,
       },
       ...profile.weapons,
     ],
@@ -1125,7 +1125,7 @@ const purchaseArmor = async (armor: TravellerArmorRecord) => {
         kg: armor.massKg === null ? undefined : String(armor.massKg),
         options: armor.requiredSkill ? `Required skill: ${armor.requiredSkill}` : '',
         traits: armor.traits.join(', '),
-        notes: `Purchased from Armory${armor.sourceName ? ` · ${armor.sourceName}` : ''}`,
+        notes: `Purchased from Equipment${armor.sourceName ? ` · ${armor.sourceName}` : ''}`,
       },
       ...profile.armour,
     ],
@@ -1151,7 +1151,7 @@ const purchaseEquipment = async (item: TravellerEquipmentRecord) => {
         techLevel: item.techLevel === null ? undefined : String(item.techLevel),
         kg: item.massKg === null ? undefined : String(item.massKg),
         traits: item.traits.join(', '),
-        notes: [item.effect, item.sourceName ? `Purchased from ${item.sourceName}` : 'Purchased from Armory'].filter(Boolean).join(' · '),
+        notes: [item.effect, item.sourceName ? `Purchased from ${item.sourceName}` : 'Purchased from Equipment'].filter(Boolean).join(' · '),
       },
       ...removeVoucherFromEquipment(profile.equipment),
     ],
@@ -1294,8 +1294,8 @@ const toggleExpandedEquipment = (itemId: string) => {
 
     <section class="relative z-20 mx-auto w-full max-w-[96rem] px-5 pt-6 sm:px-8 lg:px-10">
       <div class="mb-5">
-        <p class="hud-kicker text-sm font-semibold uppercase tracking-wide">Armory</p>
-        <h1 class="mt-2 text-3xl font-semibold">Equipment Armory</h1>
+        <p class="hud-kicker text-sm font-semibold uppercase tracking-wide">Equipment</p>
+        <h1 class="mt-2 text-3xl font-semibold">Equipment</h1>
       </div>
       <div class="armory-view-buttons relative z-50 flex flex-wrap gap-2">
         <button

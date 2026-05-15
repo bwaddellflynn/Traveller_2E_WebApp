@@ -56,25 +56,25 @@ onMounted(() => {
           Hub
         </NuxtLink>
         <NuxtLink class="hud-link px-3 py-2 text-sm font-semibold" to="/embassy">
-          Embassy
+          Species
         </NuxtLink>
         <NuxtLink class="hud-link px-3 py-2 text-sm font-semibold" to="/character/create">
-          Dossiers
+          Character Creator
         </NuxtLink>
         <NuxtLink class="hud-link px-3 py-2 text-sm font-semibold" to="/weapons">
-          Armory
+          Equipment
         </NuxtLink>
         <NuxtLink class="hud-link px-3 py-2 text-sm font-semibold" to="/vehicles">
-          Garage
+          Vehicles
         </NuxtLink>
         <NuxtLink class="hud-link px-3 py-2 text-sm font-semibold" to="/robots">
-          Factory
+          Robotics
         </NuxtLink>
         <NuxtLink class="hud-link px-3 py-2 text-sm font-semibold" to="/shuttlebay">
-          Shuttle Bay
+          Smallcraft
         </NuxtLink>
         <NuxtLink class="hud-link px-3 py-2 text-sm font-semibold" to="/shipyard">
-          Shipyard
+          Spacecraft
         </NuxtLink>
         <NuxtLink class="hud-link px-3 py-2 text-sm font-semibold" to="/navigation">
           Navigation

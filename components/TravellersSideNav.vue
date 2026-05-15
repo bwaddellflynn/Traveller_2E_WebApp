@@ -116,6 +116,7 @@ const confirmDeleteProfile = async (profileId: string) => {
         <GalacticCreditsIcon class="travellers-credits-chip__symbol" />
       </div>
       <button
+        v-if="activeProfile"
         aria-label="Leave Current Traveller"
         class="travellers-utility-button travellers-utility-button--leave hud-link h-10 w-10"
         title="Leave Current Traveller"
@@ -126,7 +127,7 @@ const confirmDeleteProfile = async (profileId: string) => {
       </button>
       <button
         aria-label="Create a manually entered Traveller"
-        class="travellers-utility-button hud-link h-10 w-10"
+        class="travellers-utility-button travellers-utility-button--new hud-link h-10 w-10"
         title="Create a manually entered Traveller"
         type="button"
         @click="openNewManualTraveller"
@@ -264,6 +265,10 @@ const confirmDeleteProfile = async (profileId: string) => {
 
 .travellers-utility-button--leave {
   border-color: rgba(34, 211, 238, 0.24);
+}
+
+.travellers-utility-button--new {
+  margin-left: auto;
 }
 
 .travellers-utility-button__leave-icon {

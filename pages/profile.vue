@@ -25,10 +25,10 @@ const saveMessage = ref('')
 
 const defaultViewOptions = [
   { value: '/', label: 'Hub' },
-  { value: '/character/create', label: 'Dossiers' },
-  { value: '/embassy', label: 'Embassy' },
-  { value: '/weapons', label: 'Armory' },
-  { value: '/vehicles', label: 'Garage' },
+  { value: '/character/create', label: 'Character Creator' },
+  { value: '/embassy', label: 'Species' },
+  { value: '/weapons', label: 'Equipment' },
+  { value: '/vehicles', label: 'Vehicles' },
 ]
 
 const localeOptions = [
