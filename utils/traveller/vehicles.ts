@@ -455,6 +455,19 @@ const stockVehicleWeaponLibrary = (): VehicleBuilderStockWeaponOption[] => {
           traits: [...weapon.traits],
           fireControl: weapon.fireControl,
           spaces: weapon.spaces ?? 0,
+          baseSpaces: weapon.baseSpaces ?? weapon.spaces ?? 0,
+          mountType: weapon.mountType ?? 'fixed',
+          mountFacing: weapon.mountFacing ?? 'Forward',
+          linkedCount: weapon.linkedCount ?? 1,
+          ammunitionSpaces: weapon.ammunitionSpaces ?? 0,
+          fireControlSystem: weapon.fireControlSystem ?? 'scope',
+          autoloader: weapon.autoloader ?? false,
+          modularMount: weapon.modularMount ?? false,
+          popupMount: weapon.popupMount ?? false,
+          powerRequirement: weapon.powerRequirement ?? '',
+          crew: weapon.crew ?? '',
+          loaders: weapon.loaders ?? '',
+          sourceCategory: weapon.sourceCategory ?? 'Reference Vehicle',
         },
       })
     }
@@ -502,6 +515,19 @@ export const createBlankVehicleWeapon = (): TravellerVehicleWeapon => ({
   traits: [],
   fireControl: '',
   spaces: 0,
+  baseSpaces: 0,
+  mountType: '',
+  mountFacing: '',
+  linkedCount: 1,
+  ammunitionSpaces: 0,
+  fireControlSystem: '',
+  autoloader: false,
+  modularMount: false,
+  popupMount: false,
+  powerRequirement: '',
+  crew: '',
+  loaders: '',
+  sourceCategory: '',
 })
 
 export const createBlankVehicleEquipmentEntry = (): CustomVehicleEquipmentEntry => ({
@@ -511,10 +537,10 @@ export const createBlankVehicleEquipmentEntry = (): CustomVehicleEquipmentEntry 
   catalogueId: '',
 })
 
-export const createBlankVehicleOccupantEntry = (category: CustomVehicleOccupantEntry['category'] = 'crew'): CustomVehicleOccupantEntry => ({
-  role: category === 'crew' ? 'Crew' : 'Passengers',
+export const createBlankVehicleOccupantEntry = (category: CustomVehicleOccupantEntry['category'] = ''): CustomVehicleOccupantEntry => ({
+  role: category === 'crew' ? 'Crew' : category === 'passenger' ? 'Passenger' : '',
   count: 1,
-  spacesEach: 1,
+  spacesEach: 0,
   category,
 })
 
@@ -1302,7 +1328,8 @@ const vehicleFeatureAppliesToFamily = (feature: string, family: VehicleFamilyRul
   return !rule || rule.appliesTo.includes(family.label)
 }
 
-export const vehicleQualifiedFeatureNamesForFamily = (familyId: TravellerVehicleBaseFamily) => {
+export const vehicleQualifiedFeatureNamesForFamily = (familyId: '' | TravellerVehicleBaseFamily) => {
+  if (!familyId) return []
   const family = familyRuleFor(familyId)
   return family.allowedFeatures.filter((feature) => vehicleFeatureAppliesToFamily(feature, family))
 }
@@ -1957,7 +1984,7 @@ export const vehicleBuilderFamilyOptions = () => Object.values(handbookFamilyRul
   category: rule.category,
 }))
 
-export const vehicleFamilyRule = (family: TravellerVehicleBaseFamily) => familyRuleFor(family)
+export const vehicleFamilyRule = (family: '' | TravellerVehicleBaseFamily) => family ? familyRuleFor(family) : familyRuleFor('ground-vehicle')
 export const vehiclePrimaryPowerOptions = () => Object.values(primaryPowerRules)
 export const vehicleAuxiliaryDriveOptions = () => Object.values(auxiliaryDriveRules)
 
@@ -2079,12 +2106,15 @@ const parseLeadingNumber = (value: unknown) => {
 
 const normalizeOccupantEntries = (vehicle: CustomVehicleDesign): CustomVehicleOccupantEntry[] => {
   if (Array.isArray(vehicle.occupantEntries) && vehicle.occupantEntries.length) {
-    return vehicle.occupantEntries.map((entry) => ({
-      role: String(entry?.role ?? '').trim() || (entry?.category === 'passenger' ? 'Passengers' : 'Crew'),
-      count: Math.max(0, Number(entry?.count ?? 0)),
-      spacesEach: Math.max(0, Number(entry?.spacesEach ?? 1)),
-      category: entry?.category === 'passenger' ? 'passenger' : 'crew',
-    }))
+    return vehicle.occupantEntries.map((entry) => {
+      const category = entry?.category === 'crew' || entry?.category === 'passenger' ? entry.category : ''
+      return {
+        role: String(entry?.role ?? '').trim() || (category === 'passenger' ? 'Passenger' : category === 'crew' ? 'Crew' : ''),
+        count: Math.max(0, Number(entry?.count ?? 0)),
+        spacesEach: Math.max(0, Number(entry?.spacesEach ?? 0)),
+        category,
+      }
+    })
   }
 
   const entries: CustomVehicleOccupantEntry[] = []
@@ -2170,8 +2200,8 @@ const formatComfortSummary = (entries: CustomVehicleOccupantEntry[]) => {
 
 export const vehicleConstructionSummary = (vehicle: CustomVehicleDesign) => {
   const family = familyRuleFor(vehicle.baseFamily || inferBaseFamily(vehicle))
-  const power = primaryPowerRules[vehicle.primaryPower]
-  const auxiliary = auxiliaryDriveRules[vehicle.auxiliaryDrive]
+  const power = vehicle.primaryPower ? primaryPowerRules[vehicle.primaryPower] : primaryPowerRules.standard
+  const auxiliary = vehicle.auxiliaryDrive ? auxiliaryDriveRules[vehicle.auxiliaryDrive] : auxiliaryDriveRules.none
   const baseline = baselineForTechLevel(family.id, Math.max(vehicle.techLevel, family.minimumTechLevel))
   const effectiveBaseSpaces = vehicle.spaces
   const powerPlantSpaces = installedPowerPlantSpaces(vehicle, power)
@@ -2270,6 +2300,19 @@ export const normalizeCustomVehicleDesign = (vehicle: CustomVehicleDesign): Cust
     ? normalized.weapons.map((weapon) => ({
         ...weapon,
         spaces: Math.max(0, Number(weapon?.spaces ?? 0)),
+        baseSpaces: Math.max(0, Number(weapon?.baseSpaces ?? weapon?.spaces ?? 0)),
+        mountType: String(weapon?.mountType ?? 'fixed'),
+        mountFacing: String(weapon?.mountFacing ?? 'Forward'),
+        linkedCount: Math.max(1, Number(weapon?.linkedCount ?? 1)),
+        ammunitionSpaces: Math.max(0, Number(weapon?.ammunitionSpaces ?? 0)),
+        fireControlSystem: String(weapon?.fireControlSystem ?? 'scope'),
+        autoloader: Boolean(weapon?.autoloader),
+        modularMount: Boolean(weapon?.modularMount),
+        popupMount: Boolean(weapon?.popupMount),
+        powerRequirement: String(weapon?.powerRequirement ?? ''),
+        crew: String(weapon?.crew ?? ''),
+        loaders: String(weapon?.loaders ?? ''),
+        sourceCategory: String(weapon?.sourceCategory ?? ''),
       }))
     : []
   normalized.speedModificationSteps = Number.isFinite(normalized.speedModificationSteps) ? normalized.speedModificationSteps : 0
@@ -2282,20 +2325,25 @@ export const normalizeCustomVehicleDesign = (vehicle: CustomVehicleDesign): Cust
 }
 
 export const applyVehicleHandbookDerivations = (vehicle: CustomVehicleDesign) => {
-  const family = familyRuleFor(vehicle.baseFamily || inferBaseFamily(vehicle))
+  if (!vehicle.baseFamily) {
+    vehicle.type = ''
+    vehicle.skill = ''
+    return
+  }
+  const family = familyRuleFor(vehicle.baseFamily)
   const size = vehicleSizeBandForSpaces(vehicle.spaces)
   const hullClass = (vehicle.hull in hullClassModifiers ? vehicle.hull : 'Standard') as keyof typeof hullClassModifiers
   const baseline = baselineForTechLevel(family.id, vehicle.techLevel)
-  const power = primaryPowerRules[vehicle.primaryPower]
-  const auxiliary = auxiliaryDriveRules[vehicle.auxiliaryDrive]
-  if (power.allowedFamilies && !power.allowedFamilies.includes(family.id)) {
+  const power = vehicle.primaryPower ? primaryPowerRules[vehicle.primaryPower] : primaryPowerRules.standard
+  const auxiliary = vehicle.auxiliaryDrive ? auxiliaryDriveRules[vehicle.auxiliaryDrive] : auxiliaryDriveRules.none
+  if (vehicle.primaryPower && power.allowedFamilies && !power.allowedFamilies.includes(family.id)) {
     vehicle.primaryPower = family.id === 'structure' ? (vehicle.techLevel >= 3 ? 'grid' : 'unpowered') : 'standard'
   }
-  if (auxiliary.allowedFamilies && !auxiliary.allowedFamilies.includes(family.id)) {
+  if (vehicle.auxiliaryDrive && auxiliary.allowedFamilies && !auxiliary.allowedFamilies.includes(family.id)) {
     vehicle.auxiliaryDrive = 'none'
   }
-  const effectivePower = primaryPowerRules[vehicle.primaryPower]
-  const effectiveAuxiliary = auxiliaryDriveRules[vehicle.auxiliaryDrive]
+  const effectivePower = vehicle.primaryPower ? primaryPowerRules[vehicle.primaryPower] : primaryPowerRules.standard
+  const effectiveAuxiliary = vehicle.auxiliaryDrive ? auxiliaryDriveRules[vehicle.auxiliaryDrive] : auxiliaryDriveRules.none
   const qualifiedFeatures = vehicleQualifiedFeatureNamesForFamily(family.id)
   const selectedFeatures = [...new Set((vehicle.features ?? []).filter((feature) => qualifiedFeatures.includes(feature) && (size.armourAllowedFeatures.length === 0 || !['AFV', 'Locomotive', 'Tunneller'].includes(feature) || size.armourAllowedFeatures.includes(feature))))]
   const speedFeatureModifier = selectedFeatures.reduce((total, feature) => total + (featureSpeedModifiers[feature] ?? 0), 0)
@@ -2431,31 +2479,33 @@ export const vehicleBuilderOptionSets = () => {
 
 export const validateCustomVehicle = (vehicle: CustomVehicleDesign): string[] => {
   const issues: string[] = []
-  const family = familyRuleFor(vehicle.baseFamily)
-  const power = primaryPowerRules[vehicle.primaryPower]
-  const auxiliary = auxiliaryDriveRules[vehicle.auxiliaryDrive]
+  const family = vehicle.baseFamily ? familyRuleFor(vehicle.baseFamily) : null
+  const power = vehicle.primaryPower ? primaryPowerRules[vehicle.primaryPower] : null
+  const auxiliary = vehicle.auxiliaryDrive ? auxiliaryDriveRules[vehicle.auxiliaryDrive] : null
   const armourSummary = armourSummaryForVehicle(vehicle)
 
   if (!vehicle.name.trim()) issues.push('Vehicle name is required.')
   if (!vehicle.baseFamily) issues.push('Base vehicle type is required.')
   if (!vehicle.hull.trim()) issues.push('Structural reinforcement is required.')
+  if (!vehicle.primaryPower) issues.push('Power plant is required.')
+  if (!vehicle.auxiliaryDrive) issues.push('Auxiliary drive selection is required.')
   if (!vehicle.skill.trim()) issues.push('Operating skill is required.')
   if (!(vehicle.occupantEntries ?? []).some((entry) => entry.category === 'crew' && Number(entry.count) > 0)) issues.push('At least one crew station is required.')
   if (vehicle.spaces <= 0) issues.push('Spaces must be greater than zero.')
   if (vehicle.spaces === 1 && vehicle.hull !== 'Standard') issues.push('One-Space vehicles cannot use Light or Reinforced hull modification.')
-  if (vehicle.techLevel < family.minimumTechLevel) issues.push(`Tech level cannot be below ${family.minimumTechLevel} for ${family.label}.`)
+  if (family && vehicle.techLevel < family.minimumTechLevel) issues.push(`Tech level cannot be below ${family.minimumTechLevel} for ${family.label}.`)
   if (vehicle.costCredits !== null && vehicle.costCredits < 0) issues.push('Credit cost cannot be negative.')
   if (vehicle.speedModificationSteps > 3 || vehicle.speedModificationSteps < -3) issues.push('Speed modifications are limited to three steps in either direction.')
   if (vehicle.fuelEfficiencySteps > 3 || vehicle.fuelEfficiencySteps < -3) issues.push('Fuel efficiency modifications are limited to three steps in either direction.')
   if (vehicle.fuelCapacitySteps < -2) issues.push('Fuel capacity cannot be decreased more than two steps.')
   if (vehicle.fuelCapacitySteps !== 0 && vehicle.techLevel < 3) issues.push('Fuel capacity changes require TL 3+.')
-  if (power.allowedFamilies && !power.allowedFamilies.includes(family.id)) issues.push(`${power.label} is not allowed for ${family.label}.`)
-  if (vehicle.primaryPower !== 'standard' && vehicle.techLevel < power.minimumTechLevel) issues.push(`${power.label} requires TL ${power.minimumTechLevel}+.`)
-  if (power.supportsFusionPlusFuelType && vehicle.fusionPlusFuelType === 'deuterium-enriched-water' && vehicle.techLevel < 10) issues.push('Deuterium-enriched Fusion+ fuel requires TL 10+ support infrastructure.')
-  if (auxiliary.allowedFamilies && !auxiliary.allowedFamilies.includes(family.id)) issues.push(`${auxiliary.label} is not allowed for ${family.label}.`)
-  if (vehicle.auxiliaryDrive !== 'none' && vehicle.techLevel < auxiliary.minimumTechLevel) issues.push(`${auxiliary.label} requires TL ${auxiliary.minimumTechLevel}+.`)
-  const qualifiedFeatures = vehicleQualifiedFeatureNamesForFamily(family.id)
-  if (vehicle.features.some((feature) => !qualifiedFeatures.includes(feature))) issues.push('Selected features must be allowed for the base vehicle type.')
+  if (family && power?.allowedFamilies && !power.allowedFamilies.includes(family.id)) issues.push(`${power.label} is not allowed for ${family.label}.`)
+  if (power && vehicle.primaryPower !== 'standard' && vehicle.techLevel < power.minimumTechLevel) issues.push(`${power.label} requires TL ${power.minimumTechLevel}+.`)
+  if (power?.supportsFusionPlusFuelType && vehicle.fusionPlusFuelType === 'deuterium-enriched-water' && vehicle.techLevel < 10) issues.push('Deuterium-enriched Fusion+ fuel requires TL 10+ support infrastructure.')
+  if (family && auxiliary?.allowedFamilies && !auxiliary.allowedFamilies.includes(family.id)) issues.push(`${auxiliary.label} is not allowed for ${family.label}.`)
+  if (auxiliary && vehicle.auxiliaryDrive !== 'none' && vehicle.techLevel < auxiliary.minimumTechLevel) issues.push(`${auxiliary.label} requires TL ${auxiliary.minimumTechLevel}+.`)
+  const qualifiedFeatures = family ? vehicleQualifiedFeatureNamesForFamily(family.id) : []
+  if (family && vehicle.features.some((feature) => !qualifiedFeatures.includes(feature))) issues.push('Selected features must be allowed for the base vehicle type.')
   if (Math.abs(vehicle.speedModificationSteps) > 1 && vehicle.techLevel < 5) issues.push('Two-step speed modifications require TL 5+.')
   if (Math.abs(vehicle.speedModificationSteps) > 2 && vehicle.techLevel < 6) issues.push('Three-step speed modifications require TL 6+.')
   if (Math.abs(vehicle.fuelEfficiencySteps) > 1 && vehicle.techLevel < 4) issues.push('Two-step fuel efficiency changes require TL 4+.')
@@ -2475,6 +2525,9 @@ export const validateCustomVehicle = (vehicle: CustomVehicleDesign): string[] =>
     const prefix = `Weapon ${index + 1}`
     if (!weapon.name.trim()) issues.push(`${prefix} name is required.`)
     if (!weapon.damage.trim()) issues.push(`${prefix} damage is required.`)
+    if (!String(weapon.mountType ?? '').trim()) issues.push(`${prefix} mount is required.`)
+    if (!String(weapon.mountFacing ?? '').trim()) issues.push(`${prefix} facing is required.`)
+    if (!String(weapon.fireControlSystem ?? '').trim()) issues.push(`${prefix} fire control is required.`)
     if (Number(weapon.spaces ?? 0) < 0) issues.push(`${prefix} spaces cannot be negative.`)
   })
 
@@ -2486,9 +2539,10 @@ export const validateCustomVehicle = (vehicle: CustomVehicleDesign): string[] =>
 
   ;(vehicle.occupantEntries ?? []).forEach((entry, index) => {
     const prefix = `Occupant row ${index + 1}`
+    if (!entry.category) issues.push(`${prefix} type is required.`)
     if (!entry.role.trim()) issues.push(`${prefix} role is required.`)
     if (Number(entry.count ?? 0) <= 0) issues.push(`${prefix} count must be greater than zero.`)
-    if (Number(entry.spacesEach ?? 0) < 0) issues.push(`${prefix} spaces cannot be negative.`)
+    if (Number(entry.spacesEach ?? 0) <= 0) issues.push(`${prefix} seating is required.`)
   })
 
   ;(vehicle.cargoEntries ?? []).forEach((entry, index) => {

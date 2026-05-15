@@ -11,7 +11,7 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  (event: 'add-occupant', category: 'crew' | 'passenger'): void
+  (event: 'add-occupant', category: CustomVehicleDesign['occupantEntries'][number]['category']): void
   (event: 'remove-occupant', index: number): void
   (event: 'sync-derivations'): void
 }>()
@@ -53,18 +53,25 @@ const formatComfortRange = (minimum: number, maximum: number | null) => (
       : `${minimum}-${maximum}`
 )
 const comfortRuleForEntry = (spacesEach: number) => vehicleComfortLevelRuleForValue(Math.max(0, Number(spacesEach ?? 0)))
-const seatingValueForEntry = (spacesEach: number) => comfortRuleForEntry(spacesEach).id
+const seatingValueForEntry = (spacesEach: number) => Number(spacesEach ?? 0) > 0 ? comfortRuleForEntry(spacesEach).id : ''
 const selectValue = (event: Event) => (event.target as HTMLSelectElement).value
 const updateEntrySeating = (entry: CustomVehicleDesign['occupantEntries'][number], ruleId: string) => {
   const selected = seatingOptions.value.find((option) => option.id === ruleId)
-  if (!selected) return
+  if (!selected) {
+    entry.spacesEach = 0
+    emit('sync-derivations')
+    return
+  }
   entry.spacesEach = selected.spacesEach
   emit('sync-derivations')
 }
-const updateEntryCategory = (entry: CustomVehicleDesign['occupantEntries'][number], category: 'crew' | 'passenger') => {
+const updateEntryCategory = (entry: CustomVehicleDesign['occupantEntries'][number], category: CustomVehicleDesign['occupantEntries'][number]['category']) => {
   entry.category = category
   if (category === 'passenger') {
     entry.role = 'Passenger'
+  }
+  else if (!category) {
+    entry.role = ''
   }
   emit('sync-derivations')
 }
@@ -82,7 +89,7 @@ const updateEntryCategory = (entry: CustomVehicleDesign['occupantEntries'][numbe
         <h3 class="mt-2 text-2xl font-black uppercase leading-none tracking-wide text-cyan-50">Crew & Passengers</h3>
       </div>
       <div class="flex flex-wrap gap-2">
-        <button class="rounded-md border border-cyan-300/30 bg-cyan-300/10 px-3 py-2 text-sm font-semibold text-cyan-50 hover:border-cyan-200" type="button" @click="$emit('add-occupant', 'crew')">
+        <button class="rounded-md border border-cyan-300/30 bg-cyan-300/10 px-3 py-2 text-sm font-semibold text-cyan-50 hover:border-cyan-200" type="button" @click="$emit('add-occupant', '')">
           Add Occupant
         </button>
       </div>
@@ -158,7 +165,8 @@ const updateEntryCategory = (entry: CustomVehicleDesign['occupantEntries'][numbe
               <div class="grid min-w-0 gap-3 sm:grid-cols-2">
                 <label class="grid gap-1 text-[11px] font-black uppercase tracking-wide text-cyan-100/70">
                   <span>Type</span>
-                  <select :value="entry.category" class="h-10 min-w-0 rounded-md border border-cyan-400/25 bg-slate-950/70 px-3 text-sm font-normal normal-case tracking-normal text-cyan-50 outline-none focus:border-cyan-200" @change="updateEntryCategory(entry, selectValue($event) === 'passenger' ? 'passenger' : 'crew')">
+                  <select :value="entry.category" class="h-10 min-w-0 rounded-md border border-cyan-400/25 bg-slate-950/70 px-3 text-sm font-normal normal-case tracking-normal text-cyan-50 outline-none focus:border-cyan-200" @change="updateEntryCategory(entry, selectValue($event) === 'crew' || selectValue($event) === 'passenger' ? selectValue($event) as CustomVehicleDesign['occupantEntries'][number]['category'] : '')">
+                    <option value="">—</option>
                     <option value="crew">Crew</option>
                     <option value="passenger">Passenger</option>
                   </select>
@@ -166,6 +174,7 @@ const updateEntryCategory = (entry: CustomVehicleDesign['occupantEntries'][numbe
                 <label class="grid gap-1 text-[11px] font-black uppercase tracking-wide text-cyan-100/70">
                   <span>Seating</span>
                   <select :value="seatingValueForEntry(entry.spacesEach)" class="h-10 min-w-0 rounded-md border border-cyan-400/25 bg-slate-950/70 px-3 text-sm font-normal normal-case tracking-normal text-cyan-50 outline-none focus:border-cyan-200" @change="updateEntrySeating(entry, selectValue($event))">
+                    <option value="">—</option>
                     <option v-for="option in seatingOptions" :key="option.id" :value="option.id">
                       {{ option.label }} ({{ formatNumber(option.spacesEach) }} Space{{ option.spacesEach === 1 ? '' : 's' }})
                     </option>

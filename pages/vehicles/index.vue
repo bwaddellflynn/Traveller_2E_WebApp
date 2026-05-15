@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { storeToRefs } from 'pinia'
-import type { CustomVehicleDesign, TravellerVehicleCategory, TravellerVehicleRecord } from '~/types/vehicle'
+import type { CustomVehicleDesign, TravellerVehicleCategory, TravellerVehicleRecord, TravellerVehicleWeapon } from '~/types/vehicle'
 import VehicleBuilderCoreStep from '~/components/vehicles/VehicleBuilderCoreStep.vue'
 import VehicleBuilderCustomisationsStep from '~/components/vehicles/VehicleBuilderCustomisationsStep.vue'
 import VehicleBuilderCargoAllocationStep from '~/components/vehicles/VehicleBuilderCargoAllocationStep.vue'
@@ -13,6 +13,8 @@ import VehicleBuilderProtectionStep from '~/components/vehicles/VehicleBuilderPr
 import VehicleBuilderSpacesStep from '~/components/vehicles/VehicleBuilderSpacesStep.vue'
 import VehicleBuilderTabs from '~/components/vehicles/VehicleBuilderTabs.vue'
 import VehicleBuilderTechLevelStep from '~/components/vehicles/VehicleBuilderTechLevelStep.vue'
+import VehicleBuilderWeaponsStep from '~/components/vehicles/VehicleBuilderWeaponsStep.vue'
+import VehicleBuilderSaveModal from '~/components/vehicles/VehicleBuilderSaveModal.vue'
 import { useVehiclesStore } from '~/stores/vehicles'
 import {
   applyVehicleHandbookDerivations,
@@ -73,6 +75,8 @@ const attemptedBuildSave = ref(false)
 const buildDraft = ref<CustomVehicleDesign | null>(null)
 const selectedCustomVehicleId = ref('')
 const activeDraftInfo = ref<DraftInfoKey | null>(null)
+const saveVehicleModalOpen = ref(false)
+const saveVehicleName = ref('')
 let applyingBuildDraftDerivations = false
 
 type VehicleBuildStep = { id: string, label: string, title: string, description: string }
@@ -105,6 +109,7 @@ const builderSteps: VehicleBuildStep[] = [
   { id: 'automation', label: 'Automation', title: 'Automation', description: 'Install computers, software, drone control, and vehicle brains.' },
   { id: 'occupancy', label: 'Occupants', title: 'Crew & Passengers', description: 'Assign crew stations, passengers, and comfort level.' },
   { id: 'cargo', label: 'Cargo', title: 'Cargo', description: 'Reserve internal Spaces for freight, stores, and mission payload.' },
+  { id: 'weapons', label: 'Weapons', title: 'Weapons', description: 'Install mounted weapons, mounts, fire control, and ammunition allocation.' },
 ]
 const builderOptionSets = vehicleBuilderOptionSets()
 const builderCoreOptionFamilies = vehicleBuilderCoreOptionFamilies()
@@ -224,8 +229,9 @@ const formatCredits = (credits: number | null) => {
 
 const categoryLabel = (category: string) => category.split('-').map((part) => `${part.charAt(0).toUpperCase()}${part.slice(1)}`).join(' ')
 const buildValidationIssues = computed(() => buildDraft.value ? validateCustomVehicle(buildDraft.value) : [])
+const buildFlowValidationIssues = computed(() => buildValidationIssues.value.filter((issue) => issue !== 'Vehicle name is required.'))
 const buildStepIssues = computed(() => {
-  const issues = buildValidationIssues.value
+  const issues = buildFlowValidationIssues.value
   return {
     techLevel: issues.filter((issue) => issue.startsWith('Tech level cannot be below')),
     chassis: issues.filter((issue) => [
@@ -233,7 +239,7 @@ const buildStepIssues = computed(() => {
       'Base vehicle type is required.',
       'Operating skill is required.',
     ].includes(issue)),
-    spaces: issues.filter((issue) => issue === 'Spaces must be greater than zero.'),
+    spaces: issues.filter((issue) => issue === 'Spaces must be greater than zero.' || issue.startsWith('Allocated systems spaces ')),
     features: issues.filter((issue) => [
       'Selected features must be allowed for the base vehicle type.',
     ]),
@@ -250,13 +256,16 @@ const buildStepIssues = computed(() => {
       || issue.includes('Structural reinforcement')
       || issue.includes('One-Space vehicles')
       || issue.includes('Drive')
+      || issue.includes('drive')
       || issue.includes('Lifters')
       || issue.includes('Rail Wheels')
       || issue.includes('Supercavitating')
     )),
     protection: issues.filter((issue) => issue.startsWith('Armour for ') || issue.includes('armour cannot')),
+    options: issues.filter((issue) => issue.startsWith('Option ')),
     occupancy: issues.filter((issue) => issue.includes('crew station') || issue.startsWith('Occupant row ')),
     cargo: issues.filter((issue) => issue.startsWith('Cargo row ')),
+    weapons: issues.filter((issue) => issue.startsWith('Weapon ')),
   }
 })
 const buildValidationIssueSteps = computed<Record<string, number>>(() => {
@@ -267,8 +276,10 @@ const buildValidationIssueSteps = computed<Record<string, number>>(() => {
   for (const issue of buildStepIssues.value.features) mapping[issue] = 3
   for (const issue of buildStepIssues.value.customisations) mapping[issue] = 4
   for (const issue of buildStepIssues.value.protection) mapping[issue] = 5
+  for (const issue of buildStepIssues.value.options) mapping[issue] = 6
   for (const issue of buildStepIssues.value.occupancy) mapping[issue] = 8
   for (const issue of buildStepIssues.value.cargo) mapping[issue] = 9
+  for (const issue of buildStepIssues.value.weapons) mapping[issue] = 10
   return mapping
 })
 const buildStepHasIssues = computed(() => {
@@ -280,10 +291,11 @@ const buildStepHasIssues = computed(() => {
     buildStepIssues.value.features.length > 0,
     buildStepIssues.value.customisations.length > 0,
     buildStepIssues.value.protection.length > 0,
-    false,
+    buildStepIssues.value.options.length > 0,
     false,
     buildStepIssues.value.occupancy.length > 0,
     buildStepIssues.value.cargo.length > 0,
+    buildStepIssues.value.weapons.length > 0,
   ]
 })
 const draftFieldInfoText: Record<DraftInfoKey, { title: string, body: string }> = {
@@ -364,7 +376,7 @@ const draftFieldInfoText: Record<DraftInfoKey, { title: string, body: string }> 
     body: 'Traits are the distilled rules-facing qualities of the current design. They are derived from the selected base family, size band, auxiliary drive, and chosen features, and should be read as the vehicle’s resulting special rules profile.',
   },
 }
-const buildDraftFamilyRule = computed(() => buildDraft.value ? vehicleFamilyRule(buildDraft.value.baseFamily) : null)
+const buildDraftFamilyRule = computed(() => buildDraft.value?.baseFamily ? vehicleFamilyRule(buildDraft.value.baseFamily) : null)
 const buildDraftConstructionSummary = computed(() => buildDraft.value ? vehicleConstructionSummary(buildDraft.value) : null)
 const buildDraftBaseCostCredits = computed(() => buildDraft.value?.costCredits ?? 0)
 const buildDraftTotalCostCredits = computed(() => (
@@ -374,11 +386,15 @@ const buildDraftTotalCostLabel = computed(() => formatCredits(Math.round(buildDr
 const buildDraftBaseCostLabel = computed(() => formatCredits(Math.round(buildDraftBaseCostCredits.value)))
 const buildDraftPrimaryPowerOptions = computed(() => {
   if (!buildDraft.value) return allPrimaryPowerOptions
-  return allPrimaryPowerOptions.filter((option) => !option.allowedFamilies || option.allowedFamilies.includes(buildDraft.value!.baseFamily))
+  const family = buildDraft.value.baseFamily
+  if (!family) return allPrimaryPowerOptions
+  return allPrimaryPowerOptions.filter((option) => !option.allowedFamilies || option.allowedFamilies.includes(family))
 })
 const buildDraftAuxiliaryDriveOptions = computed(() => {
   if (!buildDraft.value) return allAuxiliaryDriveOptions
-  return allAuxiliaryDriveOptions.filter((option) => !option.allowedFamilies || option.allowedFamilies.includes(buildDraft.value!.baseFamily) || option.id === 'none')
+  const family = buildDraft.value.baseFamily
+  if (!family) return allAuxiliaryDriveOptions
+  return allAuxiliaryDriveOptions.filter((option) => !option.allowedFamilies || option.allowedFamilies.includes(family) || option.id === 'none')
 })
 // Vehicle handbook derivations mutate the draft in place. This guard prevents
 // those derived writes from recursively retriggering the same synchronization
@@ -421,6 +437,8 @@ const newVehicle = () => {
   activeGarageTab.value = 'builder'
   activeBuildStep.value = 0
   saveMessage.value = ''
+  saveVehicleModalOpen.value = false
+  saveVehicleName.value = ''
   attemptedBuildSave.value = false
   syncBuildDraftDerivations()
 }
@@ -434,21 +452,47 @@ const editVehicle = (vehicleId: string) => {
   activeGarageTab.value = 'builder'
   activeBuildStep.value = 0
   saveMessage.value = ''
+  saveVehicleModalOpen.value = false
+  saveVehicleName.value = buildDraft.value.name
   attemptedBuildSave.value = false
 }
 
-const saveVehicle = () => {
+const openSaveVehicleModal = () => {
   if (!buildDraft.value) return
+  syncBuildDraftDerivations()
   attemptedBuildSave.value = true
-  if (buildValidationIssues.value.length) {
-    activeBuildStep.value = builderSteps.length - 1
-    saveMessage.value = ''
+  saveVehicleName.value = buildDraft.value.name
+  saveMessage.value = ''
+  saveVehicleModalOpen.value = true
+}
+
+const closeSaveVehicleModal = () => {
+  saveVehicleModalOpen.value = false
+}
+
+const selectSaveIssue = (issue: string) => {
+  const step = buildValidationIssueSteps.value[issue]
+  if (step !== undefined) activeBuildStep.value = step
+  saveVehicleModalOpen.value = false
+}
+
+const confirmSaveVehicle = () => {
+  if (!buildDraft.value || buildFlowValidationIssues.value.length) return
+  const nextName = saveVehicleName.value.trim()
+  if (!nextName) return
+  buildDraft.value.name = nextName
+  syncBuildDraftDerivations()
+  const finalIssues = validateCustomVehicle(buildDraft.value)
+  if (finalIssues.length) {
+    attemptedBuildSave.value = true
     return
   }
   const saved = vehiclesStore.saveCustomVehicle(buildDraft.value)
   buildDraft.value = cloneVehicle(saved)
   selectedCustomVehicleId.value = saved.id
   saveMessage.value = `Saved ${saved.name || 'Custom Vehicle'}`
+  saveVehicleModalOpen.value = false
+  saveVehicleName.value = saved.name
 }
 
 const duplicateVehicle = (vehicleId: string) => {
@@ -460,6 +504,8 @@ const duplicateVehicle = (vehicleId: string) => {
   activeGarageTab.value = 'builder'
   activeBuildStep.value = 0
   saveMessage.value = `Duplicated ${copy.name || 'Custom Vehicle'}`
+  saveVehicleModalOpen.value = false
+  saveVehicleName.value = buildDraft.value.name
   attemptedBuildSave.value = false
 }
 
@@ -471,6 +517,8 @@ const deleteVehicle = (vehicleId: string) => {
     syncBuildDraftDerivations()
   }
   saveMessage.value = 'Deleted vehicle'
+  saveVehicleModalOpen.value = false
+  saveVehicleName.value = buildDraft.value?.name ?? ''
   attemptedBuildSave.value = false
 }
 
@@ -506,7 +554,7 @@ const removeEquipmentEntry = (index: number) => {
   syncBuildDraftDerivations()
 }
 
-const addOccupantEntry = (category: 'crew' | 'passenger') => {
+const addOccupantEntry = (category: CustomVehicleDesign['occupantEntries'][number]['category']) => {
   ensureBuildDraft()
   if (!buildDraft.value) return
   buildDraft.value.occupantEntries.push(createBlankVehicleOccupantEntry(category))
@@ -536,12 +584,10 @@ const addVehicleWeapon = () => {
   syncBuildDraftDerivations()
 }
 
-const addStockVehicleWeapon = (stockWeaponId: string) => {
+const addHandbookVehicleWeapon = (weapon: TravellerVehicleWeapon) => {
   ensureBuildDraft()
   if (!buildDraft.value) return
-  const stockWeapon = builderOptionSets.stockWeaponLibrary.find((entry) => entry.id === stockWeaponId)
-  if (!stockWeapon) return
-  buildDraft.value.weapons.push(cloneVehicle(stockWeapon.weapon))
+  buildDraft.value.weapons.push(cloneVehicle(weapon))
   syncBuildDraftDerivations()
 }
 
@@ -788,7 +834,7 @@ watch(activeGarageTab, (tab) => {
                 class="rounded-md border border-zinc-300 px-3 py-2 text-sm font-semibold text-zinc-700 hover:border-amber-600 disabled:cursor-not-allowed disabled:opacity-50"
                 :disabled="!buildDraft"
                 type="button"
-                @click="saveVehicle"
+                @click="openSaveVehicleModal"
               >
                 Save
               </button>
@@ -883,11 +929,21 @@ watch(activeGarageTab, (tab) => {
               />
 
               <VehicleBuilderCargoAllocationStep
-                v-else
+                v-else-if="activeBuildStep === 9"
                 :vehicle="buildDraft"
                 :cargo-spaces="buildDraftConstructionSummary?.cargoAllocatedSpaces ?? 0"
                 @add-cargo="addCargoEntry"
                 @remove-cargo="removeCargoEntry"
+                @sync-derivations="syncBuildDraftDerivations"
+              />
+
+              <VehicleBuilderWeaponsStep
+                v-else
+                :vehicle="buildDraft"
+                :weapon-spaces="buildDraftConstructionSummary?.weaponAllocatedSpaces ?? 0"
+                @add-weapon="addVehicleWeapon"
+                @add-handbook-weapon="addHandbookVehicleWeapon"
+                @remove-weapon="removeVehicleWeapon"
                 @sync-derivations="syncBuildDraftDerivations"
               />
             </div>
@@ -1018,6 +1074,23 @@ watch(activeGarageTab, (tab) => {
                 <p v-else class="mt-2 text-xs text-zinc-400">None installed</p>
               </div>
 
+              <div class="rounded-md border border-cyan-400/20 bg-white/5 px-3 py-3">
+                <p class="text-xs uppercase tracking-wide text-zinc-400">Weapons</p>
+                <div v-if="buildDraft.weapons.length" class="mt-2 grid gap-2">
+                  <div
+                    v-for="(weapon, index) in buildDraft.weapons"
+                    :key="`${weapon.name}-${index}`"
+                    class="rounded-md border border-cyan-300/20 bg-slate-950/40 px-2 py-2"
+                  >
+                    <p class="text-xs font-semibold text-cyan-100">{{ weapon.name || `Weapon ${index + 1}` }}</p>
+                    <p class="mt-1 text-[11px] text-cyan-100/60">
+                      {{ weapon.mountType || 'mount' }} · {{ weapon.damage || '-' }} · {{ weapon.spaces ?? 0 }} Spaces
+                    </p>
+                  </div>
+                </div>
+                <p v-else class="mt-2 text-xs text-zinc-400">None mounted</p>
+              </div>
+
               <button v-if="buildDraft.traits.length" class="rounded-md border border-cyan-400/20 bg-white/5 px-3 py-3 text-left transition hover:border-cyan-300/50" type="button" @click="activeDraftInfo = 'traits'">
                 <p class="text-xs uppercase tracking-wide text-zinc-400">Traits</p>
                 <div class="mt-2 flex flex-wrap gap-2">
@@ -1086,6 +1159,15 @@ watch(activeGarageTab, (tab) => {
       :title="activeDraftInfo ? draftFieldInfoText[activeDraftInfo].title : ''"
       :body="activeDraftInfo ? draftFieldInfoText[activeDraftInfo].body : ''"
       @close="activeDraftInfo = null"
+    />
+
+    <VehicleBuilderSaveModal
+      :open="saveVehicleModalOpen"
+      :issues="buildFlowValidationIssues"
+      v-model:vehicle-name="saveVehicleName"
+      @close="closeSaveVehicleModal"
+      @select-issue="selectSaveIssue"
+      @save="confirmSaveVehicle"
     />
   </main>
 </template>

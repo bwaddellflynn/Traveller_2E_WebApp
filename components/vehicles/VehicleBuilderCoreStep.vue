@@ -17,9 +17,9 @@ const emit = defineEmits<{
   (event: 'sync-derivations'): void
 }>()
 
-const familyRule = computed(() => vehicleFamilyRule(props.vehicle.baseFamily))
+const familyRule = computed(() => props.vehicle.baseFamily ? vehicleFamilyRule(props.vehicle.baseFamily) : null)
 const derivedSizeBand = computed(() => vehicleSizeBandForSpaces(props.vehicle.spaces))
-const derivedType = computed(() => `${derivedSizeBand.value.label} ${familyRule.value.typeLabel}`)
+const derivedType = computed(() => familyRule.value ? `${derivedSizeBand.value.label} ${familyRule.value.typeLabel}` : '')
 const formatCredits = (value: number) => value >= 1000000 ? `MCr${value / 1000000}` : `Cr${value}`
 const formatNumber = (value: number) => Number.isInteger(value) ? String(value) : String(value)
 const formatTlBand = (minimum: number, maximum?: number) => maximum === undefined
@@ -29,15 +29,28 @@ const formatTlBand = (minimum: number, maximum?: number) => maximum === undefine
     : `${minimum}-${maximum}`
 const formatRange = (range: number) => range > 0 ? String(range) : '0'
 const typeStats = computed(() => [
-  { label: 'Tech Level', value: String(familyRule.value.minimumTechLevel) },
-  { label: 'Skill', value: familyRule.value.defaultSkill },
-  { label: 'Agility', value: `${familyRule.value.baseAgility >= 0 ? '+' : ''}${familyRule.value.baseAgility}` },
-  { label: 'Hull', value: `${formatNumber(familyRule.value.hullPerSpace)} per Space` },
-  { label: 'Shipping', value: `${formatNumber(familyRule.value.shippingRatio)} tons per Space` },
-  ...(familyRule.value.defaultTraits?.length ? [{ label: 'Traits', value: familyRule.value.defaultTraits.join(', ') }] : []),
-  { label: 'Cost', value: `${formatCredits(familyRule.value.baseCostPerSpace)} per Space` },
-  { label: 'Examples', value: familyRule.value.examples },
-  { label: 'Allowed Features', value: familyRule.value.allowedFeatures.join(', ') },
+  ...(familyRule.value
+    ? [
+        { label: 'Tech Level', value: String(familyRule.value.minimumTechLevel) },
+        { label: 'Skill', value: familyRule.value.defaultSkill },
+        { label: 'Agility', value: `${familyRule.value.baseAgility >= 0 ? '+' : ''}${familyRule.value.baseAgility}` },
+        { label: 'Hull', value: `${formatNumber(familyRule.value.hullPerSpace)} per Space` },
+        { label: 'Shipping', value: `${formatNumber(familyRule.value.shippingRatio)} tons per Space` },
+        ...(familyRule.value.defaultTraits?.length ? [{ label: 'Traits', value: familyRule.value.defaultTraits.join(', ') }] : []),
+        { label: 'Cost', value: `${formatCredits(familyRule.value.baseCostPerSpace)} per Space` },
+        { label: 'Examples', value: familyRule.value.examples },
+        { label: 'Allowed Features', value: familyRule.value.allowedFeatures.join(', ') },
+      ]
+    : [
+        { label: 'Tech Level', value: '—' },
+        { label: 'Skill', value: '—' },
+        { label: 'Agility', value: '—' },
+        { label: 'Hull', value: '—' },
+        { label: 'Shipping', value: '—' },
+        { label: 'Cost', value: '—' },
+        { label: 'Examples', value: 'Choose a vehicle type.' },
+        { label: 'Allowed Features', value: '—' },
+      ]),
 ])
 const visualKind = computed(() => props.vehicle.baseFamily)
 const useSilhouetteFallback = computed(() => !hasVehicleSilhouetteAsset(visualKind.value))
@@ -49,6 +62,12 @@ const silhouetteImageClass = computed(() => vehicleSilhouetteImageClass(visualKi
 watch(
   () => props.vehicle.baseFamily,
   () => {
+    if (!familyRule.value) {
+      props.vehicle.type = ''
+      props.vehicle.skill = ''
+      emit('sync-derivations')
+      return
+    }
     const nextCategory = familyRule.value.category
     const nextType = derivedType.value
     const nextTechLevel = Math.max(props.vehicle.techLevel, familyRule.value.minimumTechLevel)
@@ -94,6 +113,7 @@ watch(
           <label class="grid gap-1 text-xs font-semibold uppercase tracking-wide text-zinc-400">
             <span>Vehicle Type</span>
             <select v-model="props.vehicle.baseFamily" class="h-11 rounded-md border border-zinc-300 bg-white px-3 text-sm font-normal normal-case tracking-normal text-zinc-950 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200">
+              <option value="">—</option>
               <option v-for="option in props.optionSets.baseFamilies" :key="option.id" :value="option.id">{{ option.label }}</option>
             </select>
           </label>
@@ -109,8 +129,8 @@ watch(
           />
           <div aria-hidden="true" class="pointer-events-none absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-slate-950/95 to-transparent" />
           <div class="relative z-10 min-h-[12rem]">
-            <h4 class="text-3xl font-black uppercase leading-none tracking-wide text-cyan-50">{{ familyRule.label }}</h4>
-            <p class="mt-3 line-clamp-6 max-w-xl text-sm leading-5 text-zinc-300">{{ familyRule.description }}</p>
+            <h4 class="text-3xl font-black uppercase leading-none tracking-wide text-cyan-50">{{ familyRule?.label ?? 'Choose Vehicle Type' }}</h4>
+            <p class="mt-3 line-clamp-6 max-w-xl text-sm leading-5 text-zinc-300">{{ familyRule?.description ?? 'Select a vehicle type to establish the baseline chassis, skill, hull, shipping, traits, and allowed features.' }}</p>
           </div>
           <img
             v-if="!useSilhouetteFallback"
@@ -147,7 +167,7 @@ watch(
               <span class="px-2 py-1">Range</span>
             </div>
             <div
-              v-for="row in familyRule.speedBaselines"
+              v-for="row in familyRule?.speedBaselines ?? []"
               :key="`${row.minTl}-${row.maxTl ?? 'plus'}`"
               class="grid grid-cols-[4.75rem_minmax(0,1fr)_5.5rem] border-x border-t border-cyan-400/30 text-sm text-zinc-200 last:border-b"
             >
@@ -155,6 +175,7 @@ watch(
               <span class="border-r border-cyan-400/30 px-2 py-1">{{ row.speed }}</span>
               <span class="px-2 py-1">{{ formatRange(row.range) }}</span>
             </div>
+            <p v-if="!familyRule" class="border border-cyan-400/30 px-2 py-3 text-sm text-zinc-300">Select a vehicle type to view baseline speed and range.</p>
           </div>
         </div>
       </div>

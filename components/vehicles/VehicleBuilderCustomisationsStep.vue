@@ -145,9 +145,10 @@ const auxiliaryRows = computed(() => {
   ]
 })
 
-const selectedHullOption = computed(() => hullOptions.find((option) => option.id === props.vehicle.hull) ?? hullOptions[0])
+const selectedHullOption = computed(() => hullOptions.find((option) => option.id === props.vehicle.hull) ?? null)
 const selectedHullContext = computed(() => {
   const option = selectedHullOption.value
+  if (!option) return 'Choose a hull modification. One-Space vehicles cannot use Light or Reinforced hull modification.'
   return `${option.hull} Hull, ${option.cost} cost. ${option.notes} One-Space vehicles cannot use Light or Reinforced hull modification.`
 })
 const hullOptionLabel = (option: typeof hullOptions[number]) => `${option.label} (${option.hull} Hull, ${option.cost} cost)`
@@ -195,6 +196,7 @@ watch(
             </div>
             <label class="grid min-w-0 gap-1">
               <select v-model="props.vehicle.hull" class="h-11 w-full min-w-0 truncate rounded-md border border-zinc-300 bg-white px-3 text-sm font-normal normal-case tracking-normal text-zinc-950 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200">
+                <option value="">—</option>
                 <option
                   v-for="option in hullOptions"
                   :key="option.id"
@@ -283,6 +285,7 @@ watch(
               <label class="grid min-w-0 gap-1 text-xs font-semibold uppercase tracking-wide text-zinc-400">
                 <span>Power Plant</span>
                 <select v-model="props.vehicle.primaryPower" class="h-10 w-full min-w-0 rounded-md border border-zinc-300 bg-white px-3 text-sm font-normal normal-case tracking-normal text-zinc-950 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200">
+                  <option value="">—</option>
                   <option
                     v-for="option in props.optionSets.primaryPowerOptions"
                     :key="option.id"
@@ -348,6 +351,7 @@ watch(
               <label class="grid min-w-0 gap-1 text-xs font-semibold uppercase tracking-wide text-zinc-400">
                 <span>Secondary Movement</span>
                 <select v-model="props.vehicle.auxiliaryDrive" class="h-10 w-full min-w-0 rounded-md border border-zinc-300 bg-white px-3 text-sm font-normal normal-case tracking-normal text-zinc-950 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200">
+                  <option value="">—</option>
                   <option
                     v-for="option in props.optionSets.auxiliaryDriveOptions"
                     :key="option.id"

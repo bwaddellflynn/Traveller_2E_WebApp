@@ -1,7 +1,7 @@
 import wheeledVehicleSvgRaw from '~/assets/vehicle_builder/ground_vehicles/ground_vehicles_wheeled/SciFi_Car_Silhouette.svg?raw'
 import type { TravellerVehicleBaseFamily } from '~/types/vehicle'
 
-type VehicleSilhouetteKind = TravellerVehicleBaseFamily | 'wheeled' | 'tracked' | 'rail' | 'monowheel' | 'tunneller' | 'hydrofoil' | 'floats' | 'aerodyne' | 'ornithopter' | 'walker-multi' | 'open-frame' | 'open-topped'
+type VehicleSilhouetteKind = '' | TravellerVehicleBaseFamily | 'wheeled' | 'tracked' | 'rail' | 'monowheel' | 'tunneller' | 'hydrofoil' | 'floats' | 'aerodyne' | 'ornithopter' | 'walker-multi' | 'open-frame' | 'open-topped'
 
 const vehicleBuilderSvgModules = import.meta.glob('../assets/vehicle_builder/**/*.svg', {
   eager: true,
@@ -120,7 +120,7 @@ export const vehicleSilhouetteImageClass = (kind: VehicleSilhouetteKind) => {
   return 'max-h-[20rem] w-[36rem]'
 }
 
-export const vehicleSilhouetteKindForFeature = (featureName: string, baseFamily: TravellerVehicleBaseFamily): VehicleSilhouetteKind => {
+export const vehicleSilhouetteKindForFeature = (featureName: string, baseFamily: '' | TravellerVehicleBaseFamily): VehicleSilhouetteKind => {
   if (featureName === 'Multi-Legged') return 'walker-multi'
   if (featureName === 'Tracks') return 'tracked'
   if (featureName === 'Rail Rider') return 'rail'

@@ -81,6 +81,19 @@ export type TravellerVehicleWeapon = {
   traits: string[]
   fireControl: string
   spaces?: number
+  baseSpaces?: number
+  mountType?: string
+  mountFacing?: string
+  linkedCount?: number
+  ammunitionSpaces?: number
+  fireControlSystem?: string
+  autoloader?: boolean
+  modularMount?: boolean
+  popupMount?: boolean
+  powerRequirement?: string
+  crew?: string
+  loaders?: string
+  sourceCategory?: string
 }
 
 export type TravellerVehicleFusionPlusFuelType =
@@ -98,7 +111,7 @@ export type CustomVehicleOccupantEntry = {
   role: string
   count: number
   spacesEach: number
-  category: 'crew' | 'passenger'
+  category: '' | 'crew' | 'passenger'
 }
 
 export type CustomVehicleCargoEntry = {
@@ -144,11 +157,11 @@ export type CustomVehicleDesign = TravellerVehicleRecord & {
   userId: string
   createdAt: string
   updatedAt: string
-  baseFamily: TravellerVehicleBaseFamily
+  baseFamily: '' | TravellerVehicleBaseFamily
   features: string[]
-  primaryPower: TravellerVehiclePrimaryPower
+  primaryPower: '' | TravellerVehiclePrimaryPower
   fusionPlusFuelType: TravellerVehicleFusionPlusFuelType
-  auxiliaryDrive: TravellerVehicleAuxiliaryDrive
+  auxiliaryDrive: '' | TravellerVehicleAuxiliaryDrive
   occupantEntries: CustomVehicleOccupantEntry[]
   cargoEntries: CustomVehicleCargoEntry[]
   equipmentEntries: CustomVehicleEquipmentEntry[]
