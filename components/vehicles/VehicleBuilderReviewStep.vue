@@ -17,7 +17,10 @@ const emit = defineEmits<{
 const primaryPowerLabels = Object.fromEntries(vehiclePrimaryPowerOptions().map((option) => [option.id, option.label]))
 const auxiliaryDriveLabels = Object.fromEntries(vehicleAuxiliaryDriveOptions().map((option) => [option.id, option.label]))
 const summary = computed(() => vehicleConstructionSummary(props.vehicle))
-const stepLabels = ['Frame', 'Features', 'Power', 'Protection', 'Options', 'Automation', 'Occupants', 'Cargo', 'Weapons', 'Review']
+const stepLabels = ['Setup', 'Tech Level', 'Type', 'Spaces', 'Features', 'Custom', 'Protection', 'Options', 'Automation', 'Weapons', 'Occupants', 'Cargo', 'Review']
+const formatCredits = (value: number) => value >= 1000000
+  ? `MCr${Number.isInteger(value / 1000000) ? (value / 1000000).toFixed(0) : (value / 1000000).toFixed(1).replace(/\.0$/, '')}`
+  : `Cr${Math.round(value).toLocaleString()}`
 </script>
 
 <template>
@@ -106,6 +109,34 @@ const stepLabels = ['Frame', 'Features', 'Power', 'Protection', 'Options', 'Auto
             <div><span class="text-xs uppercase tracking-wide text-zinc-400">Ventral Armour</span><p class="mt-1 text-base font-semibold text-cyan-50">{{ props.vehicle.armour.ventral || '-' }}</p></div>
           </div>
         </section>
+      </div>
+    </section>
+
+    <section class="rounded-md border border-cyan-400/20 bg-slate-950/30 p-4">
+      <div class="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h3 class="text-sm font-semibold text-cyan-50">Space and Cost Allocation</h3>
+          <p class="mt-1 text-xs leading-5 text-cyan-100/70">Centralized accounting for the current build. Entries with zero cost still reserve or explain Spaces.</p>
+        </div>
+        <div class="text-right text-xs uppercase tracking-wide text-cyan-100/70">
+          <p>Total Cost</p>
+          <p class="mt-1 text-lg font-black normal-case tracking-normal text-cyan-50">{{ formatCredits(summary.totalCostCredits) }}</p>
+        </div>
+      </div>
+      <div class="mt-4 overflow-hidden rounded-md border border-cyan-400/20">
+        <div class="grid grid-cols-[minmax(0,1fr)_5rem_7rem] bg-cyan-950/70 text-[11px] font-black uppercase tracking-[0.16em] text-cyan-100">
+          <div class="px-3 py-2">Entry</div>
+          <div class="px-3 py-2 text-right">Spaces</div>
+          <div class="px-3 py-2 text-right">Cost</div>
+        </div>
+        <div v-for="entry in summary.allocationEntries" :key="entry.id" class="grid grid-cols-[minmax(0,1fr)_5rem_7rem] border-t border-cyan-400/15 text-sm">
+          <div class="min-w-0 px-3 py-2">
+            <p class="font-semibold text-cyan-50">{{ entry.label }}</p>
+            <p v-if="entry.note" class="mt-1 text-xs leading-4 text-cyan-100/60">{{ entry.note }}</p>
+          </div>
+          <div class="px-3 py-2 text-right font-semibold text-cyan-50">{{ entry.spaces || '-' }}</div>
+          <div class="px-3 py-2 text-right font-semibold text-cyan-50">{{ entry.costCredits ? formatCredits(entry.costCredits) : '-' }}</div>
+        </div>
       </div>
     </section>
   </div>

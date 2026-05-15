@@ -2,6 +2,14 @@
 import { computed, ref, watch } from 'vue'
 import AppIcon from '~/components/AppIcon.vue'
 import type { CustomVehicleDesign, TravellerVehicleWeapon } from '~/types/vehicle'
+import {
+  vehicleWeaponBaseSpaces,
+  vehicleWeaponFireControlRuleFor,
+  vehicleWeaponFireControlRules,
+  vehicleWeaponInstalledSpaces,
+  vehicleWeaponMountRuleFor,
+  vehicleWeaponMountRules,
+} from '~/utils/traveller/vehicles'
 import { vehicleSilhouetteImageClass, vehicleSilhouetteSource } from '~/utils/vehicleBuilderSilhouettes'
 
 type HandbookWeaponOption = {
@@ -21,22 +29,6 @@ type HandbookWeaponOption = {
   loaders?: string
 }
 
-type MountRule = {
-  id: string
-  label: string
-  spaces: string
-  cost: string
-  effect: string
-}
-
-type FireControlRule = {
-  id: string
-  label: string
-  techLevel: number
-  dm: string
-  cost: string
-}
-
 const props = defineProps<{
   vehicle: CustomVehicleDesign
   weaponSpaces: number
@@ -49,25 +41,8 @@ const emit = defineEmits<{
   (event: 'sync-derivations'): void
 }>()
 
-const mountRules: MountRule[] = [
-  { id: 'fixed', label: 'Fixed Mount', spaces: 'Weapon Spaces', cost: 'No additional Cost', effect: 'Rigid facing; aimed by vehicle orientation.' },
-  { id: 'hardpoint', label: 'Hardpoint', spaces: '0 internal Spaces', cost: 'Cr2000 per weapon Space', effect: 'External modular ordnance mount; no vehicle armour or environmental protection.' },
-  { id: 'pintle', label: 'Pintle Mount', spaces: '0 Spaces', cost: 'Cr250', effect: 'External 90 degree arc; gunner or automated fire control required.' },
-  { id: 'ring', label: 'Ring Mount', spaces: '0 Spaces', cost: 'Cr750', effect: 'External all-around mount; gunner has partial cover unless shielded.' },
-  { id: 'gunport', label: 'Gunport', spaces: 'Large weapons use weapon Spaces', cost: 'Cr250, or Cr250 per weapon Space', effect: 'One weapon fires through a protected hatch from inside the vehicle.' },
-  { id: 'bay', label: 'Bay', spaces: 'Weapon Spaces', cost: 'Cr2500 per Space', effect: 'Internal protected ordnance bay; fires or drops one weapon per round.' },
-  { id: 'multi-bay', label: 'Multi-Bay', spaces: 'Weapon Spaces', cost: 'Cr5000 per Space', effect: 'Bay able to fire or drop any number of weapons per round.' },
-  { id: 'turret', label: 'Turret', spaces: '1 per 4 weapon Spaces, plus crew stations', cost: 'Cr20000 per consumed Space', effect: 'Armoured 360 degree mount; turret armour matches the vehicle’s best protected face.' },
-]
-
-const fireControlRules: FireControlRule[] = [
-  { id: 'none', label: 'None', techLevel: 0, dm: '-', cost: '-' },
-  { id: 'scope', label: 'Scope', techLevel: 4, dm: '+0', cost: 'Cr50' },
-  { id: 'basic', label: 'Basic', techLevel: 6, dm: '+1', cost: 'Cr10000' },
-  { id: 'improved', label: 'Improved', techLevel: 8, dm: '+2', cost: 'Cr25000' },
-  { id: 'enhanced', label: 'Enhanced', techLevel: 10, dm: '+3', cost: 'Cr50000' },
-  { id: 'advanced', label: 'Advanced', techLevel: 12, dm: '+4', cost: 'Cr100000' },
-]
+const mountRules = vehicleWeaponMountRules
+const fireControlRules = vehicleWeaponFireControlRules
 
 const handbookWeapons: HandbookWeaponOption[] = [
   { id: 'machinegun-light', category: 'Direct Fire', name: 'Machinegun (light)', techLevel: 4, range: '0.4 km', damage: '3D', tons: '0.014', spaces: 1, cost: 'Cr1200', power: '-', traits: ['Auto 3'], magazine: '100', crew: '1', loaders: '1' },
@@ -119,49 +94,20 @@ watch(selectedCategory, () => {
 })
 
 const formatNumber = (value: number) => Number.isInteger(value) ? String(value) : value.toFixed(2).replace(/0+$/, '').replace(/\.$/, '')
-const numericField = (value: unknown) => Math.max(0, Number(value ?? 0))
-const weaponBaseSpaces = (weapon: TravellerVehicleWeapon) => Math.max(0, Number(weapon.baseSpaces ?? weapon.spaces ?? 0))
-const mountRuleFor = (mountType?: string) => mountRules.find((mount) => mount.id === mountType) ?? {
-  id: '',
-  label: '—',
-  spaces: 'Choose a mount',
-  cost: '—',
-  effect: 'Select a mount to calculate installed weapon Spaces.',
-}
-const fireControlRuleFor = (fireControl?: string) => fireControlRules.find((rule) => rule.id === fireControl) ?? {
-  id: '',
-  label: '—',
-  techLevel: 0,
-  dm: '-',
-  cost: '-',
-}
-const linkedWeaponSpaces = (weapon: TravellerVehicleWeapon) => Math.max(0, weaponBaseSpaces(weapon) * Math.max(1, Number(weapon.linkedCount ?? 1)))
-const numericCrew = (value?: string) => Math.max(0, Number.parseInt(String(value ?? '0'), 10) || 0)
-const installedWeaponSpaces = (weapon: TravellerVehicleWeapon) => {
-  const weaponSpaces = linkedWeaponSpaces(weapon)
-  const ammunitionSpaces = numericField(weapon.ammunitionSpaces)
-  let mountSpaces = weaponSpaces
-
-  switch (weapon.mountType) {
-    case 'hardpoint':
-    case 'pintle':
-    case 'ring':
-      mountSpaces = 0
-      break
-    case 'turret': {
-      const turretCrew = numericCrew(weapon.crew) + (weapon.autoloader ? 0 : numericCrew(weapon.loaders))
-      mountSpaces = Math.ceil(weaponSpaces / 4) + turretCrew
-      break
-    }
-    default:
-      mountSpaces = weaponSpaces
-  }
-
-  if (weapon.popupMount) {
-    mountSpaces += Math.max(1, mountSpaces + weaponSpaces)
-  }
-
-  return Math.max(0, Math.ceil(mountSpaces + ammunitionSpaces))
+const mountRuleFor = vehicleWeaponMountRuleFor
+const fireControlRuleFor = vehicleWeaponFireControlRuleFor
+const weaponBaseSpaces = vehicleWeaponBaseSpaces
+const installedWeaponSpaces = vehicleWeaponInstalledSpaces
+const attributeHelp = {
+  mount: 'How the weapon is installed. External mounts such as ring, pintle, and hardpoint do not consume internal weapon Spaces, but still count as external load.',
+  fireControl: 'Fire control adds the selected targeting aid to the weapon system and contributes its listed cost to the installed weapon total.',
+  linked: 'Number of identical weapons installed together. Linked weapons multiply the base weapon Spaces, base weapon cost, and external load before mount rules are applied.',
+  weaponSpaces: 'The handbook Spaces for one copy of the weapon. This is the weapon size before linked count, mount type, and ammunition storage are applied.',
+  ammoSpaces: 'Internal vehicle Spaces reserved for ammunition, magazines, missiles, or reloads. Ammo Spaces always consume vehicle capacity.',
+  installedSpaces: 'Final internal Spaces spent by this weapon system after linked count, mount type, pop-up mount, crew/loaders for turrets, and ammunition are applied.',
+  autoloader: 'Replaces loader crew for the mount calculation. In the current builder it affects turret loader Space requirements, not the weapon base cost.',
+  modularMount: 'Marks the weapon as modular or swappable. It is tracked on the weapon profile but does not currently change Spaces or cost by itself.',
+  popupMount: 'Adds concealed pop-up installation burden. This increases installed Spaces while selected and is removed again when deselected.',
 }
 const syncWeaponSpaces = (weapon: TravellerVehicleWeapon) => {
   weapon.baseSpaces = weaponBaseSpaces(weapon)
@@ -170,11 +116,16 @@ const syncWeaponSpaces = (weapon: TravellerVehicleWeapon) => {
   emit('sync-derivations')
 }
 const toWeaponRecord = (weapon: HandbookWeaponOption): TravellerVehicleWeapon => ({
+  id: weapon.id,
   name: weapon.name,
+  techLevel: weapon.techLevel,
   range: weapon.range,
   damage: weapon.damage,
   magazine: weapon.magazine ?? '',
   cost: weapon.cost,
+  baseCostCredits: undefined,
+  costCredits: undefined,
+  tonnes: Number(weapon.tons),
   traits: [...weapon.traits],
   fireControl: '',
   spaces: weapon.spaces,
@@ -210,9 +161,6 @@ const addSelectedHandbookWeapon = () => {
       <div class="flex flex-wrap gap-2">
         <button class="rounded-md border border-cyan-300/30 bg-cyan-300/10 px-3 py-2 text-sm font-semibold text-cyan-50 hover:border-cyan-200 disabled:cursor-not-allowed disabled:border-cyan-300/10 disabled:bg-cyan-300/5 disabled:text-cyan-100/35" type="button" :disabled="!selectedHandbookWeapon" @click="addSelectedHandbookWeapon">
           Add Weapon
-        </button>
-        <button class="rounded-md border border-cyan-300/20 px-3 py-2 text-sm font-semibold text-cyan-100 hover:border-cyan-200" type="button" @click="$emit('add-weapon')">
-          Custom
         </button>
       </div>
     </div>
@@ -336,7 +284,13 @@ const addSelectedHandbookWeapon = () => {
                   <input v-model="weapon.name" class="h-10 min-w-0 rounded-md border border-cyan-400/25 bg-slate-950/70 px-3 text-sm font-normal normal-case tracking-normal text-cyan-50 outline-none focus:border-cyan-200" placeholder="Weapon name" @input="$emit('sync-derivations')">
                 </label>
                 <label class="grid gap-1 text-[11px] font-black uppercase tracking-wide text-cyan-100/70">
-                  <span>Mount</span>
+                  <span class="flex items-center gap-1">
+                    Mount
+                    <span class="group/help relative inline-grid h-4 w-4 place-items-center rounded-full border border-cyan-300/30 bg-cyan-300/10 text-[10px] text-cyan-50">
+                      ?
+                      <span class="pointer-events-none absolute right-0 top-5 z-30 hidden w-72 rounded-md border border-cyan-300/35 bg-slate-950/95 p-3 text-xs font-normal normal-case leading-5 tracking-normal text-zinc-200 shadow-[0_0_24px_rgba(34,211,238,0.22)] group-hover/help:block">{{ attributeHelp.mount }}</span>
+                    </span>
+                  </span>
                   <select v-model="weapon.mountType" class="h-10 min-w-0 rounded-md border border-cyan-400/25 bg-slate-950/70 px-3 text-sm font-normal normal-case tracking-normal text-cyan-50 outline-none focus:border-cyan-200" @change="syncWeaponSpaces(weapon)">
                     <option value="">—</option>
                     <option v-for="mount in mountRules" :key="mount.id" :value="mount.id">{{ mount.label }}</option>
@@ -356,26 +310,56 @@ const addSelectedHandbookWeapon = () => {
                   </select>
                 </label>
                 <label class="grid gap-1 text-[11px] font-black uppercase tracking-wide text-cyan-100/70">
-                  <span>Fire Control</span>
+                  <span class="flex items-center gap-1">
+                    Fire Control
+                    <span class="group/help relative inline-grid h-4 w-4 place-items-center rounded-full border border-cyan-300/30 bg-cyan-300/10 text-[10px] text-cyan-50">
+                      ?
+                      <span class="pointer-events-none absolute right-0 top-5 z-30 hidden w-72 rounded-md border border-cyan-300/35 bg-slate-950/95 p-3 text-xs font-normal normal-case leading-5 tracking-normal text-zinc-200 shadow-[0_0_24px_rgba(34,211,238,0.22)] group-hover/help:block">{{ attributeHelp.fireControl }}</span>
+                    </span>
+                  </span>
                   <select v-model="weapon.fireControlSystem" class="h-10 min-w-0 rounded-md border border-cyan-400/25 bg-slate-950/70 px-3 text-sm font-normal normal-case tracking-normal text-cyan-50 outline-none focus:border-cyan-200" @change="weapon.fireControl = fireControlRuleFor(weapon.fireControlSystem).label; $emit('sync-derivations')">
                     <option value="">—</option>
                     <option v-for="rule in fireControlRules" :key="rule.id" :value="rule.id">{{ rule.label }} {{ rule.dm !== '-' ? rule.dm : '' }}</option>
                   </select>
                 </label>
                 <label class="grid gap-1 text-[11px] font-black uppercase tracking-wide text-cyan-100/70">
-                  <span>Linked</span>
+                  <span class="flex items-center gap-1">
+                    Linked
+                    <span class="group/help relative inline-grid h-4 w-4 place-items-center rounded-full border border-cyan-300/30 bg-cyan-300/10 text-[10px] text-cyan-50">
+                      ?
+                      <span class="pointer-events-none absolute right-0 top-5 z-30 hidden w-72 rounded-md border border-cyan-300/35 bg-slate-950/95 p-3 text-xs font-normal normal-case leading-5 tracking-normal text-zinc-200 shadow-[0_0_24px_rgba(34,211,238,0.22)] group-hover/help:block">{{ attributeHelp.linked }}</span>
+                    </span>
+                  </span>
                   <input v-model.number="weapon.linkedCount" min="1" step="1" type="number" class="h-10 min-w-0 rounded-md border border-cyan-400/25 bg-slate-950/70 px-3 text-sm font-normal text-cyan-50 outline-none focus:border-cyan-200" @input="syncWeaponSpaces(weapon)">
                 </label>
                 <label class="grid gap-1 text-[11px] font-black uppercase tracking-wide text-cyan-100/70">
-                  <span>Weapon Spaces</span>
+                  <span class="flex items-center gap-1">
+                    Weapon Spaces
+                    <span class="group/help relative inline-grid h-4 w-4 place-items-center rounded-full border border-cyan-300/30 bg-cyan-300/10 text-[10px] text-cyan-50">
+                      ?
+                      <span class="pointer-events-none absolute right-0 top-5 z-30 hidden w-72 rounded-md border border-cyan-300/35 bg-slate-950/95 p-3 text-xs font-normal normal-case leading-5 tracking-normal text-zinc-200 shadow-[0_0_24px_rgba(34,211,238,0.22)] group-hover/help:block">{{ attributeHelp.weaponSpaces }}</span>
+                    </span>
+                  </span>
                   <input v-model.number="weapon.baseSpaces" min="0" step="1" type="number" class="h-10 min-w-0 rounded-md border border-cyan-400/25 bg-slate-950/70 px-3 text-sm font-normal text-cyan-50 outline-none focus:border-cyan-200" @input="syncWeaponSpaces(weapon)">
                 </label>
                 <label class="grid gap-1 text-[11px] font-black uppercase tracking-wide text-cyan-100/70">
-                  <span>Ammo Spaces</span>
+                  <span class="flex items-center gap-1">
+                    Ammo Spaces
+                    <span class="group/help relative inline-grid h-4 w-4 place-items-center rounded-full border border-cyan-300/30 bg-cyan-300/10 text-[10px] text-cyan-50">
+                      ?
+                      <span class="pointer-events-none absolute right-0 top-5 z-30 hidden w-72 rounded-md border border-cyan-300/35 bg-slate-950/95 p-3 text-xs font-normal normal-case leading-5 tracking-normal text-zinc-200 shadow-[0_0_24px_rgba(34,211,238,0.22)] group-hover/help:block">{{ attributeHelp.ammoSpaces }}</span>
+                    </span>
+                  </span>
                   <input v-model.number="weapon.ammunitionSpaces" min="0" step="1" type="number" class="h-10 min-w-0 rounded-md border border-cyan-400/25 bg-slate-950/70 px-3 text-sm font-normal text-cyan-50 outline-none focus:border-cyan-200" @input="syncWeaponSpaces(weapon)">
                 </label>
                 <label class="grid gap-1 text-[11px] font-black uppercase tracking-wide text-cyan-100/70">
-                  <span>Installed Spaces</span>
+                  <span class="flex items-center gap-1">
+                    Installed Spaces
+                    <span class="group/help relative inline-grid h-4 w-4 place-items-center rounded-full border border-cyan-300/30 bg-cyan-300/10 text-[10px] text-cyan-50">
+                      ?
+                      <span class="pointer-events-none absolute right-0 top-5 z-30 hidden w-72 rounded-md border border-cyan-300/35 bg-slate-950/95 p-3 text-xs font-normal normal-case leading-5 tracking-normal text-zinc-200 shadow-[0_0_24px_rgba(34,211,238,0.22)] group-hover/help:block">{{ attributeHelp.installedSpaces }}</span>
+                    </span>
+                  </span>
                   <input :value="formatNumber(Number(weapon.spaces ?? 0))" disabled class="h-10 min-w-0 rounded-md border border-cyan-400/15 bg-slate-950/40 px-3 text-sm font-normal text-cyan-100/60 outline-none">
                 </label>
                 <label class="grid gap-1 text-[11px] font-black uppercase tracking-wide text-cyan-100/70">
@@ -412,15 +396,33 @@ const addSelectedHandbookWeapon = () => {
               <div class="mt-3 flex flex-wrap gap-3">
                 <label class="inline-flex items-center gap-2 text-xs font-semibold text-cyan-100/70">
                   <input v-model="weapon.autoloader" type="checkbox" class="h-4 w-4 rounded border-cyan-400/30 bg-slate-950" @change="syncWeaponSpaces(weapon)">
-                  Autoloader
+                  <span class="flex items-center gap-1">
+                    Autoloader
+                    <span class="group/help relative inline-grid h-4 w-4 place-items-center rounded-full border border-cyan-300/30 bg-cyan-300/10 text-[10px] text-cyan-50">
+                      ?
+                      <span class="pointer-events-none absolute left-0 top-5 z-30 hidden w-72 rounded-md border border-cyan-300/35 bg-slate-950/95 p-3 text-xs font-normal leading-5 text-zinc-200 shadow-[0_0_24px_rgba(34,211,238,0.22)] group-hover/help:block">{{ attributeHelp.autoloader }}</span>
+                    </span>
+                  </span>
                 </label>
                 <label class="inline-flex items-center gap-2 text-xs font-semibold text-cyan-100/70">
-                  <input v-model="weapon.modularMount" type="checkbox" class="h-4 w-4 rounded border-cyan-400/30 bg-slate-950" @change="$emit('sync-derivations')">
-                  Modular mount
+                  <input v-model="weapon.modularMount" type="checkbox" class="h-4 w-4 rounded border-cyan-400/30 bg-slate-950" @change="syncWeaponSpaces(weapon)">
+                  <span class="flex items-center gap-1">
+                    Modular mount
+                    <span class="group/help relative inline-grid h-4 w-4 place-items-center rounded-full border border-cyan-300/30 bg-cyan-300/10 text-[10px] text-cyan-50">
+                      ?
+                      <span class="pointer-events-none absolute left-0 top-5 z-30 hidden w-72 rounded-md border border-cyan-300/35 bg-slate-950/95 p-3 text-xs font-normal leading-5 text-zinc-200 shadow-[0_0_24px_rgba(34,211,238,0.22)] group-hover/help:block">{{ attributeHelp.modularMount }}</span>
+                    </span>
+                  </span>
                 </label>
                 <label class="inline-flex items-center gap-2 text-xs font-semibold text-cyan-100/70">
                   <input v-model="weapon.popupMount" type="checkbox" class="h-4 w-4 rounded border-cyan-400/30 bg-slate-950" @change="syncWeaponSpaces(weapon)">
-                  Pop-up mount
+                  <span class="flex items-center gap-1">
+                    Pop-up mount
+                    <span class="group/help relative inline-grid h-4 w-4 place-items-center rounded-full border border-cyan-300/30 bg-cyan-300/10 text-[10px] text-cyan-50">
+                      ?
+                      <span class="pointer-events-none absolute left-0 top-5 z-30 hidden w-72 rounded-md border border-cyan-300/35 bg-slate-950/95 p-3 text-xs font-normal leading-5 text-zinc-200 shadow-[0_0_24px_rgba(34,211,238,0.22)] group-hover/help:block">{{ attributeHelp.popupMount }}</span>
+                    </span>
+                  </span>
                 </label>
               </div>
 

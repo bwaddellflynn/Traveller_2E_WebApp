@@ -15,6 +15,7 @@ import type {
   TravellerVehicleCategory,
   TravellerVehicleFusionPlusFuelType,
   TravellerVehiclePrimaryPower,
+  TravellerVehicleAllocationEntry,
   TravellerVehicleRecord,
   TravellerVehicleWeapon,
 } from '~/types/vehicle'
@@ -153,6 +154,22 @@ export type VehicleBuilderStockWeaponOption = {
   sourceTechLevel: number
   sourcePage?: number
   weapon: TravellerVehicleWeapon
+}
+
+export type VehicleWeaponMountRule = {
+  id: string
+  label: string
+  spaces: string
+  cost: string
+  effect: string
+}
+
+export type VehicleWeaponFireControlRule = {
+  id: string
+  label: string
+  techLevel: number
+  dm: string
+  cost: string
 }
 
 export type VehicleComfortLevelRule = {
@@ -447,11 +464,16 @@ const stockVehicleWeaponLibrary = (): VehicleBuilderStockWeaponOption[] => {
         sourceTechLevel: vehicle.techLevel,
         sourcePage: vehicle.sourcePage,
         weapon: {
+          id: weapon.id ?? '',
           name: weapon.name,
+          techLevel: weapon.techLevel,
           range: weapon.range,
           damage: weapon.damage,
           magazine: weapon.magazine,
           cost: weapon.cost,
+          baseCostCredits: weapon.baseCostCredits,
+          costCredits: weapon.costCredits,
+          tonnes: weapon.tonnes,
           traits: [...weapon.traits],
           fireControl: weapon.fireControl,
           spaces: weapon.spaces ?? 0,
@@ -507,11 +529,16 @@ export const createBlankVehicleArmour = (): TravellerVehicleArmour => ({
 })
 
 export const createBlankVehicleWeapon = (): TravellerVehicleWeapon => ({
+  id: '',
   name: '',
+  techLevel: undefined,
   range: '',
   damage: '',
   magazine: '',
   cost: '',
+  baseCostCredits: undefined,
+  costCredits: undefined,
+  tonnes: undefined,
   traits: [],
   fireControl: '',
   spaces: 0,
@@ -529,6 +556,135 @@ export const createBlankVehicleWeapon = (): TravellerVehicleWeapon => ({
   loaders: '',
   sourceCategory: '',
 })
+
+export const vehicleWeaponMountRules: VehicleWeaponMountRule[] = [
+  { id: 'fixed', label: 'Fixed Mount', spaces: 'Weapon Spaces', cost: 'No additional Cost', effect: 'Rigid facing; aimed by vehicle orientation.' },
+  { id: 'hardpoint', label: 'Hardpoint', spaces: '0 internal Spaces', cost: 'Cr2000 per weapon Space', effect: 'External modular ordnance mount; no vehicle armour or environmental protection.' },
+  { id: 'pintle', label: 'Pintle Mount', spaces: '0 Spaces', cost: 'Cr250', effect: 'External 90 degree arc; gunner or automated fire control required.' },
+  { id: 'ring', label: 'Ring Mount', spaces: '0 Spaces', cost: 'Cr750', effect: 'External all-around mount; gunner has partial cover unless shielded.' },
+  { id: 'gunport', label: 'Gunport', spaces: 'Large weapons use weapon Spaces', cost: 'Cr250, or Cr250 per weapon Space', effect: 'One weapon fires through a protected hatch from inside the vehicle.' },
+  { id: 'bay', label: 'Bay', spaces: 'Weapon Spaces', cost: 'Cr2500 per Space', effect: 'Internal protected ordnance bay; fires or drops one weapon per round.' },
+  { id: 'multi-bay', label: 'Multi-Bay', spaces: 'Weapon Spaces', cost: 'Cr5000 per Space', effect: 'Bay able to fire or drop any number of weapons per round.' },
+  { id: 'turret', label: 'Turret', spaces: '1 per 4 weapon Spaces, plus crew stations', cost: 'Cr20000 per consumed Space', effect: 'Armoured 360 degree mount; turret armour matches the vehicle’s best protected face.' },
+]
+
+export const vehicleWeaponFireControlRules: VehicleWeaponFireControlRule[] = [
+  { id: 'none', label: 'None', techLevel: 0, dm: '-', cost: '-' },
+  { id: 'scope', label: 'Scope', techLevel: 4, dm: '+0', cost: 'Cr50' },
+  { id: 'basic', label: 'Basic', techLevel: 6, dm: '+1', cost: 'Cr10000' },
+  { id: 'improved', label: 'Improved', techLevel: 8, dm: '+2', cost: 'Cr25000' },
+  { id: 'enhanced', label: 'Enhanced', techLevel: 10, dm: '+3', cost: 'Cr50000' },
+  { id: 'advanced', label: 'Advanced', techLevel: 12, dm: '+4', cost: 'Cr100000' },
+]
+
+export const vehicleWeaponMountRuleFor = (mountType?: string) => vehicleWeaponMountRules.find((mount) => mount.id === mountType) ?? {
+  id: '',
+  label: '-',
+  spaces: 'Choose a mount',
+  cost: '-',
+  effect: 'Select a mount to calculate installed weapon Spaces.',
+}
+
+export const vehicleWeaponFireControlRuleFor = (fireControl?: string) => vehicleWeaponFireControlRules.find((rule) => rule.id === fireControl) ?? {
+  id: '',
+  label: '-',
+  techLevel: 0,
+  dm: '-',
+  cost: '-',
+}
+
+const numericWeaponField = (value: unknown) => Math.max(0, Number(value ?? 0))
+const numericWeaponCrew = (value?: string) => Math.max(0, Number.parseInt(String(value ?? '0'), 10) || 0)
+
+export const vehicleWeaponBaseSpaces = (weapon: TravellerVehicleWeapon) => Math.max(0, Number(weapon.baseSpaces ?? weapon.spaces ?? 0))
+
+export const vehicleWeaponLinkedSpaces = (weapon: TravellerVehicleWeapon) => Math.max(0, vehicleWeaponBaseSpaces(weapon) * Math.max(1, Number(weapon.linkedCount ?? 1)))
+
+export const vehicleWeaponInstalledSpaces = (weapon: TravellerVehicleWeapon) => {
+  const weaponSpaces = vehicleWeaponLinkedSpaces(weapon)
+  const ammunitionSpaces = numericWeaponField(weapon.ammunitionSpaces)
+  let mountSpaces = weaponSpaces
+
+  switch (weapon.mountType) {
+    case 'hardpoint':
+    case 'pintle':
+    case 'ring':
+      mountSpaces = 0
+      break
+    case 'turret':
+      mountSpaces = Math.ceil(weaponSpaces / 4) + numericWeaponCrew(weapon.crew) + (weapon.autoloader ? 0 : numericWeaponCrew(weapon.loaders))
+      break
+    default:
+      mountSpaces = weaponSpaces
+  }
+
+  if (weapon.popupMount) {
+    mountSpaces += Math.max(1, mountSpaces + weaponSpaces)
+  }
+
+  return Math.max(0, Math.ceil(mountSpaces + ammunitionSpaces))
+}
+
+export const vehicleWeaponMountCostCredits = (weapon: TravellerVehicleWeapon) => {
+  const weaponSpaces = vehicleWeaponLinkedSpaces(weapon)
+  const installedSpaces = vehicleWeaponInstalledSpaces(weapon)
+
+  switch (weapon.mountType) {
+    case 'hardpoint':
+      return Math.round(2000 * weaponSpaces)
+    case 'pintle':
+      return 250
+    case 'ring':
+      return 750
+    case 'gunport':
+      return Math.round(250 * Math.max(1, weaponSpaces))
+    case 'bay':
+      return Math.round(2500 * Math.max(1, weaponSpaces))
+    case 'multi-bay':
+      return Math.round(5000 * Math.max(1, weaponSpaces))
+    case 'turret':
+      return Math.round(20000 * Math.max(1, installedSpaces - numericWeaponField(weapon.ammunitionSpaces)))
+    default:
+      return 0
+  }
+}
+
+export const vehicleWeaponFireControlCostCredits = (weapon: TravellerVehicleWeapon) => costCreditsFromLabel(vehicleWeaponFireControlRuleFor(weapon.fireControlSystem).cost, {
+  allocatedSpaces: 1,
+  vehicleSpaces: 1,
+  baseCostCredits: 0,
+  techLevel: Number(weapon.techLevel ?? 0),
+})
+
+const vehicleWeaponSingleBaseCostCredits = (weapon: TravellerVehicleWeapon) => {
+  if (Number.isFinite(Number(weapon.baseCostCredits))) return Math.max(0, Math.round(Number(weapon.baseCostCredits)))
+
+  const costFromLabel = costCreditsFromLabel(weapon.cost, {
+    allocatedSpaces: vehicleWeaponBaseSpaces(weapon),
+    vehicleSpaces: 1,
+    baseCostCredits: 0,
+    techLevel: Number(weapon.techLevel ?? 0),
+  })
+  if (costFromLabel > 0 || String(weapon.cost ?? '').trim()) return costFromLabel
+
+  return Number.isFinite(Number(weapon.costCredits))
+    ? Math.max(0, Math.round(Number(weapon.costCredits)))
+    : 0
+}
+
+export const vehicleWeaponTotalCostCredits = (weapon: TravellerVehicleWeapon) => {
+  const baseWeaponCost = vehicleWeaponSingleBaseCostCredits(weapon) * Math.max(1, Number(weapon.linkedCount ?? 1))
+  return Math.round(baseWeaponCost + vehicleWeaponMountCostCredits(weapon) + vehicleWeaponFireControlCostCredits(weapon))
+}
+
+const vehicleExternalWeaponTonnage = (vehicle: CustomVehicleDesign) => (vehicle.weapons ?? [])
+  .filter((weapon) => ['hardpoint', 'pintle', 'ring'].includes(String(weapon.mountType ?? '')))
+  .reduce((total, weapon) => total + (Math.max(0, Number(weapon.tonnes ?? 0)) * Math.max(1, Number(weapon.linkedCount ?? 1))), 0)
+
+const vehicleExternalWeaponSpeedPenalty = (vehicle: CustomVehicleDesign) => {
+  if (vehicle.spaces <= 0) return 0
+  return vehicleExternalWeaponTonnage(vehicle) / vehicle.spaces > 0.1 ? -1 : 0
+}
 
 export const createBlankVehicleEquipmentEntry = (): CustomVehicleEquipmentEntry => ({
   name: '',
@@ -550,6 +706,16 @@ export const createBlankVehicleCargoEntry = (): CustomVehicleCargoEntry => ({
   tons: 0,
 })
 
+const createBlankVehicleBuildBrief = () => ({
+  role: '',
+  environment: '',
+  combatLevel: '',
+  crewTarget: '',
+  passengerTarget: '',
+  cargoTarget: '',
+  budgetTarget: '',
+})
+
 export const createBlankCustomVehicle = (userId = LOCAL_USER_ID): CustomVehicleDesign => {
   const timestamp = new Date().toISOString()
   return {
@@ -561,6 +727,7 @@ export const createBlankCustomVehicle = (userId = LOCAL_USER_ID): CustomVehicleD
     sourceName: 'Custom Build',
     sourcePage: undefined,
     name: '',
+    buildBrief: createBlankVehicleBuildBrief(),
     baseFamily: 'ground-vehicle',
     category: 'ground',
     type: '',
@@ -597,6 +764,8 @@ export const createBlankCustomVehicle = (userId = LOCAL_USER_ID): CustomVehicleD
     speedModificationSteps: 0,
     fuelEfficiencySteps: 0,
     fuelCapacitySteps: 0,
+    baseCostCredits: 0,
+    allocationEntries: [],
   }
 }
 
@@ -939,6 +1108,49 @@ const featureSpeedModifiers: Record<string, number> = {
   Fast: 1,
   Slow: -1,
   Tracks: -1,
+}
+
+const signedModifierFromRuleText = (value?: string) => {
+  const match = value?.match(/([+-]\d+)/)
+  return match ? Number(match[1]) : 0
+}
+
+const speedBandModifierFromRuleText = (value?: string) => {
+  if (!value || !/Speed Band/i.test(value)) return 0
+  return signedModifierFromRuleText(value)
+}
+
+const multiplierFromRuleText = (value?: string) => {
+  const match = value?.match(/x\s*([0-9]+(?:\.[0-9]+)?)/i)
+  return match ? Number(match[1]) : 1
+}
+
+const featureSpeedModifier = (feature: string) => {
+  const ruleModifier = speedBandModifierFromRuleText(vehicleFeatureRules[feature]?.speed)
+  return ruleModifier || featureSpeedModifiers[feature] || 0
+}
+
+const featureAgilityModifier = (feature: string) => {
+  const ruleModifier = signedModifierFromRuleText(vehicleFeatureRules[feature]?.agility)
+  return ruleModifier || featureAgilityModifiers[feature] || 0
+}
+
+const featureRangeMultiplier = (feature: string) => multiplierFromRuleText(vehicleFeatureRules[feature]?.range)
+
+const featureShippingMultiplier = (feature: string) => multiplierFromRuleText(vehicleFeatureRules[feature]?.shipping)
+
+const featureHullMultiplier = (features: string[]) => features.includes('AFV') ? 1.5 : 1
+
+const featureTraitNames = (feature: string) => [
+  feature,
+  ...(vehicleFeatureRules[feature]?.traits ?? []),
+]
+
+const vehicleMeetsFeaturePrerequisite = (vehicle: CustomVehicleDesign, feature: string, prerequisite?: string) => {
+  if (!prerequisite) return true
+  if (prerequisite === 'Powered') return vehicleHasOptionPower(vehicle)
+  if (prerequisite === 'Jet') return vehicle.features.includes('Jet Engines')
+  return true
 }
 
 // Feature help text is surfaced in the builder so users can see the handbook intent
@@ -1342,23 +1554,22 @@ export const vehicleFeatureMechanicalEffects = (
   } = {},
 ) => {
   const effects: string[] = []
+  const rule = vehicleFeatureRules[feature]
+
+  if (rule?.speed && rule.speed !== 'varies') effects.push(`${rule.speed}.`)
+  if (rule?.agility && rule.agility !== 'varies') effects.push(`${rule.agility} Agility.`)
+  if (rule?.range && rule.range !== 'varies') effects.push(`${rule.range} Range.`)
+  if (rule?.shipping && rule.shipping !== 'varies') effects.push(`${rule.shipping} Shipping.`)
+  if (rule?.addedCost) effects.push(`${rule.addedCost}.`)
+  if (rule?.minimumSpaces) effects.push(`Requires ${rule.minimumSpaces}+ Spaces.`)
 
   switch (feature) {
     case 'AFV':
       effects.push('Triples handbook maximum protection in Protection.')
-      break
-    case 'Agile':
-      effects.push('+1 Agility.')
-      break
-    case 'Fast':
-      effects.push('+1 Speed Band.')
-      break
-    case 'Slow':
-      effects.push('-1 Speed Band.')
+      effects.push('+50% Hull.')
       break
     case 'Tracks':
       if (context.familyId === 'ground-vehicle') effects.push('Operating Skill becomes Drive (track).')
-      effects.push('-1 Speed Band.')
       effects.push('Added to derived Traits.')
       break
     case 'Rail Rider':
@@ -1368,7 +1579,6 @@ export const vehicleFeatureMechanicalEffects = (
       break
     case 'Tunneller':
       if (context.familyId === 'ground-vehicle') effects.push('Operating Skill becomes Drive (mole).')
-      effects.push('Requires Heavy size band or larger (20+ spaces).')
       effects.push('Added to derived Traits.')
       break
     case 'Hydrofoil':
@@ -1400,7 +1610,7 @@ export const vehicleFeatureMechanicalEffects = (
       break
   }
 
-  return effects
+  return [...new Set(effects)]
 }
 
 export const vehicleFeatureHasExplicitMechanicalEffect = (
@@ -1885,6 +2095,56 @@ const formatCost = (value: number) => {
   return `Cr${Math.round(value).toLocaleString()}`
 }
 
+const parseCreditAmount = (value: string) => {
+  const match = value.match(/(-?)\s*(MCr|Cr)\s*([0-9]+(?:\.[0-9]+)?)/i)
+  if (!match) return 0
+  const sign = match[1] === '-' ? -1 : 1
+  const unit = match[2].toLowerCase()
+  const amount = Number(match[3])
+  return sign * amount * (unit === 'mcr' ? 1000000 : 1)
+}
+
+const parsePercentOfBaseCost = (value: string, baseCostCredits: number) => {
+  const match = value.match(/([+-]?\d+(?:\.\d+)?)\s*%\s*(?:of\s*)?base\s*cost/i)
+  return match ? Math.round(baseCostCredits * (Number(match[1]) / 100)) : 0
+}
+
+const costCreditsFromLabel = (
+  costLabel: string | undefined,
+  context: { baseCostCredits: number, vehicleSpaces: number, allocatedSpaces?: number, techLevel?: number },
+) => {
+  const label = String(costLabel ?? '').trim()
+  if (!label || label === '-' || /^n\/a$/i.test(label) || /^no change$/i.test(label)) return 0
+  const freeAtTlMatch = label.match(/free at TL\s*(\d+)/i)
+  if (freeAtTlMatch && Number(context.techLevel ?? 0) >= Number(freeAtTlMatch[1])) return 0
+
+  const percentCost = parsePercentOfBaseCost(label, context.baseCostCredits)
+  if (percentCost) return percentCost
+
+  const amount = parseCreditAmount(label)
+  if (!amount) return 0
+
+  if (/per\s+(?:vehicle\s+)?space/i.test(label) || /per\s+carried\s+space/i.test(label) || /per\s+consumed\s+space/i.test(label)) {
+    const spaces = /vehicle\s+space/i.test(label)
+      ? context.vehicleSpaces
+      : Math.max(0, context.allocatedSpaces ?? 0) || context.vehicleSpaces
+    return Math.round(amount * spaces)
+  }
+
+  return Math.round(amount)
+}
+
+const addAllocationEntry = (
+  entries: TravellerVehicleAllocationEntry[],
+  entry: Omit<TravellerVehicleAllocationEntry, 'spaces' | 'costCredits'> & { spaces?: number, costCredits?: number },
+) => {
+  entries.push({
+    ...entry,
+    spaces: Math.max(0, Number(entry.spaces ?? 0)),
+    costCredits: Math.round(Number(entry.costCredits ?? 0)),
+  })
+}
+
 const baselineForTechLevel = (family: TravellerVehicleBaseFamily, techLevel: number) => {
   const rule = familyRuleFor(family)
   const baseline = rule.speedBaselines.find((entry) => techLevel >= entry.minTl && (entry.maxTl === undefined || techLevel <= entry.maxTl))
@@ -1907,6 +2167,16 @@ const installedPowerPlantSpaces = (vehicle: CustomVehicleDesign, power: PrimaryP
 const isOpenToppedArmourException = (vehicle: CustomVehicleDesign, facing: keyof TravellerVehicleArmour) => {
   if (facing !== 'dorsal') return false
   return vehicle.features.includes('Open-Topped') || vehicle.features.includes('Open Frame')
+}
+
+const vehicleHasOptionPower = (vehicle: CustomVehicleDesign) => !['', 'unpowered', 'muscle', 'wind'].includes(vehicle.primaryPower)
+const vehicleHasNuclearPower = (vehicle: CustomVehicleDesign) => /^(fission|fusion|fusion-plus|antimatter)/.test(vehicle.primaryPower)
+const normalizedEquipmentHaystack = (vehicle: CustomVehicleDesign) => (vehicle.equipmentEntries ?? [])
+  .map((entry) => `${entry.name} ${entry.catalogueId} ${entry.familyId}`.toLowerCase())
+  .join(' | ')
+const hasInstalledEquipment = (vehicle: CustomVehicleDesign, patterns: RegExp[]) => {
+  const haystack = normalizedEquipmentHaystack(vehicle)
+  return patterns.some((pattern) => pattern.test(haystack))
 }
 
 const parsedArmourFaceValue = (vehicle: CustomVehicleDesign, facing: keyof TravellerVehicleArmour, baseProtection: number) => {
@@ -2242,13 +2512,137 @@ export const vehicleConstructionSummary = (vehicle: CustomVehicleDesign) => {
       })()
 
   const armourSummary = armourSummaryForVehicle(vehicle)
-  const featureAllocatedSpaces = 0
+  const baseCostCredits = Math.max(0, Math.round(Number(vehicle.baseCostCredits ?? vehicle.costCredits ?? 0)))
+  const allocationEntries: TravellerVehicleAllocationEntry[] = []
+
+  addAllocationEntry(allocationEntries, {
+    id: 'base-frame',
+    kind: 'base',
+    label: `${family.label} frame`,
+    costCredits: baseCostCredits,
+    costLabel: formatCost(baseCostCredits),
+    note: 'Derived chassis, hull, performance, primary power, and auxiliary-drive base cost.',
+  })
+
+  if (powerPlantSpaces > 0) {
+    addAllocationEntry(allocationEntries, {
+      id: `power-${power.id}`,
+      kind: 'power',
+      label: power.label,
+      spaces: powerPlantSpaces,
+      costLabel: power.costPerInstalledSpace ? `${formatCost(power.costPerInstalledSpace)} per installed Space` : 'Included in base frame',
+      note: 'Power-plant Spaces reduce available design capacity before other allocations.',
+    })
+  }
+
+  if (auxiliarySpaces > 0) {
+    addAllocationEntry(allocationEntries, {
+      id: `auxiliary-${auxiliary.id}`,
+      kind: 'auxiliary',
+      label: auxiliary.label,
+      spaces: auxiliarySpaces,
+      costLabel: auxiliary.flatCostPerVehicleSpace ? `${formatCost(auxiliary.flatCostPerVehicleSpace)} per vehicle Space` : 'Included in base frame',
+      note: 'Auxiliary movement Spaces reduce available design capacity before other allocations.',
+    })
+  }
+
+  for (const featureName of vehicle.features ?? []) {
+    const featureRule = vehicleFeatureRules[featureName]
+    const featureCostCredits = costCreditsFromLabel(featureRule?.addedCost, {
+      baseCostCredits,
+      vehicleSpaces: vehicle.spaces,
+      techLevel: vehicle.techLevel,
+    })
+    addAllocationEntry(allocationEntries, {
+      id: `feature-${featureName}`,
+      kind: 'feature',
+      label: featureName,
+      costCredits: featureCostCredits,
+      costLabel: featureRule?.addedCost,
+      note: featureRule?.effect,
+    })
+  }
+
+  if (armourSummary.armourSpaces > 0 || armourSummary.armourCost > 0) {
+    addAllocationEntry(allocationEntries, {
+      id: 'armour',
+      kind: 'armour',
+      label: 'Armour allocation',
+      spaces: armourSummary.armourSpaces,
+      costCredits: armourSummary.armourCost,
+      costLabel: formatCost(armourSummary.armourCost),
+      note: `${armourSummary.rule.materials}; base +${armourSummary.baseProtection}, maximum +${armourSummary.maximumProtection}.`,
+    })
+  }
+
+  ;(vehicle.equipmentEntries ?? []).forEach((entry, index) => {
+    const spaces = Math.max(0, Number(entry.spaces ?? 0))
+    const costCredits = Number.isFinite(Number(entry.costCredits))
+        ? Number(entry.costCredits)
+        : costCreditsFromLabel(entry.cost, {
+            baseCostCredits,
+            vehicleSpaces: vehicle.spaces,
+            allocatedSpaces: spaces,
+            techLevel: vehicle.techLevel,
+          })
+    addAllocationEntry(allocationEntries, {
+      id: `equipment-${index}`,
+      kind: entry.category === 'Automation' ? 'automation' : 'option',
+      label: entry.name || `Option ${index + 1}`,
+      spaces,
+      costCredits,
+      costLabel: entry.cost,
+      note: entry.category,
+    })
+  })
+
   const occupantAllocatedSpaces = (vehicle.occupantEntries ?? []).reduce((total, entry) => total + (Math.max(0, Number(entry.count ?? 0)) * Math.max(0, Number(entry.spacesEach ?? 0))), 0)
+  ;(vehicle.occupantEntries ?? []).forEach((entry, index) => {
+    addAllocationEntry(allocationEntries, {
+      id: `occupant-${index}`,
+      kind: 'occupant',
+      label: entry.role || `Occupant row ${index + 1}`,
+      spaces: Math.max(0, Number(entry.count ?? 0)) * Math.max(0, Number(entry.spacesEach ?? 0)),
+      note: `${Math.max(0, Number(entry.count ?? 0))} ${entry.category || 'occupants'} at ${Math.max(0, Number(entry.spacesEach ?? 0))} Spaces each.`,
+    })
+  })
+
   const cargoAllocatedSpaces = (vehicle.cargoEntries ?? []).reduce((total, entry) => total + Math.max(0, Number(entry.spaces ?? 0)), 0)
+  ;(vehicle.cargoEntries ?? []).forEach((entry, index) => {
+    addAllocationEntry(allocationEntries, {
+      id: `cargo-${index}`,
+      kind: 'cargo',
+      label: entry.name || `Cargo row ${index + 1}`,
+      spaces: Math.max(0, Number(entry.spaces ?? 0)),
+      note: `${Math.max(0, Number(entry.tons ?? 0))} tonnes.`,
+    })
+  })
+
   const equipmentAllocatedSpaces = (vehicle.equipmentEntries ?? []).reduce((total, entry) => total + Math.max(0, Number(entry.spaces ?? 0)), 0)
-  const weaponAllocatedSpaces = (vehicle.weapons ?? []).reduce((total, weapon) => total + Math.max(0, Number(weapon.spaces ?? 0)), 0)
+  const weaponAllocatedSpaces = (vehicle.weapons ?? []).reduce((total, weapon) => total + vehicleWeaponInstalledSpaces(weapon), 0)
+  ;(vehicle.weapons ?? []).forEach((weapon, index) => {
+    const spaces = vehicleWeaponInstalledSpaces(weapon)
+    const weaponCostCredits = vehicleWeaponTotalCostCredits(weapon)
+    const mountRule = vehicleWeaponMountRuleFor(weapon.mountType)
+    const fireControlRule = vehicleWeaponFireControlRuleFor(weapon.fireControlSystem)
+    addAllocationEntry(allocationEntries, {
+      id: `weapon-${index}`,
+      kind: 'weapon',
+      label: weapon.name || `Weapon ${index + 1}`,
+      spaces,
+      costCredits: weaponCostCredits,
+      costLabel: formatCost(weaponCostCredits),
+      note: [mountRule.label, fireControlRule.label, weapon.mountFacing, weapon.powerRequirement ? `Power ${weapon.powerRequirement}` : ''].filter(Boolean).join(' / '),
+    })
+  })
+
+  const featureAllocatedSpaces = allocationEntries
+    .filter((entry) => entry.kind === 'feature')
+    .reduce((total, entry) => total + entry.spaces, 0)
   const allocatedSpaces = featureAllocatedSpaces + occupantAllocatedSpaces + cargoAllocatedSpaces + equipmentAllocatedSpaces + weaponAllocatedSpaces + armourSummary.armourSpaces
   const remainingSpaces = availableSpaces - allocatedSpaces
+  const costEntries = allocationEntries.filter((entry) => entry.costCredits !== 0 || entry.kind === 'base')
+  const totalCostCredits = costEntries.reduce((total, entry) => total + entry.costCredits, 0)
 
   return {
     family,
@@ -2268,11 +2662,20 @@ export const vehicleConstructionSummary = (vehicle: CustomVehicleDesign) => {
     weaponAllocatedSpaces,
     allocatedSpaces,
     remainingSpaces,
+    allocationEntries,
+    costEntries,
+    baseCostCredits,
+    totalCostCredits,
+    totalCostLabel: formatCost(totalCostCredits),
   }
 }
 
 export const normalizeCustomVehicleDesign = (vehicle: CustomVehicleDesign): CustomVehicleDesign => {
   const normalized = cloneVehicle(vehicle)
+  normalized.buildBrief = {
+    ...createBlankVehicleBuildBrief(),
+    ...(normalized.buildBrief ?? {}),
+  }
   normalized.baseFamily = normalized.baseFamily || inferBaseFamily(normalized)
   normalized.features = Array.isArray(normalized.features) ? normalized.features : []
   normalized.primaryPower = normalized.primaryPower || (normalized.baseFamily === 'structure'
@@ -2286,20 +2689,48 @@ export const normalizeCustomVehicleDesign = (vehicle: CustomVehicleDesign): Cust
     ? normalized.equipmentEntries.map((entry) => ({
         name: String(entry?.name ?? '').trim(),
         spaces: Math.max(0, Number(entry?.spaces ?? 0)),
+        cost: String(entry?.cost ?? '').trim(),
+        costCredits: Number.isFinite(Number(entry?.costCredits)) ? Math.round(Number(entry?.costCredits)) : undefined,
+        techLevel: Number.isFinite(Number(entry?.techLevel)) ? Math.max(0, Number(entry?.techLevel)) : undefined,
+        familyId: String(entry?.familyId ?? '').trim(),
+        requirement: String(entry?.requirement ?? '').trim(),
+        restriction: String(entry?.restriction ?? '').trim(),
+        effect: String(entry?.effect ?? '').trim(),
+        powered: Boolean(entry?.powered),
+        modeled: String(entry?.modeled ?? '').trim(),
+        bandwidth: Number.isFinite(Number(entry?.bandwidth)) ? Math.max(0, Number(entry?.bandwidth)) : undefined,
+        computerBandwidth: Number.isFinite(Number(entry?.computerBandwidth)) ? Math.max(0, Number(entry?.computerBandwidth)) : undefined,
         category: String(entry?.category ?? '').trim(),
         catalogueId: String(entry?.catalogueId ?? '').trim(),
       }))
     : (Array.isArray(normalized.equipment) ? normalized.equipment : []).map((name) => ({
         name: String(name ?? '').trim(),
         spaces: 0,
+        cost: '',
+        costCredits: undefined,
+        techLevel: undefined,
+        familyId: '',
+        requirement: '',
+        restriction: '',
+        effect: '',
+        powered: false,
+        modeled: '',
+        bandwidth: undefined,
+        computerBandwidth: undefined,
         category: '',
         catalogueId: '',
       }))
   normalized.equipment = normalized.equipmentEntries.map((entry) => entry.name).filter(Boolean)
+  normalized.baseCostCredits = Math.max(0, Math.round(Number(normalized.baseCostCredits ?? normalized.costCredits ?? 0)))
+  normalized.allocationEntries = Array.isArray(normalized.allocationEntries) ? normalized.allocationEntries : []
   normalized.weapons = Array.isArray(normalized.weapons)
     ? normalized.weapons.map((weapon) => ({
         ...weapon,
-        spaces: Math.max(0, Number(weapon?.spaces ?? 0)),
+        id: String(weapon?.id ?? ''),
+        techLevel: Number.isFinite(Number(weapon?.techLevel)) ? Math.max(0, Number(weapon?.techLevel)) : undefined,
+        baseCostCredits: Number.isFinite(Number(weapon?.baseCostCredits)) ? Math.round(Number(weapon?.baseCostCredits)) : undefined,
+        costCredits: Number.isFinite(Number(weapon?.costCredits)) ? Math.round(Number(weapon?.costCredits)) : undefined,
+        tonnes: Number.isFinite(Number(weapon?.tonnes)) ? Math.max(0, Number(weapon?.tonnes)) : undefined,
         baseSpaces: Math.max(0, Number(weapon?.baseSpaces ?? weapon?.spaces ?? 0)),
         mountType: String(weapon?.mountType ?? 'fixed'),
         mountFacing: String(weapon?.mountFacing ?? 'Forward'),
@@ -2313,6 +2744,9 @@ export const normalizeCustomVehicleDesign = (vehicle: CustomVehicleDesign): Cust
         crew: String(weapon?.crew ?? ''),
         loaders: String(weapon?.loaders ?? ''),
         sourceCategory: String(weapon?.sourceCategory ?? ''),
+      })).map((weapon) => ({
+        ...weapon,
+        spaces: vehicleWeaponInstalledSpaces(weapon),
       }))
     : []
   normalized.speedModificationSteps = Number.isFinite(normalized.speedModificationSteps) ? normalized.speedModificationSteps : 0
@@ -2345,12 +2779,15 @@ export const applyVehicleHandbookDerivations = (vehicle: CustomVehicleDesign) =>
   const effectivePower = vehicle.primaryPower ? primaryPowerRules[vehicle.primaryPower] : primaryPowerRules.standard
   const effectiveAuxiliary = vehicle.auxiliaryDrive ? auxiliaryDriveRules[vehicle.auxiliaryDrive] : auxiliaryDriveRules.none
   const qualifiedFeatures = vehicleQualifiedFeatureNamesForFamily(family.id)
-  const selectedFeatures = [...new Set((vehicle.features ?? []).filter((feature) => qualifiedFeatures.includes(feature) && (size.armourAllowedFeatures.length === 0 || !['AFV', 'Locomotive', 'Tunneller'].includes(feature) || size.armourAllowedFeatures.includes(feature))))]
-  const speedFeatureModifier = selectedFeatures.reduce((total, feature) => total + (featureSpeedModifiers[feature] ?? 0), 0)
-  const agilityFeatureModifier = selectedFeatures.reduce((total, feature) => total + (featureAgilityModifiers[feature] ?? 0), 0)
+  const selectedFeatures = [...new Set((vehicle.features ?? []).filter((feature) => qualifiedFeatures.includes(feature)))]
+  const speedFeatureModifier = selectedFeatures.reduce((total, feature) => total + featureSpeedModifier(feature), 0)
+  const agilityFeatureModifier = selectedFeatures.reduce((total, feature) => total + featureAgilityModifier(feature), 0)
+  const rangeFeatureMultiplier = selectedFeatures.reduce((multiplier, feature) => multiplier * featureRangeMultiplier(feature), 1)
+  const shippingFeatureMultiplier = selectedFeatures.reduce((multiplier, feature) => multiplier * featureShippingMultiplier(feature), 1)
   const speedSizeModifier = family.ignoreSizeSpeedModifier ? 0 : size.speedModifier
+  const weaponSpeedModifier = vehicleExternalWeaponSpeedPenalty(vehicle)
   const powerSpeed = effectivePower.speedOverride ?? shiftSpeedBand(baseline.speed, effectivePower.speedBandAdjustment ?? 0)
-  const maxSpeed = shiftSpeedBand(powerSpeed, speedSizeModifier + speedFeatureModifier + vehicle.speedModificationSteps)
+  const maxSpeed = shiftSpeedBand(powerSpeed, speedSizeModifier + speedFeatureModifier + weaponSpeedModifier + vehicle.speedModificationSteps)
   const cruiseSpeed = maxSpeed === 'Idle' || maxSpeed === 'Stopped' ? maxSpeed : shiftSpeedBand(maxSpeed, -1)
   const baseRange = baseline.range * (family.rangeMultiplierForLargeCraft && vehicle.spaces >= 20 ? family.rangeMultiplierForLargeCraft : 1)
   const efficiencyRangeModifier = vehicle.fuelEfficiencySteps > 0
@@ -2363,11 +2800,11 @@ export const applyVehicleHandbookDerivations = (vehicle: CustomVehicleDesign) =>
   const powerRangeMultiplier = effectivePower.id === 'unpowered'
     ? 0
     : (effectivePower.rangeMultiplier ?? 1) * fusionPlusRangeMultiplier
-  const derivedRange = Math.max(0, roundHalfUp(baseRange * powerRangeMultiplier * (1 + rangeModifierPercent)))
+  const derivedRange = Math.max(0, roundHalfUp(baseRange * powerRangeMultiplier * rangeFeatureMultiplier * (1 + rangeModifierPercent)))
   const cruiseRange = roundHalfUp(derivedRange * 1.5)
   const hullClassModifier = hullClassModifiers[hullClass]
   const baseHull = Math.max(1, roundHalfUp(vehicle.spaces * family.hullPerSpace))
-  const derivedHull = hullClassAdjustedHull(baseHull, hullClass)
+  const derivedHull = Math.max(1, roundHalfUp(hullClassAdjustedHull(baseHull, hullClass) * featureHullMultiplier(selectedFeatures)))
   const derivedStructure = Math.max(1, Math.ceil(derivedHull / 10))
   const installedPowerSpaces = installedPowerPlantSpaces(vehicle, effectivePower)
   const costModifier = hullClassModifier.cost
@@ -2385,7 +2822,8 @@ export const applyVehicleHandbookDerivations = (vehicle: CustomVehicleDesign) =>
     derivedCost += roundHalfUp(effectiveAuxiliary.flatCostPerVehicleSpace * vehicle.spaces)
   }
 
-  const derivedTraits = [...new Set([...family.defaultTraits ?? [], ...size.traits, ...selectedFeatures, ...effectiveAuxiliary.grantedTraits ?? []])]
+  const derivedFeatureTraits = selectedFeatures.flatMap((feature) => featureTraitNames(feature))
+  const derivedTraits = [...new Set([...family.defaultTraits ?? [], ...size.traits, ...derivedFeatureTraits, ...effectiveAuxiliary.grantedTraits ?? []])]
   const derivedOperatingSkill = derivedOperatingSkillForVehicle(family, selectedFeatures)
   const armourRule = armourRuleForTechLevel(vehicle.techLevel)
   const baseProtection = armourRule.baseProtection
@@ -2408,10 +2846,9 @@ export const applyVehicleHandbookDerivations = (vehicle: CustomVehicleDesign) =>
   const rangeUnit = baseline.rangeUnit ?? 'km'
   vehicle.range = rangeUnit === 'years' ? `${derivedRange} years` : `${derivedRange.toLocaleString()}km`
   vehicle.cruiseRange = rangeUnit === 'years' ? `${cruiseRange} years` : `${cruiseRange.toLocaleString()}km`
-  vehicle.shipping = formatTons(vehicle.spaces * family.shippingRatio)
+  vehicle.shipping = formatTons(vehicle.spaces * family.shippingRatio * shippingFeatureMultiplier)
   vehicle.structure = String(derivedStructure)
-  vehicle.costCredits = derivedCost
-  vehicle.cost = formatCost(derivedCost)
+  vehicle.baseCostCredits = derivedCost
   vehicle.traits = derivedTraits
   vehicle.features = selectedFeatures
   vehicle.crew = formatCountSummary(vehicle.occupantEntries ?? [], 'crew')
@@ -2419,6 +2856,20 @@ export const applyVehicleHandbookDerivations = (vehicle: CustomVehicleDesign) =>
   vehicle.comfortLevel = formatComfortSummary(vehicle.occupantEntries ?? [])
   vehicle.cargo = formatCargoSummary(vehicle.cargoEntries ?? [])
   vehicle.equipment = (vehicle.equipmentEntries ?? []).map((entry) => entry.name).filter(Boolean)
+  vehicle.weapons = (vehicle.weapons ?? []).map((weapon) => ({
+    ...weapon,
+    baseSpaces: vehicleWeaponBaseSpaces(weapon),
+    linkedCount: Math.max(1, Number(weapon.linkedCount ?? 1)),
+    spaces: vehicleWeaponInstalledSpaces(weapon),
+    costCredits: vehicleWeaponTotalCostCredits(weapon),
+    fireControl: vehicleWeaponFireControlRuleFor(weapon.fireControlSystem).label === '-'
+      ? weapon.fireControl
+      : vehicleWeaponFireControlRuleFor(weapon.fireControlSystem).label,
+  }))
+  const constructionSummary = vehicleConstructionSummary(vehicle)
+  vehicle.allocationEntries = constructionSummary.allocationEntries
+  vehicle.costCredits = constructionSummary.totalCostCredits
+  vehicle.cost = constructionSummary.totalCostLabel
 }
 
 export const vehicleBuilderOptionSets = () => {
@@ -2506,6 +2957,24 @@ export const validateCustomVehicle = (vehicle: CustomVehicleDesign): string[] =>
   if (auxiliary && vehicle.auxiliaryDrive !== 'none' && vehicle.techLevel < auxiliary.minimumTechLevel) issues.push(`${auxiliary.label} requires TL ${auxiliary.minimumTechLevel}+.`)
   const qualifiedFeatures = family ? vehicleQualifiedFeatureNamesForFamily(family.id) : []
   if (family && vehicle.features.some((feature) => !qualifiedFeatures.includes(feature))) issues.push('Selected features must be allowed for the base vehicle type.')
+  const featureConflictMessages = new Set<string>()
+  for (const feature of vehicle.features) {
+    const rule = vehicleFeatureRules[feature]
+    if (!rule) continue
+    if (family && !rule.appliesTo.includes(family.label)) issues.push(`${feature} is not allowed for ${family.label}.`)
+    if (vehicle.techLevel < rule.minimumTechLevel) issues.push(`${feature} requires TL ${rule.minimumTechLevel}+.`)
+    if (rule.minimumSpaces && vehicle.spaces < rule.minimumSpaces) issues.push(`${feature} requires ${rule.minimumSpaces}+ Spaces.`)
+    if (!vehicleMeetsFeaturePrerequisite(vehicle, feature, rule.prerequisite)) {
+      issues.push(`${feature} requires ${rule.prerequisite === 'Jet' ? 'Jet Engines' : rule.prerequisite}.`)
+    }
+    for (const incompatibleFeature of rule.notCompatible ?? []) {
+      if (!vehicle.features.includes(incompatibleFeature)) continue
+      const orderedPair = [feature, incompatibleFeature].sort((left, right) => left.localeCompare(right)).join('|')
+      if (featureConflictMessages.has(orderedPair)) continue
+      featureConflictMessages.add(orderedPair)
+      issues.push(`${feature} is not compatible with ${incompatibleFeature}.`)
+    }
+  }
   if (Math.abs(vehicle.speedModificationSteps) > 1 && vehicle.techLevel < 5) issues.push('Two-step speed modifications require TL 5+.')
   if (Math.abs(vehicle.speedModificationSteps) > 2 && vehicle.techLevel < 6) issues.push('Three-step speed modifications require TL 6+.')
   if (Math.abs(vehicle.fuelEfficiencySteps) > 1 && vehicle.techLevel < 4) issues.push('Two-step fuel efficiency changes require TL 4+.')
@@ -2523,18 +2992,96 @@ export const validateCustomVehicle = (vehicle: CustomVehicleDesign): string[] =>
 
   vehicle.weapons.forEach((weapon, index) => {
     const prefix = `Weapon ${index + 1}`
+    const fireControlRule = vehicleWeaponFireControlRuleFor(weapon.fireControlSystem)
     if (!weapon.name.trim()) issues.push(`${prefix} name is required.`)
     if (!weapon.damage.trim()) issues.push(`${prefix} damage is required.`)
+    if (weapon.techLevel !== undefined && vehicle.techLevel < Number(weapon.techLevel)) issues.push(`${prefix} ${weapon.name} requires TL ${weapon.techLevel}.`)
     if (!String(weapon.mountType ?? '').trim()) issues.push(`${prefix} mount is required.`)
     if (!String(weapon.mountFacing ?? '').trim()) issues.push(`${prefix} facing is required.`)
     if (!String(weapon.fireControlSystem ?? '').trim()) issues.push(`${prefix} fire control is required.`)
-    if (Number(weapon.spaces ?? 0) < 0) issues.push(`${prefix} spaces cannot be negative.`)
+    if (weapon.fireControlSystem && !vehicleWeaponFireControlRules.some((rule) => rule.id === weapon.fireControlSystem)) issues.push(`${prefix} fire control must be a handbook fire control system.`)
+    if (weapon.mountType && !vehicleWeaponMountRules.some((rule) => rule.id === weapon.mountType)) issues.push(`${prefix} mount must be a handbook mount.`)
+    if (vehicle.techLevel < fireControlRule.techLevel) issues.push(`${prefix} ${fireControlRule.label} fire control requires TL ${fireControlRule.techLevel}+.`)
+    if (Number(weapon.spaces ?? 0) < 0 || vehicleWeaponInstalledSpaces(weapon) < 0) issues.push(`${prefix} spaces cannot be negative.`)
+    if (Number(weapon.baseSpaces ?? 0) < 0) issues.push(`${prefix} weapon Spaces cannot be negative.`)
+    if (Number(weapon.ammunitionSpaces ?? 0) < 0) issues.push(`${prefix} ammunition Spaces cannot be negative.`)
+    if (Number(weapon.linkedCount ?? 1) < 1) issues.push(`${prefix} linked count must be at least 1.`)
+    if (/^P/i.test(String(weapon.powerRequirement ?? '')) && !vehicleHasOptionPower(vehicle)) issues.push(`${prefix} ${weapon.name} requires powered vehicle systems.`)
+    if (/^F/i.test(String(weapon.powerRequirement ?? '')) && !vehicleHasNuclearPower(vehicle)) issues.push(`${prefix} ${weapon.name} requires a fission, fusion, Fusion+, or antimatter power plant.`)
   })
+  if (vehicle.spaces > 0 && vehicleExternalWeaponTonnage(vehicle) / vehicle.spaces > 0.25) issues.push('External weapon load cannot exceed 250 kg per vehicle Space.')
 
   ;(vehicle.equipmentEntries ?? []).forEach((entry, index) => {
     const prefix = `Option ${index + 1}`
     if (!entry.name.trim()) issues.push(`${prefix} name is required.`)
     if (Number(entry.spaces ?? 0) < 0) issues.push(`${prefix} spaces cannot be negative.`)
+    if (entry.techLevel !== undefined && vehicle.techLevel < Number(entry.techLevel)) issues.push(`${entry.name} requires TL ${entry.techLevel}.`)
+    if (entry.powered && !vehicleHasOptionPower(vehicle)) issues.push(`${entry.name} requires powered vehicle systems.`)
+  })
+
+  const installedHaystack = normalizedEquipmentHaystack(vehicle)
+  const installedBandwidth = Math.max(0, ...(vehicle.equipmentEntries ?? []).map((entry) => Number(entry.computerBandwidth ?? 0)))
+  const usedBandwidth = (vehicle.equipmentEntries ?? []).reduce((total, entry) => total + Math.max(0, Number(entry.bandwidth ?? 0)), 0)
+  if (usedBandwidth > installedBandwidth) issues.push(`Automation bandwidth use (${usedBandwidth}) exceeds installed computer bandwidth (${installedBandwidth}).`)
+
+  ;(vehicle.equipmentEntries ?? []).forEach((entry) => {
+    const name = entry.name || 'Installed option'
+    const catalogueId = String(entry.catalogueId ?? '').toLowerCase()
+    const familyId = String(entry.familyId ?? '').toLowerCase()
+    const requirement = String(entry.requirement ?? '').toLowerCase()
+    const restriction = String(entry.restriction ?? '').toLowerCase()
+
+    if (requirement.includes('sensor') && !hasInstalledEquipment(vehicle, [/sensor-(basic|improved|enhanced|advanced|superior)/, /\bsensor system\b/])) {
+      issues.push(`${name} requires an installed sensor system.`)
+    }
+    if (requirement.includes('500km transceiver') && !hasInstalledEquipment(vehicle, [/transceiver-500/, /500km transceiver/i, /5,000km transceiver/i, /50,000km transceiver/i, /500,000km transceiver/i])) {
+      issues.push(`${name} requires at least a 500km transceiver.`)
+    }
+    else if ((requirement.includes('transceiver') || requirement.includes('comms')) && !hasInstalledEquipment(vehicle, [/transceiver/, /communicator/])) {
+      issues.push(`${name} requires installed communications.`)
+    }
+    if (requirement.includes('hostile environment protection') && !hasInstalledEquipment(vehicle, [/env-hostile/, /env-vacuum/, /env-corrosive/, /env-insidious/, /hostile environment protection/])) {
+      issues.push(`${name} requires hostile environment protection.`)
+    }
+    if (requirement.includes('life support') && !hasInstalledEquipment(vehicle, [/life-support/, /life support/])) {
+      issues.push(`${name} requires installed life support.`)
+    }
+    if (requirement.includes('installed computer') && !hasInstalledEquipment(vehicle, [/computer-/])) {
+      issues.push(`${name} requires an installed computer.`)
+    }
+    if (requirement.includes('nuclear power') && !vehicleHasNuclearPower(vehicle)) {
+      issues.push(`${name} requires a nuclear power plant.`)
+    }
+    if (requirement.includes('vehicle brain interface') && !hasInstalledEquipment(vehicle, [/vehicle-brain-interface/])) {
+      issues.push(`${name} requires a vehicle brain interface.`)
+    }
+    if (requirement.includes('drone interface') && !hasInstalledEquipment(vehicle, [/drone-interface/])) {
+      issues.push(`${name} requires a drone interface.`)
+    }
+    if (requirement.includes('anti-missile system') && !hasInstalledEquipment(vehicle, [/ams-/, /anti-missile/])) {
+      issues.push(`${name} requires an anti-missile system.`)
+    }
+    if (familyId === 'environmental-hull' && vehicle.features.includes('Open-Topped')) {
+      issues.push(`${name} cannot be installed on an Open-Topped vehicle.`)
+    }
+    if (restriction.includes('not compatible with stealth') && /stealth/.test(installedHaystack)) {
+      issues.push(`${name} is not compatible with stealth systems.`)
+    }
+    if (restriction.includes('not compatible with ecm') && /ecm/.test(installedHaystack)) {
+      issues.push(`${name} is not compatible with ECM.`)
+    }
+    if ((catalogueId.includes('reactive-armour') || catalogueId.includes('electrostatic-armour')) && /reactive-armour/.test(installedHaystack) && /electrostatic-armour/.test(installedHaystack)) {
+      issues.push('Reactive armour and electrostatic armour are not compatible.')
+    }
+    if ((catalogueId.includes('holographic-hull') || catalogueId.includes('reflec') || familyId === 'camouflage') && /holographic-hull/.test(installedHaystack) && (/camouflage/.test(installedHaystack) || /reflec/.test(installedHaystack))) {
+      issues.push('Holographic hull cannot be combined with camouflage or Reflec.')
+    }
+    if (familyId === 'sensor-customisations' && !hasInstalledEquipment(vehicle, [/sensor-(basic|improved|enhanced|advanced|superior)/])) {
+      issues.push(`${name} requires a base sensor system before sensor customisation.`)
+    }
+    if (catalogueId.includes('satellite-uplink') && !hasInstalledEquipment(vehicle, [/transceiver-500/])) {
+      issues.push(`${name} requires at least a 500km transceiver.`)
+    }
   })
 
   ;(vehicle.occupantEntries ?? []).forEach((entry, index) => {

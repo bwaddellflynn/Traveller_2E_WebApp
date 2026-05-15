@@ -10,6 +10,8 @@ import VehicleBuilderInfoModal from '~/components/vehicles/VehicleBuilderInfoMod
 import VehicleBuilderOptionsStep from '~/components/vehicles/VehicleBuilderOptionsStep.vue'
 import VehicleBuilderOccupancyStep from '~/components/vehicles/VehicleBuilderOccupancyStep.vue'
 import VehicleBuilderProtectionStep from '~/components/vehicles/VehicleBuilderProtectionStep.vue'
+import VehicleBuilderReviewStep from '~/components/vehicles/VehicleBuilderReviewStep.vue'
+import VehicleBuilderSetupStep from '~/components/vehicles/VehicleBuilderSetupStep.vue'
 import VehicleBuilderSpacesStep from '~/components/vehicles/VehicleBuilderSpacesStep.vue'
 import VehicleBuilderTabs from '~/components/vehicles/VehicleBuilderTabs.vue'
 import VehicleBuilderTechLevelStep from '~/components/vehicles/VehicleBuilderTechLevelStep.vue'
@@ -31,8 +33,11 @@ import {
   vehicleBuilderOptionSets,
   vehicleConstructionSummary,
   vehicleFamilyRule,
+  vehicleFeatureMechanicalEffects,
+  vehicleFeatureRules,
   vehiclePrimaryPowerOptions,
   vehicleQualifiedFeatureNamesForFamily,
+  vehicleSizeBandForSpaces,
 } from '~/utils/traveller/vehicles'
 
 type VehicleSortKey = 'name' | 'techLevel' | 'category' | 'speed' | 'agility' | 'spaces' | 'costCredits'
@@ -99,6 +104,7 @@ const garageTabs = [
   { id: 'builder', label: 'Vehicle Builder' },
 ]
 const builderSteps: VehicleBuildStep[] = [
+  { id: 'setup', label: 'Setup', title: 'Setup', description: 'Name the vehicle and define the build brief.' },
   { id: 'tech-level', label: 'TL', title: 'Tech Level', description: 'Choose the construction era and rules availability.' },
   { id: 'core', label: 'Type', title: 'Vehicle Type', description: 'Choose the handbook vehicle type.' },
   { id: 'spaces', label: 'Spaces', title: 'Spaces', description: 'Choose the vehicle size and internal design pool.' },
@@ -107,9 +113,10 @@ const builderSteps: VehicleBuildStep[] = [
   { id: 'protection', label: 'Protection', title: 'Protection', description: 'Set armour and structural reinforcement.' },
   { id: 'options', label: 'Options', title: 'Options', description: 'Install core, external, and internal vehicle options.' },
   { id: 'automation', label: 'Automation', title: 'Automation', description: 'Install computers, software, drone control, and vehicle brains.' },
+  { id: 'weapons', label: 'Weapons', title: 'Weapons', description: 'Install mounted weapons, mounts, fire control, and ammunition allocation.' },
   { id: 'occupancy', label: 'Occupants', title: 'Crew & Passengers', description: 'Assign crew stations, passengers, and comfort level.' },
   { id: 'cargo', label: 'Cargo', title: 'Cargo', description: 'Reserve internal Spaces for freight, stores, and mission payload.' },
-  { id: 'weapons', label: 'Weapons', title: 'Weapons', description: 'Install mounted weapons, mounts, fire control, and ammunition allocation.' },
+  { id: 'review', label: 'Review', title: 'Finalise & Review', description: 'Review the final vehicle datasheet and resolve validation issues before saving.' },
 ]
 const builderOptionSets = vehicleBuilderOptionSets()
 const builderCoreOptionFamilies = vehicleBuilderCoreOptionFamilies()
@@ -181,11 +188,36 @@ const filteredReferenceVehicles = computed(() => sortReferenceVehicles(reference
   return matchesCategory && matchesSearch
 })))
 
+const filteredCustomVehicles = computed(() => sortReferenceVehicles(playerBuiltVehicles.value.filter((vehicle) => {
+  const matchesCategory = selectedCategory.value === 'all' || vehicle.category === selectedCategory.value
+  const query = search.value.trim().toLowerCase()
+  const matchesSearch = !query || [
+    vehicle.name,
+    vehicle.type,
+    vehicle.skill,
+    vehicle.speed,
+    vehicle.cruiseSpeed,
+    vehicle.traits.join(' '),
+    vehicle.equipment.join(' '),
+    vehicle.weapons.map((weapon) => `${weapon.name} ${weapon.damage} ${weapon.traits.join(' ')}`).join(' '),
+    vehicle.sourceName,
+  ].filter(Boolean).join(' ').toLowerCase().includes(query)
+
+  return matchesCategory && matchesSearch
+})))
+
 const selectedVehicle = computed(() => {
   if (selectedVehicleId.value) {
     return referenceVehicles.value.find((vehicle) => vehicle.id === selectedVehicleId.value) ?? filteredReferenceVehicles.value[0] ?? null
   }
   return filteredReferenceVehicles.value[0] ?? null
+})
+
+const selectedCustomVehicle = computed(() => {
+  if (selectedCustomVehicleId.value) {
+    return playerBuiltVehicles.value.find((vehicle) => vehicle.id === selectedCustomVehicleId.value) ?? filteredCustomVehicles.value[0] ?? null
+  }
+  return filteredCustomVehicles.value[0] ?? null
 })
 
 watch(filteredReferenceVehicles, (vehicles) => {
@@ -198,6 +230,16 @@ watch(filteredReferenceVehicles, (vehicles) => {
   }
 }, { immediate: true })
 
+watch(filteredCustomVehicles, (vehicles) => {
+  if (!vehicles.length) {
+    selectedCustomVehicleId.value = ''
+    return
+  }
+  if (!vehicles.some((vehicle) => vehicle.id === selectedCustomVehicleId.value)) {
+    selectedCustomVehicleId.value = vehicles[0]?.id ?? ''
+  }
+}, { immediate: true })
+
 const setVehicleSort = (key: VehicleSortKey) => {
   if (vehicleSortKey.value === key) {
     vehicleSortDirection.value = vehicleSortDirection.value === 'asc' ? 'desc' : 'asc'
@@ -207,9 +249,10 @@ const setVehicleSort = (key: VehicleSortKey) => {
   vehicleSortDirection.value = 'asc'
 }
 
-const toggleExpandedVehicle = (vehicleId: string) => {
+const toggleExpandedVehicle = (vehicleId: string, source: 'reference' | 'custom' = 'reference') => {
   expandedVehicleId.value = expandedVehicleId.value === vehicleId ? '' : vehicleId
-  selectedVehicleId.value = vehicleId
+  if (source === 'reference') selectedVehicleId.value = vehicleId
+  else selectedCustomVehicleId.value = vehicleId
 }
 
 const selectVehicleCategory = (categoryId: TravellerVehicleCategory | 'all') => {
@@ -227,24 +270,119 @@ const formatCredits = (credits: number | null) => {
   return credits >= 1000000 ? `MCr${credits / 1000000}` : `Cr${credits.toLocaleString()}`
 }
 
+const genericTraitDescriptions: Record<string, string> = {
+  AFV: 'Armoured Fighting Vehicle. Built for battlefield conditions with a reinforced frame and stronger armour allowance.',
+  ATV: 'All-Terrain Vehicle. Intended to cross rough ground with fewer terrain penalties.',
+  'Off-Roader': 'Modified for unprepared surfaces such as brushland, low hills, muddy tracks, and rough routes.',
+  Responsive: 'Changes Speed Bands faster than a standard vehicle.',
+  Unresponsive: 'Changes Speed Bands more slowly than a standard vehicle.',
+  VTOL: 'Vertical take-off and landing capability.',
+  Tracks: 'Tracked locomotion for rough terrain at the cost of speed.',
+  Tracked: 'Tracked locomotion for rough terrain at the cost of speed.',
+  'Open Vehicle': 'Occupants are exposed rather than fully enclosed inside the vehicle hull.',
+  'Open-Topped': 'The vehicle has no integral roof or top armour.',
+}
+
+const traitRuleFor = (trait: string) => vehicleFeatureRules[trait] ?? vehicleFeatureRules[trait.replace(/^Tracked$/, 'Tracks')]
+
+const traitDescription = (trait: string) => (
+  traitRuleFor(trait)?.description
+  ?? genericTraitDescriptions[trait]
+  ?? 'Derived vehicle trait. This quality is part of the vehicle rules profile and may come from type, size, features, or installed movement systems.'
+)
+
+const traitMechanics = (trait: string, vehicle?: TravellerVehicleRecord | CustomVehicleDesign | null) => {
+  const rule = traitRuleFor(trait)
+  const effects = rule
+    ? [
+        rule.effect,
+        rule.agility ? `Agility ${rule.agility}.` : '',
+        rule.speed ? `Speed ${rule.speed}.` : '',
+        rule.range ? `Range ${rule.range}.` : '',
+        rule.shipping ? `Shipping ${rule.shipping}.` : '',
+        rule.addedCost ? `Cost ${rule.addedCost}.` : '',
+        rule.sizeLimits ? `Size limit: ${rule.sizeLimits}.` : '',
+        rule.prerequisite ? `Requires: ${rule.prerequisite}.` : '',
+        rule.notCompatible?.length ? `Not compatible with: ${rule.notCompatible.join(', ')}.` : '',
+      ].filter(Boolean)
+    : vehicleFeatureMechanicalEffects(trait, {
+        familyId: 'baseFamily' in (vehicle ?? {}) ? (vehicle as CustomVehicleDesign).baseFamily || undefined : undefined,
+        techLevel: vehicle?.techLevel,
+      }).filter((effect) => effect !== 'Added to derived Traits.')
+
+  if (effects.length) return effects
+  if (trait === 'VTOL') return ['Can take off and land vertically when operating in the appropriate environment.']
+  if (trait === 'ATV') return ['Reduces or removes rough-terrain penalties where the Terrain rules call for ATV capability.']
+  if (trait === 'Unresponsive') return ['Takes twice as long to change Speed Bands.']
+  if (trait === 'Responsive') return ['Takes half as long to change Speed Bands.']
+  return ['No additional builder automation is attached to this trait yet.']
+}
+
+const traitSource = (trait: string, vehicle: CustomVehicleDesign) => {
+  if (vehicle.features.includes(trait)) {
+    return { label: 'Features', stepId: 'features', removable: true }
+  }
+
+  const auxiliary = allAuxiliaryDriveOptions.find((option) => option.id === vehicle.auxiliaryDrive)
+  if (auxiliary?.grantedTraits?.includes(trait)) {
+    return { label: 'Auxiliary Drive', stepId: 'customisations', removable: true }
+  }
+
+  const family = vehicle.baseFamily ? vehicleFamilyRule(vehicle.baseFamily) : null
+  if (family?.defaultTraits?.includes(trait)) {
+    return { label: 'Vehicle Type', stepId: 'core', removable: false }
+  }
+
+  if (vehicleSizeBandForSpaces(vehicle.spaces).traits.includes(trait)) {
+    return { label: 'Spaces', stepId: 'spaces', removable: false }
+  }
+
+  return { label: 'Derived Profile', stepId: 'features', removable: false }
+}
+
+const goToBuildStep = (stepId: string) => {
+  const stepIndex = builderSteps.findIndex((step) => step.id === stepId)
+  if (stepIndex >= 0) setBuildStep(stepIndex)
+}
+
+const handleDraftTraitClick = (trait: string) => {
+  if (!buildDraft.value) return
+  const source = traitSource(trait, buildDraft.value)
+
+  if (source.removable && buildDraft.value.features.includes(trait)) {
+    buildDraft.value.features = buildDraft.value.features.filter((feature) => feature !== trait)
+    syncBuildDraftDerivations()
+  }
+  else if (source.removable && source.stepId === 'customisations') {
+    buildDraft.value.auxiliaryDrive = 'none'
+    syncBuildDraftDerivations()
+  }
+
+  goToBuildStep(source.stepId)
+}
+
 const categoryLabel = (category: string) => category.split('-').map((part) => `${part.charAt(0).toUpperCase()}${part.slice(1)}`).join(' ')
 const buildValidationIssues = computed(() => buildDraft.value ? validateCustomVehicle(buildDraft.value) : [])
-const buildFlowValidationIssues = computed(() => buildValidationIssues.value.filter((issue) => issue !== 'Vehicle name is required.'))
+const buildFlowValidationIssues = computed(() => buildValidationIssues.value)
 const buildStepIssues = computed(() => {
   const issues = buildFlowValidationIssues.value
+  const selectedFeatureNames = buildDraft.value?.features ?? []
+  const isFeatureIssue = (issue: string) => (
+    issue === 'Selected features must be allowed for the base vehicle type.'
+    || selectedFeatureNames.some((feature) => issue.startsWith(`${feature} `))
+  )
   return {
+    setup: issues.filter((issue) => issue === 'Vehicle name is required.'),
     techLevel: issues.filter((issue) => issue.startsWith('Tech level cannot be below')),
     chassis: issues.filter((issue) => [
-      'Vehicle name is required.',
       'Base vehicle type is required.',
       'Operating skill is required.',
     ].includes(issue)),
     spaces: issues.filter((issue) => issue === 'Spaces must be greater than zero.' || issue.startsWith('Allocated systems spaces ')),
-    features: issues.filter((issue) => [
-      'Selected features must be allowed for the base vehicle type.',
-    ]),
+    features: issues.filter(isFeatureIssue),
     customisations: issues.filter((issue) => (
-      issue.includes('Power')
+      !isFeatureIssue(issue)
+      && (issue.includes('Power')
       || issue.includes('power')
       || issue.includes('requires TL')
       || issue.includes('Speed modifications')
@@ -259,32 +397,34 @@ const buildStepIssues = computed(() => {
       || issue.includes('drive')
       || issue.includes('Lifters')
       || issue.includes('Rail Wheels')
-      || issue.includes('Supercavitating')
+      || issue.includes('Supercavitating'))
     )),
     protection: issues.filter((issue) => issue.startsWith('Armour for ') || issue.includes('armour cannot')),
     options: issues.filter((issue) => issue.startsWith('Option ')),
     occupancy: issues.filter((issue) => issue.includes('crew station') || issue.startsWith('Occupant row ')),
     cargo: issues.filter((issue) => issue.startsWith('Cargo row ')),
-    weapons: issues.filter((issue) => issue.startsWith('Weapon ')),
+    weapons: issues.filter((issue) => issue.startsWith('Weapon ') || issue.startsWith('External weapon load')),
   }
 })
 const buildValidationIssueSteps = computed<Record<string, number>>(() => {
   const mapping: Record<string, number> = {}
-  for (const issue of buildStepIssues.value.techLevel) mapping[issue] = 0
-  for (const issue of buildStepIssues.value.chassis) mapping[issue] = 1
-  for (const issue of buildStepIssues.value.spaces) mapping[issue] = 2
-  for (const issue of buildStepIssues.value.features) mapping[issue] = 3
-  for (const issue of buildStepIssues.value.customisations) mapping[issue] = 4
-  for (const issue of buildStepIssues.value.protection) mapping[issue] = 5
-  for (const issue of buildStepIssues.value.options) mapping[issue] = 6
-  for (const issue of buildStepIssues.value.occupancy) mapping[issue] = 8
-  for (const issue of buildStepIssues.value.cargo) mapping[issue] = 9
-  for (const issue of buildStepIssues.value.weapons) mapping[issue] = 10
+  for (const issue of buildStepIssues.value.setup) mapping[issue] = 0
+  for (const issue of buildStepIssues.value.techLevel) mapping[issue] = 1
+  for (const issue of buildStepIssues.value.chassis) mapping[issue] = 2
+  for (const issue of buildStepIssues.value.spaces) mapping[issue] = 3
+  for (const issue of buildStepIssues.value.features) mapping[issue] = 4
+  for (const issue of buildStepIssues.value.customisations) mapping[issue] = 5
+  for (const issue of buildStepIssues.value.protection) mapping[issue] = 6
+  for (const issue of buildStepIssues.value.options) mapping[issue] = 7
+  for (const issue of buildStepIssues.value.weapons) mapping[issue] = 9
+  for (const issue of buildStepIssues.value.occupancy) mapping[issue] = 10
+  for (const issue of buildStepIssues.value.cargo) mapping[issue] = 11
   return mapping
 })
 const buildStepHasIssues = computed(() => {
   if (!attemptedBuildSave.value) return builderSteps.map(() => false)
   return [
+    buildStepIssues.value.setup.length > 0,
     buildStepIssues.value.techLevel.length > 0,
     buildStepIssues.value.chassis.length > 0,
     buildStepIssues.value.spaces.length > 0,
@@ -293,9 +433,10 @@ const buildStepHasIssues = computed(() => {
     buildStepIssues.value.protection.length > 0,
     buildStepIssues.value.options.length > 0,
     false,
+    buildStepIssues.value.weapons.length > 0,
     buildStepIssues.value.occupancy.length > 0,
     buildStepIssues.value.cargo.length > 0,
-    buildStepIssues.value.weapons.length > 0,
+    false,
   ]
 })
 const draftFieldInfoText: Record<DraftInfoKey, { title: string, body: string }> = {
@@ -378,10 +519,8 @@ const draftFieldInfoText: Record<DraftInfoKey, { title: string, body: string }> 
 }
 const buildDraftFamilyRule = computed(() => buildDraft.value?.baseFamily ? vehicleFamilyRule(buildDraft.value.baseFamily) : null)
 const buildDraftConstructionSummary = computed(() => buildDraft.value ? vehicleConstructionSummary(buildDraft.value) : null)
-const buildDraftBaseCostCredits = computed(() => buildDraft.value?.costCredits ?? 0)
-const buildDraftTotalCostCredits = computed(() => (
-  buildDraftBaseCostCredits.value + (buildDraftConstructionSummary.value?.armourSummary.armourCost ?? 0)
-))
+const buildDraftBaseCostCredits = computed(() => buildDraftConstructionSummary.value?.baseCostCredits ?? buildDraft.value?.baseCostCredits ?? buildDraft.value?.costCredits ?? 0)
+const buildDraftTotalCostCredits = computed(() => buildDraftConstructionSummary.value?.totalCostCredits ?? buildDraft.value?.costCredits ?? 0)
 const buildDraftTotalCostLabel = computed(() => formatCredits(Math.round(buildDraftTotalCostCredits.value)))
 const buildDraftBaseCostLabel = computed(() => formatCredits(Math.round(buildDraftBaseCostCredits.value)))
 const buildDraftPrimaryPowerOptions = computed(() => {
@@ -772,8 +911,16 @@ watch(activeGarageTab, (tab) => {
         <div class="mt-5">
           <p class="text-sm font-semibold">Traits</p>
           <div class="mt-2 flex flex-wrap gap-2">
-            <span v-for="trait in selectedVehicle.traits" :key="trait" class="rounded-md border border-cyan-300/30 bg-cyan-300/10 px-2 py-1 text-xs font-semibold text-cyan-100">
-              {{ trait }}
+            <span v-for="trait in selectedVehicle.traits" :key="trait" class="group relative inline-flex">
+              <span tabindex="0" class="rounded-md border border-cyan-300/30 bg-cyan-300/10 px-2 py-1 text-xs font-semibold text-cyan-100 outline-none transition hover:border-cyan-200 hover:bg-cyan-300/15 focus:border-cyan-200 focus:bg-cyan-300/15">
+                {{ trait }}
+              </span>
+              <span class="pointer-events-none absolute bottom-full left-0 z-[90] mb-2 hidden w-72 rounded-md border border-cyan-300/40 bg-slate-950/95 p-3 text-left text-xs shadow-[0_0_28px_rgba(34,211,238,0.22)] backdrop-blur group-hover:block group-focus-within:block">
+                <span class="block font-black uppercase tracking-[0.18em] text-cyan-100">{{ trait }}</span>
+                <span class="mt-2 block leading-5 text-cyan-50/85">{{ traitDescription(trait) }}</span>
+                <span class="mt-3 block font-black uppercase tracking-[0.16em] text-cyan-200/75">Mechanics</span>
+                <span v-for="mechanic in traitMechanics(trait, selectedVehicle)" :key="mechanic" class="mt-1 block leading-5 text-cyan-50/75">{{ mechanic }}</span>
+              </span>
             </span>
             <span v-if="!selectedVehicle.traits.length" class="text-sm text-cyan-100/70">None</span>
           </div>
@@ -854,14 +1001,20 @@ watch(activeGarageTab, (tab) => {
 
           <div v-if="buildDraft" class="mt-5 rounded-md border border-zinc-200 p-5">
             <div>
-              <VehicleBuilderTechLevelStep
+              <VehicleBuilderSetupStep
                 v-if="activeBuildStep === 0"
                 :vehicle="buildDraft"
                 @sync-derivations="syncBuildDraftDerivations"
               />
 
-              <VehicleBuilderCoreStep
+              <VehicleBuilderTechLevelStep
                 v-else-if="activeBuildStep === 1"
+                :vehicle="buildDraft"
+                @sync-derivations="syncBuildDraftDerivations"
+              />
+
+              <VehicleBuilderCoreStep
+                v-else-if="activeBuildStep === 2"
                 :vehicle="buildDraft"
                 :option-sets="{
                   baseFamilies: builderOptionSets.baseFamilies,
@@ -872,20 +1025,20 @@ watch(activeGarageTab, (tab) => {
               />
 
               <VehicleBuilderSpacesStep
-                v-else-if="activeBuildStep === 2"
+                v-else-if="activeBuildStep === 3"
                 :vehicle="buildDraft"
                 @sync-derivations="syncBuildDraftDerivations"
               />
 
               <VehicleBuilderFeaturesStep
-                v-else-if="activeBuildStep === 3"
+                v-else-if="activeBuildStep === 4"
                 :vehicle="buildDraft"
                 :allowed-features="buildDraft ? vehicleQualifiedFeatureNamesForFamily(buildDraft.baseFamily) : []"
                 @toggle-feature="toggleFeature"
               />
 
               <VehicleBuilderCustomisationsStep
-                v-else-if="activeBuildStep === 4"
+                v-else-if="activeBuildStep === 5"
                 :vehicle="buildDraft"
                 :option-sets="{
                   primaryPowerOptions: buildDraftPrimaryPowerOptions,
@@ -902,25 +1055,35 @@ watch(activeGarageTab, (tab) => {
               />
 
               <VehicleBuilderProtectionStep
-                v-else-if="activeBuildStep === 5"
+                v-else-if="activeBuildStep === 6"
                 :vehicle="buildDraft"
                 :summary="buildDraftConstructionSummary ?? { armourSummary: { rule: { materials: '-' }, baseProtection: 0, maximumProtection: 0, equivalentAddedProtection: 0, armourSpaces: 0, armourCost: 0 } }"
               />
 
               <VehicleBuilderOptionsStep
-                v-else-if="activeBuildStep === 6"
-                :vehicle="buildDraft"
-                @sync-derivations="syncBuildDraftDerivations"
-              />
-
-              <VehicleBuilderAutomationStep
                 v-else-if="activeBuildStep === 7"
                 :vehicle="buildDraft"
                 @sync-derivations="syncBuildDraftDerivations"
               />
 
-              <VehicleBuilderOccupancyStep
+              <VehicleBuilderAutomationStep
                 v-else-if="activeBuildStep === 8"
+                :vehicle="buildDraft"
+                @sync-derivations="syncBuildDraftDerivations"
+              />
+
+              <VehicleBuilderWeaponsStep
+                v-else-if="activeBuildStep === 9"
+                :vehicle="buildDraft"
+                :weapon-spaces="buildDraftConstructionSummary?.weaponAllocatedSpaces ?? 0"
+                @add-weapon="addVehicleWeapon"
+                @add-handbook-weapon="addHandbookVehicleWeapon"
+                @remove-weapon="removeVehicleWeapon"
+                @sync-derivations="syncBuildDraftDerivations"
+              />
+
+              <VehicleBuilderOccupancyStep
+                v-else-if="activeBuildStep === 10"
                 :vehicle="buildDraft"
                 :occupant-spaces="buildDraftConstructionSummary?.occupantAllocatedSpaces ?? 0"
                 @add-occupant="addOccupantEntry"
@@ -929,7 +1092,7 @@ watch(activeGarageTab, (tab) => {
               />
 
               <VehicleBuilderCargoAllocationStep
-                v-else-if="activeBuildStep === 9"
+                v-else-if="activeBuildStep === 11"
                 :vehicle="buildDraft"
                 :cargo-spaces="buildDraftConstructionSummary?.cargoAllocatedSpaces ?? 0"
                 @add-cargo="addCargoEntry"
@@ -937,14 +1100,13 @@ watch(activeGarageTab, (tab) => {
                 @sync-derivations="syncBuildDraftDerivations"
               />
 
-              <VehicleBuilderWeaponsStep
+              <VehicleBuilderReviewStep
                 v-else
                 :vehicle="buildDraft"
-                :weapon-spaces="buildDraftConstructionSummary?.weaponAllocatedSpaces ?? 0"
-                @add-weapon="addVehicleWeapon"
-                @add-handbook-weapon="addHandbookVehicleWeapon"
-                @remove-weapon="removeVehicleWeapon"
-                @sync-derivations="syncBuildDraftDerivations"
+                :validation-issues="buildValidationIssues"
+                :validation-issue-steps="buildValidationIssueSteps"
+                :show-validation="attemptedBuildSave"
+                @jump-to-step="setBuildStep"
               />
             </div>
 
@@ -975,183 +1137,340 @@ watch(activeGarageTab, (tab) => {
         </section>
 
         <aside class="grid gap-5">
-          <section class="hud-panel rounded-lg border p-5 shadow-sm">
+          <section v-if="buildDraft" class="hud-panel hud-scrollbar rounded-lg border p-5 shadow-sm xl:sticky xl:top-24 xl:max-h-[calc(100vh-7rem)] xl:overflow-auto">
             <div class="flex items-start justify-between gap-3">
               <div>
-                <p class="hud-kicker text-xs font-semibold uppercase tracking-wide">Current Draft</p>
-                <h3 class="mt-2 text-xl font-semibold">{{ buildDraft?.name || 'Unnamed Vehicle' }}</h3>
-                <p class="mt-1 text-sm text-cyan-100/70">{{ buildDraft?.type || 'Vehicle type pending' }}</p>
+                <p class="hud-kicker text-xs font-semibold uppercase tracking-wide">{{ buildDraft.type || 'Vehicle type pending' }}</p>
+                <h2 class="mt-2 text-2xl font-semibold text-cyan-50">{{ buildDraft.name || 'Unnamed Vehicle' }}</h2>
+                <p class="mt-1 text-sm text-cyan-100/70">Current Draft</p>
               </div>
               <span class="hud-glyph grid h-10 w-10 shrink-0 place-items-center rounded-md">
                 <AppIcon name="car" />
               </span>
             </div>
 
-            <div v-if="buildDraft" class="mt-5 grid gap-4 text-sm">
-              <div class="grid gap-px overflow-hidden rounded-md border border-cyan-400/20">
-                <div class="grid grid-cols-[7.5rem_minmax(0,1fr)]">
-                  <div class="bg-cyan-400/20 px-2 py-1 font-black uppercase tracking-wide text-cyan-100">TL</div>
-                  <div class="border-b border-cyan-400/20 px-2 py-1 text-cyan-50">{{ buildDraft.techLevel }}</div>
-                </div>
-                <div class="grid grid-cols-[7.5rem_minmax(0,1fr)]">
-                  <div class="bg-cyan-400/20 px-2 py-1 font-black uppercase tracking-wide text-cyan-100">Skill</div>
-                  <div class="border-b border-cyan-400/20 px-2 py-1 text-cyan-50">{{ buildDraft.skill || '-' }}</div>
-                </div>
-                <div class="grid grid-cols-[7.5rem_minmax(0,1fr)]">
-                  <div class="bg-cyan-400/20 px-2 py-1 font-black uppercase tracking-wide text-cyan-100">Agility</div>
-                  <div class="border-b border-cyan-400/20 px-2 py-1 text-cyan-50">{{ buildDraft.agility || '-' }}</div>
-                </div>
-                <div class="grid grid-cols-[7.5rem_minmax(0,1fr)]">
-                  <div class="bg-cyan-400/20 px-2 py-1 font-black uppercase tracking-wide text-cyan-100">Hull</div>
-                  <div class="border-b border-cyan-400/20 px-2 py-1 text-cyan-50">{{ buildDraft.hull }} / {{ buildDraft.structure || '-' }}</div>
-                </div>
-                <div class="grid grid-cols-[7.5rem_minmax(0,1fr)]">
-                  <div class="bg-cyan-400/20 px-2 py-1 font-black uppercase tracking-wide text-cyan-100">Spaces</div>
-                  <div class="border-b border-cyan-400/20 px-2 py-1 text-cyan-50">{{ buildDraft.spaces }} total · {{ buildDraftConstructionSummary?.remainingSpaces ?? 0 }} open</div>
-                </div>
-                <div class="grid grid-cols-[7.5rem_minmax(0,1fr)]">
-                  <div class="bg-cyan-400/20 px-2 py-1 font-black uppercase tracking-wide text-cyan-100">Cost</div>
-                  <div class="border-b border-cyan-400/20 px-2 py-1 text-cyan-50">{{ buildDraftTotalCostLabel }}</div>
-                </div>
+            <div class="mt-5 grid grid-cols-2 gap-3 text-sm">
+              <div class="hud-stat rounded-md border p-3">
+                <p class="text-xs uppercase tracking-wide text-zinc-400">TL</p>
+                <p class="mt-1 text-lg font-semibold">{{ buildDraft.techLevel }}</p>
               </div>
-
-              <div class="grid grid-cols-2 gap-2">
-                <button class="hud-stat rounded-md border p-3 text-left transition hover:border-cyan-300/50 hover:bg-white/5" type="button" @click="activeDraftInfo = 'speed'">
-                  <p class="text-xs uppercase tracking-wide text-zinc-400">Speed</p>
-                  <p class="mt-1 text-lg font-semibold">{{ buildDraft.speed || '-' }}</p>
-                </button>
-                <button class="hud-stat rounded-md border p-3 text-left transition hover:border-cyan-300/50 hover:bg-white/5" type="button" @click="activeDraftInfo = 'range'">
-                  <p class="text-xs uppercase tracking-wide text-zinc-400">Range</p>
-                  <p class="mt-1 text-lg font-semibold">{{ buildDraft.range || '-' }}</p>
-                </button>
-                <button class="hud-stat rounded-md border p-3 text-left transition hover:border-cyan-300/50 hover:bg-white/5" type="button" @click="activeDraftInfo = 'protection'">
-                  <p class="text-xs uppercase tracking-wide text-zinc-400">Protection</p>
-                  <p class="mt-1 text-sm font-semibold leading-5">+{{ buildDraftConstructionSummary?.armourSummary.baseProtection ?? 0 }} / +{{ buildDraftConstructionSummary?.armourSummary.maximumProtection ?? 0 }}</p>
-                </button>
-                <button class="hud-stat rounded-md border p-3 text-left transition hover:border-cyan-300/50 hover:bg-white/5" type="button" @click="activeDraftInfo = 'hitDm'">
-                  <p class="text-xs uppercase tracking-wide text-zinc-400">Hit DM</p>
-                  <p class="mt-1 text-lg font-semibold">{{ buildDraft.hitDm }}</p>
-                </button>
+              <div class="hud-stat rounded-md border p-3">
+                <p class="text-xs uppercase tracking-wide text-zinc-400">Agility</p>
+                <p class="mt-1 text-lg font-semibold">{{ buildDraft.agility }}</p>
               </div>
-
-              <div class="rounded-md border border-cyan-400/20 bg-white/5 px-3 py-3">
-                <p class="text-xs uppercase tracking-wide text-zinc-400">Features</p>
-                <div v-if="buildDraft.features.length" class="mt-2 flex flex-wrap gap-2">
-                  <span v-for="feature in buildDraft.features" :key="feature" class="rounded-md border border-cyan-300/25 bg-cyan-300/10 px-2 py-1 text-xs text-cyan-100">
-                    {{ feature }}
-                  </span>
-                </div>
-                <p v-else class="mt-2 text-xs text-zinc-400">None selected</p>
+              <div class="hud-stat rounded-md border p-3">
+                <p class="text-xs uppercase tracking-wide text-zinc-400">Speed</p>
+                <p class="mt-1 text-lg font-semibold">{{ buildDraft.speed || '-' }}</p>
+                <p class="text-xs text-zinc-400">Cruise {{ buildDraft.cruiseSpeed || '-' }}</p>
               </div>
+              <div class="hud-stat rounded-md border p-3">
+                <p class="text-xs uppercase tracking-wide text-zinc-400">Range</p>
+                <p class="mt-1 text-lg font-semibold">{{ buildDraft.range || '-' }}</p>
+                <p class="text-xs text-zinc-400">Cruise {{ buildDraft.cruiseRange || '-' }}</p>
+              </div>
+            </div>
 
-              <div class="rounded-md border border-cyan-400/20 bg-white/5 px-3 py-3">
-                <p class="text-xs uppercase tracking-wide text-zinc-400">Options</p>
-                <div v-if="buildDraft.equipmentEntries.filter((entry) => entry.category !== 'Automation').length" class="mt-2 grid gap-2">
-                  <div
-                    v-for="(entry, index) in buildDraft.equipmentEntries.filter((entry) => entry.category !== 'Automation')"
-                    :key="`${entry.name}-${index}`"
-                    class="rounded-md border border-cyan-300/20 bg-slate-950/40 px-2 py-2"
+            <div class="mt-5 grid gap-2 text-sm">
+              <div class="flex justify-between gap-3 rounded-md bg-white/5 px-3 py-2">
+                <span class="text-cyan-100/70">Skill</span>
+                <span class="font-semibold">{{ buildDraft.skill || '-' }}</span>
+              </div>
+              <div class="flex justify-between gap-3 rounded-md bg-white/5 px-3 py-2">
+                <span class="text-cyan-100/70">Crew / Passengers</span>
+                <span class="font-semibold">{{ buildDraft.crew || '-' }} / {{ buildDraft.passengers || '-' }}</span>
+              </div>
+              <div class="flex justify-between gap-3 rounded-md bg-white/5 px-3 py-2">
+                <span class="text-cyan-100/70">Structure</span>
+                <span class="font-semibold">{{ buildDraft.structure || '-' }}</span>
+              </div>
+              <div class="flex justify-between gap-3 rounded-md bg-white/5 px-3 py-2">
+                <span class="text-cyan-100/70">Shipping</span>
+                <span class="font-semibold">{{ buildDraft.shipping || '-' }}</span>
+              </div>
+              <div class="flex justify-between gap-3 rounded-md bg-white/5 px-3 py-2">
+                <span class="text-cyan-100/70">Cost</span>
+                <span class="font-semibold">{{ buildDraftTotalCostLabel }}</span>
+              </div>
+              <div class="flex justify-between gap-3 rounded-md bg-white/5 px-3 py-2">
+                <span class="text-cyan-100/70">Spaces</span>
+                <span class="font-semibold">{{ buildDraft.spaces }} total / {{ buildDraftConstructionSummary?.remainingSpaces ?? 0 }} open</span>
+              </div>
+            </div>
+
+            <div class="mt-5">
+              <p class="text-sm font-semibold">Traits</p>
+              <div class="mt-2 flex flex-wrap gap-2">
+                <span v-for="trait in buildDraft.traits" :key="trait" class="group relative inline-flex">
+                  <button
+                    class="rounded-md border border-cyan-300/30 bg-cyan-300/10 px-2 py-1 text-xs font-semibold text-cyan-100 outline-none transition hover:border-cyan-200 hover:bg-cyan-300/15 focus:border-cyan-200 focus:bg-cyan-300/15"
+                    type="button"
+                    @click="handleDraftTraitClick(trait)"
                   >
-                    <p class="text-xs font-semibold text-cyan-100">{{ entry.name }}</p>
-                    <p class="mt-1 text-[11px] text-cyan-100/60">{{ entry.category || 'Option' }} · {{ entry.spaces }} Spaces</p>
-                  </div>
-                </div>
-                <p v-else class="mt-2 text-xs text-zinc-400">None installed</p>
-              </div>
-
-              <div class="rounded-md border border-cyan-400/20 bg-white/5 px-3 py-3">
-                <p class="text-xs uppercase tracking-wide text-zinc-400">Automation</p>
-                <div v-if="buildDraft.equipmentEntries.filter((entry) => entry.category === 'Automation').length" class="mt-2 grid gap-2">
-                  <div
-                    v-for="(entry, index) in buildDraft.equipmentEntries.filter((entry) => entry.category === 'Automation')"
-                    :key="`${entry.name}-${index}`"
-                    class="rounded-md border border-cyan-300/20 bg-slate-950/40 px-2 py-2"
-                  >
-                    <p class="text-xs font-semibold text-cyan-100">{{ entry.name }}</p>
-                    <p class="mt-1 text-[11px] text-cyan-100/60">{{ entry.spaces }} Spaces</p>
-                  </div>
-                </div>
-                <p v-else class="mt-2 text-xs text-zinc-400">None installed</p>
-              </div>
-
-              <div class="rounded-md border border-cyan-400/20 bg-white/5 px-3 py-3">
-                <p class="text-xs uppercase tracking-wide text-zinc-400">Weapons</p>
-                <div v-if="buildDraft.weapons.length" class="mt-2 grid gap-2">
-                  <div
-                    v-for="(weapon, index) in buildDraft.weapons"
-                    :key="`${weapon.name}-${index}`"
-                    class="rounded-md border border-cyan-300/20 bg-slate-950/40 px-2 py-2"
-                  >
-                    <p class="text-xs font-semibold text-cyan-100">{{ weapon.name || `Weapon ${index + 1}` }}</p>
-                    <p class="mt-1 text-[11px] text-cyan-100/60">
-                      {{ weapon.mountType || 'mount' }} · {{ weapon.damage || '-' }} · {{ weapon.spaces ?? 0 }} Spaces
-                    </p>
-                  </div>
-                </div>
-                <p v-else class="mt-2 text-xs text-zinc-400">None mounted</p>
-              </div>
-
-              <button v-if="buildDraft.traits.length" class="rounded-md border border-cyan-400/20 bg-white/5 px-3 py-3 text-left transition hover:border-cyan-300/50" type="button" @click="activeDraftInfo = 'traits'">
-                <p class="text-xs uppercase tracking-wide text-zinc-400">Traits</p>
-                <div class="mt-2 flex flex-wrap gap-2">
-                  <span v-for="trait in buildDraft.traits" :key="trait" class="rounded-md border border-cyan-300/25 bg-cyan-300/10 px-2 py-1 text-xs text-cyan-100">
                     {{ trait }}
+                  </button>
+                  <span class="pointer-events-none absolute bottom-full left-0 z-[90] mb-2 hidden w-72 rounded-md border border-cyan-300/40 bg-slate-950/95 p-3 text-left text-xs shadow-[0_0_28px_rgba(34,211,238,0.22)] backdrop-blur group-hover:block group-focus-within:block">
+                    <span class="block font-black uppercase tracking-[0.18em] text-cyan-100">{{ trait }}</span>
+                    <span class="mt-2 block leading-5 text-cyan-50/85">{{ traitDescription(trait) }}</span>
+                    <span class="mt-3 block font-black uppercase tracking-[0.16em] text-cyan-200/75">Mechanics</span>
+                    <span v-for="mechanic in traitMechanics(trait, buildDraft)" :key="mechanic" class="mt-1 block leading-5 text-cyan-50/75">{{ mechanic }}</span>
+                    <span class="mt-3 block border-t border-cyan-300/20 pt-2 font-semibold text-cyan-100/80">
+                      Click to {{ traitSource(trait, buildDraft).removable ? 'remove and edit source' : 'view source step' }}: {{ traitSource(trait, buildDraft).label }}.
+                    </span>
                   </span>
+                </span>
+                <span v-if="!buildDraft.traits.length" class="text-sm text-cyan-100/70">None</span>
+              </div>
+            </div>
+
+            <div class="mt-5">
+              <p class="text-sm font-semibold">Armour</p>
+              <div class="mt-2 grid grid-cols-2 gap-2 text-sm">
+                <div v-for="(value, facing) in buildDraft.armour" :key="facing" class="rounded-md bg-white/5 px-3 py-2">
+                  <span class="capitalize text-cyan-100/70">{{ facing }}</span>
+                  <span class="float-right font-semibold">{{ value }}</span>
                 </div>
-              </button>
+              </div>
+            </div>
+
+            <div class="mt-5">
+              <p class="text-sm font-semibold">Equipment</p>
+              <div class="mt-2 flex flex-wrap gap-2">
+                <span v-for="item in buildDraft.equipment" :key="item" class="rounded-md bg-white/5 px-2 py-1 text-xs text-cyan-100/80">
+                  {{ item }}
+                </span>
+                <span v-if="!buildDraft.equipment.length" class="text-sm text-cyan-100/70">None</span>
+              </div>
+            </div>
+
+            <div v-if="buildDraft.weapons.length" class="mt-5">
+              <p class="text-sm font-semibold">Weapons</p>
+              <div class="mt-2 grid gap-2">
+                <div v-for="weapon in buildDraft.weapons" :key="weapon.name" class="rounded-md border border-cyan-300/20 bg-white/5 p-3 text-sm">
+                  <p class="font-semibold">{{ weapon.name }}</p>
+                  <p class="mt-1 text-cyan-100/70">{{ weapon.range }} · {{ weapon.damage }} · FC {{ weapon.fireControl }}</p>
+                  <p v-if="weapon.traits.length" class="mt-1 text-xs text-cyan-100/60">{{ weapon.traits.join(', ') }}</p>
+                </div>
+              </div>
             </div>
           </section>
         </aside>
       </div>
     </section>
 
-    <section v-else-if="activeGarageTab === 'custom'" class="mx-auto w-full max-w-[96rem] px-5 py-6 sm:px-8 lg:px-10">
-      <section class="hud-panel rounded-lg border p-5 shadow-sm">
-        <div class="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <p class="hud-kicker text-sm font-semibold uppercase tracking-wide">Player Builds</p>
-            <h2 class="mt-2 text-2xl font-semibold">Custom Vehicles</h2>
-            <p class="mt-2 max-w-3xl text-sm leading-6 text-zinc-600">
-              Saved custom vehicle designs. Open one to continue editing in the builder.
-            </p>
-          </div>
-          <button class="rounded-md border border-zinc-300 px-3 py-2 text-sm font-semibold text-zinc-700 hover:border-amber-600" type="button" @click="newVehicle">
-            New Vehicle
-          </button>
-        </div>
-
-        <div class="mt-5 flex items-center justify-between gap-3 border-b border-cyan-400/20 pb-3">
-          <h3 class="text-lg font-semibold">Saved Vehicles</h3>
-          <span class="text-xs text-zinc-500">{{ playerBuiltVehicles.length }} saved</span>
-        </div>
-
-        <div v-if="playerBuiltVehicles.length" class="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-          <div
-            v-for="vehicle in playerBuiltVehicles"
-            :key="vehicle.id"
-            class="rounded-md border p-4"
-            :class="selectedCustomVehicleId === vehicle.id ? 'border-cyan-400/50 bg-cyan-50/5' : 'border-zinc-200 bg-stone-50/30'"
-          >
-            <button class="block min-w-0 text-left" type="button" @click="editVehicle(vehicle.id)">
-              <p class="font-semibold text-zinc-950">{{ vehicle.name || 'Unnamed Vehicle' }}</p>
-              <p class="mt-1 text-sm text-zinc-600">{{ vehicle.type || '-' }} · TL {{ vehicle.techLevel }}</p>
-              <p class="mt-2 text-xs text-zinc-500">{{ vehicle.spaces }} Spaces · {{ vehicle.speed || 'Speed pending' }} · {{ formatCredits(vehicle.costCredits) }}</p>
-            </button>
-            <div class="mt-4 flex flex-wrap items-center gap-2">
-              <button class="rounded-md border border-zinc-300 px-2 py-1 text-xs font-semibold text-zinc-700 hover:border-amber-600" type="button" @click="editVehicle(vehicle.id)">
-                Edit
+    <section v-else-if="activeGarageTab === 'custom'" class="mx-auto grid w-full max-w-[96rem] gap-5 px-5 py-6 sm:px-8 xl:grid-cols-[minmax(0,1fr)_25rem] lg:px-10">
+      <div class="grid gap-5">
+        <section class="hud-panel rounded-lg border p-5 shadow-sm">
+          <div class="list-reference-header flex flex-wrap items-center justify-between gap-3">
+            <div class="list-reference-title">
+              <p class="hud-kicker text-sm font-semibold uppercase tracking-wide">Player Builds</p>
+              <h2 class="mt-2 text-xl font-semibold">Custom Vehicles</h2>
+            </div>
+            <div class="list-search-actions">
+              <input v-model="search" class="h-10 rounded-md border border-zinc-300 px-3 text-sm outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200" placeholder="Search vehicles">
+              <button
+                class="list-category-toggle hud-link h-10 w-11"
+                :aria-expanded="categoryMenuOpen"
+                aria-label="Toggle vehicle categories"
+                type="button"
+                @click.stop.prevent="categoryMenuOpen = !categoryMenuOpen"
+              >
+                <span :class="['list-category-toggle__line', categoryMenuOpen ? 'is-open' : '']" />
+                <span :class="['list-category-toggle__line', categoryMenuOpen ? 'is-open' : '']" />
+                <span :class="['list-category-toggle__line', categoryMenuOpen ? 'is-open' : '']" />
               </button>
-              <button class="rounded-md border border-zinc-300 px-2 py-1 text-xs font-semibold text-zinc-700 hover:border-amber-600" type="button" @click="duplicateVehicle(vehicle.id)">
-                Duplicate
-              </button>
-              <button class="rounded-md border border-red-300 px-2 py-1 text-xs font-semibold text-red-700 hover:border-red-500" type="button" @click="deleteVehicle(vehicle.id)">
-                Delete
+              <button class="rounded-md border border-zinc-300 px-3 py-2 text-sm font-semibold text-zinc-700 hover:border-amber-600" type="button" @click="newVehicle">
+                New Vehicle
               </button>
             </div>
           </div>
+
+          <div :class="['list-category-panel mt-4', categoryMenuOpen ? 'is-open' : '']">
+            <button
+              v-for="category in categories"
+              :key="category.id"
+              class="rounded-md border px-3 py-2 text-sm font-semibold"
+              :class="selectedCategory === category.id ? 'border-zinc-950 bg-zinc-950 text-white' : 'border-zinc-300 text-zinc-700 hover:border-amber-600'"
+              type="button"
+              @click="selectVehicleCategory(category.id)"
+            >
+              {{ category.label }}
+            </button>
+          </div>
+
+          <div v-if="filteredCustomVehicles.length" class="hud-table-shell hud-scrollbar mt-4 max-h-[46rem] overflow-auto rounded-md border">
+            <table class="mobile-collapsible-table w-full min-w-[68rem] text-left text-sm">
+              <thead class="sticky top-0 z-10 bg-stone-100 text-xs uppercase tracking-wide text-zinc-500">
+                <tr>
+                  <th v-for="column in sortableVehicleColumns" :key="column.key" class="px-3 py-2">
+                    <button class="flex items-center gap-1 font-semibold uppercase tracking-wide hover:text-zinc-950" type="button" @click="setVehicleSort(column.key)">
+                      <span>{{ column.label }}</span>
+                      <span class="inline-flex h-4 w-4 items-center text-amber-700">
+                        <AppIcon v-if="vehicleSortIndicator(column.key)" class="h-4 w-4" :name="vehicleSortIndicator(column.key) ?? 'sort-asc'" />
+                      </span>
+                    </button>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                <template v-for="vehicle in filteredCustomVehicles" :key="vehicle.id">
+                  <tr
+                    class="cursor-pointer border-t border-zinc-200 align-top"
+                    :class="selectedCustomVehicle?.id === vehicle.id ? 'bg-cyan-50/80' : 'hover:bg-stone-50'"
+                    @click="selectedCustomVehicleId = vehicle.id"
+                  >
+                    <td class="px-3 py-2 font-semibold text-zinc-950">
+                      <button class="mobile-row-toggle block w-full text-left font-semibold" type="button" @click.stop="toggleExpandedVehicle(vehicle.id, 'custom')">
+                        {{ vehicle.name || 'Unnamed Vehicle' }}
+                      </button>
+                      <span class="mt-1 block text-xs font-medium text-zinc-500">{{ vehicle.sourceName ?? 'Custom Build' }}</span>
+                    </td>
+                    <td class="px-3 py-2">{{ vehicle.techLevel }}</td>
+                    <td class="px-3 py-2">{{ categoryLabel(vehicle.category) }}</td>
+                    <td class="px-3 py-2">{{ vehicle.speed || '-' }} <span class="text-zinc-500">({{ vehicle.cruiseSpeed || '-' }})</span></td>
+                    <td class="px-3 py-2">{{ vehicle.agility }}</td>
+                    <td class="px-3 py-2">{{ vehicle.spaces }}</td>
+                    <td class="px-3 py-2">{{ formatCredits(vehicle.costCredits) }}</td>
+                  </tr>
+                  <tr v-if="expandedVehicleId === vehicle.id" class="mobile-detail-row border-t border-cyan-400/20">
+                    <td :colspan="sortableVehicleColumns.length" class="px-3 py-3">
+                      <div class="mobile-row-detail-grid">
+                        <div><span>TL</span><strong>{{ vehicle.techLevel }}</strong></div>
+                        <div><span>Category</span><strong>{{ categoryLabel(vehicle.category) }}</strong></div>
+                        <div><span>Speed</span><strong>{{ vehicle.speed || '-' }} ({{ vehicle.cruiseSpeed || '-' }})</strong></div>
+                        <div><span>Agility</span><strong>{{ vehicle.agility }}</strong></div>
+                        <div><span>Spaces</span><strong>{{ vehicle.spaces }}</strong></div>
+                        <div><span>Cost</span><strong>{{ formatCredits(vehicle.costCredits) }}</strong></div>
+                        <div><span>Skill</span><strong>{{ vehicle.skill }}</strong></div>
+                        <div><span>Crew / Passengers</span><strong>{{ vehicle.crew }} / {{ vehicle.passengers }}</strong></div>
+                        <div class="sm:col-span-2"><span>Traits</span><strong>{{ vehicle.traits.join(', ') || '-' }}</strong></div>
+                      </div>
+                    </td>
+                  </tr>
+                </template>
+              </tbody>
+            </table>
+          </div>
+          <p v-else class="mt-4 rounded-md bg-stone-50 p-4 text-sm text-zinc-600">No custom vehicles saved yet.</p>
+        </section>
+      </div>
+
+      <aside v-if="selectedCustomVehicle" class="hud-panel hud-scrollbar rounded-lg border p-5 shadow-sm xl:sticky xl:top-24 xl:max-h-[calc(100vh-7rem)] xl:overflow-auto">
+        <div class="flex items-start justify-between gap-3">
+          <div>
+            <p class="hud-kicker text-xs font-semibold uppercase tracking-wide">{{ selectedCustomVehicle.type }}</p>
+            <h2 class="mt-2 text-2xl font-semibold">{{ selectedCustomVehicle.name || 'Unnamed Vehicle' }}</h2>
+            <p class="mt-1 text-sm text-cyan-100/70">{{ selectedCustomVehicle.sourceName ?? 'Custom Build' }}</p>
+          </div>
+          <span class="hud-glyph grid h-10 w-10 shrink-0 place-items-center rounded-md">
+            <AppIcon name="car" />
+          </span>
         </div>
-        <p v-else class="mt-4 rounded-md bg-stone-50 p-4 text-sm text-zinc-600">No custom vehicles saved yet.</p>
-      </section>
+
+        <div class="mt-4 flex flex-wrap gap-2">
+          <button class="rounded-md border border-zinc-300 px-2 py-1 text-xs font-semibold text-zinc-700 hover:border-amber-600" type="button" @click="editVehicle(selectedCustomVehicle.id)">
+            Edit
+          </button>
+          <button class="rounded-md border border-zinc-300 px-2 py-1 text-xs font-semibold text-zinc-700 hover:border-amber-600" type="button" @click="duplicateVehicle(selectedCustomVehicle.id)">
+            Duplicate
+          </button>
+          <button class="rounded-md border border-red-300 px-2 py-1 text-xs font-semibold text-red-700 hover:border-red-500" type="button" @click="deleteVehicle(selectedCustomVehicle.id)">
+            Delete
+          </button>
+        </div>
+
+        <div class="mt-5 grid grid-cols-2 gap-3 text-sm">
+          <div class="hud-stat rounded-md border p-3">
+            <p class="text-xs uppercase tracking-wide text-zinc-400">TL</p>
+            <p class="mt-1 text-lg font-semibold">{{ selectedCustomVehicle.techLevel }}</p>
+          </div>
+          <div class="hud-stat rounded-md border p-3">
+            <p class="text-xs uppercase tracking-wide text-zinc-400">Agility</p>
+            <p class="mt-1 text-lg font-semibold">{{ selectedCustomVehicle.agility }}</p>
+          </div>
+          <div class="hud-stat rounded-md border p-3">
+            <p class="text-xs uppercase tracking-wide text-zinc-400">Speed</p>
+            <p class="mt-1 text-lg font-semibold">{{ selectedCustomVehicle.speed || '-' }}</p>
+            <p class="text-xs text-zinc-400">Cruise {{ selectedCustomVehicle.cruiseSpeed || '-' }}</p>
+          </div>
+          <div class="hud-stat rounded-md border p-3">
+            <p class="text-xs uppercase tracking-wide text-zinc-400">Range</p>
+            <p class="mt-1 text-lg font-semibold">{{ selectedCustomVehicle.range || '-' }}</p>
+            <p class="text-xs text-zinc-400">Cruise {{ selectedCustomVehicle.cruiseRange || '-' }}</p>
+          </div>
+        </div>
+
+        <div class="mt-5 grid gap-2 text-sm">
+          <div class="flex justify-between gap-3 rounded-md bg-white/5 px-3 py-2">
+            <span class="text-cyan-100/70">Skill</span>
+            <span class="font-semibold">{{ selectedCustomVehicle.skill }}</span>
+          </div>
+          <div class="flex justify-between gap-3 rounded-md bg-white/5 px-3 py-2">
+            <span class="text-cyan-100/70">Crew / Passengers</span>
+            <span class="font-semibold">{{ selectedCustomVehicle.crew }} / {{ selectedCustomVehicle.passengers }}</span>
+          </div>
+          <div class="flex justify-between gap-3 rounded-md bg-white/5 px-3 py-2">
+            <span class="text-cyan-100/70">Structure</span>
+            <span class="font-semibold">{{ selectedCustomVehicle.structure }}</span>
+          </div>
+          <div class="flex justify-between gap-3 rounded-md bg-white/5 px-3 py-2">
+            <span class="text-cyan-100/70">Shipping</span>
+            <span class="font-semibold">{{ selectedCustomVehicle.shipping }}</span>
+          </div>
+          <div class="flex justify-between gap-3 rounded-md bg-white/5 px-3 py-2">
+            <span class="text-cyan-100/70">Cost</span>
+            <span class="font-semibold">{{ selectedCustomVehicle.cost }}</span>
+          </div>
+        </div>
+
+        <div class="mt-5">
+          <p class="text-sm font-semibold">Traits</p>
+          <div class="mt-2 flex flex-wrap gap-2">
+            <span v-for="trait in selectedCustomVehicle.traits" :key="trait" class="group relative inline-flex">
+              <span tabindex="0" class="rounded-md border border-cyan-300/30 bg-cyan-300/10 px-2 py-1 text-xs font-semibold text-cyan-100 outline-none transition hover:border-cyan-200 hover:bg-cyan-300/15 focus:border-cyan-200 focus:bg-cyan-300/15">
+                {{ trait }}
+              </span>
+              <span class="pointer-events-none absolute bottom-full left-0 z-[90] mb-2 hidden w-72 rounded-md border border-cyan-300/40 bg-slate-950/95 p-3 text-left text-xs shadow-[0_0_28px_rgba(34,211,238,0.22)] backdrop-blur group-hover:block group-focus-within:block">
+                <span class="block font-black uppercase tracking-[0.18em] text-cyan-100">{{ trait }}</span>
+                <span class="mt-2 block leading-5 text-cyan-50/85">{{ traitDescription(trait) }}</span>
+                <span class="mt-3 block font-black uppercase tracking-[0.16em] text-cyan-200/75">Mechanics</span>
+                <span v-for="mechanic in traitMechanics(trait, selectedCustomVehicle)" :key="mechanic" class="mt-1 block leading-5 text-cyan-50/75">{{ mechanic }}</span>
+              </span>
+            </span>
+            <span v-if="!selectedCustomVehicle.traits.length" class="text-sm text-cyan-100/70">None</span>
+          </div>
+        </div>
+
+        <div class="mt-5">
+          <p class="text-sm font-semibold">Armour</p>
+          <div class="mt-2 grid grid-cols-2 gap-2 text-sm">
+            <div v-for="(value, facing) in selectedCustomVehicle.armour" :key="facing" class="rounded-md bg-white/5 px-3 py-2">
+              <span class="capitalize text-cyan-100/70">{{ facing }}</span>
+              <span class="float-right font-semibold">{{ value }}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="mt-5">
+          <p class="text-sm font-semibold">Equipment</p>
+          <div class="mt-2 flex flex-wrap gap-2">
+            <span v-for="item in selectedCustomVehicle.equipment" :key="item" class="rounded-md bg-white/5 px-2 py-1 text-xs text-cyan-100/80">
+              {{ item }}
+            </span>
+            <span v-if="!selectedCustomVehicle.equipment.length" class="text-sm text-cyan-100/70">None</span>
+          </div>
+        </div>
+
+        <div v-if="selectedCustomVehicle.weapons.length" class="mt-5">
+          <p class="text-sm font-semibold">Weapons</p>
+          <div class="mt-2 grid gap-2">
+            <div v-for="weapon in selectedCustomVehicle.weapons" :key="weapon.name" class="rounded-md border border-cyan-300/20 bg-white/5 p-3 text-sm">
+              <p class="font-semibold">{{ weapon.name }}</p>
+              <p class="mt-1 text-cyan-100/70">{{ weapon.range }} · {{ weapon.damage }} · FC {{ weapon.fireControl }}</p>
+              <p v-if="weapon.traits.length" class="mt-1 text-xs text-cyan-100/60">{{ weapon.traits.join(', ') }}</p>
+            </div>
+          </div>
+        </div>
+      </aside>
     </section>
 
     <VehicleBuilderInfoModal

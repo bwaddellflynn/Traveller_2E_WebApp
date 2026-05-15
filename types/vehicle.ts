@@ -73,11 +73,16 @@ export type TravellerVehicleArmour = {
 }
 
 export type TravellerVehicleWeapon = {
+  id?: string
   name: string
+  techLevel?: number
   range: string
   damage: string
   magazine: string
   cost: string
+  baseCostCredits?: number
+  costCredits?: number
+  tonnes?: number
   traits: string[]
   fireControl: string
   spaces?: number
@@ -96,6 +101,28 @@ export type TravellerVehicleWeapon = {
   sourceCategory?: string
 }
 
+export type TravellerVehicleAllocationKind =
+  | 'base'
+  | 'feature'
+  | 'power'
+  | 'auxiliary'
+  | 'armour'
+  | 'option'
+  | 'automation'
+  | 'weapon'
+  | 'occupant'
+  | 'cargo'
+
+export type TravellerVehicleAllocationEntry = {
+  id: string
+  kind: TravellerVehicleAllocationKind
+  label: string
+  spaces: number
+  costCredits: number
+  costLabel?: string
+  note?: string
+}
+
 export type TravellerVehicleFusionPlusFuelType =
   | 'water'
   | 'deuterium-enriched-water'
@@ -103,6 +130,17 @@ export type TravellerVehicleFusionPlusFuelType =
 export type CustomVehicleEquipmentEntry = {
   name: string
   spaces: number
+  cost?: string
+  costCredits?: number
+  techLevel?: number
+  familyId?: string
+  requirement?: string
+  restriction?: string
+  effect?: string
+  powered?: boolean
+  modeled?: string
+  bandwidth?: number
+  computerBandwidth?: number
   category?: string
   catalogueId?: string
 }
@@ -118,6 +156,16 @@ export type CustomVehicleCargoEntry = {
   name: string
   spaces: number
   tons: number
+}
+
+export type CustomVehicleBuildBrief = {
+  role: string
+  environment: string
+  combatLevel: string
+  crewTarget: string
+  passengerTarget: string
+  cargoTarget: string
+  budgetTarget: string
 }
 
 export type TravellerVehicleRecord = {
@@ -157,6 +205,7 @@ export type CustomVehicleDesign = TravellerVehicleRecord & {
   userId: string
   createdAt: string
   updatedAt: string
+  buildBrief?: CustomVehicleBuildBrief
   baseFamily: '' | TravellerVehicleBaseFamily
   features: string[]
   primaryPower: '' | TravellerVehiclePrimaryPower
@@ -168,4 +217,6 @@ export type CustomVehicleDesign = TravellerVehicleRecord & {
   speedModificationSteps: number
   fuelEfficiencySteps: number
   fuelCapacitySteps: number
+  baseCostCredits?: number
+  allocationEntries?: TravellerVehicleAllocationEntry[]
 }

@@ -14,6 +14,7 @@ type VehicleOptionRule = {
   id: string
   familyId: string
   name: string
+  description?: string
   techLevel: number
   spaces: number
   spacePercent?: number
@@ -469,12 +470,13 @@ const optionFamilies: VehicleOptionFamily[] = [
   },
 ]
 
-const categoryOptions = computed(() => [...new Set(optionFamilies.map((family) => family.category))])
+const handbookOptionFamilies = computed(() => optionFamilies.filter((family) => family.id !== 'other-options'))
+const categoryOptions = computed(() => [...new Set(handbookOptionFamilies.value.map((family) => family.category))])
 const selectedCategory = ref(categoryOptions.value[0] ?? '')
-const familiesForCategory = computed(() => optionFamilies.filter((family) => family.category === selectedCategory.value))
+const familiesForCategory = computed(() => handbookOptionFamilies.value.filter((family) => family.category === selectedCategory.value))
 const selectedFamilyId = ref(familiesForCategory.value[0]?.id ?? '')
 const selectedStageId = ref('basic')
-const selectedFamily = computed(() => optionFamilies.find((family) => family.id === selectedFamilyId.value) ?? familiesForCategory.value[0] ?? optionFamilies[0])
+const selectedFamily = computed(() => handbookOptionFamilies.value.find((family) => family.id === selectedFamilyId.value) ?? familiesForCategory.value[0] ?? handbookOptionFamilies.value[0] ?? optionFamilies[0])
 const availableRules = computed(() => selectedFamily.value.rules)
 const selectedRuleId = ref(availableRules.value[0]?.id ?? '')
 const selectedRule = computed(() => availableRules.value.find((rule) => rule.id === selectedRuleId.value) ?? availableRules.value[0])
@@ -497,6 +499,65 @@ const optionDisplayName = computed(() => {
     : selectedRule.value.name
 })
 
+const optionDescriptionForRule = (rule: VehicleOptionRule, family: VehicleOptionFamily) => {
+  if (rule.description) return rule.description
+
+  const name = rule.name.toLowerCase()
+  if (family.id === 'control-system') return 'A control interface package that changes how precisely the crew can operate the vehicle, from crude manual controls to advanced assisted control systems.'
+  if (family.id === 'transceiver') return 'A powered communications set used to send and receive radio traffic at the listed range, linking the vehicle to crews, bases, and other vehicles.'
+  if (family.id === 'autopilot') return 'An automated driving or piloting unit that can hold course and speed, with higher-TL versions capable of handling more complex operation when directed.'
+  if (family.id === 'meson-communicator') return 'A specialised communicator that sends tightly directed meson transmissions through intervening matter to a known receiver location.'
+  if (family.id === 'transceiver-options') {
+    if (name.includes('encryption')) return 'A secure communications module that hardens vehicle messages against interception or decryption by lower-technology systems.'
+    if (name.includes('satellite')) return 'A tracking antenna and control package that keeps a moving link to satellites or spacecraft when line of sight is available.'
+    if (name.includes('tightbeam')) return 'A narrow laser or maser communication mode for point-to-point messages that are difficult for outsiders to intercept.'
+  }
+  if (family.id === 'navigation') return 'A navigation suite that helps the crew determine position, heading, route, and nearby surroundings using maps, references, signals, and onboard systems.'
+  if (family.id === 'sensors') return 'A vehicle sensor package for detecting objects, terrain, contacts, and conditions beyond what the crew can perceive unaided.'
+  if (family.id === 'sensor-customisations') {
+    if (name.includes('hardened')) return 'A sensor protection upgrade that helps the installed sensor suite keep functioning through jamming and disruption.'
+    if (name.includes('high-fidelity')) return 'A precision sensor upgrade that improves detail and interpretation when making sensor checks.'
+    if (name.includes('range')) return 'A range-extension upgrade for an installed sensor suite, increasing how far the sensors can reach.'
+    if (name.includes('mast')) return 'A deployable or raised sensor mount that lets the vehicle observe while keeping most of the hull behind cover.'
+    if (name.includes('underwater')) return 'A sensor configuration for submerged operation, trading normal above-water assumptions for underwater detection.'
+  }
+  if (family.id === 'camouflage') return 'A surface treatment or masking system that makes the vehicle harder to spot visually or with higher-tech detection methods.'
+  if (family.id === 'stealth-coatings') {
+    if (name.includes('holographic')) return 'A full-spectrum hull projection system that disguises or masks the vehicle with active holographic imagery.'
+    if (name.includes('reflec')) return 'A reflective anti-laser surface treatment that protects against laser fire but makes the vehicle easier to detect.'
+    return 'A signature-reduction coating that makes the vehicle harder to detect with electronic sensors, but cannot be combined with ECM.'
+  }
+  if (family.id === 'environmental-hull') return 'External hull protection that prepares the vehicle for dangerous atmospheres, pressure, radiation, vacuum, corrosive conditions, or self-sealing damage control.'
+  if (family.id === 'connectors') return 'A physical connection system for docking, towing, linking, or transferring between vehicles without treating the vehicles as a single hull.'
+  if (family.id === 'manipulators') return 'A powered external arm or appendage that lets the vehicle lift, handle, or manipulate objects without exposing the crew.'
+  if (family.id === 'external-utility') return 'An externally mounted work system for cargo handling, cutting, drilling, sampling, excavation, recovery, or field engineering tasks.'
+  if (family.id === 'external-vehicle-handling') return 'A vehicle handling system for launch, landing, recovery, parachute descent, or temporary movement support.'
+  if (family.id === 'external-prestige-propulsion') return 'An exterior option for appearance, watercraft propulsion, ramming, or refuelling support.'
+  if (family.id === 'active-defence-sensors') return 'A defensive sensor or counter-signature system that changes how easily the vehicle can detect threats or be detected by specialised sensors.'
+  if (family.id === 'active-defence-systems') {
+    if (name.includes('ecm')) return 'An electronic countermeasures suite that disrupts enemy electronics, sensors, and targeting within its operating range.'
+    if (name.includes('anti-missile')) return 'An automated defensive weapon intended to intercept incoming missiles or projectiles before they strike the vehicle.'
+    if (name.includes('decoy')) return 'A dispenser for false targets that draw smart weapons or guided attacks away from the real vehicle.'
+    if (name.includes('screen') || name.includes('damper')) return 'A high-technology defensive field system that reduces or negates specialised forms of damage.'
+    if (name.includes('reactive') || name.includes('electrostatic')) return 'A defensive armour system that adds temporary or specialised protection against incoming attacks.'
+    if (name.includes('smoke') || name.includes('aerosol')) return 'A disposable defensive cloud system that interferes with attacks or specific weapon types for a short period.'
+    return 'An active defensive system that protects the vehicle by intercepting attacks, confusing targeting, or reducing specialised damage.'
+  }
+  if (family.id === 'internal-environment') return 'An internal protection fitting that preserves safe working conditions, protects occupants, or allows controlled entry and exit.'
+  if (family.id === 'life-support-gravity') return 'A survivability or comfort system that manages breathable atmosphere, emergency escape, artificial gravity, acceleration, fire, or long-duration habitation.'
+  if (family.id === 'creature-comforts') return 'An interior comfort, habitation, medical, recreation, or passenger-support installation that improves how occupants live or recover inside the vehicle.'
+  if (family.id === 'internal-utility') return 'A dedicated mission compartment or utility installation for command, security, science, medicine, storage, maintenance, transport, or cargo transfer.'
+
+  return family.description
+}
+
+const selectedRuleDescription = computed(() => selectedRule.value ? optionDescriptionForRule(selectedRule.value, selectedFamily.value) : '')
+const parseCreditAmount = (value: string) => {
+  const match = value.match(/(-?)\s*(MCr|Cr)\s*([0-9]+(?:\.[0-9]+)?)/i)
+  if (!match) return 0
+  return (match[1] === '-' ? -1 : 1) * Number(match[3]) * (match[2].toLowerCase() === 'mcr' ? 1000000 : 1)
+}
+
 const optionSpaces = computed(() => {
   if (!selectedRule.value) return 0
   if (selectedFamily.value.usesDevelopmentStages && selectedStage.value.id === 'early-prototype') {
@@ -511,11 +572,54 @@ const optionSpaces = computed(() => {
   return selectedRule.value.spaces
 })
 
+const selectedOptionCostCredits = computed(() => {
+  if (!selectedRule.value) return 0
+  const label = selectedRule.value.cost
+  const amount = parseCreditAmount(label)
+  const spaces = optionSpaces.value
+  const stage = selectedFamily.value.usesDevelopmentStages ? selectedStage.value.id : 'basic'
+  let baseCost = 0
+
+  if (/%\s*(?:of\s*)?base\s*cost/i.test(label)) {
+    const match = label.match(/([+-]?\d+(?:\.\d+)?)\s*%\s*(?:of\s*)?base\s*cost/i)
+    baseCost = match ? Math.round((props.vehicle.baseCostCredits ?? props.vehicle.costCredits ?? 0) * (Number(match[1]) / 100)) : 0
+  }
+  else if (/per\s+(?:vehicle\s+)?space/i.test(label)) {
+    baseCost = Math.round(amount * props.vehicle.spaces)
+  }
+  else if (/per\s+space\s+consumed/i.test(label) || /per\s+consumed\s+space/i.test(label) || /per\s+allocated\s+space/i.test(label)) {
+    baseCost = Math.round(amount * spaces)
+  }
+  else if (/per\s+space/i.test(label)) {
+    baseCost = Math.round(amount * (spaces > 0 ? spaces : props.vehicle.spaces))
+  }
+  else {
+    baseCost = Math.round(amount)
+  }
+
+  if (stage === 'early-prototype') return Math.round(baseCost * 11)
+  if (stage === 'prototype') return Math.round(baseCost * 6)
+  if (stage === 'improved') return Math.round(baseCost * 0.5)
+  if (stage === 'enhanced') return Math.round(baseCost * 0.25)
+  if (stage === 'advanced') return Math.round(baseCost * 0.1)
+  if (stage === 'superior') return Math.round(baseCost * 0.05)
+  return baseCost
+})
+
 const addSelectedOption = () => {
   if (!selectedRule.value || !selectedRuleIsAvailable.value) return
   props.vehicle.equipmentEntries.push({
     name: optionDisplayName.value,
     spaces: optionSpaces.value,
+    cost: selectedRule.value.cost,
+    costCredits: selectedOptionCostCredits.value,
+    techLevel: selectedRule.value.techLevel,
+    familyId: selectedRule.value.familyId,
+    requirement: selectedRule.value.requirement ?? '',
+    restriction: selectedRule.value.restriction ?? '',
+    effect: selectedRule.value.effect,
+    powered: Boolean(selectedRule.value.powered),
+    modeled: selectedRule.value.modeled,
     category: selectedFamily.value.category,
     catalogueId: selectedRule.value.id,
   })
@@ -611,6 +715,9 @@ const addSelectedOption = () => {
               {{ selectedRuleIsAvailable ? 'Available' : `Requires TL ${selectedRule.techLevel}` }}
             </span>
           </div>
+          <p class="mt-4 rounded-md border border-cyan-400/20 bg-slate-950/60 p-3 text-sm leading-6 text-cyan-50/85">
+            {{ selectedRuleDescription }}
+          </p>
 
           <div class="mt-4 grid gap-px overflow-hidden rounded-md border border-cyan-400/20 text-sm">
             <div class="grid grid-cols-[9.5rem_minmax(0,1fr)]">

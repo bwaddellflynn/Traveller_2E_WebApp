@@ -182,6 +182,23 @@ const installedComputerBandwidth = computed(() => Math.max(0, ...installedRuleMa
 const usedBandwidth = computed(() => installedRuleMatches.value.reduce((total, { rule }) => total + (rule?.bandwidth ?? 0), 0))
 const remainingBandwidth = computed(() => installedComputerBandwidth.value - usedBandwidth.value)
 const selectedRuleIsAvailable = computed(() => selectedRule.value ? props.vehicle.techLevel >= selectedRule.value.techLevel : false)
+const parseCreditAmount = (value: string) => {
+  const match = value.match(/(-?)\s*(MCr|Cr)\s*([0-9]+(?:\.[0-9]+)?)/i)
+  if (!match) return 0
+  return (match[1] === '-' ? -1 : 1) * Number(match[3]) * (match[2].toLowerCase() === 'mcr' ? 1000000 : 1)
+}
+const selectedRuleCostCredits = computed(() => {
+  if (!selectedRule.value) return 0
+  const label = selectedRule.value.cost
+  if (/free at TL\s*(\d+)/i.test(label)) {
+    const freeTl = Number(label.match(/free at TL\s*(\d+)/i)?.[1] ?? 0)
+    if (freeTl && props.vehicle.techLevel >= freeTl) return 0
+  }
+  const amount = parseCreditAmount(label)
+  if (/per\s+vehicle\s+space/i.test(label)) return Math.round(amount * props.vehicle.spaces)
+  if (/per\s+space/i.test(label)) return Math.round(amount * Math.max(0, selectedRule.value.spaces))
+  return Math.round(amount)
+})
 const selectedRuleHasBandwidth = computed(() => {
   if (!selectedRule.value?.bandwidth) return true
   return selectedRule.value.bandwidth <= Math.max(0, remainingBandwidth.value)
@@ -207,6 +224,17 @@ const addSelectedAutomation = () => {
   props.vehicle.equipmentEntries.push({
     name: selectedRule.value.name,
     spaces: selectedRule.value.spaces,
+    cost: selectedRule.value.cost,
+    costCredits: selectedRuleCostCredits.value,
+    techLevel: selectedRule.value.techLevel,
+    familyId: selectedRule.value.familyId,
+    requirement: selectedRule.value.requirement ?? '',
+    restriction: selectedRule.value.restriction ?? '',
+    effect: selectedRule.value.capability,
+    powered: false,
+    modeled: selectedRule.value.modeled,
+    bandwidth: selectedRule.value.bandwidth ?? 0,
+    computerBandwidth: selectedRule.value.computerBandwidth ?? 0,
     category: 'Automation',
     catalogueId: selectedRule.value.id,
   })
