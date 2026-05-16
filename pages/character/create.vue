@@ -107,6 +107,7 @@ const {
   endOfTermAge,
   educationAvailable,
   agingRequired,
+  musteringOutStarted,
   educationEntryFailed,
   currentTermTabId,
   activeTermNumber,
@@ -154,7 +155,6 @@ const {
   basicTrainingOptions,
   basicTrainingLabel,
   agingEffect,
-  musteringOutResults,
   advancementResult,
   advancementResultOpen,
   commissionResult,
@@ -341,7 +341,6 @@ const creatorShellTabs = computed(() => {
 })
 const activeCreatorShellIndex = computed(() => creatorShellTabs.value.findIndex((tab) => tab === activeCreatorTab.value))
 const activeCreatorTabIsTerm = computed(() => activeCreatorTab.value.startsWith('term-'))
-const musteringOutStarted = computed(() => musteringOutResults.value.length > 0)
 const canFooterNavigatePrev = computed(() => {
   if (activeCreatorTabIsTerm.value) {
     return activeTermStepIndex.value > 0 || activeCreatorShellIndex.value > 0
@@ -529,6 +528,7 @@ const activeTermStepComplete = computed(() => {
     if (!termRolls.value.careerSurvival?.finalSuccess) return true
     if (selectedCareerId.value === 'prisoner') return prisonerReleasedThisTerm.value || Boolean(termRolls.value.careerAdvancement)
     if (careerCommissionAvailable.value && !automaticCommissionConstraint.value && !termRolls.value.careerCommission) return false
+    if (termRolls.value.careerCommission?.finalSuccess) return true
     return Boolean(
       termRolls.value.careerAdvancement
       && (!termRolls.value.careerAdvancement.finalSuccess || termRolls.value.careerAdvancementSkill),
@@ -760,12 +760,13 @@ const activeStepPrimaryAction = computed<CreatorStepActionDefinition | null>(() 
       return {
         key: 'roll-commission',
         label: 'Roll 2D',
-        helper: 'Attempt commission before advancement.',
+        helper: 'Attempt commission; success replaces advancement this term.',
       }
     }
     if (
       termRolls.value.careerSurvival?.finalSuccess
       && (automaticCommissionConstraint.value || !!termRolls.value.careerCommission || !careerCommissionAvailable.value)
+      && !termRolls.value.careerCommission?.finalSuccess
       && !termRolls.value.careerAdvancement
     ) {
       return {
@@ -790,6 +791,7 @@ const activeStepPrimaryAction = computed<CreatorStepActionDefinition | null>(() 
     if (
       termRolls.value.careerSurvival?.finalSuccess
       && (automaticCommissionConstraint.value || !!termRolls.value.careerCommission || !careerCommissionAvailable.value)
+      && !termRolls.value.careerCommission?.finalSuccess
       && termRolls.value.careerAdvancement
       && canRerollCreatorAction('roll-advancement')
     ) {
@@ -2206,7 +2208,7 @@ if (import.meta.client) {
                   <p v-if="termRolls.careerCommission.finalSuccess" class="mt-1 text-zinc-600">
                     Commission succeeds into officer rank 1 during this commission step.
                     <span v-if="currentCareerOfficerRank?.title"> Current rank: {{ currentCareerOfficerRank.title }}.</span>
-                    Advancement still follows this term.
+                    No advancement roll is made in the same term.
                   </p>
                   <button v-if="gmOutcomeOverridesEnabled" class="mt-2 text-xs font-semibold text-amber-700 hover:text-amber-900" type="button" @click="toggleRollOverride('careerCommission')">
                     {{ termRolls.careerCommission.overridden ? 'Remove override' : 'Override outcome' }}
@@ -2235,7 +2237,7 @@ if (import.meta.client) {
 
               <div
                 v-if="(
-                  (termRolls.careerSurvival?.finalSuccess && termRolls.careerEvent)
+                  (termRolls.careerSurvival?.finalSuccess && termRolls.careerEvent && !termRolls.careerCommission?.finalSuccess)
                   || (selectedCareerId === 'prisoner' && termRolls.careerSurvival && (!termRolls.careerSurvival.finalSuccess ? termRolls.careerMishap : termRolls.careerEvent))
                 ) && !pendingEventResolutions.some((resolution) => !resolution.resolved)"
                 v-show="activeTermStep === 'advancement'"

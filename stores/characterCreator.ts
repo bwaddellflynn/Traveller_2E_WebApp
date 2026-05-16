@@ -385,6 +385,8 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
   const advancementResultOpen = ref(false)
   const commissionResult = ref<CommissionResult | null>(null)
   const commissionResultOpen = ref(false)
+  const appliedCareerAdvancementRollKey = ref('')
+  const appliedCareerCommissionRollKey = ref('')
   const appliedSkillRecords = reactive<Record<string, CharacterSkill>>({})
   const educationSkillsApplied = ref(false)
   const universityLevel0Skill = ref('')
@@ -423,6 +425,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
   const rollModifiers = ref<TravellerRollModifier[]>([])
   const benefitRollAdjustments = ref<BenefitRollAdjustment[]>([])
   const benefitRollLedger = ref<BenefitRollLedgerEntry[]>([])
+  const musteringOutStarted = ref(false)
   const musteringOutResults = ref<MusteringOutResult[]>([])
   const selectedMusteringCareerId = ref('')
   const selectedMusteringRollType = ref<MusteringOutRollType>('benefit')
@@ -1502,6 +1505,32 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     psiScore.value = Math.max(0, (psiScore.value ?? 0) + amount)
   }
 
+  const characteristicMaximum = (_characteristicId: CharacteristicId) => 15
+
+  const applyCharacteristicDelta = (characteristicId: CharacteristicId, amount: number) => {
+    if (!amount) return
+
+    if (amount < 0) {
+      characteristicAdjustments[characteristicId] += amount
+      applyAssignedScores()
+      return
+    }
+
+    const maximum = characteristicMaximum(characteristicId)
+    const currentValue = values[characteristicId] ?? 0
+    const appliedAmount = Math.max(0, Math.min(amount, maximum - currentValue))
+    const overflow = amount - appliedAmount
+
+    if (appliedAmount > 0) {
+      characteristicAdjustments[characteristicId] += appliedAmount
+    }
+    if (characteristicId === 'soc' && overflow > 0) {
+      shipShares.value += overflow
+    }
+
+    applyAssignedScores()
+  }
+
   const applyCharacteristicIncrease = (result: string) => {
     const psiMatch = result.trim().match(/^PSI\s*\+(\d+)$/i)
     if (psiMatch) {
@@ -1513,8 +1542,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     if (!match) return false
 
     const characteristicId = match[1].toLowerCase() as CharacteristicId
-    characteristicAdjustments[characteristicId] += Number(match[2])
-    applyAssignedScores()
+    applyCharacteristicDelta(characteristicId, Number(match[2]))
     return true
   }
 
@@ -1600,8 +1628,22 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     return result
   }
 
+  const rollApplicationKey = (kind: 'advancement' | 'commission', roll?: RollResult | null) => {
+    if (!roll) return ''
+    return [
+      currentTermNumber.value,
+      selectedCareerId.value,
+      selectedAssignmentId.value,
+      kind,
+      roll.source,
+      roll.total,
+      roll.finalSuccess ? 'success' : 'failure',
+      roll.dice.join(','),
+    ].join(':')
+  }
+
   const previewCareerAdvancement = () => {
-    advancementResult.value = advancementPreview(termRolls.careerAdvancement)
+    advancementResult.value = applyCareerAdvancement() ?? advancementPreview(termRolls.careerAdvancement)
     advancementResultOpen.value = Boolean(advancementResult.value)
   }
 
@@ -1640,7 +1682,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
   }
 
   const previewCareerCommission = () => {
-    commissionResult.value = commissionPreview(termRolls.careerCommission)
+    commissionResult.value = applyCareerCommission('Commission Roll') ?? commissionPreview(termRolls.careerCommission)
     commissionResultOpen.value = Boolean(commissionResult.value)
   }
 
@@ -1648,14 +1690,24 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     commissionResultOpen.value = false
   }
 
-  const applyCareerRankBonus = (bonus: string | undefined) => {
+  const applyCareerRankBonus = (bonus: string | undefined, source = 'Career Rank') => {
     if (!bonus) return
     if (applyCharacteristicIncrease(bonus)) return
+    const thresholdCharacteristicMatch = bonus.match(/^(STR|DEX|END|INT|EDU|SOC)\s+(\d+)\s+or\s+\1\s*\+(\d+),?\s*whichever is higher$/i)
+    if (thresholdCharacteristicMatch) {
+      const characteristicId = thresholdCharacteristicMatch[1].toLowerCase() as CharacteristicId
+      const targetValue = Number(thresholdCharacteristicMatch[2])
+      const increment = Number(thresholdCharacteristicMatch[3])
+      const currentValue = values[characteristicId] ?? 0
+      applyCharacteristicDelta(characteristicId, Math.max(targetValue - currentValue, increment))
+      return
+    }
+
     const anyTalentMatch = bonus.match(/^Any Talent skill\s+(\d+)$/i)
     if (anyTalentMatch) {
       pendingSkillChoice.value = {
         label: bonus,
-        source: 'Career rank',
+        source,
         options: psionicTalents.map((talent) => talent.id),
         level: Number(anyTalentMatch[1]),
         mode: 'grant',
@@ -1663,25 +1715,31 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
       return
     }
     if (/\bor\b|whichever|any/i.test(bonus)) {
-      recordEventOutcome('Career Rank', { type: 'narrative_event' }, `Resolve rank bonus manually: ${bonus}`, 'pending')
+      recordEventOutcome(source, { type: 'narrative_event' }, `Resolve rank bonus manually: ${bonus}`, 'pending')
       return
     }
 
     const skillBonusMatch = bonus.match(/^(.+?)\s+(\d+)$/)
     if (skillBonusMatch) {
-      setSkillMinimum(skillBonusMatch[1].trim(), Number(skillBonusMatch[2]), 'Career rank')
+      setSkillMinimum(skillBonusMatch[1].trim(), Number(skillBonusMatch[2]), source)
       return
     }
 
-    recordEventOutcome('Career Rank', { type: 'narrative_event' }, `Resolve rank bonus manually: ${bonus}`, 'pending')
+    recordEventOutcome(source, { type: 'narrative_event' }, `Resolve rank bonus manually: ${bonus}`, 'pending')
   }
 
   const applyCareerAdvancement = () => {
     const roll = termRolls.careerAdvancement
     if (selectedTermPath.value !== 'career' || !roll?.finalSuccess) return null
+    const rollKey = rollApplicationKey('advancement', roll)
+    if (appliedCareerAdvancementRollKey.value === rollKey) return advancementResult.value
 
     const preview = advancementPreview(roll)
-    if (!preview || preview.newRank <= preview.previousRank) return preview
+    if (!preview || preview.newRank <= preview.previousRank) {
+      appliedCareerAdvancementRollKey.value = rollKey
+      advancementResult.value = preview
+      return preview
+    }
 
     const rankAssignmentId = careerRankAssignmentId.value
     const state = currentCareerRankState(selectedCareerId.value, rankAssignmentId)
@@ -1691,7 +1749,9 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     else delete state.title
     if (nextRow?.bonus) state.bonus = nextRow.bonus
     else delete state.bonus
-    applyCareerRankBonus(nextRow?.bonus)
+    applyCareerRankBonus(nextRow?.bonus, 'Career Rank')
+    appliedCareerAdvancementRollKey.value = rollKey
+    advancementResult.value = preview
     return preview
   }
 
@@ -1714,27 +1774,38 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     else delete state.title
     if (nextRow?.bonus) state.bonus = nextRow.bonus
     else delete state.bonus
-    applyCareerRankBonus(nextRow?.bonus)
+    applyCareerRankBonus(nextRow?.bonus, 'Career Rank')
     recordEventOutcome(source, { type: 'automatic_promotion' }, `Automatic promotion: ${rankTitle(nextRow, nextRank)}`)
     return state
   }
 
   const applyCareerCommission = (source = 'Commission') => {
+    const roll = termRolls.careerCommission
+    if (roll && !roll.finalSuccess) return null
+    const rollKey = rollApplicationKey('commission', roll)
+    if (rollKey && appliedCareerCommissionRollKey.value === rollKey) return commissionResult.value
     if (!selectedCareerIsMilitary.value) return null
     const rows = resolveCareerRankRows(selectedCareerId.value, 'officer')
     const officerRank = rows.find((row) => row.rank === 1) ?? rows[0]
     if (!officerRank) return null
 
+    const preview = commissionPreview(roll)
     const state = currentCareerRankState(selectedCareerId.value, 'officer')
-    if (state.rank >= officerRank.rank) return state
+    if (state.rank >= officerRank.rank) {
+      if (rollKey) appliedCareerCommissionRollKey.value = rollKey
+      if (preview) commissionResult.value = preview
+      return preview
+    }
 
     state.rank = officerRank.rank
     state.title = officerRank.title ?? 'Officer'
     if (officerRank.bonus) state.bonus = officerRank.bonus
     else delete state.bonus
-    applyCareerRankBonus(officerRank.bonus)
+    applyCareerRankBonus(officerRank.bonus, source)
+    if (rollKey) appliedCareerCommissionRollKey.value = rollKey
+    if (preview) commissionResult.value = preview
     recordEventOutcome(source, { type: 'automatic_commission' }, `${selectedCareer.value.name} commission: ${rankTitle(officerRank, officerRank.rank)}`)
-    return state
+    return preview
   }
 
   const applyAutomaticCommissionResult = () => {
@@ -3426,8 +3497,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
       }
 
       const characteristicId = effect.characteristic as CharacteristicId
-      characteristicAdjustments[characteristicId] += effect.amount
-      applyAssignedScores()
+      applyCharacteristicDelta(characteristicId, effect.amount)
       recordEventOutcome(source, effect)
       return
     }
@@ -4808,6 +4878,8 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     commissionResultOpen.value = false
     advancementResult.value = null
     advancementResultOpen.value = false
+    appliedCareerCommissionRollKey.value = ''
+    appliedCareerAdvancementRollKey.value = ''
     careerSkillResult.value = null
     pendingSkillChoice.value = null
     activeEvent.value = null
@@ -4897,6 +4969,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     rollModifiers.value = []
     benefitRollAdjustments.value = []
     benefitRollLedger.value = []
+    musteringOutStarted.value = false
     musteringOutResults.value = []
     selectedMusteringCareerId.value = ''
     selectedMusteringRollType.value = 'benefit'
@@ -4922,6 +4995,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     currentAge.value = 42
     currentTermNumber.value = 8
     lifepathComplete.value = true
+    musteringOutStarted.value = true
     selectedTermPath.value = 'career'
     selectedCareerId.value = 'navy'
     selectedAssignmentId.value = 'engineering-gunnery'
@@ -5186,6 +5260,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     if (!termRolls.careerSurvival.finalSuccess) return true
     if (!termRolls.careerEvent) return false
     if (careerCommissionAvailable.value && !automaticCommissionConstraint.value && !termRolls.careerCommission) return false
+    if (termRolls.careerCommission?.finalSuccess) return true
     if (!termRolls.careerAdvancement) return false
     if (termRolls.careerAdvancement.finalSuccess && !termRolls.careerAdvancementSkill) return false
     return true
@@ -5241,7 +5316,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
         if (careerCommissionAvailable.value && !automaticCommissionConstraint.value && !termRolls.careerCommission) {
           blockers.push('Resolve commission.')
         }
-        if (!termRolls.careerAdvancement) blockers.push('Resolve advancement.')
+        if (!termRolls.careerCommission?.finalSuccess && !termRolls.careerAdvancement) blockers.push('Resolve advancement.')
       }
       if (termRolls.careerAdvancement?.finalSuccess && !termRolls.careerAdvancementSkill) blockers.push('Roll the advancement skill.')
     }
@@ -5606,6 +5681,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
 
   const musterOut = () => {
     lifepathComplete.value = true
+    musteringOutStarted.value = true
     selectedMusteringCareerId.value = musteringCareerOptions.value[0]?.id ?? ''
   }
 
@@ -6248,6 +6324,8 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     advancementResultOpen,
     commissionResult,
     commissionResultOpen,
+    appliedCareerAdvancementRollKey,
+    appliedCareerCommissionRollKey,
     appliedSkillRecords,
     educationSkillsApplied,
     universityLevel0Skill,
@@ -6279,6 +6357,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     rollModifiers,
     benefitRollAdjustments,
     benefitRollLedger,
+    musteringOutStarted,
     musteringOutResults,
     selectedMusteringCareerId,
     selectedMusteringRollType,
