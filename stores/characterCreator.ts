@@ -1944,6 +1944,43 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     educationSkillsApplied.value = pendingEducationSkillChoices.value.every((item) => item.selected)
   }
 
+  const setupEducationGraduationSkillChoices = () => {
+    const graduation = termRolls.educationGraduation
+    const existingChoices = pendingEducationSkillChoices.value.filter((choice) => !choice.label.startsWith('Graduation service skill '))
+    pendingEducationSkillChoices.value = existingChoices
+
+    if (!selectedEducation.value || !graduation?.finalSuccess) {
+      educationSkillsApplied.value = pendingEducationSkillChoices.value.every((item) => item.selected)
+      return
+    }
+
+    const graduationBenefits = (selectedEducationTableOption.value?.graduationBenefits as Array<Record<string, any>> | undefined)
+      ?? selectedEducation.value?.graduationBenefits
+    const serviceSkillBenefit = graduationBenefits?.find((benefit) => benefit.type === 'same_military_career_service_skill_choices')
+    if (!serviceSkillBenefit) {
+      educationSkillsApplied.value = pendingEducationSkillChoices.value.every((item) => item.selected)
+      return
+    }
+
+    const count = Number(serviceSkillBenefit.count ?? 3)
+    const level = Number(serviceSkillBenefit.level ?? 1)
+    const options = militaryAcademyServiceSkills.value
+    if (!options.length) {
+      educationSkillsApplied.value = pendingEducationSkillChoices.value.every((item) => item.selected)
+      return
+    }
+
+    pendingEducationSkillChoices.value = [
+      ...pendingEducationSkillChoices.value,
+      ...Array.from({ length: count }, (_, index) => ({
+        label: `Graduation service skill ${index + 1}`,
+        level,
+        options,
+      })),
+    ]
+    educationSkillsApplied.value = false
+  }
+
   const addEducationQualificationModifier = (dm: number, source: string) => {
     rollModifiers.value = [
       ...rollModifiers.value,
@@ -2002,23 +2039,6 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
 
       if (benefit.type === 'qualification_dm') {
         addEducationQualificationModifier(Number(educationGraduationHonours.value ? benefit.honoursDm ?? benefit.dm ?? 0 : benefit.dm ?? 0), source)
-      }
-
-      if (benefit.type === 'same_military_career_service_skill_choices') {
-        const count = Number(benefit.count ?? 3)
-        const level = Number(benefit.level ?? 1)
-        const options = militaryAcademyServiceSkills.value
-        if (options.length) {
-          pendingEducationSkillChoices.value = [
-            ...pendingEducationSkillChoices.value,
-            ...Array.from({ length: count }, (_, index) => ({
-              label: `Graduation service skill ${index + 1}`,
-              level,
-              options,
-            })),
-          ]
-          educationSkillsApplied.value = pendingEducationSkillChoices.value.every((item) => item.selected)
-        }
       }
 
       if (benefit.type === 'automatic_entry_same_military_career' && selectedEducationVariant.value) {
@@ -3759,6 +3779,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     consumeRollModifiers(matchingModifiers, label)
 
     if (key === 'educationEntry') handleEducationEntryOutcome()
+    if (key === 'educationGraduation') setupEducationGraduationSkillChoices()
     if (key === 'careerCommission') previewCareerCommission()
     if (key === 'careerAdvancement') previewCareerAdvancement()
   }
@@ -3822,6 +3843,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     roll.finalSuccess = roll.overridden ? !roll.success : roll.success
 
     if (key === 'educationEntry') handleEducationEntryOutcome()
+    if (key === 'educationGraduation') setupEducationGraduationSkillChoices()
     if (key === 'careerCommission') previewCareerCommission()
     if (key === 'careerAdvancement') previewCareerAdvancement()
   }
@@ -5183,7 +5205,11 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
       if (!termRolls.educationEntry) blockers.push('Resolve education entry.')
       else if (!termRolls.educationEntry.finalSuccess) blockers.push('Education entry failed; attempt a career this term.')
       if (termRolls.educationEntry?.finalSuccess) {
-        if (!educationSkillsApplied.value) blockers.push('Apply education skills.')
+        if (!educationSkillsApplied.value) {
+          blockers.push(pendingEducationSkillChoices.value.some((choice) => !choice.selected)
+            ? 'Resolve education skill choices.'
+            : 'Apply education skills.')
+        }
         if (!termRolls.educationEvent) blockers.push('Roll the pre-career event.')
         if (!termRolls.educationGraduation) blockers.push('Resolve graduation.')
       }
