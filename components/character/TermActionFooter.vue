@@ -2,17 +2,31 @@
 import { storeToRefs } from 'pinia'
 import { useCharacterCreatorStore } from '~/stores/characterCreator'
 
+const emit = defineEmits<{
+  musterOut: []
+}>()
 const characterCreator = useCharacterCreatorStore()
 const {
   addTermTab,
-  musterOut,
+  musterOutAtTermEnd,
 } = characterCreator
 const {
   canCompleteTerm,
-  canMusterOut,
+  canMusterOutAtTermEnd,
+  musterOutAccessState,
   nextTermButtonLabel,
   termCompletionBlockers,
 } = storeToRefs(characterCreator)
+
+const logMusterOutAccess = () => {
+  console.info('[Character Creator] Muster out button state', musterOutAccessState.value)
+}
+
+const handleMusterOutAtTermEnd = () => {
+  logMusterOutAccess()
+  musterOutAtTermEnd()
+  emit('musterOut')
+}
 </script>
 
 <template>
@@ -29,9 +43,11 @@ const {
     <div class="flex flex-wrap justify-center gap-3">
       <button
         class="h-10 rounded-md border border-zinc-300 px-4 text-sm font-semibold text-zinc-700 hover:border-zinc-500 disabled:cursor-not-allowed disabled:text-zinc-400"
-        :disabled="!canMusterOut"
+        :disabled="!canMusterOutAtTermEnd"
         type="button"
-        @click="musterOut"
+        @mouseenter="logMusterOutAccess"
+        @focus="logMusterOutAccess"
+        @click="handleMusterOutAtTermEnd"
       >
         Muster Out
       </button>

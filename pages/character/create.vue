@@ -33,6 +33,7 @@ const restartInProgress = ref(false)
 const {
   formatDm,
   skillOptionLabel,
+  basicTrainingSkillLabel,
   resolvePendingSkillChoice,
   applyBasicTraining,
   resolveBasicTrainingChoice,
@@ -1972,7 +1973,7 @@ if (import.meta.client) {
                     :key="entry"
                     class="rounded-md bg-stone-50 px-3 py-2 text-sm text-zinc-800"
                   >
-                    {{ entry }}
+                    {{ basicTrainingSkillLabel(entry) }}
                   </div>
                 </div>
                 <div v-else class="mt-4 flex flex-wrap gap-2">
@@ -1981,7 +1982,7 @@ if (import.meta.client) {
                     :key="entry"
                     class="rounded-md bg-stone-50 px-3 py-2 text-sm text-zinc-800"
                   >
-                    {{ entry }}
+                    {{ basicTrainingSkillLabel(entry) }}
                   </span>
                 </div>
 
@@ -1992,7 +1993,7 @@ if (import.meta.client) {
                     class="flex flex-wrap items-center justify-between gap-3"
                   >
                     <p class="font-medium text-amber-950">
-                      {{ choiceGroup.selected ? `${choiceGroup.label}: ${choiceGroup.selected}` : `Choose for ${choiceGroup.label}` }}
+                      {{ choiceGroup.selected ? `${choiceGroup.label}: ${skillOptionLabel(choiceGroup.selected)}` : `Choose for ${choiceGroup.label}` }}
                     </p>
                     <div v-if="!choiceGroup.selected" class="flex flex-wrap gap-2">
                       <button
@@ -2002,7 +2003,7 @@ if (import.meta.client) {
                         type="button"
                         @click="resolveBasicTrainingChoice(index, choice)"
                       >
-                        {{ choice }}
+                        {{ skillOptionLabel(choice) }}
                       </button>
                     </div>
                   </div>
@@ -2404,8 +2405,8 @@ if (import.meta.client) {
                     class="h-11 rounded-md border border-zinc-300 bg-white px-3 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200"
                   >
                     <option value="">No Education Selected</option>
-                    <option v-for="option in educationOptions" :key="option.id" :value="option.id">
-                      {{ option.name }}
+                    <option v-for="option in educationOptions" :key="option.id" :value="option.id" :disabled="option.disabled">
+                      {{ option.name }}{{ option.disabled ? ' - graduated' : '' }}
                     </option>
                   </select>
 
@@ -2774,7 +2775,7 @@ if (import.meta.client) {
           <div v-show="activeTermStep === 'complete'">
             <PsionicsPanel :roll-modal-open="creatorRollModalOpen" @roll-result="handleCreatorRollModalPayload" />
 
-            <TermActionFooter />
+            <TermActionFooter @muster-out="openMusterOutModal" />
 
             <p v-if="lifepathComplete && creatorSaveMessage" class="mt-5 rounded-md border border-emerald-300/30 bg-emerald-500/10 px-3 py-2 text-sm font-semibold text-emerald-100">
               {{ creatorSaveMessage }}

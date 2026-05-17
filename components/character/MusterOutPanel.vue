@@ -5,10 +5,12 @@ import EventResolutionList from '~/components/character/EventResolutionList.vue'
 import TasLogoIcon from '~/components/TasLogoIcon.vue'
 import { useCharacterCreatorStore } from '~/stores/characterCreator'
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   saveMessage?: string
   showSaveAction?: boolean
-}>()
+}>(), {
+  showSaveAction: true,
+})
 
 const emit = defineEmits<{
   (event: 'show-roll', payload: {

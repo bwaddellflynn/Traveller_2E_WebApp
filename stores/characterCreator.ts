@@ -24,6 +24,8 @@ type EducationOption = {
   name: string
   type: 'university' | 'military-academy'
   variant?: 'army' | 'marine' | 'navy'
+  disabled?: boolean
+  disabledReason?: string
 }
 type CharacterSkill = {
   id: string
@@ -700,6 +702,10 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
   const learnedPsionicTalents = computed(() => psionicTalents.filter((talent) => learnedPsionicTalentIds.value.has(talent.id)))
   const psionicTalentChecksAttempted = computed(() => psionicTalentAttempts.value.filter((attempt) => attempt.source !== 'automatic').length)
   const educationAvailable = computed(() => currentTermNumber.value <= 3)
+  const completedEducationIds = computed(() => new Set(termHistory.value
+    .filter((entry) => entry.path === 'education' && entry.educationId)
+    .filter((entry) => entry.rolls.some((roll) => roll.label === 'Graduation' && (roll.finalSuccess ?? roll.success)))
+    .map((entry) => entry.educationId as string)))
   const agingRequired = computed(() => currentTermNumber.value >= 4)
   const educationEntryFailed = computed(() => termRolls.educationEntry?.finalSuccess === false)
   const currentTermTabId = computed<CreatorTab>(() => `term-${currentTermNumber.value}` as CreatorTab)
@@ -742,7 +748,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
   }))
   const preCareerEducation = creationRulesData.preCareerEducation
   const preCareerEducationTables = (educationTablesData as { options?: Array<Record<string, any>> }).options ?? []
-  const educationOptions = computed<EducationOption[]>(() => [
+  const baseEducationOptions: EducationOption[] = [
     {
       id: 'university',
       name: 'University',
@@ -766,14 +772,23 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
       type: 'military-academy',
       variant: 'navy',
     },
-  ])
+  ]
+  const educationOptions = computed<EducationOption[]>(() => baseEducationOptions.map((option) => {
+    if (!completedEducationIds.value.has(option.id)) return option
+    return {
+      ...option,
+      disabled: true,
+      disabledReason: 'Already graduated from this education stream.',
+    }
+  }))
   const selectedEducationOption = computed(() => educationOptions.value.find((option) => option.id === selectedEducationId.value) ?? null)
+  const selectedEducationBlocked = computed(() => Boolean(selectedEducationOption.value?.disabled))
   const selectedEducation = computed(() => {
-    if (!selectedEducationOption.value) return null
+    if (!selectedEducationOption.value || selectedEducationBlocked.value) return null
     return preCareerEducation.find((option) => option.id === selectedEducationOption.value.type) ?? null
   })
   const selectedEducationTableOption = computed(() => {
-    if (!selectedEducationId.value) return null
+    if (!selectedEducationId.value || selectedEducationBlocked.value) return null
     return preCareerEducationTables.find((option) => option.id === selectedEducationId.value) ?? null
   })
   const educationGraduationHonours = computed(() => {
@@ -937,11 +952,26 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     return constraint.effectType === 'natural_12_continue' && constraint.careerId === selectedCareerId.value
   }))
   const currentAdvancementNaturalTwelve = computed(() => {
+    if (selectedTermPath.value !== 'career') return false
     const roll = termRolls.careerAdvancement
     if (!roll) return false
-    return roll.dice.reduce((sum, value) => sum + value, 0) === 12
+    const diceTotal = roll.dice.reduce((sum, value) => sum + value, 0)
+    if (diceTotal !== 12) return false
+    if (
+      termRolls.careerSurvival?.finalSuccess === false
+      && selectedCareerId.value !== 'prisoner'
+      && !currentTermConstraintExists('not_forced_out')
+    ) return false
+    return true
   })
   const canMusterOut = computed(() => termHistory.value.length > 0 && !lifepathComplete.value && !mustContinueCareer.value && !currentAdvancementNaturalTwelve.value)
+  const canMusterOutAtTermEnd = computed(() => {
+    if (lifepathComplete.value || currentAdvancementNaturalTwelve.value) return false
+    if (activeCreatorTab.value !== currentTermTabId.value) return canMusterOut.value
+    const currentTermAlreadyCommitted = termHistory.value.some((entry) => entry.termNumber === currentTermNumber.value)
+    if (currentTermAlreadyCommitted) return canMusterOut.value
+    return canCompleteTerm.value
+  })
   const careerOptions = computed(() => careersData.careers.map((career) => {
     const forcedCareerId = forcedCareerConstraint.value?.careerId
     const forcedOut = forcedOutCareerIds.value.has(career.id)
@@ -1129,7 +1159,10 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     if (!termRolls.careerSurvival?.finalSuccess) return false
     return careerTermsCompleted.value === 0 || values.soc >= 9
   })
-  const careerRankAssignmentId = computed(() => selectedCareerIsMilitary.value && currentCareerIsOfficer.value ? 'officer' : selectedAssignmentId.value)
+  const careerRankAssignmentId = computed(() => {
+    if (!selectedCareerIsMilitary.value) return selectedAssignmentId.value
+    return currentCareerIsOfficer.value ? 'officer' : 'enlisted'
+  })
   const basicTrainingRequired = computed(() => {
     return selectedTermPath.value === 'career' && !completedBasicTrainingCareerIds.value.has(selectedCareerId.value)
   })
@@ -1210,6 +1243,12 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     if (!tables.some((table) => table.id === selectedAdvancementSkillTableId.value)) {
       selectedAdvancementSkillTableId.value = tables[0]?.id ?? 'personal-development'
     }
+  })
+
+  watch([selectedEducationId, educationOptions], ([educationId]) => {
+    if (!educationId) return
+    const selectedOption = educationOptions.value.find((option) => option.id === educationId)
+    if (selectedOption?.disabled) selectedEducationId.value = ''
   })
 
   watch(selectedEducationId, () => {
@@ -1402,7 +1441,24 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     return unique
   }
   const expandSkillOptionForLevel = (option: string, level: number) => {
+    const parentheticalChoiceMatch = option.trim().match(/^(.+?)\s*\((.+)\)$/)
+    if (parentheticalChoiceMatch) {
+      const baseSkill = skillFromLabel(parentheticalChoiceMatch[1].trim())
+      const specialityChoices = parentheticalChoiceMatch[2]
+        .split(/\s+or\s+/i)
+        .map((choice) => choice.trim())
+        .filter(Boolean)
+
+      if (specialityChoices.length > 1 && skillHasSpecialities(baseSkill.baseId)) {
+        if (!skillNeedsSpecialityAtLevel(baseSkill.baseId, level)) return [baseSkill.baseId]
+        return specialityChoices.map((choice) => skillFromLabel(`${baseSkill.baseId}/${choice}`).id)
+      }
+    }
+
     const parsed = skillFromLabel(option)
+    if (parsed.specialityId && parsed.specialityId !== 'any' && !skillNeedsSpecialityAtLevel(parsed.baseId, level)) {
+      return [parsed.baseId]
+    }
     if (parsed.specialityId && parsed.specialityId !== 'any') return [parsed.id]
     if (!skillNeedsSpecialityAtLevel(parsed.baseId, level)) return [parsed.baseId]
 
@@ -1412,6 +1468,14 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
   const expandSkillOptionsForLevel = (options: string[], level: number) => {
     return uniqueSkillOptions(options.flatMap((option) => expandSkillOptionForLevel(option, level)))
   }
+  const basicTrainingSkillId = (entry: string) => {
+    const expanded = expandSkillOptionForLevel(entry, 0)
+    const parsed = skillFromLabel(expanded[0] ?? entry)
+    return skillSpecialityMode(parsed.baseId) === 'independent'
+      ? parsed.id
+      : parsed.baseId
+  }
+  const basicTrainingSkillLabel = (entry: string) => skillOptionLabel(basicTrainingSkillId(entry))
   const queuePendingSkillChoice = (choice: PendingSkillChoice) => {
     pendingSkillChoiceQueue.value = [...pendingSkillChoiceQueue.value, choice]
   }
@@ -1555,6 +1619,19 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
   }))
 
   const setSkillMinimum = (label: string, level: number, source: string) => {
+    const expandedOptions = expandSkillOptionForLevel(label, level)
+    if (expandedOptions.length > 1) {
+      queuePendingSkillChoice({
+        label: `${skillFromLabel(label).baseName} specialty`,
+        source,
+        options: expandedOptions,
+        level,
+        mode: 'grant',
+        baseSkillId: skillFromLabel(label).baseId,
+      })
+      return
+    }
+    label = expandedOptions[0] ?? label
     const skill = skillFromLabel(label)
     if ((!skill.specialityId || skill.specialityId === 'any') && skillNeedsSpecialityAtLevel(skill.baseId, level)) {
       if (queueSpecialitySkillChoice(skill.baseId, source, `${skill.name} specialty`, level, false)) return
@@ -1579,6 +1656,19 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
   }
 
   const increaseSkill = (label: string, source: string) => {
+    const expandedOptions = expandSkillOptionForLevel(label, 1)
+    if (expandedOptions.length > 1) {
+      queuePendingSkillChoice({
+        label: `${skillFromLabel(label).baseName} specialty`,
+        source,
+        options: expandedOptions,
+        increase: true,
+        mode: 'grant',
+        baseSkillId: skillFromLabel(label).baseId,
+      })
+      return
+    }
+    label = expandedOptions[0] ?? label
     const skill = skillFromLabel(label)
     if ((!skill.specialityId || skill.specialityId === 'any') && skillHasSpecialities(skill.baseId)) {
       if (queueSpecialitySkillChoice(skill.baseId, source, `${skill.name} specialty`, undefined, true)) return
@@ -1669,7 +1759,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
 
   const makeDefaultCareerRankState = (careerId: string, assignmentId?: string): CareerRankState => {
     const rows = resolveCareerRankRows(careerId, assignmentId)
-    const startingRow = rows.find((row) => row.rank === 0) ?? rows[0]
+    const startingRow = rows.find((row) => row.rank === 0)
     const career = careersData.careers.find((item) => item.id === careerId)
     const assignment = career?.assignments.find((item) => item.id === assignmentId)
     const state: CareerRankState = {
@@ -1686,7 +1776,19 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
 
   const findCareerRankState = (careerId: string, assignmentId?: string) => {
     const key = careerRankKey(careerId, assignmentId)
-    return careerRanks.value.find((rank) => careerRankKey(rank.careerId, rank.assignmentId) === key)
+    const existing = careerRanks.value.find((rank) => careerRankKey(rank.careerId, rank.assignmentId) === key)
+    if (existing) return existing
+
+    if (assignmentId !== 'enlisted' || !militaryCareerIds.includes(careerId)) return undefined
+
+    const legacyAssignmentRank = careerRanks.value
+      .filter((rank) => rank.careerId === careerId && rank.assignmentId !== 'officer')
+      .sort((left, right) => right.rank - left.rank)[0]
+
+    if (!legacyAssignmentRank) return undefined
+    legacyAssignmentRank.assignmentId = 'enlisted'
+    delete legacyAssignmentRank.assignmentName
+    return legacyAssignmentRank
   }
 
   const currentCareerRankState = (careerId: string, assignmentId?: string) => {
@@ -2046,7 +2148,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
   }
 
   const applyBasicTrainingEntry = (entry: string) => {
-    setSkillMinimum(entry, 0, 'Basic Training')
+    setSkillMinimum(basicTrainingSkillId(entry), 0, 'Basic Training')
   }
 
   const markBasicTrainingComplete = () => {
@@ -2072,8 +2174,8 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
       const choice = splitChoiceResult(entry)
       if (choice) {
         pendingBasicTrainingChoices.value.push({
-          label: entry,
-          options: choice,
+          label: basicTrainingSkillLabel(entry),
+          options: choice.map((option) => basicTrainingSkillId(option)),
         })
         continue
       }
@@ -2612,15 +2714,31 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     return 0
   }
 
+  const specialityCheckOptionsForSkill = (skillId: string) => {
+    const parsed = skillFromLabel(skillId)
+    if (parsed.specialityId && parsed.specialityId !== 'any') return undefined
+    if (!skillHasSpecialities(parsed.baseId)) return undefined
+
+    const options = skillSpecialityOptions(parsed.baseId)
+    if (!options.length) return undefined
+
+    return [...options].sort((left, right) => {
+      const dmDifference = skillCheckDm(right) - skillCheckDm(left)
+      if (dmDifference) return dmDifference
+      return skillOptionLabel(left).localeCompare(skillOptionLabel(right))
+    })
+  }
+
   const knownTermSkillCheckLabel = (skillId: string, target: number) => {
     const characteristic = defaultSkillCharacteristicLabel(skillId)
     return `${skillOptionLabel(skillId)}${characteristic ? ` + ${characteristic}` : ''} ${target}+`
   }
 
   const addCheckResolution = (effect: TravellerEventEffect, source: string, label = tableEffectLabel(effect)) => {
+    const check = effect.check as Record<string, any> | undefined
     const checkSkillOptions = effect.type === 'check_known_term_skill'
       ? [...currentTermLearnedSkillOptions.value]
-      : undefined
+      : check?.skill ? specialityCheckOptionsForSkill(String(check.skill)) : undefined
     if (effect.type === 'check_known_term_skill' && !checkSkillOptions?.length) {
       addManualEventResolution(effect, source, `${label} manually.`)
       return
@@ -5446,6 +5564,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     if (pendingEventResolutions.value.some((resolution) => !resolution.resolved)) return false
 
     if (selectedTermPath.value === 'education') {
+      if (selectedEducationBlocked.value) return false
       if (!selectedEducation.value) return false
       if (!educationAvailable.value) return false
       if (!termRolls.educationEntry) return false
@@ -5484,6 +5603,10 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     if (pendingEventResolutions.value.some((resolution) => !resolution.resolved)) blockers.push('Resolve pending event choices.')
 
     if (selectedTermPath.value === 'education') {
+      if (selectedEducationBlocked.value) {
+        blockers.push(selectedEducationOption.value?.disabledReason ?? 'This education option is no longer available.')
+        return blockers
+      }
       if (!selectedEducation.value) {
         blockers.push('Select an education option.')
         return blockers
@@ -5541,6 +5664,65 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
 
     return blockers
   })
+  const musterOutAccessState = computed(() => {
+    const currentTermAlreadyCommitted = termHistory.value.some((entry) => entry.termNumber === currentTermNumber.value)
+    const completedCareerTerms = termHistory.value.filter((entry) => entry.path === 'career').length
+    const blockers: string[] = []
+    const warnings: string[] = []
+
+    if (lifepathComplete.value) blockers.push('Lifepath is already complete.')
+    if (currentAdvancementNaturalTwelve.value) blockers.push('Natural 12 on advancement requires continuing this career.')
+    if (mustContinueCareer.value) blockers.push('An active career constraint requires continuing this career.')
+    if (selectedTermPath.value === 'education') warnings.push('Pre-career education does not normally use mustering out.')
+    if (!completedCareerTerms && !(selectedTermPath.value === 'career' && canCompleteTerm.value)) {
+      blockers.push('No completed career term is available to muster out from.')
+    }
+
+    if (activeCreatorTab.value === currentTermTabId.value && !currentTermAlreadyCommitted && !canCompleteTerm.value) {
+      blockers.push(...(termCompletionBlockers.value.length ? termCompletionBlockers.value : ['Current term is not complete.']))
+    }
+
+    if (!canMusterOut.value && currentTermAlreadyCommitted && !blockers.length) {
+      blockers.push('Base muster-out gate is closed.')
+    }
+
+    return {
+      available: canMusterOutAtTermEnd.value,
+      baseAvailable: canMusterOut.value,
+      termEndAvailable: canMusterOutAtTermEnd.value,
+      blockers,
+      warnings,
+      context: {
+        activeCreatorTab: activeCreatorTab.value,
+        currentTermTabId: currentTermTabId.value,
+        currentTermNumber: currentTermNumber.value,
+        selectedTermPath: selectedTermPath.value,
+        selectedCareerId: selectedCareerId.value,
+        selectedAssignmentId: selectedAssignmentId.value,
+        lifepathComplete: lifepathComplete.value,
+        musteringOutStarted: musteringOutStarted.value,
+        completedTerms: termHistory.value.length,
+        completedCareerTerms,
+        currentTermAlreadyCommitted,
+        canCompleteTerm: canCompleteTerm.value,
+        canMusterOut: canMusterOut.value,
+        canMusterOutAtTermEnd: canMusterOutAtTermEnd.value,
+        mustContinueCareer: mustContinueCareer.value,
+        currentAdvancementNaturalTwelve: currentAdvancementNaturalTwelve.value,
+        prisonerParoleThresholdRequired: prisonerParoleThresholdRequired.value,
+        prisonerReleasedThisTerm: prisonerReleasedThisTerm.value,
+        pendingEventResolutions: pendingEventResolutions.value.filter((resolution) => !resolution.resolved).length,
+        pendingSkillChoice: Boolean(pendingSkillChoice.value),
+      },
+    }
+  })
+
+  if (import.meta.client) {
+    watch(musterOutAccessState, (state) => {
+      ;(window as any).__scoutSuiteMusterOutAccess = state
+      console.info('[Character Creator] Muster out access', state)
+    }, { deep: true, immediate: true })
+  }
   const canAddTermTab = computed(() => {
     if (lifepathComplete.value) return false
     if (isSetupCreatorTab.value) return setupComplete.value
@@ -5789,7 +5971,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     ]
   }
 
-  const completeCurrentTerm = () => {
+  const completeCurrentTerm = (advanceToNextTerm = true) => {
     if (!canCompleteTerm.value) return
 
     const rolls = Object.values(termRolls).filter((roll): roll is RollResult => Boolean(roll))
@@ -5883,17 +6065,29 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
       return { ...constraint, used: true }
     })
 
-    currentTermNumber.value += 1
-    resetTermRolls()
-    prisonerReleasedThisTerm.value = false
-    currentTermBenefitKept.value = false
-    activeCreatorTab.value = `term-${currentTermNumber.value}` as CreatorTab
+    if (advanceToNextTerm) {
+      currentTermNumber.value += 1
+      resetTermRolls()
+      prisonerReleasedThisTerm.value = false
+      currentTermBenefitKept.value = false
+      activeCreatorTab.value = `term-${currentTermNumber.value}` as CreatorTab
+    }
   }
 
   const musterOut = () => {
     lifepathComplete.value = true
     musteringOutStarted.value = true
     selectedMusteringCareerId.value = musteringCareerOptions.value[0]?.id ?? ''
+  }
+
+  const musterOutAtTermEnd = () => {
+    if (lifepathComplete.value || currentAdvancementNaturalTwelve.value) return
+    const currentTermAlreadyCommitted = termHistory.value.some((entry) => entry.termNumber === currentTermNumber.value)
+    if (activeCreatorTab.value === currentTermTabId.value && canCompleteTerm.value && !currentTermAlreadyCommitted) {
+      completeCurrentTerm(false)
+    }
+    if (!canMusterOut.value) return
+    musterOut()
   }
 
   const highestCareerRanks = computed<Record<string, number>>(() => {
@@ -6684,6 +6878,8 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     drifterFallbackAvailable,
     requiredDraftAvailable,
     canMusterOut,
+    canMusterOutAtTermEnd,
+    musterOutAccessState,
     activeDraftNextTermConstraint,
     automaticCareerEntryConstraint,
     currentCareerTableData,
@@ -6720,6 +6916,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     basicTrainingEntries,
     basicTrainingOptions,
     basicTrainingLabel,
+    basicTrainingSkillLabel,
     toggleBackgroundSkill,
     backgroundSkillSelected,
     canSelectBackgroundSkill,
@@ -6827,6 +7024,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     addTermTab,
     completeCurrentTerm,
     musterOut,
+    musterOutAtTermEnd,
     totalBenefitRollsEarned,
     totalBenefitRollAdjustments,
     totalAvailableBenefitRolls,
