@@ -51,6 +51,8 @@ const {
   flexibleBenefitRollsAvailable,
   cashRollsUsed,
   cashRollLimit,
+  musteringOutPending,
+  musteringOutComplete,
   canRollMusteringOut,
   musteringCareerOptions,
   selectedMusteringCareerBenefits,
@@ -75,7 +77,16 @@ const unresolvedMusteringOutSkillChoice = computed(() => {
   return Boolean(pendingSkillChoice.value && pendingSkillChoice.value.source.startsWith('Mustering Out'))
 })
 
-const saveDisabled = computed(() => unresolvedMusteringOutResolutions.value || unresolvedMusteringOutSkillChoice.value)
+const saveDisabled = computed(() => !musteringOutComplete.value)
+const saveStatusText = computed(() => {
+  if (unresolvedMusteringOutResolutions.value || unresolvedMusteringOutSkillChoice.value || musteringOutPending.value) {
+    return 'Resolve pending mustering-out rewards before saving this traveller.'
+  }
+  if (remainingBenefitRolls.value > 0) {
+    return `Spend ${remainingBenefitRolls.value} remaining benefit ${remainingBenefitRolls.value === 1 ? 'roll' : 'rolls'} before saving this traveller.`
+  }
+  return 'Mustering out is complete. Save this traveller and open the character sheet.'
+})
 const voucherBenefitTypes = new Set([
   'weapon',
   'gun',
@@ -334,7 +345,7 @@ const triggerManualMusteringOutBenefit = () => {
 
     <div v-if="showSaveAction !== false" class="mt-6 border-t border-cyan-400/15 pt-5">
       <p class="text-sm text-cyan-100/70">
-        Mustering out is complete when you are satisfied with the ledger above. This saves the traveller and opens the character sheet.
+        {{ saveStatusText }}
       </p>
       <button
         :class="[

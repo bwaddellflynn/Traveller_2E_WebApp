@@ -202,8 +202,7 @@
     {
       "id": "language",
       "name": "Language",
-      "requiresSpeciality": true,
-      "specialityMode": "independent",
+      "specialityMode": "shared-zero",
       "specialities": [
         "galanglic",
         "vilani",
@@ -258,7 +257,6 @@
     {
       "id": "profession",
       "name": "Profession",
-      "requiresSpeciality": true,
       "specialityMode": "independent",
       "specialities": [
         "belter",

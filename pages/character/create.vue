@@ -134,6 +134,7 @@ const {
   requiredDraftAvailable,
   drifterFallbackAvailable,
   sameCareerContinuationAvailable,
+  mishapContinuationAvailable,
   automaticCareerEntryConstraint,
   selectedCareerCommissionCheck,
   careerCommissionAvailable,
@@ -525,8 +526,14 @@ const activeTermStepComplete = computed(() => {
     return Boolean(termRolls.value.careerEvent && !unresolvedEventResolutions.value)
   }
   if (activeTermStep.value === 'advancement') {
-    if (!termRolls.value.careerSurvival?.finalSuccess) return true
     if (selectedCareerId.value === 'prisoner') return prisonerReleasedThisTerm.value || Boolean(termRolls.value.careerAdvancement)
+    if (!termRolls.value.careerSurvival?.finalSuccess) {
+      if (!mishapContinuationAvailable.value) return true
+      return Boolean(
+        termRolls.value.careerAdvancement
+        && (!termRolls.value.careerAdvancement.finalSuccess || termRolls.value.careerAdvancementSkill),
+      )
+    }
     if (careerCommissionAvailable.value && !automaticCommissionConstraint.value && !termRolls.value.careerCommission) return false
     if (termRolls.value.careerCommission?.finalSuccess) return true
     return Boolean(
@@ -764,9 +771,14 @@ const activeStepPrimaryAction = computed<CreatorStepActionDefinition | null>(() 
       }
     }
     if (
-      termRolls.value.careerSurvival?.finalSuccess
-      && (automaticCommissionConstraint.value || !!termRolls.value.careerCommission || !careerCommissionAvailable.value)
-      && !termRolls.value.careerCommission?.finalSuccess
+      (
+        (
+          termRolls.value.careerSurvival?.finalSuccess
+          && (automaticCommissionConstraint.value || !!termRolls.value.careerCommission || !careerCommissionAvailable.value)
+          && !termRolls.value.careerCommission?.finalSuccess
+        )
+        || mishapContinuationAvailable.value
+      )
       && !termRolls.value.careerAdvancement
     ) {
       return {
@@ -789,9 +801,14 @@ const activeStepPrimaryAction = computed<CreatorStepActionDefinition | null>(() 
       return makeRerollAction('roll-advancement-skill', 'Roll the advancement skill table again and overwrite the extra skill result.')
     }
     if (
-      termRolls.value.careerSurvival?.finalSuccess
-      && (automaticCommissionConstraint.value || !!termRolls.value.careerCommission || !careerCommissionAvailable.value)
-      && !termRolls.value.careerCommission?.finalSuccess
+      (
+        (
+          termRolls.value.careerSurvival?.finalSuccess
+          && (automaticCommissionConstraint.value || !!termRolls.value.careerCommission || !careerCommissionAvailable.value)
+          && !termRolls.value.careerCommission?.finalSuccess
+        )
+        || mishapContinuationAvailable.value
+      )
       && termRolls.value.careerAdvancement
       && canRerollCreatorAction('roll-advancement')
     ) {
@@ -2238,6 +2255,7 @@ if (import.meta.client) {
               <div
                 v-if="(
                   (termRolls.careerSurvival?.finalSuccess && termRolls.careerEvent && !termRolls.careerCommission?.finalSuccess)
+                  || mishapContinuationAvailable
                   || (selectedCareerId === 'prisoner' && termRolls.careerSurvival && (!termRolls.careerSurvival.finalSuccess ? termRolls.careerMishap : termRolls.careerEvent))
                 ) && !pendingEventResolutions.some((resolution) => !resolution.resolved)"
                 v-show="activeTermStep === 'advancement'"
@@ -2247,6 +2265,9 @@ if (import.meta.client) {
                   <div>
                     <p class="text-sm font-semibold">Advancement Roll</p>
                     <p class="text-sm text-zinc-600">{{ checkLabel(selectedAssignment.advancement) }}</p>
+                    <p v-if="mishapContinuationAvailable" class="mt-1 text-sm text-zinc-600">
+                      This mishap does not force the traveller out, so resolve advancement before completing the term.
+                    </p>
                   </div>
                 </div>
                 <div v-if="gmManualCheckRollEntryEnabled" class="mt-3 flex flex-wrap gap-2">
