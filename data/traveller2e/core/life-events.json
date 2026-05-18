@@ -89,10 +89,10 @@
       "events": [
         { "roll": 1, "id": "psionics", "name": "Psionics", "text": "You encounter psionic phenomena or a psionic group. You may test PSI and may be able to enter the Psion career next term.", "effects": [{ "type": "may_test_psionic_strength" }, { "type": "may_take_career_next_term", "careerId": "psion" }] },
         { "roll": 2, "id": "aliens", "name": "Aliens", "text": "You spend meaningful time with aliens or alien culture. Gain Science 1 and an alien Contact.", "effects": [{ "type": "set_skill", "skillId": "science", "level": 1 }, { "type": "gain_associate", "associateTypes": ["contact"], "tags": ["alien"] }] },
-        { "roll": 3, "id": "alien-artefact", "name": "Alien Artefact", "text": "You come into possession of an alien artefact. Record it as a personal benefit or plot item.", "effects": [{ "type": "gain_item", "itemType": "alien-artefact" }] },
+        { "roll": 3, "id": "alien-artefact", "name": "Alien Artefact", "text": "You have a strange and unusual device from an alien culture that is not normally available to humans.", "effects": [{ "type": "gain_item", "itemType": "alien-artefact" }] },
         { "roll": 4, "id": "amnesia", "name": "Amnesia", "text": "Something causes a gap in your memory. Define what is missing and who or what might know the truth.", "effects": [{ "type": "narrative_event" }] },
         { "roll": 5, "id": "contact-with-government", "name": "Contact with Government", "text": "You are contacted by or become involved with a government agency. Define the agency and what it wants.", "effects": [{ "type": "narrative_event" }] },
-        { "roll": 6, "id": "ancient-technology", "name": "Ancient Technology", "text": "You encounter ancient technology. Record it as a personal benefit, mystery or plot item.", "effects": [{ "type": "gain_item", "itemType": "ancient-technology" }] }
+        { "roll": 6, "id": "ancient-technology", "name": "Ancient Technology", "text": "You have something older than the Imperium or even something older than humanity.", "effects": [{ "type": "gain_item", "itemType": "ancient-technology" }] }
       ]
     }
   }

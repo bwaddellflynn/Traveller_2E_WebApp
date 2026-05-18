@@ -95,6 +95,11 @@ const displayDice = computed(() => {
             </span>
           </div>
 
+          <div v-if="result && !rolling" class="dice-roll-modal__outcome">
+            <span class="dice-roll-modal__outcome-label">Result</span>
+            <span class="dice-roll-modal__outcome-value">{{ result }}</span>
+          </div>
+
           <div v-if="detailLines.length && !rolling" class="dice-roll-modal__details">
             <div v-for="(line, index) in detailLines" :key="`${title}-detail-${index}`" class="dice-roll-modal__detail-line">
               {{ line }}
@@ -384,6 +389,42 @@ const displayDice = computed(() => {
     drop-shadow(0 0 18px rgb(245 158 11 / 0.26));
 }
 
+.dice-roll-modal__outcome {
+  display: grid;
+  gap: 0.35rem;
+  justify-items: center;
+  margin-top: -0.2rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid rgb(34 211 238 / 0.2);
+  background:
+    linear-gradient(180deg, rgb(8 47 73 / 0.42), rgb(4 10 20 / 0.72)),
+    radial-gradient(circle at 50% 0, rgb(34 211 238 / 0.12), transparent 6rem);
+  box-shadow:
+    inset 0 0 0 1px rgb(34 211 238 / 0.05),
+    0 0 20px rgb(34 211 238 / 0.08);
+  clip-path: polygon(0 0, calc(100% - 0.75rem) 0, 100% 0.75rem, 100% 100%, 0.75rem 100%, 0 calc(100% - 0.75rem));
+  animation: dice-roll-outcome-settle 220ms ease-out;
+}
+
+.dice-roll-modal__outcome-label {
+  color: rgb(186 230 253 / 0.74);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.dice-roll-modal__outcome-value {
+  color: rgb(236 254 255);
+  font-size: 1.08rem;
+  font-weight: 900;
+  line-height: 1.2;
+  text-align: center;
+  text-shadow:
+    0 0 1px rgb(255 255 255 / 0.78),
+    0 0 12px rgb(34 211 238 / 0.28);
+}
+
 .dice-roll-modal__reroll {
   display: inline-flex;
   align-items: center;
@@ -458,6 +499,17 @@ const displayDice = computed(() => {
     filter:
       drop-shadow(0 0 8px rgb(252 211 77 / 0.32))
       drop-shadow(0 0 18px rgb(245 158 11 / 0.26));
+  }
+}
+
+@keyframes dice-roll-outcome-settle {
+  0% {
+    opacity: 0;
+    transform: translateY(0.35rem);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 

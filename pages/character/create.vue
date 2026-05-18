@@ -358,6 +358,29 @@ const canFooterNavigateNext = computed(() => {
 const folderTabPosition = (index: number, count: number) => count <= 1 ? 0 : index / (count - 1)
 const unresolvedEventResolutions = computed(() => pendingEventResolutions.value.some((resolution) => !resolution.resolved))
 const unresolvedEducationSkillChoices = computed(() => pendingEducationSkillChoices.value.some((choice) => !choice.selected))
+const graduationServiceSkillChoicePrefix = 'Graduation service skill '
+const visiblePendingEducationSkillChoices = computed(() => {
+  const selectedGraduationServiceSkills = pendingEducationSkillChoices.value
+    .filter((choice) => choice.label.startsWith(graduationServiceSkillChoicePrefix) && choice.selected)
+    .map((choice) => choice.selected as string)
+  const firstOpenGraduationServiceSkillIndex = pendingEducationSkillChoices.value.findIndex((choice) =>
+    choice.label.startsWith(graduationServiceSkillChoicePrefix) && !choice.selected)
+
+  return pendingEducationSkillChoices.value
+    .map((choice, index) => {
+      const graduationServiceChoice = choice.label.startsWith(graduationServiceSkillChoicePrefix)
+      const hidden = graduationServiceChoice && !choice.selected && index !== firstOpenGraduationServiceSkillIndex
+      return {
+        ...choice,
+        originalIndex: index,
+        hidden,
+        options: graduationServiceChoice
+          ? choice.options.filter((option) => !selectedGraduationServiceSkills.includes(option) || choice.selected === option)
+          : choice.options,
+      }
+    })
+    .filter((choice) => !choice.hidden)
+})
 
 const navigateMobileTermStep = (direction: 'prev' | 'next') => {
   const count = termStepTabs.value.length
@@ -676,7 +699,7 @@ const activeStepPrimaryAction = computed<CreatorStepActionDefinition | null>(() 
         helper: 'Set the parole threshold for this Prisoner term.',
       }
     }
-    if (termRolls.value.careerQualification && canRerollCreatorAction('roll-qualification')) {
+    if (termRolls.value.careerQualification && !termRolls.value.draft && canRerollCreatorAction('roll-qualification')) {
       return makeRerollAction('roll-qualification', 'Roll qualification again and reset later career progress from this term.')
     }
     if (
@@ -1215,6 +1238,23 @@ const showRollFromRecord = (roll: { label: string; notes?: string; dm: number; t
   void startCreatorRollModal(roll.label, result, roll.dm, roll.total, dice)
 }
 
+const checkRollResultLabel = (key: string) => {
+  const roll = termRolls.value[key]
+  if (!roll) return ''
+  const success = Boolean(roll.finalSuccess)
+  const labels: Record<string, [string, string]> = {
+    careerQualification: ['Qualified', 'Failed qualification'],
+    educationEntry: ['Entered', 'Failed entry'],
+    educationGraduation: ['Graduated', 'Failed graduation'],
+    careerSurvival: ['Survived', 'Mishap'],
+    careerCommission: ['Commissioned', 'No commission'],
+    careerAdvancement: ['Advanced', 'No advancement'],
+  }
+  const label = labels[key]
+  if (label) return success ? label[0] : label[1]
+  return success ? 'Success' : 'Failure'
+}
+
 const triggerRollPsiTest = () => {
   psiTestRerollSnapshot.value = captureCreatorStateSnapshot()
   rollPsiTest()
@@ -1234,12 +1274,12 @@ const triggerManualPsiTest = () => {
 
 const triggerRollCheck = (key: string, label: string, check: Parameters<typeof rollCheck>[2]) => {
   rollCheck(key, label, check)
-  showRollFromRecord(termRolls.value[key], termRolls.value[key]?.finalSuccess ? 'Success' : 'Failure')
+  showRollFromRecord(termRolls.value[key], checkRollResultLabel(key))
 }
 
 const triggerManualCheck = (key: string, label: string, check: Parameters<typeof rollCheck>[2]) => {
   enterManualCheck(key, label, check)
-  showRollFromRecord(termRolls.value[key], termRolls.value[key]?.finalSuccess ? 'Success' : 'Failure')
+  showRollFromRecord(termRolls.value[key], checkRollResultLabel(key))
 }
 
 const triggerRollPreCareerEvent = () => {
@@ -1250,11 +1290,13 @@ const triggerRollPreCareerEvent = () => {
 const triggerRollDraftFallback = () => {
   rollDraftFallback()
   showRollFromRecord(termRolls.value.draft, termRolls.value.draft?.notes)
+  activeTermStep.value = 'direction'
 }
 
 const triggerManualDraftFallback = () => {
   enterManualDraftFallback()
   showRollFromRecord(termRolls.value.draft, termRolls.value.draft?.notes)
+  activeTermStep.value = 'direction'
 }
 
 const triggerManualPreCareerEvent = () => {
@@ -1386,7 +1428,9 @@ const saveCreatedTraveller = async () => {
 const saveAndOpenCreatedTraveller = async () => {
   const saved = await saveCreatedTraveller()
   if (!saved) return
+  restartInProgress.value = true
   clearBuilderDraft(CHARACTER_CREATOR_DRAFT_CACHE_KEY)
+  resetCreatorState()
   await router.push(`/character/sheet?id=${saved.id}`)
 }
 
@@ -2577,9 +2621,9 @@ if (import.meta.client) {
                       {{ skill }}
                     </span>
                   </div>
-                  <div v-if="pendingEducationSkillChoices.length" class="mt-3 grid gap-2 rounded-md bg-amber-50 p-3 text-sm text-center">
+                  <div v-if="visiblePendingEducationSkillChoices.length" class="mt-3 grid gap-2 rounded-md bg-amber-50 p-3 text-sm text-center">
                     <div
-                      v-for="(choiceGroup, index) in pendingEducationSkillChoices"
+                      v-for="choiceGroup in visiblePendingEducationSkillChoices"
                       :key="choiceGroup.label"
                       class="flex flex-wrap items-center justify-center gap-3"
                     >
@@ -2592,7 +2636,7 @@ if (import.meta.client) {
                           :key="choice"
                           class="h-9 rounded-md border border-amber-300 bg-white px-3 text-sm font-semibold text-amber-900 hover:border-amber-600"
                           type="button"
-                          @click="resolveEducationSkillChoice(index, choice)"
+                          @click="resolveEducationSkillChoice(choiceGroup.originalIndex, choice)"
                         >
                           {{ choice }}
                         </button>
@@ -2645,10 +2689,10 @@ if (import.meta.client) {
                         {{ educationBenefitLabel(benefit) }}
                       </div>
                     </div>
-                    <div v-if="pendingEducationSkillChoices.length" class="mt-3 grid gap-2 rounded-md bg-amber-50 p-3 text-sm text-center">
+                    <div v-if="visiblePendingEducationSkillChoices.length" class="mt-3 grid gap-2 rounded-md bg-amber-50 p-3 text-sm text-center">
                       <div
-                        v-for="(choiceGroup, index) in pendingEducationSkillChoices"
-                        :key="`graduation-${choiceGroup.label}-${index}`"
+                        v-for="choiceGroup in visiblePendingEducationSkillChoices"
+                        :key="`graduation-${choiceGroup.label}-${choiceGroup.originalIndex}`"
                         class="flex flex-wrap items-center justify-center gap-3"
                       >
                         <p class="font-medium text-amber-950">
@@ -2660,7 +2704,7 @@ if (import.meta.client) {
                             :key="choice"
                             class="h-9 rounded-md border border-amber-300 bg-white px-3 text-sm font-semibold text-amber-900 hover:border-amber-600"
                             type="button"
-                            @click="resolveEducationSkillChoice(index, choice)"
+                            @click="resolveEducationSkillChoice(choiceGroup.originalIndex, choice)"
                           >
                             {{ choice }}
                           </button>

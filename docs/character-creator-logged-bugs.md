@@ -61,3 +61,12 @@ Use this as the running diagnosis log for Character Creator issues. Keep resolve
 - Current diagnosis: Career skill tables correctly preserve book shorthand like `Seafarer (personal or sail)`, but Basic Training was applying the raw table string at level 0. The parser treated the parenthetical `or` text as a literal speciality.
 - Likely area: `stores/characterCreator.ts`, Basic Training application and skill award resolution.
 - Resolution notes: Basic Training now displays and applies the base skill for level 0 grants. Central skill award resolution also expands parenthetical `or` entries into valid speciality choices for level 1+ awards instead of allowing malformed speciality records.
+
+### CC-007: Final mustering-out roll modal closes before the player can accept no-choice results
+
+- Status: Resolved
+- Reported: When making the final mustering-out roll, the roll modal appeared to close instantly, and no-choice benefits needed an `Accept: [result]` action in the roll modal itself.
+- Observed example: Final mustering-out roll with no follow-up choice.
+- Current diagnosis: No-choice mustering-out results were accepted from the underlying mustering panel instead of the roll modal. The roll modal had no settled no-choice confirmation state, making final results feel like they vanished after resolution.
+- Likely area: `components/character/MusterOutRollModal.vue`, `components/character/MusterOutPanel.vue`.
+- Resolution notes: No-choice mustering-out results now show an `Accept: [result]` action inside the roll modal after the reel settles. The redundant underlying panel accept card was removed.

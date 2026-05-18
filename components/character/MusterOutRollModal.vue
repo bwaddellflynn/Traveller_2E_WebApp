@@ -77,6 +77,7 @@ const linkedResolutionIds = computed(() => {
     .filter((resolution) => !resolution.resolved && resolution.musteringOutResultId === props.payload?.resultId)
     .map((resolution) => resolution.id)
 })
+const settledWithoutLinkedResolution = computed(() => settled.value && linkedResolutionIds.value.length === 0)
 
 const baseCycleIndex = computed(() => Math.max(2, Math.floor(reelCycles * 0.7)))
 const targetAbsoluteIndex = computed(() => {
@@ -114,6 +115,11 @@ const rowPresentation = (absoluteIndex: number) => {
     opacity,
     filter: `blur(${blur}px)`,
   }
+}
+
+const rollOptionLabel = (option: MusterOutRollOption) => {
+  if (props.payload?.rollType === 'cash') return `${option.cash.toLocaleString()} Cr`
+  return option.benefit
 }
 
 const stopRollAnimation = () => {
@@ -264,7 +270,7 @@ onBeforeUnmount(stopRollAnimation)
                     :style="rowPresentation(row.absoluteIndex)"
                   >
                     <span class="muster-roll-machine__row-roll">{{ row.option.roll }}</span>
-                    <span class="muster-roll-machine__row-label">{{ row.option.benefit }}</span>
+                    <span class="muster-roll-machine__row-label">{{ rollOptionLabel(row.option) }}</span>
                   </div>
                 </div>
               </div>
@@ -280,6 +286,24 @@ onBeforeUnmount(stopRollAnimation)
         >
           <div class="mt-4">
             <EventResolutionList :resolution-ids="linkedResolutionIds" @resolved="close" />
+          </div>
+        </div>
+        <div
+          v-else-if="settledWithoutLinkedResolution"
+          class="border-t border-amber-300/15 bg-[linear-gradient(180deg,rgba(8,47,73,0.22),rgba(2,6,23,0.28))] px-5 py-5"
+        >
+          <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p class="text-xs font-semibold uppercase tracking-[0.18em] text-cyan-100/70">Result Locked</p>
+              <p class="mt-1 text-lg font-semibold text-amber-50">{{ payload.result }}</p>
+            </div>
+            <button
+              class="inline-flex h-11 items-center justify-center rounded-md border border-cyan-300/45 bg-cyan-400/15 px-5 text-sm font-semibold text-cyan-50 transition hover:border-cyan-200 hover:bg-cyan-400/22"
+              type="button"
+              @click="close"
+            >
+              Accept: {{ payload.result }}
+            </button>
           </div>
         </div>
       </div>

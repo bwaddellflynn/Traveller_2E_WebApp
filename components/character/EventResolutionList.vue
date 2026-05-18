@@ -77,6 +77,7 @@ const medicalRestorePoints = reactive<Record<string, number | null>>({})
 const associateForms = reactive<Record<string, { type: string; name: string; notes: string }>>({})
 const manualAssociateCounts = reactive<Record<string, number | null>>({})
 const associateInjuryForms = reactive<Record<string, { targetId: string; name: string; firstRoll: number | null; secondRoll: number | null }>>({})
+const itemDescriptions = reactive<Record<string, string>>({})
 
 const eventChoiceButtonLabel = (option: { label: string; buttonLabel?: string }) => {
   if (option.buttonLabel) return option.buttonLabel
@@ -289,7 +290,7 @@ const handleResolveSkillChoice = (resolutionId: string, choice: string) => {
 }
 
 const handleResolveOutcomeChoice = (resolutionId: string, optionId: string) => {
-  resolveEventOutcomeChoice(resolutionId, optionId)
+  resolveEventOutcomeChoice(resolutionId, optionId, itemDescriptions[resolutionId] ?? '')
   emit('resolved')
 }
 
@@ -440,10 +441,22 @@ const resolutionHeading = (resolution: {
       </div>
 
       <div v-if="resolution.kind === 'choice' && !resolution.resolved" class="mt-3 flex flex-wrap gap-2">
+        <div v-if="resolution.itemDescriptionRequired" class="basis-full">
+          <label class="grid gap-1">
+            <span class="text-xs font-semibold text-amber-950/80">{{ resolution.itemDescriptionPrompt ?? 'Describe this item before recording it.' }}</span>
+            <input
+              v-model="itemDescriptions[resolution.id]"
+              class="h-9 rounded-md border border-amber-300 bg-white px-2 text-sm text-amber-950 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200"
+              placeholder="Short artefact description"
+              type="text"
+            >
+          </label>
+        </div>
         <button
           v-for="option in resolution.choiceOptions"
           :key="option.id"
-          class="h-9 rounded-md border border-amber-300 bg-white px-3 text-sm font-semibold text-amber-900 hover:border-amber-600"
+          class="h-9 rounded-md border border-amber-300 bg-white px-3 text-sm font-semibold text-amber-900 hover:border-amber-600 disabled:cursor-not-allowed disabled:opacity-45"
+          :disabled="resolution.itemDescriptionRequired && !itemDescriptions[resolution.id]?.trim()"
           :title="option.label"
           type="button"
           @click="handleResolveOutcomeChoice(resolution.id, option.id)"

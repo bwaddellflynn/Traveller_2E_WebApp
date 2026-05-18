@@ -116,6 +116,8 @@ type PendingEventResolution = {
   effect: TravellerEventEffect
   options?: string[]
   choiceOptions?: EventChoiceOption[]
+  itemDescriptionPrompt?: string
+  itemDescriptionRequired?: boolean
   associateTypes?: string[]
   associateCount?: number | string
   associateCountRoll?: 'D3' | string
@@ -3390,6 +3392,16 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
         ],
       })),
     }, source, label)
+
+    pendingEventResolutions.value = pendingEventResolutions.value.map((resolution) => {
+      if (resolution.source !== source || resolution.label !== label || resolution.resolved) return resolution
+      return {
+        ...resolution,
+        details: event.text,
+        itemDescriptionPrompt: `Describe the ${itemName.toLowerCase()} before recording it.`,
+        itemDescriptionRequired: true,
+      }
+    })
   }
 
   const addAssociateOrFamilyInjuryResolution = (effect: TravellerEventEffect, source: string, label = tableEffectLabel(effect)) => {
@@ -3624,11 +3636,13 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     }
 
     if (effect.type === 'record_item') {
+      const itemCategory = typeof effect.itemCategory === 'string' ? effect.itemCategory : undefined
+      const itemDescription = typeof effect.itemDescription === 'string' ? effect.itemDescription.trim() : ''
       addCreatorEquipmentEntry(
         String(effect.itemName ?? event.name ?? 'Item'),
-        typeof effect.itemCategory === 'string' ? effect.itemCategory : undefined,
+        [itemCategory, itemDescription].filter(Boolean).join(' | ') || undefined,
       )
-      recordEventOutcome(source, effect, `${String(effect.itemName ?? event.name ?? 'Item')}: ${String(effect.itemCategory ?? 'Item')}`)
+      recordEventOutcome(source, effect, `${String(effect.itemName ?? event.name ?? 'Item')}: ${[itemCategory ?? 'Item', itemDescription].filter(Boolean).join(' | ')}`)
       return
     }
 
@@ -4277,7 +4291,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     }
     selectedCareerId.value = draftResult.careerId
     if (draftResult.assignment && draftResult.assignment !== 'any') selectedAssignmentId.value = draftResult.assignment
-    else selectedAssignmentId.value = careersData.careers.find((career) => career.id === draftResult.careerId)?.assignments[0]?.id ?? selectedAssignmentId.value
+    else selectedAssignmentId.value = ''
     setAutomaticCareerFallbackQualification(requiredDraftAvailable.value ? 'Required Draft' : 'Draft', previousCareerName)
     termRolls.draft = {
       label: 'Draft',
@@ -4514,12 +4528,19 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     resolveEventCheck(resolution, total, 'manual')
   }
 
-  const resolveEventOutcomeChoice = (resolutionId: string, optionId: string) => {
+  const resolveEventOutcomeChoice = (resolutionId: string, optionId: string, itemDescription = '') => {
     const resolution = pendingEventResolutions.value.find((item) => item.id === resolutionId)
     if (!resolution || resolution.kind !== 'choice' || resolution.resolved) return
 
     const option = resolution.choiceOptions?.find((item) => item.id === optionId)
     if (!option) return
+    const trimmedItemDescription = itemDescription.trim()
+    if (resolution.itemDescriptionRequired && !trimmedItemDescription) return
+    const effects = trimmedItemDescription
+      ? option.effects.map((effect) => effect.type === 'record_item'
+        ? { ...effect, itemDescription: trimmedItemDescription }
+        : effect)
+      : option.effects
 
     pendingEventResolutions.value = pendingEventResolutions.value.map((item) => {
       if (item.id !== resolutionId) return item
@@ -4530,8 +4551,13 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
       }
     })
     appendMusteringResultSelection(resolution.musteringOutResultId, option.label)
-    recordEventOutcome(resolution.source, resolution.effect, `${resolution.label}: ${option.label}`, 'manual')
-    applyResolvedEffects(option.effects, resolution.source)
+    recordEventOutcome(
+      resolution.source,
+      resolution.effect,
+      `${resolution.label}: ${option.label}${trimmedItemDescription ? ` - ${trimmedItemDescription}` : ''}`,
+      'manual',
+    )
+    applyResolvedEffects(effects, resolution.source)
   }
 
   const injuryResultLabel = (roll: number) => {
