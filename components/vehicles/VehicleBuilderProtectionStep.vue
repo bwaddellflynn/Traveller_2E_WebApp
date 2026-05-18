@@ -447,59 +447,64 @@ const hideMaterialPopup = () => {
 <template>
   <div class="grid gap-4">
     <section class="overflow-hidden rounded-md border border-cyan-400/25 bg-slate-950/45 text-cyan-50 shadow-[0_0_28px_rgba(34,211,238,0.08)]">
-      <div class="border-b border-cyan-400/30 bg-cyan-400/10 px-4 py-3 sm:px-5">
-        <div class="grid gap-3 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-end">
-          <div>
-            <p class="text-[11px] font-semibold uppercase tracking-[0.2em] text-cyan-200/80">Vehicle Design Step 6</p>
+      <div class="vehicle-builder-step-header">
+        <div class="vehicle-builder-step-header__inner">
+          <div class="vehicle-builder-step-header__title">
+            <p class="text-[11px] font-semibold uppercase tracking-[0.2em] text-cyan-200/80">Vehicle Design Step 7</p>
             <h3 class="mt-1 text-xl font-black uppercase tracking-wide text-cyan-50">Set Protection</h3>
           </div>
-          <div class="grid gap-1 text-xs font-semibold uppercase tracking-wide text-zinc-400">
-            <span>Armour Allocation</span>
-            <div
-              class="relative h-11 overflow-hidden rounded-md p-1"
-              style="
-                border: 1px solid rgba(34, 211, 238, 0.3);
-                background: rgba(2, 6, 23, 0.78);
-                box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.03);
-              "
-            >
-              <div class="pointer-events-none absolute inset-1">
+          <div class="vehicle-builder-step-header__controls">
+            <div class="vehicle-builder-step-header__control-row">
+              <div class="grid gap-1 text-xs font-semibold uppercase tracking-wide text-zinc-400">
+                <span>Armour Allocation</span>
                 <div
-                  class="h-full w-1/2 rounded-[5px] transition-[transform,background,box-shadow] duration-300 ease-out"
-                  :style="{
-                    transform: reallocationUnlocked ? 'translateX(100%)' : 'translateX(0)',
-                    background: 'linear-gradient(180deg, rgba(56, 189, 248, 0.32), rgba(8, 145, 178, 0.26))',
-                    boxShadow: 'inset 0 0 0 1px rgba(103, 232, 249, 0.42), 0 0 0 1px rgba(34, 211, 238, 0.18), 0 0 24px rgba(34, 211, 238, 0.18)',
-                  }"
-                />
-              </div>
-              <div class="relative z-10 grid h-full grid-cols-2">
-                <button
-                  type="button"
-                  class="flex h-full items-center justify-center px-3 text-sm font-semibold transition-colors duration-200 outline-none"
-                  :class="!reallocationUnlocked ? 'text-cyan-50' : 'text-cyan-200/70 hover:text-cyan-50'"
-                  style="appearance: none; border: 0; border-radius: 0; background: transparent; box-shadow: none;"
-                  @click="setAllocationMode(false)"
+                  class="relative h-11 overflow-hidden rounded-md p-1"
+                  style="
+                    border: 1px solid rgba(34, 211, 238, 0.3);
+                    background: rgba(2, 6, 23, 0.78);
+                    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.03);
+                  "
                 >
-                  Automatic
-                </button>
-                <button
-                  type="button"
-                  class="flex h-full items-center justify-center px-3 text-sm font-semibold transition-colors duration-200 outline-none"
-                  :class="reallocationUnlocked ? 'text-cyan-50' : 'text-cyan-200/70 hover:text-cyan-50'"
-                  style="appearance: none; border: 0; border-radius: 0; background: transparent; box-shadow: none;"
-                  @click="setAllocationMode(true)"
-                >
-                  Manual
-                </button>
+                  <div class="pointer-events-none absolute inset-1">
+                    <div
+                      class="h-full w-1/2 rounded-[5px] transition-[transform,background,box-shadow] duration-300 ease-out"
+                      :style="{
+                        transform: reallocationUnlocked ? 'translateX(100%)' : 'translateX(0)',
+                        background: 'linear-gradient(180deg, rgba(56, 189, 248, 0.32), rgba(8, 145, 178, 0.26))',
+                        boxShadow: 'inset 0 0 0 1px rgba(103, 232, 249, 0.42), 0 0 0 1px rgba(34, 211, 238, 0.18), 0 0 24px rgba(34, 211, 238, 0.18)',
+                      }"
+                    />
+                  </div>
+                  <div class="relative z-10 grid h-full grid-cols-2">
+                    <button
+                      type="button"
+                      class="flex h-full items-center justify-center px-3 text-sm font-semibold transition-colors duration-200 outline-none"
+                      :class="!reallocationUnlocked ? 'text-cyan-50' : 'text-cyan-200/70 hover:text-cyan-50'"
+                      style="appearance: none; border: 0; border-radius: 0; background: transparent; box-shadow: none;"
+                      @click="setAllocationMode(false)"
+                    >
+                      Automatic
+                    </button>
+                    <button
+                      type="button"
+                      class="flex h-full items-center justify-center px-3 text-sm font-semibold transition-colors duration-200 outline-none"
+                      :class="reallocationUnlocked ? 'text-cyan-50' : 'text-cyan-200/70 hover:text-cyan-50'"
+                      style="appearance: none; border: 0; border-radius: 0; background: transparent; box-shadow: none;"
+                      @click="setAllocationMode(true)"
+                    >
+                      Manual
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
+            <p class="vehicle-builder-step-header__message" aria-hidden="true">&nbsp;</p>
           </div>
         </div>
       </div>
 
-      <div class="grid min-h-[38rem] gap-6 p-4 sm:p-5 xl:grid-cols-[minmax(24rem,0.8fr)_minmax(22rem,1fr)]">
-            <div class="group/material flex h-[35.75rem] min-h-[35.75rem] w-full flex-col gap-3 overflow-hidden rounded-md border border-cyan-400/20 bg-slate-950/80 p-4 shadow-[0_0_24px_rgba(34,211,238,0.10)]">
+      <div class="vehicle-builder-two-panel p-4 sm:p-5">
+            <div class="vehicle-builder-panel-card group/material flex w-full flex-col gap-3 bg-slate-950/80 p-4 shadow-[0_0_24px_rgba(34,211,238,0.10)]">
               <div class="flex items-start justify-between gap-3">
                 <div>
                   <p class="text-[11px] font-semibold uppercase tracking-[0.22em] text-cyan-200">Armour Context</p>
@@ -615,7 +620,7 @@ const hideMaterialPopup = () => {
             </div>
 
             <div
-              class="flex min-h-[35.75rem] items-center justify-center rounded-md border border-cyan-400/15 p-4 md:p-5"
+              class="vehicle-builder-panel-card flex items-center justify-center p-4 md:p-5"
               style="
                 background-color: rgba(2, 6, 23, 0.86);
                 background-image:

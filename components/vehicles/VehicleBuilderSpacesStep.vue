@@ -52,34 +52,39 @@ watch(
 <template>
   <div class="grid gap-4">
     <section class="overflow-hidden rounded-md border border-cyan-400/25 bg-slate-950/45 text-cyan-50 shadow-[0_0_28px_rgba(34,211,238,0.08)]">
-      <div class="border-b border-cyan-400/30 bg-cyan-400/10 px-4 py-3 sm:px-5">
-        <div class="grid gap-3 lg:grid-cols-[minmax(0,1fr)_16rem] lg:items-end">
-          <div>
-            <p class="text-[11px] font-semibold uppercase tracking-[0.2em] text-cyan-200/80">Vehicle Design Step 3</p>
+      <div class="vehicle-builder-step-header">
+        <div class="vehicle-builder-step-header__inner">
+          <div class="vehicle-builder-step-header__title">
+            <p class="text-[11px] font-semibold uppercase tracking-[0.2em] text-cyan-200/80">Vehicle Design Step 4</p>
             <h3 class="mt-1 text-xl font-black uppercase tracking-wide text-cyan-50">Pick Size In Spaces</h3>
           </div>
-          <label class="grid gap-1 text-xs font-semibold uppercase tracking-wide text-zinc-400">
-            <span>Spaces</span>
-            <input
-              v-model.number="props.vehicle.spaces"
-              class="h-11 rounded-md border border-zinc-300 bg-white px-3 text-sm font-normal normal-case tracking-normal text-zinc-950 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200"
-              min="1"
-              step="1"
-              type="number"
-            >
-          </label>
+          <div class="vehicle-builder-step-header__controls">
+            <div class="vehicle-builder-step-header__control-row">
+              <label class="grid gap-1 text-xs font-semibold uppercase tracking-wide text-zinc-400">
+                <span>Spaces</span>
+                <input
+                  v-model.number="props.vehicle.spaces"
+                  class="h-11 rounded-md border border-zinc-300 bg-white px-3 text-sm font-normal normal-case tracking-normal text-zinc-950 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200"
+                  min="1"
+                  step="1"
+                  type="number"
+                >
+              </label>
+            </div>
+            <p class="vehicle-builder-step-header__message" aria-hidden="true">&nbsp;</p>
+          </div>
         </div>
       </div>
 
-      <div class="grid min-h-[38rem] gap-6 p-4 sm:p-5 lg:grid-cols-[minmax(24rem,0.8fr)_minmax(22rem,1fr)]">
-        <div class="relative flex h-[35.75rem] min-h-[35.75rem] w-full flex-col justify-start overflow-hidden rounded-md border border-cyan-400/20 bg-slate-900/35 p-5">
+      <div class="vehicle-builder-two-panel p-4 sm:p-5">
+        <div class="vehicle-builder-panel-card vehicle-builder-visual-card relative flex w-full flex-col justify-start bg-slate-900/35 p-5">
           <div
             aria-hidden="true"
             class="pointer-events-none absolute inset-0 opacity-30"
             style="background-image: linear-gradient(rgba(103,232,249,0.22) 1px, transparent 1px), linear-gradient(90deg, rgba(103,232,249,0.22) 1px, transparent 1px); background-size: 22px 22px;"
           />
           <div aria-hidden="true" class="pointer-events-none absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-slate-950/95 to-transparent" />
-          <div class="relative z-10 min-h-[12rem]">
+          <div class="vehicle-builder-visual-copy min-h-[12rem]">
             <h4 class="text-3xl font-black uppercase leading-none tracking-wide text-cyan-50">{{ currentSize.label }} {{ familyRule.typeLabel }}</h4>
             <p class="mt-3 max-w-xl text-sm leading-5 text-zinc-300">
               A usable Space is one quarter of a spacecraft ton. This size sets the vehicle scale, target profile, shipping burden, structure baseline, and the pool later spent on armour, systems, crew, cargo, and weapons. The reference chart is tailored to the selected vehicle type.
@@ -90,11 +95,11 @@ watch(
             v-if="!useSilhouetteFallback"
             :src="silhouetteSource"
             alt=""
-            class="pointer-events-none absolute bottom-7 left-1/2 z-0 max-w-[calc(100%-4rem)] -translate-x-1/2 object-contain object-bottom opacity-95 drop-shadow-[0_0_32px_rgba(103,232,249,0.32)]"
+            class="vehicle-builder-visual-art pointer-events-none object-contain object-bottom opacity-95 drop-shadow-[0_0_32px_rgba(103,232,249,0.32)]"
             :class="silhouetteImageClass"
             draggable="false"
           >
-          <svg v-else class="pointer-events-none absolute inset-x-8 bottom-8 z-0 h-56 w-[calc(100%-4rem)] text-cyan-100/55 drop-shadow-[0_0_22px_rgba(103,232,249,0.22)]" viewBox="0 0 360 190" role="img" aria-label="Vehicle silhouette">
+          <svg v-else class="vehicle-builder-visual-art pointer-events-none text-cyan-100/55 drop-shadow-[0_0_22px_rgba(103,232,249,0.22)]" viewBox="0 0 360 190" role="img" aria-label="Vehicle silhouette">
             <g fill="currentColor">
               <rect x="126" y="38" width="112" height="58" rx="10" />
               <rect x="148" y="92" width="22" height="42" rx="6" />
@@ -106,9 +111,9 @@ watch(
           </svg>
         </div>
 
-        <div class="grid min-h-[35.75rem] content-start gap-5">
-          <div class="grid content-start gap-px">
-            <div class="grid grid-cols-[5.5rem_7.5rem_minmax(0,1fr)] text-xs font-black uppercase tracking-wide text-cyan-100">
+        <div class="vehicle-builder-panel grid content-start gap-5">
+          <div class="grid min-w-0 content-start gap-px overflow-x-auto">
+            <div class="grid min-w-[34rem] grid-cols-[5.5rem_7.5rem_minmax(0,1fr)] text-xs font-black uppercase tracking-wide text-cyan-100">
               <div class="bg-cyan-400/20 px-2 py-2">Spaces</div>
               <div class="bg-cyan-400/20 px-2 py-2">Size</div>
               <div class="bg-cyan-400/20 px-2 py-2">Examples</div>
@@ -116,12 +121,12 @@ watch(
             <div
               v-for="row in sizeRows"
               :key="row.key"
-              class="grid grid-cols-[5.5rem_7.5rem_minmax(0,1fr)] border-b border-cyan-400/25 text-sm"
+              class="grid min-w-[34rem] grid-cols-[5.5rem_7.5rem_minmax(0,1fr)] border-b border-cyan-400/25 text-sm"
               :class="row === currentRow ? 'bg-amber-300/10 text-amber-100' : 'text-zinc-200'"
             >
               <div class="border-r border-cyan-400/25 px-2 py-1">{{ formatSpacesRange(row.minSpaces, row.maxSpaces) }}</div>
               <div class="border-r border-cyan-400/25 px-2 py-1 font-semibold capitalize">{{ row.form }}</div>
-              <div class="px-2 py-1 leading-5">{{ row.example }}</div>
+              <div class="break-words px-2 py-1 leading-5">{{ row.example }}</div>
             </div>
           </div>
 

@@ -178,13 +178,13 @@ watch(
 <template>
   <div class="grid gap-4">
     <section class="overflow-hidden rounded-md border border-cyan-400/25 bg-slate-950/45 text-cyan-50 shadow-[0_0_28px_rgba(34,211,238,0.08)]">
-      <div class="min-h-[6.75rem] border-b border-cyan-400/30 bg-cyan-400/10 px-4 py-3 sm:px-5">
-        <div class="grid min-h-[5.25rem] gap-3 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-center">
-          <div>
-            <p class="text-[11px] font-semibold uppercase tracking-[0.2em] text-cyan-200/80">Vehicle Design Step 5</p>
+      <div class="vehicle-builder-step-header">
+        <div class="vehicle-builder-step-header__inner">
+          <div class="vehicle-builder-step-header__title">
+            <p class="text-[11px] font-semibold uppercase tracking-[0.2em] text-cyan-200/80">Vehicle Design Step 6</p>
             <h3 class="mt-1 text-xl font-black uppercase tracking-wide text-cyan-50">Choose Customisations</h3>
           </div>
-          <div class="grid min-w-0 gap-1">
+          <div class="vehicle-builder-step-header__controls">
             <div class="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-zinc-400">
               <span>Hull Modification</span>
               <span class="group relative inline-flex">
@@ -207,36 +207,36 @@ watch(
                 </option>
               </select>
             </label>
+            <p class="vehicle-builder-step-header__message" aria-hidden="true">&nbsp;</p>
           </div>
         </div>
       </div>
 
-      <div class="grid min-h-[38rem] gap-6 p-4 sm:p-5 lg:grid-cols-[minmax(24rem,0.8fr)_minmax(22rem,1fr)]">
-        <div class="grid content-start gap-4">
-          <div class="relative flex h-[35.75rem] min-h-[35.75rem] w-full flex-col justify-start overflow-hidden rounded-md border border-cyan-400/20 bg-slate-900/35 p-5">
+      <div class="vehicle-builder-two-panel p-4 sm:p-5">
+        <div class="grid min-w-0 content-start gap-4">
+          <div class="vehicle-builder-panel-card vehicle-builder-visual-card relative flex w-full flex-col justify-start bg-slate-900/35 p-5">
             <div
               aria-hidden="true"
               class="pointer-events-none absolute inset-0 opacity-30"
               style="background-image: linear-gradient(rgba(103,232,249,0.22) 1px, transparent 1px), linear-gradient(90deg, rgba(103,232,249,0.22) 1px, transparent 1px); background-size: 22px 22px;"
             />
             <div aria-hidden="true" class="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-slate-950/95 to-transparent" />
-            <div class="relative z-10">
+            <div class="vehicle-builder-visual-copy">
               <h4 class="text-3xl font-black uppercase leading-none tracking-wide text-cyan-50">{{ familyRule.label }} Systems</h4>
               <p class="mt-3 max-w-xl text-sm leading-5 text-zinc-300">
                 Customisations alter the vehicle after type, size, and features are set. Power plants, performance tuning, fuel capacity, and auxiliary drives change available Spaces, cost, range, and movement profile before protection is applied.
               </p>
             </div>
 
-            <div class="relative z-10 mt-auto flex min-h-[16rem] items-end justify-center">
               <img
                 v-if="!useSilhouetteFallback"
                 :src="silhouetteSource"
                 alt=""
-                class="pointer-events-none max-w-[calc(100%-4rem)] object-contain object-bottom opacity-95 drop-shadow-[0_0_32px_rgba(103,232,249,0.32)]"
+                class="vehicle-builder-visual-art pointer-events-none object-contain object-bottom opacity-95 drop-shadow-[0_0_32px_rgba(103,232,249,0.32)]"
                 :class="silhouetteImageClass"
                 draggable="false"
               >
-              <svg v-else class="pointer-events-none h-56 w-[calc(100%-4rem)] text-cyan-100/55 drop-shadow-[0_0_22px_rgba(103,232,249,0.22)]" viewBox="0 0 360 190" role="img" aria-label="Customisation system silhouette">
+              <svg v-else class="vehicle-builder-visual-art pointer-events-none text-cyan-100/55 drop-shadow-[0_0_22px_rgba(103,232,249,0.22)]" viewBox="0 0 360 190" role="img" aria-label="Customisation system silhouette">
                 <g fill="currentColor">
                   <rect x="126" y="38" width="112" height="58" rx="10" />
                   <rect x="148" y="92" width="22" height="42" rx="6" />
@@ -246,10 +246,9 @@ watch(
                   <rect x="232" y="55" width="46" height="14" rx="7" />
                 </g>
               </svg>
-            </div>
           </div>
 
-          <div class="grid gap-3 rounded-md border border-cyan-400/20 bg-slate-950/35 p-3">
+          <div class="vehicle-builder-visual-summary grid gap-3 rounded-md border border-cyan-400/20 bg-slate-950/35 p-3">
             <div class="rounded-md border border-cyan-400/20 bg-slate-950/45 p-3">
               <p class="text-xs font-semibold uppercase tracking-wide text-cyan-100/80">Current Fit</p>
               <p class="mt-2 text-lg font-black uppercase tracking-wide text-cyan-50">{{ visualText }}</p>
@@ -275,7 +274,7 @@ watch(
           </div>
         </div>
 
-        <div class="grid min-h-[35.75rem] content-start gap-4">
+        <div class="vehicle-builder-panel grid content-start gap-4">
           <section class="min-w-0 rounded-md border border-cyan-400/20 bg-slate-950/35 p-3">
             <div class="grid min-w-0 gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,12rem)] md:items-end">
               <div class="min-w-0">
@@ -304,10 +303,10 @@ watch(
                 </select>
               </label>
             </div>
-            <div class="mt-3 grid content-start gap-px">
-              <div v-for="row in powerRows" :key="row.label" class="grid grid-cols-[8.25rem_minmax(0,1fr)] text-sm">
+            <div class="mt-3 grid min-w-0 content-start gap-px overflow-hidden rounded-sm">
+              <div v-for="row in powerRows" :key="row.label" class="grid min-w-0 grid-cols-[minmax(7rem,9rem)_minmax(0,1fr)] text-sm">
                 <div class="bg-cyan-400/20 px-2 py-1 font-black uppercase tracking-wide text-cyan-100">{{ row.label }}</div>
-                <div class="border-b border-cyan-400/25 px-2 py-1 leading-5 text-zinc-200">{{ row.value }}</div>
+                <div class="min-w-0 break-words border-b border-cyan-400/25 px-2 py-1 leading-5 text-zinc-200">{{ row.value }}</div>
               </div>
             </div>
           </section>
@@ -334,10 +333,10 @@ watch(
                 </select>
               </label>
             </div>
-            <div class="mt-3 grid content-start gap-px">
-              <div v-for="row in performanceRows" :key="row.label" class="grid grid-cols-[8.25rem_minmax(0,1fr)] text-sm">
+            <div class="mt-3 grid min-w-0 content-start gap-px overflow-hidden rounded-sm">
+              <div v-for="row in performanceRows" :key="row.label" class="grid min-w-0 grid-cols-[minmax(7rem,9rem)_minmax(0,1fr)] text-sm">
                 <div class="bg-cyan-400/20 px-2 py-1 font-black uppercase tracking-wide text-cyan-100">{{ row.label }}</div>
-                <div class="border-b border-cyan-400/25 px-2 py-1 leading-5 text-zinc-200">{{ row.value }}</div>
+                <div class="min-w-0 break-words border-b border-cyan-400/25 px-2 py-1 leading-5 text-zinc-200">{{ row.value }}</div>
               </div>
             </div>
           </section>
@@ -363,10 +362,10 @@ watch(
                 </select>
               </label>
             </div>
-            <div class="mt-3 grid content-start gap-px">
-              <div v-for="row in auxiliaryRows" :key="row.label" class="grid grid-cols-[8.25rem_minmax(0,1fr)] text-sm">
+            <div class="mt-3 grid min-w-0 content-start gap-px overflow-hidden rounded-sm">
+              <div v-for="row in auxiliaryRows" :key="row.label" class="grid min-w-0 grid-cols-[minmax(7rem,9rem)_minmax(0,1fr)] text-sm">
                 <div class="bg-cyan-400/20 px-2 py-1 font-black uppercase tracking-wide text-cyan-100">{{ row.label }}</div>
-                <div class="border-b border-cyan-400/25 px-2 py-1 leading-5 text-zinc-200">{{ row.value }}</div>
+                <div class="min-w-0 break-words border-b border-cyan-400/25 px-2 py-1 leading-5 text-zinc-200">{{ row.value }}</div>
               </div>
             </div>
           </section>

@@ -962,9 +962,9 @@ watch(activeGarageTab, (tab) => {
       </aside>
     </section>
 
-    <section v-else-if="activeGarageTab === 'builder'" class="mx-auto w-full max-w-[96rem] px-5 py-6 sm:px-8 lg:px-10">
-      <div class="grid gap-5 xl:grid-cols-[minmax(0,1fr)_24rem]">
-        <section class="hud-panel rounded-lg border p-5 shadow-sm">
+    <section v-else-if="activeGarageTab === 'builder'" class="vehicle-builder-page mx-auto w-full max-w-[106rem] px-5 py-6 sm:px-8 lg:px-10">
+      <div class="vehicle-builder-layout grid gap-5 xl:grid-cols-[minmax(0,1fr)_20rem] 2xl:grid-cols-[minmax(0,1fr)_22rem]">
+        <section class="vehicle-builder-workbench hud-panel rounded-lg border p-5 shadow-sm">
           <div class="flex flex-wrap items-start justify-between gap-3">
             <div>
               <p class="hud-kicker text-sm font-semibold uppercase tracking-wide">Player Builds</p>
@@ -1136,8 +1136,8 @@ watch(activeGarageTab, (tab) => {
           </div>
         </section>
 
-        <aside class="grid gap-5">
-          <section v-if="buildDraft" class="hud-panel hud-scrollbar rounded-lg border p-5 shadow-sm xl:sticky xl:top-24 xl:max-h-[calc(100vh-7rem)] xl:overflow-auto">
+        <aside class="vehicle-builder-draft grid gap-5">
+          <section v-if="buildDraft" class="hud-panel hud-scrollbar rounded-lg border p-4 shadow-sm 2xl:p-5 xl:sticky xl:top-24 xl:max-h-[calc(100vh-7rem)] xl:overflow-auto">
             <div class="flex items-start justify-between gap-3">
               <div>
                 <p class="hud-kicker text-xs font-semibold uppercase tracking-wide">{{ buildDraft.type || 'Vehicle type pending' }}</p>
@@ -1490,3 +1490,32 @@ watch(activeGarageTab, (tab) => {
     />
   </main>
 </template>
+
+<style scoped>
+@media (max-width: 1450px) {
+  .vehicle-builder-page {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  .vehicle-builder-workbench {
+    padding: 1rem;
+  }
+}
+
+@media (max-width: 1320px) {
+  .vehicle-builder-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .vehicle-builder-draft {
+    order: -1;
+  }
+
+  .vehicle-builder-draft > section {
+    position: static;
+    max-height: none;
+    overflow: visible;
+  }
+}
+</style>

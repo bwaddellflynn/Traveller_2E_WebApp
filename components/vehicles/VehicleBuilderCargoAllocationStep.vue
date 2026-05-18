@@ -30,32 +30,39 @@ const syncCargoTons = (index: number) => {
 
 <template>
   <section class="overflow-hidden rounded-md border border-cyan-400/30 bg-slate-950/80">
-    <div class="grid min-h-[5.75rem] gap-3 border-b border-cyan-400/25 bg-cyan-950/55 px-5 py-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
-      <div>
-        <p class="text-xs font-black uppercase tracking-[0.22em] text-cyan-100/70">Vehicle Design Step</p>
-        <h3 class="mt-2 text-2xl font-black uppercase leading-none tracking-wide text-cyan-50">Cargo & Payload</h3>
+    <div class="vehicle-builder-step-header">
+      <div class="vehicle-builder-step-header__inner">
+      <div class="vehicle-builder-step-header__title">
+        <p class="text-[11px] font-semibold uppercase tracking-[0.2em] text-cyan-200/80">Vehicle Design Step 12</p>
+        <h3 class="mt-1 text-xl font-black uppercase tracking-wide text-cyan-50">Cargo & Payload</h3>
       </div>
-      <button class="rounded-md border border-cyan-300/30 bg-cyan-300/10 px-3 py-2 text-sm font-semibold text-cyan-50 hover:border-cyan-200" type="button" @click="$emit('add-cargo')">
-        Add Cargo
-      </button>
+      <div class="vehicle-builder-step-header__controls">
+        <div class="vehicle-builder-step-header__control-row justify-items-start sm:justify-items-end">
+          <button class="rounded-md border border-cyan-300/30 bg-cyan-300/10 px-3 py-2 text-sm font-semibold text-cyan-50 hover:border-cyan-200" type="button" @click="$emit('add-cargo')">
+            Add Cargo
+          </button>
+        </div>
+        <p class="vehicle-builder-step-header__message" aria-hidden="true">&nbsp;</p>
+      </div>
+      </div>
     </div>
 
-    <div class="grid min-h-[38rem] gap-6 p-4 sm:p-5 lg:grid-cols-[minmax(24rem,0.8fr)_minmax(24rem,1fr)]">
-      <div class="relative flex h-[35.75rem] min-h-[35.75rem] w-full flex-col overflow-hidden rounded-md border border-cyan-400/20 bg-slate-900/35 p-5">
+    <div class="vehicle-builder-two-panel p-4 sm:p-5">
+      <div class="vehicle-builder-panel-card vehicle-builder-visual-card relative flex w-full flex-col bg-slate-900/35 p-5">
         <div
           aria-hidden="true"
           class="pointer-events-none absolute inset-0 opacity-30"
           style="background-image: linear-gradient(rgba(103,232,249,0.22) 1px, transparent 1px), linear-gradient(90deg, rgba(103,232,249,0.22) 1px, transparent 1px); background-size: 22px 22px;"
         />
         <div aria-hidden="true" class="pointer-events-none absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-slate-950/95 to-transparent" />
-        <div class="relative z-10">
+        <div class="vehicle-builder-visual-copy">
           <h4 class="text-3xl font-black uppercase leading-none tracking-wide text-cyan-50">Payload Bay</h4>
           <p class="mt-3 max-w-xl text-sm leading-5 text-zinc-300">
             Reserve internal Spaces for freight, stores, mission payloads, or special load capacity. Cargo spends the same usable design pool needed by systems, armour, occupants, and weapons.
           </p>
         </div>
 
-        <div class="relative z-10 mt-6 rounded-md border border-cyan-400/20 bg-slate-950/45 p-3">
+        <div class="vehicle-builder-visual-summary mt-6 rounded-md border border-cyan-400/20 bg-slate-950/45 p-3">
           <div class="grid grid-cols-3 gap-2">
             <div class="rounded-md border border-cyan-400/20 bg-slate-950/50 p-3">
               <p class="text-[11px] font-black uppercase tracking-wide text-cyan-100/70">Cargo Spaces</p>
@@ -76,13 +83,13 @@ const syncCargoTons = (index: number) => {
         <img
           :src="silhouetteSource"
           alt=""
-          class="pointer-events-none absolute bottom-7 left-1/2 z-0 max-w-[calc(100%-4rem)] -translate-x-1/2 object-contain object-bottom opacity-80 drop-shadow-[0_0_32px_rgba(103,232,249,0.26)]"
+          class="vehicle-builder-visual-art pointer-events-none object-contain object-bottom opacity-80 drop-shadow-[0_0_32px_rgba(103,232,249,0.26)]"
           :class="silhouetteImageClass"
           draggable="false"
         >
       </div>
 
-      <div class="grid min-h-[35.75rem] content-start gap-5">
+      <div class="vehicle-builder-panel grid content-start gap-5">
         <div class="rounded-md border border-cyan-400/25 bg-slate-950/45 p-4">
           <div class="flex items-start justify-between gap-3">
             <div>

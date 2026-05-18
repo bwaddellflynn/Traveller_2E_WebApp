@@ -30,18 +30,23 @@ const brief = computed(() => {
 
 <template>
   <section class="overflow-hidden rounded-md border border-cyan-400/30 bg-slate-950/80">
-    <div class="grid min-h-[5.75rem] gap-3 border-b border-cyan-400/25 bg-cyan-950/55 px-5 py-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
-      <div>
-        <p class="text-xs font-black uppercase tracking-[0.22em] text-cyan-100/70">Vehicle Design Step</p>
-        <h3 class="mt-2 text-2xl font-black uppercase leading-none tracking-wide text-cyan-50">Setup</h3>
+    <div class="vehicle-builder-step-header">
+      <div class="vehicle-builder-step-header__inner">
+      <div class="vehicle-builder-step-header__title">
+        <p class="text-[11px] font-semibold uppercase tracking-[0.2em] text-cyan-200/80">Vehicle Design Step 1</p>
+        <h3 class="mt-1 text-xl font-black uppercase tracking-wide text-cyan-50">Setup</h3>
       </div>
-      <p class="max-w-sm text-sm leading-5 text-cyan-100/75">
-        Define the build brief before choosing the handbook mechanics.
-      </p>
+      <div class="vehicle-builder-step-header__controls">
+        <p class="text-sm leading-5 text-cyan-100/75">
+          Define the build brief before choosing the handbook mechanics.
+        </p>
+        <p class="vehicle-builder-step-header__message" aria-hidden="true">&nbsp;</p>
+      </div>
+      </div>
     </div>
 
-    <div class="grid min-h-[38rem] gap-6 p-4 sm:p-5 lg:grid-cols-[minmax(20rem,0.8fr)_minmax(0,1fr)]">
-      <div class="relative flex h-[35.75rem] min-h-[35.75rem] w-full min-w-0 flex-col overflow-hidden rounded-md border border-cyan-400/20 bg-slate-900/35 p-5">
+    <div class="vehicle-builder-two-panel p-4 sm:p-5">
+      <div class="vehicle-builder-panel-card relative flex w-full flex-col bg-slate-900/35 p-5">
         <div
           aria-hidden="true"
           class="pointer-events-none absolute inset-0 opacity-30"
@@ -85,7 +90,7 @@ const brief = computed(() => {
         </div>
       </div>
 
-      <div class="grid min-h-[35.75rem] min-w-0 content-start gap-5">
+      <div class="vehicle-builder-panel grid content-start gap-5">
         <div class="min-w-0 rounded-md border border-cyan-400/25 bg-slate-950/45 p-4">
           <label class="grid gap-1 text-[11px] font-black uppercase tracking-wide text-cyan-100/70">
             <span>Vehicle Name</span>

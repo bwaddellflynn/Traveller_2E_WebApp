@@ -629,21 +629,23 @@ const addSelectedOption = () => {
 
 <template>
   <section class="overflow-hidden rounded-md border border-cyan-400/25 bg-slate-950 text-cyan-50">
-    <div class="flex min-h-24 flex-wrap items-center justify-between gap-4 border-b border-cyan-400/25 bg-cyan-950/60 px-5 py-4">
-      <div>
-        <p class="text-[11px] font-semibold uppercase tracking-[0.2em] text-cyan-200/80">Vehicle Design Step 7</p>
+    <div class="vehicle-builder-step-header">
+      <div class="vehicle-builder-step-header__inner">
+      <div class="vehicle-builder-step-header__title">
+        <p class="text-[11px] font-semibold uppercase tracking-[0.2em] text-cyan-200/80">Vehicle Design Step 8</p>
         <h3 class="mt-1 text-xl font-black uppercase tracking-wide text-cyan-50">Choose Options</h3>
       </div>
-      <div class="flex flex-wrap items-end gap-3">
+      <div class="vehicle-builder-step-header__controls">
+      <div class="vehicle-builder-step-header__control-row sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
         <label class="grid gap-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-cyan-100">
           <span>Category</span>
-          <select v-model="selectedCategory" class="h-10 w-52 rounded-md border border-cyan-400/35 bg-slate-950/90 px-3 text-sm font-normal normal-case tracking-normal text-cyan-50 outline-none focus:border-cyan-200">
+          <select v-model="selectedCategory" class="h-10 w-full min-w-0 rounded-md border border-cyan-400/35 bg-slate-950/90 px-3 text-sm font-normal normal-case tracking-normal text-cyan-50 outline-none focus:border-cyan-200">
             <option v-for="category in categoryOptions" :key="category" :value="category">{{ category }}</option>
           </select>
         </label>
         <label class="grid gap-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-cyan-100">
           <span>Option Family</span>
-          <select v-model="selectedFamilyId" class="h-10 w-56 rounded-md border border-cyan-400/35 bg-slate-950/90 px-3 text-sm font-normal normal-case tracking-normal text-cyan-50 outline-none focus:border-cyan-200">
+          <select v-model="selectedFamilyId" class="h-10 w-full min-w-0 rounded-md border border-cyan-400/35 bg-slate-950/90 px-3 text-sm font-normal normal-case tracking-normal text-cyan-50 outline-none focus:border-cyan-200">
             <option v-for="family in familiesForCategory" :key="family.id" :value="family.id">{{ family.name }}</option>
           </select>
         </label>
@@ -656,10 +658,13 @@ const addSelectedOption = () => {
           Add Option
         </button>
       </div>
+      <p class="vehicle-builder-step-header__message" aria-hidden="true">&nbsp;</p>
+      </div>
+      </div>
     </div>
 
-    <div class="grid gap-5 p-5 xl:grid-cols-[25rem_minmax(0,1fr)]">
-      <div class="grid min-h-[32rem] overflow-hidden rounded-md border border-cyan-400/30 bg-slate-950/75 bg-[linear-gradient(rgba(34,211,238,0.065)_1px,transparent_1px),linear-gradient(90deg,rgba(34,211,238,0.065)_1px,transparent_1px)] bg-[size:2rem_2rem] p-5">
+    <div class="vehicle-builder-two-panel p-5">
+      <div class="vehicle-builder-panel-card grid border-cyan-400/30 bg-slate-950/75 bg-[linear-gradient(rgba(34,211,238,0.065)_1px,transparent_1px),linear-gradient(90deg,rgba(34,211,238,0.065)_1px,transparent_1px)] bg-[size:2rem_2rem] p-5">
         <div>
           <p class="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-200/80">{{ selectedFamily.category }}</p>
           <h4 class="mt-4 text-3xl font-black uppercase leading-none tracking-wide text-cyan-50">{{ selectedFamily.name }}</h4>
@@ -684,7 +689,7 @@ const addSelectedOption = () => {
         </div>
       </div>
 
-      <div class="grid content-start gap-4">
+      <div class="vehicle-builder-panel grid content-start gap-4">
         <div class="flex flex-wrap items-end gap-3">
           <label class="grid min-w-64 flex-1 gap-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-cyan-100">
             <span>Option</span>

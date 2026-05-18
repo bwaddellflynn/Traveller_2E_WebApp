@@ -39,23 +39,28 @@ watch(
 <template>
   <div class="grid gap-4">
     <section class="overflow-hidden rounded-md border border-cyan-400/25 bg-slate-950/45 text-cyan-50 shadow-[0_0_28px_rgba(34,211,238,0.08)]">
-      <div class="border-b border-cyan-400/30 bg-cyan-400/10 px-4 py-3 sm:px-5">
-        <div class="grid gap-3 lg:grid-cols-[minmax(0,1fr)_16rem] lg:items-end">
-          <div>
-            <p class="text-[11px] font-semibold uppercase tracking-[0.2em] text-cyan-200/80">Vehicle Design Step 1</p>
+      <div class="vehicle-builder-step-header">
+        <div class="vehicle-builder-step-header__inner">
+          <div class="vehicle-builder-step-header__title">
+            <p class="text-[11px] font-semibold uppercase tracking-[0.2em] text-cyan-200/80">Vehicle Design Step 2</p>
             <h3 class="mt-1 text-xl font-black uppercase tracking-wide text-cyan-50">Set Tech Level</h3>
           </div>
-          <label class="grid gap-1 text-xs font-semibold uppercase tracking-wide text-zinc-400">
-            <span>Tech Level</span>
-            <select v-model.number="props.vehicle.techLevel" class="h-11 rounded-md border border-zinc-300 bg-white px-3 text-sm font-normal normal-case tracking-normal text-zinc-950 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200">
-              <option v-for="techLevel in techLevelOptions" :key="techLevel" :value="techLevel">TL {{ techLevel }}</option>
-            </select>
-          </label>
+          <div class="vehicle-builder-step-header__controls">
+            <div class="vehicle-builder-step-header__control-row">
+              <label class="grid gap-1 text-xs font-semibold uppercase tracking-wide text-zinc-400">
+                <span>Tech Level</span>
+                <select v-model.number="props.vehicle.techLevel" class="h-11 rounded-md border border-zinc-300 bg-white px-3 text-sm font-normal normal-case tracking-normal text-zinc-950 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200">
+                  <option v-for="techLevel in techLevelOptions" :key="techLevel" :value="techLevel">TL {{ techLevel }}</option>
+                </select>
+              </label>
+            </div>
+            <p class="vehicle-builder-step-header__message" aria-hidden="true">&nbsp;</p>
+          </div>
         </div>
       </div>
 
-      <div class="grid min-h-[38rem] gap-6 p-4 sm:p-5 lg:grid-cols-[minmax(24rem,0.8fr)_minmax(22rem,1fr)]">
-        <div class="relative flex h-[35.75rem] min-h-[35.75rem] w-full flex-col justify-start overflow-hidden rounded-md border border-cyan-400/20 bg-slate-900/35 p-5">
+      <div class="vehicle-builder-two-panel p-4 sm:p-5">
+        <div class="vehicle-builder-panel-card relative flex w-full flex-col justify-start bg-slate-900/35 p-5">
           <div
             aria-hidden="true"
             class="pointer-events-none absolute inset-0 opacity-30"
@@ -82,7 +87,7 @@ watch(
           </div>
         </div>
 
-        <div class="grid min-h-[35.75rem] content-start gap-5">
+        <div class="vehicle-builder-panel grid content-start gap-5">
           <div class="grid content-start gap-px">
             <div class="grid grid-cols-[4rem_minmax(0,1fr)_5.5rem_5.5rem] text-xs font-black uppercase tracking-wide text-cyan-100">
               <div class="bg-cyan-400/20 px-2 py-2">TL</div>
