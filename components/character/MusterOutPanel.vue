@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { storeToRefs } from 'pinia'
-import { computed } from 'vue'
+import { computed, nextTick, ref } from 'vue'
 import EventResolutionList from '~/components/character/EventResolutionList.vue'
 import TasLogoIcon from '~/components/TasLogoIcon.vue'
 import { useCharacterCreatorStore } from '~/stores/characterCreator'
@@ -104,6 +104,7 @@ const voucherBenefitTypes = new Set([
   'free trader',
   'yacht',
 ])
+const acceptedMusteringResultIds = ref<string[]>([])
 
 const musteringResultDisplay = (result: { cash?: number; benefit?: string; resolvedSelections?: string[] }) => {
   if (typeof result.cash === 'number') return `${result.cash.toLocaleString()} Cr`
@@ -138,11 +139,35 @@ const emitMusteringResultRoll = () => {
 const triggerRollMusteringOutBenefit = () => {
   rollMusteringOutBenefit()
   emitMusteringResultRoll()
+  nextTick(() => {
+    const result = musteringOutResults.value[musteringOutResults.value.length - 1]
+    if (!result || unresolvedMusteringOutResolutions.value || unresolvedMusteringOutSkillChoice.value) return
+    acceptedMusteringResultIds.value = acceptedMusteringResultIds.value.filter((id) => id !== result.id)
+  })
 }
 
 const triggerManualMusteringOutBenefit = () => {
   enterManualMusteringOutBenefit(manualRollTotals.value.musteringOut ?? Number.NaN)
   emitMusteringResultRoll()
+  nextTick(() => {
+    const result = musteringOutResults.value[musteringOutResults.value.length - 1]
+    if (!result || unresolvedMusteringOutResolutions.value || unresolvedMusteringOutSkillChoice.value) return
+    acceptedMusteringResultIds.value = acceptedMusteringResultIds.value.filter((id) => id !== result.id)
+  })
+}
+
+const latestAutomaticMusteringResult = computed(() => {
+  const result = musteringOutResults.value[musteringOutResults.value.length - 1]
+  if (!result) return null
+  if (unresolvedMusteringOutResolutions.value || unresolvedMusteringOutSkillChoice.value) return null
+  if (acceptedMusteringResultIds.value.includes(result.id)) return null
+  return result
+})
+
+const acceptLatestMusteringResult = () => {
+  const result = latestAutomaticMusteringResult.value
+  if (!result) return
+  acceptedMusteringResultIds.value = [...acceptedMusteringResultIds.value, result.id]
 }
 </script>
 
@@ -263,6 +288,17 @@ const triggerManualMusteringOutBenefit = () => {
       <div class="mt-4">
         <EventResolutionList source-prefix="Mustering Out" @show-roll="emit('show-roll', $event)" />
       </div>
+    </div>
+    <div v-else-if="latestAutomaticMusteringResult" class="mt-5 rounded-lg border border-cyan-300/25 bg-cyan-400/10 p-4">
+      <p class="text-sm font-semibold text-cyan-50">Mustering-Out Result</p>
+      <p class="mt-1 text-xs text-cyan-100/70">This result has no extra choices to resolve.</p>
+      <button
+        class="mt-3 h-10 rounded-md border border-cyan-300/40 bg-cyan-400/15 px-4 text-sm font-semibold text-cyan-50 hover:border-cyan-200 hover:bg-cyan-400/20"
+        type="button"
+        @click="acceptLatestMusteringResult"
+      >
+        Accept: {{ musteringResultDisplay(latestAutomaticMusteringResult) }}
+      </button>
     </div>
 
     <div v-if="selectedMusteringCareerBenefits.length" class="mt-5 overflow-hidden rounded-lg border border-cyan-400/20">

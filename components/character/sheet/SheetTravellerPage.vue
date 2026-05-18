@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import AppIcon from '~/components/AppIcon.vue'
-import type { TravellerCharacteristicId, TravellerProfile } from '~/types/traveller'
+import SheetTrainingPanel from '~/components/character/sheet/SheetTrainingPanel.vue'
+import type { TravellerCharacteristicId, TravellerProfile, TravellerSkillTrainingActive, TravellerSkillTrainingHistory } from '~/types/traveller'
 
 defineProps<{
   draft: TravellerProfile
@@ -10,7 +11,23 @@ defineProps<{
   showOnlyTrainedSkills: boolean
   skillColumnCount: number
   skillGroupColumns: any[]
-  trainingSkill: any
+  speciesOptions: string[]
+  activeTraining: TravellerSkillTrainingActive | null
+  trainingHistory: TravellerSkillTrainingHistory[]
+  trainingSkillOptions: Array<{ id: string, name: string, specialities?: string[], specialityMode?: 'shared-zero' | 'independent' }>
+  selectedTrainingSkillId: string
+  selectedTrainingSpeciality: string
+  customTrainingSpeciality: string
+  selectedTrainingTargetLevel: number
+  selectedTrainingCharacteristic: 'edu' | 'str' | 'dex' | 'end'
+  selectedTrainingCurrentLevel: number | null
+  selectedTrainingTargetOptions: number[]
+  selectedTrainingRequiredStudyPeriods: number
+  selectedTrainingValidation: string
+  trainingCanStart: boolean
+  trainingCanRoll: boolean
+  activeTrainingProgressLabel: string
+  trainingRollSummary: string
   weaponSkillOptions: readonly { value: string, label: string }[]
   ownedWeaponOptions: { value: string, label: string }[]
   activeSkillPickerId: string | null
@@ -58,6 +75,15 @@ defineProps<{
 
 defineEmits<{
   (event: 'update:showOnlyTrainedSkills', value: boolean): void
+  (event: 'update:selectedTrainingSkillId', value: string): void
+  (event: 'update:selectedTrainingSpeciality', value: string): void
+  (event: 'update:customTrainingSpeciality', value: string): void
+  (event: 'update:selectedTrainingTargetLevel', value: number): void
+  (event: 'update:selectedTrainingCharacteristic', value: 'edu' | 'str' | 'dex' | 'end'): void
+  (event: 'startSkillTraining'): void
+  (event: 'cancelSkillTraining'): void
+  (event: 'addTrainingWeeks', amount: number): void
+  (event: 'rollSkillTrainingStudyPeriod'): void
 }>()
 </script>
 
@@ -87,12 +113,17 @@ defineEmits<{
                   <input v-model.number="draft.identity.age" class="sheet-line-input" min="0" type="number">
                 </label>
                 <label class="sheet-line-field sheet-line-field--personal">
-                  <span>Species:</span>
-                  <input v-model="draft.identity.species" class="sheet-line-input">
+                  <span class="sheet-personal-split__spacer" aria-hidden="true"></span>
+                  <select v-model="draft.identity.species" class="sheet-line-input">
+                    <option disabled value="">Species</option>
+                    <option v-for="species in speciesOptions" :key="species" :value="species">
+                      {{ species }}
+                    </option>
+                  </select>
                 </label>
               </div>
               <label class="sheet-line-field sheet-line-field--personal">
-                <span>Homeworld:</span>
+                <span>World:</span>
                 <input v-model="draft.identity.homeworld" class="sheet-line-input">
               </label>
               <label class="sheet-line-field sheet-line-field--personal">
@@ -156,7 +187,12 @@ defineEmits<{
         </div>
 
         <section class="sheet-characteristics-panel">
-          <div v-for="id in characteristicIds" :key="id" class="sheet-characteristic">
+          <div
+            v-for="id in characteristicIds"
+            :key="id"
+            class="sheet-characteristic"
+            :class="{ 'sheet-characteristic--psi': id === 'psi' }"
+          >
             <span class="sheet-characteristic-label">{{ draft.characteristics[id].abbreviation }}</span>
             <div class="sheet-stat-entry">
               <input
@@ -391,21 +427,33 @@ defineEmits<{
                 </div>
               </section>
             </div>
-            <div class="sheet-training-box">
-              <div class="sheet-training-title">Training</div>
-              <label class="sheet-line-field sheet-line-field--training">
-                <span>Skill:</span>
-                <input :value="trainingSkill?.name ?? ''" class="sheet-line-input" readonly>
-              </label>
-              <label class="sheet-line-field sheet-line-field--training">
-                <span>Completed Weeks:</span>
-                <input class="sheet-line-input" readonly>
-              </label>
-              <label class="sheet-line-field sheet-line-field--training">
-                <span>Completed Study Periods:</span>
-                <input class="sheet-line-input" readonly>
-              </label>
-            </div>
+            <SheetTrainingPanel
+              :selected-skill-id="selectedTrainingSkillId"
+              :selected-speciality="selectedTrainingSpeciality"
+              :custom-speciality="customTrainingSpeciality"
+              :target-level="selectedTrainingTargetLevel"
+              :characteristic="selectedTrainingCharacteristic"
+              :active-training="activeTraining"
+              :history="trainingHistory"
+              :skill-options="trainingSkillOptions"
+              :current-level="selectedTrainingCurrentLevel"
+              :target-level-options="selectedTrainingTargetOptions"
+              :required-study-periods="selectedTrainingRequiredStudyPeriods"
+              :validation="selectedTrainingValidation"
+              :can-start="trainingCanStart"
+              :can-roll="trainingCanRoll"
+              :progress-label="activeTrainingProgressLabel"
+              :roll-summary="trainingRollSummary"
+              @update:selected-skill-id="$emit('update:selectedTrainingSkillId', $event)"
+              @update:selected-speciality="$emit('update:selectedTrainingSpeciality', $event)"
+              @update:custom-speciality="$emit('update:customTrainingSpeciality', $event)"
+              @update:target-level="$emit('update:selectedTrainingTargetLevel', $event)"
+              @update:characteristic="$emit('update:selectedTrainingCharacteristic', $event)"
+              @start="$emit('startSkillTraining')"
+              @cancel="$emit('cancelSkillTraining')"
+              @add-week="$emit('addTrainingWeeks', $event)"
+              @roll="$emit('rollSkillTrainingStudyPeriod')"
+            />
           </div>
         </section>
       </div>

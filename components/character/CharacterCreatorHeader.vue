@@ -57,7 +57,7 @@ const characterCreatorAgeLabel = computed(() => {
             <input
               v-model="characterHomeworld"
               class="hud-field__input"
-              placeholder="Homeworld"
+              placeholder="World"
             >
           </div>
         </label>

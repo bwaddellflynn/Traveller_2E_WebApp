@@ -101,6 +101,10 @@ export const createBlankTravellerProfile = (source: TravellerProfileSource = 'ma
       personal: [],
       musteringOut: [],
     },
+    training: {
+      active: null,
+      history: [],
+    },
     history: {
       background: '',
       notes: '',
@@ -141,6 +145,7 @@ export const normalizeTravellerProfile = (
   const finances = objectOr(value.finances, {} as Record<string, unknown>)
   const psionics = objectOr(value.psionics, {} as Record<string, unknown>)
   const benefits = objectOr(value.benefits, {} as Record<string, unknown>)
+  const training = objectOr(value.training, {} as Record<string, unknown>)
   const history = objectOr(value.history, {} as Record<string, unknown>)
   const metadata = objectOr(value.metadata, {} as Record<string, unknown>)
 
@@ -350,6 +355,54 @@ export const normalizeTravellerProfile = (
     cashRollLimit: numberOr(benefits.cashRollLimit, profile.benefits.cashRollLimit),
     personal: arrayOr<string>(benefits.personal).map((entry) => stringOr(entry)).filter(Boolean),
     musteringOut: arrayOr(benefits.musteringOut),
+  }
+
+  const activeTraining = training.active === null ? null : objectOr(training.active, {} as Record<string, unknown>)
+  profile.training = {
+    active: activeTraining && stringOr(activeTraining.skillId)
+      ? {
+          id: stringOr(activeTraining.id, `training-${Date.now()}`),
+          skillId: stringOr(activeTraining.skillId),
+          skillName: stringOr(activeTraining.skillName),
+          speciality: stringOr(activeTraining.speciality, ''),
+          targetLevel: numberOr(activeTraining.targetLevel, 0),
+          characteristic: (['edu', 'str', 'dex', 'end'] as const).includes(activeTraining.characteristic as 'edu' | 'str' | 'dex' | 'end')
+            ? activeTraining.characteristic as 'edu' | 'str' | 'dex' | 'end'
+            : 'edu',
+          completedWeeks: Math.max(0, numberOr(activeTraining.completedWeeks, 0)),
+          successfulStudyPeriods: Math.max(0, numberOr(activeTraining.successfulStudyPeriods, 0)),
+          failedStudyPeriods: Math.max(0, numberOr(activeTraining.failedStudyPeriods, 0)),
+          requiredStudyPeriods: Math.max(1, numberOr(activeTraining.requiredStudyPeriods, Math.max(1, numberOr(activeTraining.targetLevel, 0)))),
+          startedAt: stringOr(activeTraining.startedAt, profile.createdAt),
+          lastRoll: activeTraining.lastRoll && typeof activeTraining.lastRoll === 'object'
+            ? {
+                label: stringOr((activeTraining.lastRoll as Record<string, unknown>).label, 'Study Period'),
+                dice: arrayOr<number>((activeTraining.lastRoll as Record<string, unknown>).dice).map((die) => numberOr(die, 0)),
+                dm: numberOr((activeTraining.lastRoll as Record<string, unknown>).dm, 0),
+                total: numberOr((activeTraining.lastRoll as Record<string, unknown>).total, 0),
+                target: numberOr((activeTraining.lastRoll as Record<string, unknown>).target, 8),
+                effect: numberOr((activeTraining.lastRoll as Record<string, unknown>).effect, 0),
+                success: booleanOr((activeTraining.lastRoll as Record<string, unknown>).success, false),
+                source: 'rolled',
+                notes: stringOr((activeTraining.lastRoll as Record<string, unknown>).notes, ''),
+              }
+            : undefined,
+          notes: stringOr(activeTraining.notes, ''),
+        }
+      : null,
+    history: arrayOr<Record<string, unknown>>(training.history).map((entry, index) => ({
+      id: stringOr(entry.id, `training-history-${index}`),
+      skillId: stringOr(entry.skillId, ''),
+      skillName: stringOr(entry.skillName, ''),
+      speciality: stringOr(entry.speciality, ''),
+      targetLevel: numberOr(entry.targetLevel, 0),
+      outcome: entry.outcome === 'failed' || entry.outcome === 'cancelled' ? entry.outcome : 'completed',
+      successfulStudyPeriods: Math.max(0, numberOr(entry.successfulStudyPeriods, 0)),
+      failedStudyPeriods: Math.max(0, numberOr(entry.failedStudyPeriods, 0)),
+      completedWeeks: Math.max(0, numberOr(entry.completedWeeks, 0)),
+      completedAt: stringOr(entry.completedAt, profile.updatedAt),
+      notes: stringOr(entry.notes, ''),
+    })),
   }
 
   profile.history = {

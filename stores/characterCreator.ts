@@ -3374,8 +3374,8 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     const itemName = event.name || String(effect.itemType ?? 'Item')
     const itemType = String(effect.itemType ?? '').toLowerCase()
     const categories = itemType === 'ancient-technology'
-      ? ['Person', 'Plot', 'Mystery']
-      : ['Person', 'Plot']
+      ? ['Personal Benefit', 'Plot Item', 'Mystery']
+      : ['Personal Benefit', 'Plot Item']
 
     addChoiceResolution({
       type: 'choice',
@@ -6486,6 +6486,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
   const educationBenefitLabel = (benefit: { type: string; amount?: number; characteristic?: string; count?: number; level?: number; dm?: number; honoursDm?: number; honoursAutomaticSuccess?: boolean; officerRankOnSuccess?: number }) => {
     const labels: Record<string, string> = {
       increase_chosen_pre_career_skills: `Increase chosen education skills by ${benefit.amount ?? 1}`,
+      increase_chosen_education_skills: `Increase chosen education skills by ${benefit.amount ?? 1}`,
       characteristic_increase: `Increase ${benefit.characteristic?.toUpperCase()} by ${benefit.amount ?? 1}`,
       honours_characteristic_increase: `Honours: increase ${benefit.characteristic?.toUpperCase()} by ${benefit.amount ?? 1}`,
       qualification_dm: `Career qualification DM ${formatDm(benefit.dm ?? 0)}${benefit.honoursDm ? `, or DM ${formatDm(benefit.honoursDm)} with honours` : ''}`,

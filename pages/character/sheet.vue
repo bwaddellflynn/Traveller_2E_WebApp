@@ -5,10 +5,12 @@ import DiceRollModal from '~/components/character/DiceRollModal.vue'
 import SheetDesktopHeader from '~/components/character/sheet/SheetDesktopHeader.vue'
 import SheetHistoryPage from '~/components/character/sheet/SheetHistoryPage.vue'
 import SheetInventoryPage from '~/components/character/sheet/SheetInventoryPage.vue'
+import SheetTrainingPanel from '~/components/character/sheet/SheetTrainingPanel.vue'
 import SheetTravellerPage from '~/components/character/sheet/SheetTravellerPage.vue'
 import GalacticCreditsIcon from '~/components/GalacticCreditsIcon.vue'
 import skillsData from '~/data/traveller2e/core/skills.json'
-import type { TravellerAssociate, TravellerCharacteristicId, TravellerProfile, TravellerSkill } from '~/types/traveller'
+import speciesData from '~/data/traveller2e/core/species.json'
+import type { TravellerAssociate, TravellerCharacteristicId, TravellerProfile, TravellerRollRecord, TravellerSkill, TravellerSkillTrainingActive } from '~/types/traveller'
 import { useTravellersStore } from '~/stores/travellers'
 import { clearBuilderDraft, clearDraftPointer, loadBuilderDraft, saveBuilderDraft, saveDraftPointer } from '~/utils/traveller/draftCache'
 import { MANUAL_TRAVELLER_ACTIVE_DRAFT_POINTER_KEY, MANUAL_TRAVELLER_DRAFT_CACHE_VERSION, manualTravellerDraftCacheKey } from '~/utils/traveller/manualDraft'
@@ -33,6 +35,7 @@ const mobileSheetMenuOpen = ref(false)
 const mobileSheetActionsOpen = ref(false)
 const manualSheetDraftRestored = ref(false)
 const manualSheetDraftCachePaused = ref(false)
+let sheetAutosaveTimer: number | null = null
 const activeSheetRouteId = computed(() => typeof route.query.id === 'string' ? route.query.id : '')
 const activeSheetDraftId = computed(() => typeof route.query.draft === 'string' ? route.query.draft : '')
 const activeManualSheetDraftCacheKey = computed(() => {
@@ -41,6 +44,21 @@ const activeManualSheetDraftCacheKey = computed(() => {
 const isUnsavedManualDraftRoute = computed(() => !activeSheetRouteId.value && Boolean(activeSheetDraftId.value))
 
 const characteristicIds: TravellerCharacteristicId[] = ['str', 'dex', 'end', 'int', 'edu', 'soc', 'psi']
+const psionicSkillIds = new Set((skillsData.skills as Array<{ id: string; psionic?: boolean }>)
+  .filter((skill) => skill.psionic)
+  .map((skill) => skill.id))
+const sheetHasPsionics = computed(() => {
+  return (draft.value.characteristics.psi?.value ?? 0) > 0
+    || draft.value.skills.some((skill) => psionicSkillIds.has(parseTravellerSkill(skill.id || skill.name).baseId))
+})
+const visibleCharacteristicIds = computed(() => characteristicIds.filter((id) => id !== 'psi' || sheetHasPsionics.value))
+const speciesOptions = computed(() => {
+  const profiles = (speciesData as { raceProfiles?: Array<{ name: string; playable?: boolean; selectableAsSpecies?: boolean }> }).raceProfiles ?? []
+  return profiles
+    .filter((species) => species.playable !== false && species.selectableAsSpecies !== false)
+    .map((species) => species.name)
+    .sort((left, right) => left.localeCompare(right))
+})
 const associateGroups = [
   { id: 'contacts', label: 'Contacts' },
   { id: 'allies', label: 'Allies' },
@@ -79,7 +97,12 @@ type SheetPageId = typeof sheetPages[number]['id']
 const activeSheetPage = ref<SheetPageId>('traveller')
 const activeSheetPageLabel = computed(() => sheetPages.find((page) => page.id === activeSheetPage.value)?.label ?? 'Traveller')
 const showOnlyTrainedSkills = ref(false)
-const trainingSkill = computed(() => draft.value.skills.find((skill) => skill.sources?.some((source) => /training/i.test(source))) ?? null)
+const selectedTrainingSkillId = ref('')
+const selectedTrainingSpeciality = ref('')
+const customTrainingSpeciality = ref('')
+const selectedTrainingTargetLevel = ref(0)
+const selectedTrainingCharacteristic = ref<'edu' | 'str' | 'dex' | 'end'>('edu')
+const trainingRollSummary = ref('')
 const isVoucherEquipment = (item: TravellerProfile['equipment'][number]) => /voucher$/i.test(item.name) || /voucher/i.test(item.notes ?? '')
 const voucherEquipmentEntries = computed(() => draft.value.equipment
   .map((item, index) => ({ item, index }))
@@ -168,6 +191,7 @@ const sheetSkillDefinitions = computed(() => {
     .filter((skill) => !skill.psionic)
     .slice()
     .sort((left, right) => skillNameCollator.compare(left.name, right.name))
+  if (!sheetHasPsionics.value) return nonPsionic
   const psionic = definitions
     .filter((skill) => skill.psionic)
     .slice()
@@ -196,12 +220,12 @@ const loadSheetFromRoute = () => {
   )
 
   if (cachedDraft) {
-    draft.value = cloneTravellerProfile(cachedDraft)
+    draft.value = normalizeTravellerProfile(cachedDraft, cachedDraft.source)
     return
   }
 
   if (existing) {
-    draft.value = cloneTravellerProfile(existing)
+    draft.value = normalizeTravellerProfile(existing, existing.source)
     draft.value.metadata.lastOpenedAt = new Date().toISOString()
     void travellers.setActiveProfile(id)
     return
@@ -372,6 +396,201 @@ const changeSpecialitySkillLevel = (definition: SkillDefinition, speciality: str
     return
   }
   ensureSheetSkill(definition, nextLevel, specialityDisplayName(definition, speciality))
+}
+
+const activeTraining = computed(() => draft.value.training.active)
+const trainingHistory = computed(() => draft.value.training.history)
+const trainingSkillOptions = computed(() => sheetSkillDefinitions.value
+  .filter((definition) => definition.id !== 'jack-of-all-trades')
+  .map((definition) => ({
+    id: definition.id,
+    name: definition.name,
+    specialities: definition.specialities ?? [],
+    specialityMode: definition.specialityMode,
+  })))
+const selectedTrainingDefinition = computed(() => sheetSkillDefinitionsById.value[selectedTrainingSkillId.value])
+const resolvedTrainingSpeciality = computed(() => {
+  if (selectedTrainingSpeciality.value === '__custom__') return customTrainingSpeciality.value.trim()
+  return selectedTrainingSpeciality.value.trim()
+})
+const selectedTrainingCurrentLevel = computed(() => {
+  const definition = selectedTrainingDefinition.value
+  if (!definition) return null
+  const speciality = resolvedTrainingSpeciality.value
+  if (speciality) return specialitySkillEntry(definition, speciality)?.record.level ?? null
+  return baseSkillDisplayLevel(definition)
+})
+const selectedTrainingTargetOptions = computed(() => {
+  const current = selectedTrainingCurrentLevel.value
+  const definition = selectedTrainingDefinition.value
+  const specialityMinimum = definition && resolvedTrainingSpeciality.value && sheetSkillMode(definition) === 'shared-zero' ? 1 : 0
+  const minimum = Math.max(specialityMinimum, current === null ? 0 : current + 1)
+  return Array.from({ length: Math.max(0, 6 - minimum) }, (_, index) => minimum + index).filter((level) => level >= 0 && level <= 5)
+})
+const selectedTrainingRequiredStudyPeriods = computed(() => Math.max(1, selectedTrainingTargetLevel.value))
+const positiveSkillLevelTotal = computed(() => draft.value.skills.reduce((total, skill) => total + Math.max(0, skill.level), 0))
+const skillLevelCap = computed(() => 3 * ((draft.value.characteristics.int?.value ?? 0) + (draft.value.characteristics.edu?.value ?? 0)))
+const selectedTrainingValidation = computed(() => {
+  const definition = selectedTrainingDefinition.value
+  if (!definition) return 'Select a skill to train.'
+  if (definition.id === 'jack-of-all-trades') return 'Jack-of-all-Trades cannot be learned or improved through training.'
+
+  const hasSpecialities = sheetSkillHasSpecialities(definition)
+  const speciality = resolvedTrainingSpeciality.value
+  if (hasSpecialities && selectedTrainingTargetLevel.value > 0 && !speciality) return 'Choose a speciality before training this skill above level 0.'
+  if (selectedTrainingSpeciality.value === '__custom__' && !speciality) return 'Enter a custom speciality.'
+
+  const current = selectedTrainingCurrentLevel.value
+  if (!selectedTrainingTargetOptions.value.length) return 'This skill is already at the sheet training maximum.'
+  if (current !== null && selectedTrainingTargetLevel.value <= current) return 'Target level must be higher than the current level.'
+  if (selectedTrainingTargetLevel.value > 0 && positiveSkillLevelTotal.value >= skillLevelCap.value) return 'This Traveller is at the skill level cap; new training can only add level 0 skills.'
+  return ''
+})
+const trainingCanStart = computed(() => !activeTraining.value && !selectedTrainingValidation.value)
+const trainingCanRoll = computed(() => Boolean(activeTraining.value && activeTraining.value.completedWeeks >= 8))
+const activeTrainingProgressLabel = computed(() => {
+  const training = activeTraining.value
+  if (!training) return ''
+  const weeksNeeded = Math.max(0, 8 - training.completedWeeks)
+  if (weeksNeeded > 0) return `${weeksNeeded} more completed week${weeksNeeded === 1 ? '' : 's'} needed for the next Study Period.`
+  return `Ready for an Average ${training.characteristic.toUpperCase()} 8+ Study Period check.`
+})
+
+watch(
+  selectedTrainingSkillId,
+  () => {
+    selectedTrainingSpeciality.value = ''
+    customTrainingSpeciality.value = ''
+    selectedTrainingCharacteristic.value = selectedTrainingSkillId.value === 'athletics' ? 'str' : 'edu'
+    selectedTrainingTargetLevel.value = selectedTrainingTargetOptions.value[0] ?? 0
+  },
+)
+
+watch(
+  [selectedTrainingSpeciality, customTrainingSpeciality],
+  () => {
+    selectedTrainingTargetLevel.value = selectedTrainingTargetOptions.value[0] ?? 0
+  },
+)
+
+watch(
+  selectedTrainingTargetOptions,
+  (options) => {
+    if (!options.includes(selectedTrainingTargetLevel.value)) selectedTrainingTargetLevel.value = options[0] ?? 0
+  },
+  { immediate: true },
+)
+
+const makeTrainingId = () => `training-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+const startSkillTraining = () => {
+  const definition = selectedTrainingDefinition.value
+  if (!definition || selectedTrainingValidation.value) return
+  const speciality = resolvedTrainingSpeciality.value
+  const formattedSpeciality = speciality ? formatSheetSpeciality(definition, speciality) : ''
+  trainingRollSummary.value = ''
+  draft.value.training.active = {
+    id: makeTrainingId(),
+    skillId: definition.id,
+    skillName: definition.name,
+    speciality: formattedSpeciality,
+    targetLevel: selectedTrainingTargetLevel.value,
+    characteristic: selectedTrainingCharacteristic.value,
+    completedWeeks: 0,
+    successfulStudyPeriods: 0,
+    failedStudyPeriods: 0,
+    requiredStudyPeriods: selectedTrainingRequiredStudyPeriods.value,
+    startedAt: new Date().toISOString(),
+    notes: '',
+  }
+}
+
+const cancelSkillTraining = () => {
+  const training = activeTraining.value
+  if (!training) return
+  draft.value.training.history.unshift({
+    id: makeTrainingId(),
+    skillId: training.skillId,
+    skillName: training.skillName,
+    speciality: training.speciality,
+    targetLevel: training.targetLevel,
+    outcome: 'cancelled',
+    successfulStudyPeriods: training.successfulStudyPeriods,
+    failedStudyPeriods: training.failedStudyPeriods,
+    completedWeeks: training.completedWeeks,
+    completedAt: new Date().toISOString(),
+    notes: 'Training cancelled before completion.',
+  })
+  draft.value.training.active = null
+  trainingRollSummary.value = ''
+}
+
+const addTrainingWeeks = (amount: number) => {
+  const training = activeTraining.value
+  if (!training) return
+  training.completedWeeks = Math.max(0, training.completedWeeks + amount)
+}
+
+const applyCompletedTraining = (training: TravellerSkillTrainingActive) => {
+  const definition = sheetSkillDefinitionsById.value[training.skillId]
+  if (!definition) return
+  const speciality = training.speciality?.trim() || undefined
+  const existingIndex = findSheetSkillIndex(definition.id, speciality ? slugifyTravellerSkill(speciality) : undefined)
+  const existing = existingIndex >= 0 ? draft.value.skills[existingIndex] : null
+  const sources = Array.from(new Set([...(existing?.sources ?? []), 'Training']))
+  const updated = buildTravellerSkill(definition.id, training.targetLevel, speciality, {
+    sources,
+    notes: existing?.notes ?? '',
+  })
+  if (existingIndex >= 0) draft.value.skills[existingIndex] = updated
+  else draft.value.skills.push(updated)
+}
+
+const rollSkillTrainingStudyPeriod = () => {
+  const training = activeTraining.value
+  if (!training || training.completedWeeks < 8) return
+  const dice = [randomDie(), randomDie()]
+  const dm = draft.value.characteristics[training.characteristic]?.dm ?? diceModifier(draft.value.characteristics[training.characteristic]?.value ?? 0)
+  const total = dice[0] + dice[1] + dm
+  const roll: TravellerRollRecord = {
+    label: `${training.skillName} Study Period`,
+    dice,
+    dm,
+    total,
+    target: 8,
+    effect: total - 8,
+    success: total >= 8,
+    source: 'rolled',
+    notes: `Training ${training.skillName}${training.speciality ? ` (${training.speciality})` : ''} ${training.targetLevel}`,
+  }
+  training.completedWeeks = Math.max(0, training.completedWeeks - 8)
+  training.lastRoll = roll
+
+  if (roll.success) {
+    training.successfulStudyPeriods += 1
+    trainingRollSummary.value = `${dice.join(' + ')} ${formatDm(dm)} = ${total}. Study Period successful.`
+  } else {
+    training.failedStudyPeriods += 1
+    trainingRollSummary.value = `${dice.join(' + ')} ${formatDm(dm)} = ${total}. No useful progress gained.`
+  }
+
+  if (training.successfulStudyPeriods >= training.requiredStudyPeriods) {
+    applyCompletedTraining(training)
+    draft.value.training.history.unshift({
+      id: makeTrainingId(),
+      skillId: training.skillId,
+      skillName: training.skillName,
+      speciality: training.speciality,
+      targetLevel: training.targetLevel,
+      outcome: 'completed',
+      successfulStudyPeriods: training.successfulStudyPeriods,
+      failedStudyPeriods: training.failedStudyPeriods,
+      completedWeeks: training.completedWeeks,
+      completedAt: new Date().toISOString(),
+      notes: trainingRollSummary.value,
+    })
+    trainingRollSummary.value = `${trainingRollSummary.value} Training complete.`
+    draft.value.training.active = null
+  }
 }
 
 const addCustomSpecialitySkill = (definition: SkillDefinition) => {
@@ -1267,6 +1486,7 @@ onMounted(async () => {
 onBeforeUnmount(() => {
   if (!import.meta.client) return
   clearRollModalTimers()
+  if (sheetAutosaveTimer) window.clearTimeout(sheetAutosaveTimer)
   window.removeEventListener('resize', updateSheetViewport)
 })
 
@@ -1282,6 +1502,21 @@ watch(
       MANUAL_TRAVELLER_DRAFT_CACHE_VERSION,
       cloneTravellerProfile(profile),
     )
+  },
+  { deep: true },
+)
+
+watch(
+  draft,
+  (profile) => {
+    if (!import.meta.client || !manualSheetDraftRestored.value || manualSheetDraftCachePaused.value) return
+    if (!activeSheetRouteId.value || isUnsavedManualDraftRoute.value) return
+    if (sheetAutosaveTimer) window.clearTimeout(sheetAutosaveTimer)
+    sheetAutosaveTimer = window.setTimeout(async () => {
+      sheetAutosaveTimer = null
+      await travellers.saveProfile(profile)
+      saveMessage.value = `Autosaved ${profile.identity.name || 'Traveller'}`
+    }, 900)
   },
   { deep: true },
 )
@@ -1405,12 +1640,17 @@ watch(
                       <input v-model.number="draft.identity.age" class="sheet-line-input" min="0" type="number">
                     </label>
                     <label class="sheet-line-field sheet-line-field--personal">
-                      <span>Species:</span>
-                      <input v-model="draft.identity.species" class="sheet-line-input">
+                      <span class="sheet-personal-split__spacer" aria-hidden="true"></span>
+                      <select v-model="draft.identity.species" class="sheet-line-input">
+                        <option disabled value="">Species</option>
+                        <option v-for="species in speciesOptions" :key="species" :value="species">
+                          {{ species }}
+                        </option>
+                      </select>
                     </label>
                   </div>
                   <label class="sheet-line-field sheet-line-field--personal">
-                    <span>Homeworld:</span>
+                    <span>World:</span>
                     <input v-model="draft.identity.homeworld" class="sheet-line-input">
                   </label>
                   <label class="sheet-line-field sheet-line-field--personal">
@@ -1485,9 +1725,10 @@ watch(
 
               <section class="sheet-characteristics-panel sheet-characteristics-panel--mobile">
                 <div
-                  v-for="id in characteristicIds"
+                  v-for="id in visibleCharacteristicIds"
                   :key="`profile-${id}`"
                   class="sheet-characteristic"
+                  :class="{ 'sheet-characteristic--psi': id === 'psi' }"
                 >
                   <span class="sheet-characteristic-label">{{ draft.characteristics[id].abbreviation }}</span>
                   <div class="sheet-stat-entry">
@@ -1724,21 +1965,28 @@ watch(
                     </div>
                   </section>
                 </div>
-                <div class="sheet-training-box">
-                  <div class="sheet-training-title">Training</div>
-                  <label class="sheet-line-field sheet-line-field--training">
-                    <span>Skill:</span>
-                    <input :value="trainingSkill?.name ?? ''" class="sheet-line-input" readonly>
-                  </label>
-                  <label class="sheet-line-field sheet-line-field--training">
-                    <span>Completed Weeks:</span>
-                    <input class="sheet-line-input" readonly>
-                  </label>
-                  <label class="sheet-line-field sheet-line-field--training">
-                    <span>Completed Study Periods:</span>
-                    <input class="sheet-line-input" readonly>
-                  </label>
-                </div>
+                <SheetTrainingPanel
+                  v-model:selected-skill-id="selectedTrainingSkillId"
+                  v-model:selected-speciality="selectedTrainingSpeciality"
+                  v-model:custom-speciality="customTrainingSpeciality"
+                  v-model:target-level="selectedTrainingTargetLevel"
+                  v-model:characteristic="selectedTrainingCharacteristic"
+                  :active-training="activeTraining"
+                  :history="trainingHistory"
+                  :skill-options="trainingSkillOptions"
+                  :current-level="selectedTrainingCurrentLevel"
+                  :target-level-options="selectedTrainingTargetOptions"
+                  :required-study-periods="selectedTrainingRequiredStudyPeriods"
+                  :validation="selectedTrainingValidation"
+                  :can-start="trainingCanStart"
+                  :can-roll="trainingCanRoll"
+                  :progress-label="activeTrainingProgressLabel"
+                  :roll-summary="trainingRollSummary"
+                  @start="startSkillTraining"
+                  @cancel="cancelSkillTraining"
+                  @add-week="addTrainingWeeks"
+                  @roll="rollSkillTrainingStudyPeriod"
+                />
               </div>
             </section>
 
@@ -2037,13 +2285,29 @@ watch(
           <SheetTravellerPage
             v-if="activeSheetPage === 'traveller'"
             :draft="draft"
-            :characteristic-ids="characteristicIds"
+            :characteristic-ids="visibleCharacteristicIds"
             :is-portrait-drag-active="isPortraitDragActive"
             :portrait-clear-confirm-open="portraitClearConfirmOpen"
             :show-only-trained-skills="showOnlyTrainedSkills"
             :skill-column-count="skillColumnCount"
             :skill-group-columns="skillGroupColumns"
-            :training-skill="trainingSkill"
+            :species-options="speciesOptions"
+            :active-training="activeTraining"
+            :training-history="trainingHistory"
+            :training-skill-options="trainingSkillOptions"
+            :selected-training-skill-id="selectedTrainingSkillId"
+            :selected-training-speciality="selectedTrainingSpeciality"
+            :custom-training-speciality="customTrainingSpeciality"
+            :selected-training-target-level="selectedTrainingTargetLevel"
+            :selected-training-characteristic="selectedTrainingCharacteristic"
+            :selected-training-current-level="selectedTrainingCurrentLevel"
+            :selected-training-target-options="selectedTrainingTargetOptions"
+            :selected-training-required-study-periods="selectedTrainingRequiredStudyPeriods"
+            :selected-training-validation="selectedTrainingValidation"
+            :training-can-start="trainingCanStart"
+            :training-can-roll="trainingCanRoll"
+            :active-training-progress-label="activeTrainingProgressLabel"
+            :training-roll-summary="trainingRollSummary"
             :weapon-skill-options="weaponSkillOptions"
             :owned-weapon-options="ownedWeaponOptions"
             :active-skill-picker-id="activeSkillPickerId"
@@ -2088,6 +2352,15 @@ watch(
             :change-speciality-skill-level="changeSpecialitySkillLevel"
             :change-base-skill-level="changeBaseSkillLevel"
             @update:showOnlyTrainedSkills="showOnlyTrainedSkills = $event"
+            @update:selected-training-skill-id="selectedTrainingSkillId = $event"
+            @update:selected-training-speciality="selectedTrainingSpeciality = $event"
+            @update:custom-training-speciality="customTrainingSpeciality = $event"
+            @update:selected-training-target-level="selectedTrainingTargetLevel = $event"
+            @update:selected-training-characteristic="selectedTrainingCharacteristic = $event"
+            @start-skill-training="startSkillTraining"
+            @cancel-skill-training="cancelSkillTraining"
+            @add-training-weeks="addTrainingWeeks"
+            @roll-skill-training-study-period="rollSkillTrainingStudyPeriod"
           />
 
           <SheetInventoryPage
@@ -2487,10 +2760,12 @@ watch(
   display: grid;
   gap: 16px;
   align-content: start;
+  min-width: 0;
 }
 
 .sheet-panel {
   position: relative;
+  min-width: 0;
   overflow: hidden;
   border: 1px solid rgba(34, 211, 238, 0.34);
   border-radius: 12px 0 12px 0;
@@ -2946,6 +3221,8 @@ watch(
 .sheet-textarea {
   box-sizing: border-box;
   width: 100%;
+  min-width: 0;
+  max-width: 100%;
   min-height: 2.2rem;
   border: 1px solid rgba(34, 211, 238, 0.24);
   border-radius: 10px 0 10px 0;
@@ -2960,6 +3237,12 @@ watch(
     inset 0 0 0 1px rgba(34, 211, 238, 0.04),
     0 0 0 rgba(34, 211, 238, 0);
   transition: border-color 140ms ease, box-shadow 140ms ease, background 140ms ease;
+}
+
+.sheet-cell-input,
+.sheet-line-input {
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .sheet-cell-input--button {
@@ -3034,6 +3317,13 @@ watch(
   box-shadow: 0 0 18px rgba(34, 211, 238, 0.14);
 }
 
+.sheet-remove:disabled,
+.sheet-add:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+  box-shadow: none;
+}
+
 .sheet-remove {
   box-sizing: border-box;
   display: inline-flex;
@@ -3082,6 +3372,20 @@ watch(
   margin-top: 6px;
 }
 
+.sheet-add--compact {
+  min-height: 2rem;
+  padding: 5px 8px;
+  font-size: 0.76rem;
+}
+
+.sheet-add--primary {
+  border-color: rgba(251, 191, 36, 0.5);
+  background:
+    linear-gradient(180deg, rgba(120, 65, 12, 0.72), rgba(48, 24, 8, 0.78)),
+    radial-gradient(circle at 0 0, rgba(251, 191, 36, 0.18), transparent 4rem);
+  color: #fef3c7;
+}
+
 .sheet-identity-grid {
   display: grid;
   grid-template-columns: minmax(0, 1.35fr) minmax(220px, 0.65fr);
@@ -3091,25 +3395,42 @@ watch(
 .sheet-personal-grid {
   display: grid;
   gap: 8px;
+  min-width: 0;
 }
 
 .sheet-personal-split {
   display: grid;
-  grid-template-columns: minmax(0, 0.55fr) minmax(0, 0.95fr);
-  gap: 10px;
+  grid-template-columns: 64px minmax(4.25rem, 0.48fr) 0 minmax(0, 1fr);
+  column-gap: 6px;
+  row-gap: 8px;
+  align-items: center;
+  min-width: 0;
 }
 
 .sheet-line-field {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   color: #a1a1aa;
   min-width: 0;
 }
 
 .sheet-line-field--personal {
-  grid-template-columns: 88px minmax(0, 1fr);
+  grid-template-columns: 64px minmax(0, 1fr);
+  gap: 6px;
+}
+
+.sheet-personal-split .sheet-line-field--personal {
+  display: contents;
+}
+
+.sheet-personal-split .sheet-line-field--personal > span {
+  align-self: center;
+}
+
+.sheet-personal-split__spacer {
+  display: none;
 }
 
 .sheet-line-field--stacked {
@@ -3144,7 +3465,7 @@ watch(
 }
 
 .sheet-line-field--training {
-  grid-template-columns: 132px minmax(0, 1fr);
+  grid-template-columns: 76px minmax(0, 1fr);
   align-items: center;
 }
 
@@ -3346,7 +3667,7 @@ watch(
 
 .sheet-characteristics-panel {
   display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 10px;
   align-items: start;
 }
@@ -3369,6 +3690,10 @@ watch(
   display: grid;
   gap: 6px;
   justify-items: center;
+}
+
+.sheet-characteristic--psi {
+  grid-column: 1 / -1;
 }
 
 .sheet-stat-entry {
@@ -3994,10 +4319,11 @@ watch(
 
 .sheet-training-box {
   display: grid;
-  gap: 6px;
+  gap: 8px;
   grid-column: 1 / -1;
   align-self: end;
-  padding: 8px 8px 0;
+  min-width: 0;
+  padding: 8px;
   border: 1px solid rgba(34, 211, 238, 0.18);
   border-radius: 12px 0 12px 0;
   clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px));
@@ -4010,6 +4336,107 @@ watch(
   text-transform: uppercase;
   font-size: 0.76rem;
   letter-spacing: 0.02em;
+}
+
+.sheet-training-form {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.sheet-training-form__split {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  min-width: 0;
+}
+
+.sheet-training-active {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+
+.sheet-training-active strong {
+  display: block;
+  margin-top: 2px;
+  color: #e0f2fe;
+  font-size: 0.9rem;
+}
+
+.sheet-training-label {
+  color: #bae6fd;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.sheet-training-progress {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.sheet-training-progress > div {
+  min-width: 0;
+  padding: 7px;
+  border: 1px solid rgba(34, 211, 238, 0.16);
+  border-radius: 8px 0 8px 0;
+  background: rgba(3, 10, 22, 0.52);
+}
+
+.sheet-training-progress span {
+  display: block;
+  color: #bae6fd;
+  font-size: 0.64rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.sheet-training-progress strong {
+  display: block;
+  margin-top: 3px;
+  color: #e0f2fe;
+  font-size: 1rem;
+}
+
+.sheet-training-note {
+  margin: 0;
+  color: #cbd5e1;
+  font-size: 0.76rem;
+  line-height: 1.35;
+}
+
+.sheet-training-note--warning {
+  color: #fcd34d;
+}
+
+.sheet-training-note--roll {
+  color: #bae6fd;
+}
+
+.sheet-training-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.sheet-training-history {
+  display: grid;
+  gap: 3px;
+  margin-top: 2px;
+  padding-top: 7px;
+  border-top: 1px solid rgba(34, 211, 238, 0.14);
+}
+
+.sheet-training-history p {
+  margin: 0;
+  color: #94a3b8;
+  font-size: 0.72rem;
 }
 
 .sheet-finance-grid {
@@ -4620,7 +5047,11 @@ watch(
   }
 
   .sheet-line-field--training {
-    grid-template-columns: 108px minmax(0, 1fr);
+    grid-template-columns: 76px minmax(0, 1fr);
+  }
+
+  .sheet-training-form__split {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 </style>

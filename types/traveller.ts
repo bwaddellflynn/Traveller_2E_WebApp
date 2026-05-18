@@ -68,6 +68,36 @@ export type TravellerNarrativeEvent = {
   notes?: string
 }
 
+export type TravellerSkillTrainingActive = {
+  id: string
+  skillId: string
+  skillName: string
+  speciality?: string
+  targetLevel: number
+  characteristic: 'edu' | 'str' | 'dex' | 'end'
+  completedWeeks: number
+  successfulStudyPeriods: number
+  failedStudyPeriods: number
+  requiredStudyPeriods: number
+  startedAt: string
+  lastRoll?: TravellerRollRecord
+  notes?: string
+}
+
+export type TravellerSkillTrainingHistory = {
+  id: string
+  skillId: string
+  skillName: string
+  speciality?: string
+  targetLevel: number
+  outcome: 'completed' | 'failed' | 'cancelled'
+  successfulStudyPeriods: number
+  failedStudyPeriods: number
+  completedWeeks: number
+  completedAt: string
+  notes?: string
+}
+
 export type TravellerProfile = {
   id: string
   userId: string
@@ -182,6 +212,10 @@ export type TravellerProfile = {
     cashRollLimit: number
     personal: string[]
     musteringOut: unknown[]
+  }
+  training: {
+    active: TravellerSkillTrainingActive | null
+    history: TravellerSkillTrainingHistory[]
   }
   history: {
     background: string
