@@ -98,6 +98,27 @@ export type TravellerSkillTrainingHistory = {
   notes?: string
 }
 
+export type TravellerJournalEntry = {
+  id: string
+  title: string
+  date: {
+    year: number
+    month: number
+    day: number
+    imperialDay: number
+  }
+  sessionNumber?: number
+  location?: string
+  world?: string
+  system?: string
+  ship?: string
+  summary?: string
+  notes: string
+  tags: string[]
+  createdAt: string
+  updatedAt: string
+}
+
 export type TravellerProfile = {
   id: string
   userId: string
@@ -221,6 +242,11 @@ export type TravellerProfile = {
     background: string
     notes: string
     events: TravellerNarrativeEvent[]
+  }
+  journal: {
+    campaignYear: number
+    currentMonth: number
+    entries: TravellerJournalEntry[]
   }
   metadata: {
     pdfTemplate?: string

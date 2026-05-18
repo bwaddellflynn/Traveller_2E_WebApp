@@ -110,6 +110,11 @@ export const createBlankTravellerProfile = (source: TravellerProfileSource = 'ma
       notes: '',
       events: [],
     },
+    journal: {
+      campaignYear: 1105,
+      currentMonth: 1,
+      entries: [],
+    },
     metadata: {
       pdfTemplate: 'Character Sheet 2026_fillable.pdf',
       creatorComplete: source === 'manual' ? false : true,
@@ -147,6 +152,7 @@ export const normalizeTravellerProfile = (
   const benefits = objectOr(value.benefits, {} as Record<string, unknown>)
   const training = objectOr(value.training, {} as Record<string, unknown>)
   const history = objectOr(value.history, {} as Record<string, unknown>)
+  const journal = objectOr(value.journal, {} as Record<string, unknown>)
   const metadata = objectOr(value.metadata, {} as Record<string, unknown>)
 
   profile.id = stringOr(value.id, profile.id)
@@ -416,6 +422,34 @@ export const normalizeTravellerProfile = (
       text: stringOr(event.text, ''),
       notes: stringOr(event.notes, ''),
     })),
+  }
+
+  profile.journal = {
+    campaignYear: numberOr(journal.campaignYear, profile.journal.campaignYear),
+    currentMonth: Math.min(12, Math.max(1, numberOr(journal.currentMonth, profile.journal.currentMonth))),
+    entries: arrayOr<Record<string, unknown>>(journal.entries).map((entry, index) => {
+      const date = objectOr(entry.date, {} as Record<string, unknown>)
+      return {
+        id: stringOr(entry.id, `journal-${index}`),
+        title: stringOr(entry.title, ''),
+        date: {
+          year: numberOr(date.year, numberOr(journal.campaignYear, profile.journal.campaignYear)),
+          month: Math.min(12, Math.max(1, numberOr(date.month, 1))),
+          day: Math.min(31, Math.max(1, numberOr(date.day, 1))),
+          imperialDay: Math.min(366, Math.max(1, numberOr(date.imperialDay, 1))),
+        },
+        sessionNumber: typeof entry.sessionNumber === 'undefined' ? undefined : numberOr(entry.sessionNumber, 0),
+        location: stringOr(entry.location, ''),
+        world: stringOr(entry.world, ''),
+        system: stringOr(entry.system, ''),
+        ship: stringOr(entry.ship, ''),
+        summary: stringOr(entry.summary, ''),
+        notes: stringOr(entry.notes, ''),
+        tags: arrayOr<string>(entry.tags).map((tag) => stringOr(tag)).filter(Boolean),
+        createdAt: stringOr(entry.createdAt, profile.createdAt),
+        updatedAt: stringOr(entry.updatedAt, profile.updatedAt),
+      }
+    }),
   }
 
   profile.metadata = {

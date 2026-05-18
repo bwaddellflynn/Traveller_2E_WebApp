@@ -5,6 +5,7 @@ import DiceRollModal from '~/components/character/DiceRollModal.vue'
 import SheetDesktopHeader from '~/components/character/sheet/SheetDesktopHeader.vue'
 import SheetHistoryPage from '~/components/character/sheet/SheetHistoryPage.vue'
 import SheetInventoryPage from '~/components/character/sheet/SheetInventoryPage.vue'
+import SheetLogPage from '~/components/character/sheet/SheetLogPage.vue'
 import SheetTrainingPanel from '~/components/character/sheet/SheetTrainingPanel.vue'
 import SheetTravellerPage from '~/components/character/sheet/SheetTravellerPage.vue'
 import GalacticCreditsIcon from '~/components/GalacticCreditsIcon.vue'
@@ -83,6 +84,7 @@ const mobileSheetSections = [
   { id: 'skills', label: 'Skills' },
   { id: 'loadout', label: 'Inventory' },
   { id: 'career', label: 'History' },
+  { id: 'log', label: 'Log' },
   { id: 'network', label: 'Network' },
 ] as const
 type MobileSheetSectionId = typeof mobileSheetSections[number]['id']
@@ -92,6 +94,7 @@ const sheetPages = [
   { id: 'traveller', label: 'Traveller' },
   { id: 'inventory', label: 'Inventory' },
   { id: 'history', label: 'History' },
+  { id: 'log', label: 'Ship\'s Log' },
 ] as const
 type SheetPageId = typeof sheetPages[number]['id']
 const activeSheetPage = ref<SheetPageId>('traveller')
@@ -2223,6 +2226,10 @@ watch(
               </section>
             </template>
 
+            <template v-else-if="activeMobileSheetSection === 'log'">
+              <SheetLogPage :draft="draft" />
+            </template>
+
             <template v-else-if="activeMobileSheetSection === 'network'">
               <section
                 v-for="group in associateGroups"
@@ -2388,7 +2395,7 @@ watch(
           />
 
           <SheetHistoryPage
-            v-else
+            v-else-if="activeSheetPage === 'history'"
             :draft="draft"
             :associate-action-labels="associateActionLabels"
             :history-background-lines="historyBackgroundLines"
@@ -2399,6 +2406,11 @@ watch(
             :add-associate="addAssociate"
             :remove-associate="removeAssociate"
             @update:historyBackgroundLines="historyBackgroundLines = $event"
+          />
+
+          <SheetLogPage
+            v-else
+            :draft="draft"
           />
         </div>
       </template>
@@ -2751,8 +2763,13 @@ watch(
 }
 
 .sheet-page-grid--inventory,
-.sheet-page-grid--history {
+.sheet-page-grid--history,
+.sheet-page-grid--log {
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+
+.sheet-page-grid--log {
+  grid-template-columns: minmax(220px, 1fr) minmax(0, 3fr);
 }
 
 .sheet-page-left,
@@ -3430,7 +3447,10 @@ watch(
 }
 
 .sheet-personal-split__spacer {
-  display: none;
+  display: block;
+  width: 0;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .sheet-line-field--stacked {
@@ -4439,6 +4459,309 @@ watch(
   font-size: 0.72rem;
 }
 
+.sheet-log-calendar,
+.sheet-log-editor {
+  min-width: 0;
+}
+
+.sheet-log-calendar__controls {
+  display: grid;
+  grid-template-columns: minmax(3.35rem, 0.68fr) minmax(0, 1.14fr) minmax(3.35rem, 0.68fr);
+  gap: 6px;
+  align-items: center;
+  margin-top: 2px;
+  overflow: hidden;
+}
+
+.sheet-log-calendar__controls .sheet-line-input {
+  text-align: center;
+  font-weight: 900;
+}
+
+.sheet-log-calendar__controls.is-shifting-left .sheet-line-input {
+  animation: sheet-log-month-shift-left 240ms ease;
+}
+
+.sheet-log-calendar__controls.is-shifting-right .sheet-line-input {
+  animation: sheet-log-month-shift-right 240ms ease;
+}
+
+.sheet-log-month-adjacent {
+  min-height: 1.82rem;
+  border: 1px solid rgba(34, 211, 238, 0.14);
+  border-radius: 10px 0 10px 0;
+  clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px));
+  background: rgba(3, 10, 22, 0.28);
+  color: rgba(186, 230, 253, 0.52);
+  font-size: 0.64rem;
+  font-weight: 800;
+  overflow: hidden;
+  padding: 0.22rem 0.34rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sheet-log-month-adjacent:hover,
+.sheet-log-month-adjacent:focus-visible {
+  border-color: rgba(34, 211, 238, 0.42);
+  color: #bae6fd;
+  outline: none;
+}
+
+.sheet-log-calendar__controls.is-shifting-left .sheet-log-month-adjacent--prev,
+.sheet-log-calendar__controls.is-shifting-right .sheet-log-month-adjacent--next {
+  animation: sheet-log-adjacent-fade 240ms ease;
+}
+
+.sheet-log-year-display {
+  display: inline-grid;
+  grid-template-columns: auto minmax(4.15rem, 4.75rem);
+  gap: 6px;
+  align-items: center;
+  min-width: 0;
+}
+
+.sheet-log-year-display small {
+  color: #bae6fd;
+  font-size: 0.64rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.sheet-log-year-input {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  border: 1px solid rgba(34, 211, 238, 0.24);
+  border-radius: 8px 0 8px 0;
+  background: rgba(3, 10, 22, 0.56);
+  color: #fbbf24;
+  font-size: 0.82rem;
+  font-weight: 900;
+  padding: 0.22rem 0.42rem;
+  text-align: center;
+}
+
+.sheet-log-calendar__days,
+.sheet-log-calendar__grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 3px;
+}
+
+.sheet-log-calendar__days {
+  margin-top: 7px;
+  color: #bae6fd;
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.sheet-log-calendar__day {
+  display: grid;
+  place-items: center;
+  min-height: 2.28rem;
+  border: 1px solid rgba(34, 211, 238, 0.18);
+  border-radius: 8px 0 8px 0;
+  clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px));
+  background: rgba(3, 10, 22, 0.54);
+  color: #dbeafe;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.sheet-log-calendar__day small {
+  min-width: 1rem;
+  border-radius: 999px;
+  background: rgba(251, 191, 36, 0.18);
+  color: #fde68a;
+  font-size: 0.56rem;
+  line-height: 1rem;
+}
+
+.sheet-log-calendar__day:not(:disabled):hover,
+.sheet-log-calendar__day.is-selected {
+  border-color: rgba(34, 211, 238, 0.72);
+  background:
+    linear-gradient(180deg, rgba(8, 64, 85, 0.74), rgba(8, 18, 32, 0.8)),
+    radial-gradient(circle at 50% 0, rgba(34, 211, 238, 0.18), transparent 4rem);
+  box-shadow: 0 0 18px rgba(34, 211, 238, 0.14);
+}
+
+.sheet-log-calendar__day.is-empty {
+  opacity: 0.18;
+}
+
+.sheet-log-calendar__day.has-entries {
+  border-color: rgba(251, 191, 36, 0.42);
+}
+
+.sheet-log-index {
+  min-height: 0;
+}
+
+.sheet-log-entry-list {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  max-height: min(34rem, 52vh);
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.sheet-log-filters {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 10px;
+  min-width: 0;
+}
+
+.sheet-log-entry-list__item {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  border: 1px solid rgba(34, 211, 238, 0.18);
+  border-radius: 10px 0 10px 0;
+  clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px));
+  background: rgba(3, 10, 22, 0.62);
+  padding: 9px 10px;
+  text-align: left;
+}
+
+.sheet-log-entry-list__item strong {
+  overflow: hidden;
+  color: #e0f2fe;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sheet-log-entry-list__item span,
+.sheet-log-empty {
+  color: #94a3b8;
+  font-size: 0.78rem;
+}
+
+.sheet-log-entry-list__item:hover,
+.sheet-log-entry-list__item.is-selected {
+  border-color: rgba(34, 211, 238, 0.6);
+}
+
+.sheet-log-editor {
+  align-content: start;
+}
+
+.sheet-log-editor__date {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: baseline;
+  margin-bottom: 10px;
+  color: #bae6fd;
+}
+
+.sheet-log-editor__actions {
+  display: inline-flex;
+  gap: 6px;
+  margin-left: auto;
+}
+
+.sheet-log-confirm {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 10px;
+  border: 1px solid rgba(251, 191, 36, 0.28);
+  border-radius: 10px 0 10px 0;
+  background: rgba(69, 36, 9, 0.42);
+  padding: 8px;
+  color: #fde68a;
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+
+.sheet-log-editor__date span {
+  color: #fbbf24;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.sheet-log-editor__grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.sheet-log-editor__grid .sheet-line-field:nth-child(-n+2) {
+  grid-column: span 3;
+}
+
+.sheet-textarea--log {
+  min-height: 18rem;
+  resize: vertical;
+}
+
+.sheet-log-training-link {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(4.5rem, 0.25fr) auto;
+  gap: 8px;
+  align-items: center;
+  margin: 8px 0;
+  border: 1px solid rgba(34, 211, 238, 0.18);
+  border-radius: 10px 0 10px 0;
+  background: rgba(3, 10, 22, 0.52);
+  padding: 8px;
+}
+
+.sheet-log-training-link span {
+  color: #bae6fd;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.sheet-log-empty--editor {
+  display: grid;
+  min-height: 20rem;
+  place-items: center;
+  border: 1px dashed rgba(34, 211, 238, 0.2);
+  border-radius: 12px 0 12px 0;
+}
+
+@keyframes sheet-log-month-shift-left {
+  0% {
+    opacity: 0.62;
+    transform: translateX(18px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes sheet-log-month-shift-right {
+  0% {
+    opacity: 0.62;
+    transform: translateX(-18px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes sheet-log-adjacent-fade {
+  0% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0.45;
+  }
+}
+
 .sheet-finance-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -4921,6 +5244,7 @@ watch(
   .sheet-page-grid--back,
   .sheet-page-grid--inventory,
   .sheet-page-grid--history,
+  .sheet-page-grid--log,
   .sheet-identity-grid,
   .sheet-skills-grid,
   .sheet-finance-grid {
@@ -4967,7 +5291,8 @@ watch(
   }
 
   .sheet-page-grid--inventory,
-  .sheet-page-grid--history {
+  .sheet-page-grid--history,
+  .sheet-page-grid--log {
     display: flex;
     flex-direction: column;
   }
@@ -5052,6 +5377,16 @@ watch(
 
   .sheet-training-form__split {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .sheet-log-calendar__controls,
+  .sheet-log-editor__grid,
+  .sheet-log-training-link {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .sheet-log-calendar__day {
+    min-height: 2.4rem;
   }
 }
 </style>
