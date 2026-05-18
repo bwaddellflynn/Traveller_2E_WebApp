@@ -13,6 +13,7 @@ import MusterOutRollModal from '~/components/character/MusterOutRollModal.vue'
 import PsionicsPanel from '~/components/character/PsionicsPanel.vue'
 import RerollConfirmDialog from '~/components/character/RerollConfirmDialog.vue'
 import TermActionFooter from '~/components/character/TermActionFooter.vue'
+import careerTablesData from '~/data/traveller2e/core/career-tables.json'
 import { useCharacterCreatorStore } from '~/stores/characterCreator'
 import { useTravellersStore } from '~/stores/travellers'
 import { clearBuilderDraft, loadBuilderDraft, saveBuilderDraft } from '~/utils/traveller/draftCache'
@@ -71,6 +72,7 @@ const {
   educationBenefitLabel,
   preCareerEventEffectLabel,
   tableEffectLabel,
+  skillLevel,
 } = characterCreator
 const {
   selectedEducationId,
@@ -175,6 +177,7 @@ const setupCreatorTabs = ['creation', 'setup-stats', 'setup-skills'] as const
 const setupTabSet = new Set<string>(setupCreatorTabs)
 const activeCreatorTabIsSetup = computed(() => setupTabSet.has(activeCreatorTab.value))
 const isMobileViewport = ref(false)
+const guidanceCounsellorOpen = ref(false)
 let mobileViewportQuery: MediaQueryList | null = null
 const handleCreatorViewportChange = (event: MediaQueryListEvent) => syncCreatorViewportMode(event.matches)
 
@@ -187,6 +190,244 @@ const syncCreatorViewportMode = (matches: boolean) => {
 
   if (!matches && (activeCreatorTab.value === 'setup-stats' || activeCreatorTab.value === 'setup-skills')) {
     activeCreatorTab.value = 'creation'
+  }
+}
+
+type GuidanceCheck = {
+  automatic?: boolean
+  characteristic?: string
+  target?: number
+  modifiers?: Array<Record<string, unknown>>
+}
+
+type GuidanceRecommendation = {
+  id: string
+  type: 'career' | 'education'
+  title: string
+  subtitle: string
+  score: number
+  label: string
+  reasons: string[]
+  careerId?: string
+  assignmentId?: string
+  educationId?: string
+}
+
+const twoDChanceByTarget: Record<number, number> = {
+  2: 100,
+  3: 97,
+  4: 92,
+  5: 83,
+  6: 72,
+  7: 58,
+  8: 42,
+  9: 28,
+  10: 17,
+  11: 8,
+  12: 3,
+}
+
+const guidanceFitLabel = (score: number) => {
+  if (score >= 80) return 'Strong Fit'
+  if (score >= 60) return 'Viable'
+  if (score >= 40) return 'Risky'
+  return 'Long Shot'
+}
+
+const characteristicValue = (characteristic?: string) => {
+  if (!characteristic) return 7
+  const key = characteristic.toLowerCase() as keyof typeof values.value
+  const value = Number(values.value[key] ?? 7)
+  return Number.isFinite(value) ? value : 7
+}
+
+const characteristicDmForValue = (value: number) => {
+  if (value <= 2) return -2
+  if (value <= 5) return -1
+  if (value <= 8) return 0
+  if (value <= 11) return 1
+  if (value <= 14) return 2
+  return 3
+}
+
+const conditionDm = (condition?: unknown) => {
+  if (typeof condition !== 'string') return 0
+  const termEquals = condition.match(/^term\s*==\s*(\d+)$/i)
+  if (termEquals) return currentTermNumber.value === Number(termEquals[1]) ? 1 : 0
+
+  const characteristicMinimum = condition.match(/^(str|dex|end|int|edu|soc|psi)\s*>=\s*(\d+)$/i)
+  if (characteristicMinimum) {
+    return characteristicValue(characteristicMinimum[1]) >= Number(characteristicMinimum[2]) ? 1 : 0
+  }
+
+  return 0
+}
+
+const checkModifierTotal = (modifiers?: Array<Record<string, unknown>>) => {
+  if (!Array.isArray(modifiers)) return 0
+  return modifiers.reduce((sum, modifier) => {
+    if (!conditionDm(modifier.condition)) return sum
+    return sum + Number(modifier.dm ?? 0)
+  }, 0)
+}
+
+const guidanceCheckChance = (check?: GuidanceCheck | null, extraDm = 0) => {
+  if (!check) return 50
+  if (check.automatic) return 100
+  const target = Number(check.target ?? 8)
+  const characteristicDm = characteristicDmForValue(characteristicValue(check.characteristic))
+  const needed = Math.ceil(target - characteristicDm - extraDm - checkModifierTotal(check.modifiers))
+  if (needed <= 2) return 100
+  if (needed > 12) return 0
+  return twoDChanceByTarget[needed] ?? 0
+}
+
+const guidanceCheckSummary = (label: string, check?: GuidanceCheck | null, extraDm = 0) => {
+  if (!check) return `${label}: not rated`
+  if (check.automatic) return `${label}: automatic`
+  const characteristic = check.characteristic?.toUpperCase() ?? '2D'
+  const target = Number(check.target ?? 8)
+  const totalDm = characteristicDmForValue(characteristicValue(check.characteristic)) + extraDm + checkModifierTotal(check.modifiers)
+  return `${label}: ${characteristic} ${target}+ (${formatDm(totalDm)})`
+}
+
+const careerSkillEntries = (careerId: string, assignmentId?: string) => {
+  const careerTable = (careerTablesData.careers as Record<string, any>)[careerId]
+  const skillTables = careerTable?.skillTables as Record<string, any> | undefined
+  if (!skillTables) return []
+
+  const tableToEntries = (table: unknown) => {
+    if (Array.isArray(table)) return table.map(String)
+    if (table && typeof table === 'object' && Array.isArray((table as { entries?: unknown[] }).entries)) {
+      return (table as { entries: unknown[] }).entries.map(String)
+    }
+    return []
+  }
+
+  return [
+    ...tableToEntries(skillTables['service-skills']),
+    ...(assignmentId ? tableToEntries(skillTables[assignmentId]) : []),
+  ].filter((entry) => !/[A-Z]{3}\s*\+\d+/i.test(entry))
+}
+
+const guidanceSkillSynergy = (careerId: string, assignmentId?: string) => {
+  const entries = careerSkillEntries(careerId, assignmentId)
+  if (!entries.length) return 50
+
+  const matched = entries.reduce((count, entry) => {
+    try {
+      return skillLevel(entry) >= 0 ? count + 1 : count
+    }
+    catch {
+      return count
+    }
+  }, 0)
+
+  return Math.round((matched / entries.length) * 100)
+}
+
+const scoreCareerAssignment = (career: any, assignment: any): GuidanceRecommendation => {
+  const careerTable = (careerTablesData.careers as Record<string, any>)[career.id]
+  const qualificationChance = guidanceCheckChance(career.qualification, career.id === selectedCareerId.value ? currentCareerQualificationDm.value + activeQualificationRollModifierTotal.value : 0)
+  const survivalChance = guidanceCheckChance(assignment?.survival)
+  const advancementChance = guidanceCheckChance(assignment?.advancement)
+  const commissionChance = careerTable?.commission ? guidanceCheckChance(careerTable.commission) : 50
+  const skillSynergy = guidanceSkillSynergy(career.id, assignment?.id)
+  const score = Math.round(
+    (qualificationChance * 0.35)
+    + (survivalChance * 0.3)
+    + (advancementChance * 0.2)
+    + (commissionChance * 0.05)
+    + (skillSynergy * 0.1),
+  )
+
+  return {
+    id: `career:${career.id}:${assignment?.id ?? 'assignment'}`,
+    type: 'career',
+    title: career.name,
+    subtitle: assignment?.name ?? 'Choose assignment',
+    score,
+    label: guidanceFitLabel(score),
+    careerId: career.id,
+    assignmentId: assignment?.id,
+    reasons: [
+      guidanceCheckSummary('Qualification', career.qualification, career.id === selectedCareerId.value ? currentCareerQualificationDm.value + activeQualificationRollModifierTotal.value : 0),
+      guidanceCheckSummary('Survival', assignment?.survival),
+      guidanceCheckSummary('Advancement', assignment?.advancement),
+      careerTable?.commission ? guidanceCheckSummary('Commission', careerTable.commission) : 'Commission: not central to this career',
+      `Skill familiarity: ${skillSynergy}%`,
+    ],
+  }
+}
+
+const scoreEducationOption = (option: any): GuidanceRecommendation => {
+  const entryChance = guidanceCheckChance(option.entry)
+  const graduationChance = guidanceCheckChance(option.graduation)
+  const honoursChance = guidanceCheckChance({ ...option.graduation, target: option.graduation?.honoursTarget ?? 12 })
+  const pipelineBonus = option.linkedCareerId ? 80 : option.id === 'university' ? 70 : 50
+  const score = Math.round((entryChance * 0.35) + (graduationChance * 0.35) + (honoursChance * 0.1) + (pipelineBonus * 0.2))
+
+  return {
+    id: `education:${option.id}`,
+    type: 'education',
+    title: option.name,
+    subtitle: option.linkedCareerId ? `Pipeline to ${option.linkedCareerId}` : 'Broad career preparation',
+    score,
+    label: guidanceFitLabel(score),
+    educationId: option.id,
+    reasons: [
+      guidanceCheckSummary('Entry', option.entry),
+      guidanceCheckSummary('Graduation', option.graduation),
+      option.graduation?.honoursTarget ? guidanceCheckSummary('Honours', { ...option.graduation, target: option.graduation.honoursTarget }) : 'Honours: not listed',
+      option.linkedCareerId ? 'Career pipeline: matching military career' : 'Career pipeline: broad qualification support',
+    ],
+  }
+}
+
+const guidanceCareerRecommendations = computed(() => careerOptions.value
+  .filter((career: any) => !career.disabled)
+  .flatMap((career: any) => {
+    const assignments = Array.isArray(career.assignments) ? career.assignments : []
+    return assignments.map((assignment: any) => scoreCareerAssignment(career, assignment))
+  })
+  .sort((left, right) => right.score - left.score)
+  .slice(0, 5))
+
+const guidanceEducationRecommendations = computed(() => educationOptions.value
+  .filter((option: any) => !option.disabled)
+  .map((option: any) => scoreEducationOption(option))
+  .sort((left, right) => right.score - left.score)
+  .slice(0, 3))
+
+const guidanceCurrentFit = computed<GuidanceRecommendation | null>(() => {
+  if (selectedTermPath.value === 'education') {
+    const option = educationOptions.value.find((item: any) => item.id === selectedEducationId.value && !item.disabled)
+    return option ? scoreEducationOption(option) : guidanceEducationRecommendations.value[0] ?? null
+  }
+
+  const career = careerOptions.value.find((item: any) => item.id === selectedCareerId.value && !item.disabled)
+  if (!career) return guidanceCareerRecommendations.value[0] ?? null
+  const assignment = Array.isArray(career.assignments)
+    ? career.assignments.find((item: any) => item.id === selectedAssignmentId.value) ?? career.assignments[0]
+    : null
+  return assignment ? scoreCareerAssignment(career, assignment) : null
+})
+
+const applyGuidanceRecommendation = (recommendation: GuidanceRecommendation) => {
+  if (recommendation.type === 'education' && recommendation.educationId) {
+    selectedTermPath.value = 'education'
+    selectedEducationId.value = recommendation.educationId
+    guidanceCounsellorOpen.value = false
+    return
+  }
+
+  if (recommendation.type === 'career' && recommendation.careerId) {
+    selectedTermPath.value = 'career'
+    selectedCareerId.value = recommendation.careerId
+    nextTick(() => {
+      if (recommendation.assignmentId) selectedAssignmentId.value = recommendation.assignmentId
+    })
+    guidanceCounsellorOpen.value = false
   }
 }
 
@@ -1559,35 +1800,125 @@ if (import.meta.client) {
             </span>
           </div>
 
-          <div
-            :class="[
-              'term-path-slider mt-5',
-              selectedTermPath === 'education' ? 'is-education' : 'is-career',
-              (!educationAvailable || careerPathLocked) ? 'is-education-disabled' : '',
-            ]"
-          >
-            <span class="term-path-slider__thumb" aria-hidden="true" />
-            <button
+          <div class="creator-direction-tools mt-5">
+            <div
               :class="[
-                'term-path-slider__option',
-                selectedTermPath === 'career' ? 'is-active' : '',
+                'term-path-slider',
+                selectedTermPath === 'education' ? 'is-education' : 'is-career',
+                (!educationAvailable || careerPathLocked) ? 'is-education-disabled' : '',
               ]"
-              type="button"
-              @click="selectedTermPath = 'career'"
             >
-              Career
-            </button>
-            <button
-              :class="[
-                'term-path-slider__option',
-                selectedTermPath === 'education' ? 'is-active' : '',
-              ]"
-              :disabled="!educationAvailable || careerPathLocked"
-              type="button"
-              @click="selectedTermPath = 'education'"
-            >
-              Education
-            </button>
+              <span class="term-path-slider__thumb" aria-hidden="true" />
+              <button
+                :class="[
+                  'term-path-slider__option',
+                  selectedTermPath === 'career' ? 'is-active' : '',
+                ]"
+                type="button"
+                @click="selectedTermPath = 'career'"
+              >
+                Career
+              </button>
+              <button
+                :class="[
+                  'term-path-slider__option',
+                  selectedTermPath === 'education' ? 'is-active' : '',
+                ]"
+                :disabled="!educationAvailable || careerPathLocked"
+                type="button"
+                @click="selectedTermPath = 'education'"
+              >
+                Education
+              </button>
+            </div>
+
+            <div class="guidance-counsellor">
+              <button
+                class="guidance-counsellor__trigger"
+                type="button"
+                :aria-expanded="guidanceCounsellorOpen"
+                aria-label="Open Guidance Counsellor"
+                @click="guidanceCounsellorOpen = !guidanceCounsellorOpen"
+              >
+                <span class="guidance-counsellor__mark" aria-hidden="true">GC</span>
+              </button>
+
+              <Teleport to="body">
+                <div
+                  v-if="guidanceCounsellorOpen"
+                  class="guidance-counsellor__overlay"
+                  role="dialog"
+                  aria-modal="true"
+                  aria-labelledby="guidance-counsellor-title"
+                  @click.self="guidanceCounsellorOpen = false"
+                >
+                  <div class="guidance-counsellor__panel">
+                    <div class="guidance-counsellor__header">
+                      <div>
+                        <p class="guidance-counsellor__section-label">Guidance Counsellor</p>
+                        <h3 id="guidance-counsellor-title">Career & Education Fit</h3>
+                      </div>
+                      <button
+                        class="guidance-counsellor__close"
+                        type="button"
+                        aria-label="Close Guidance Counsellor"
+                        @click="guidanceCounsellorOpen = false"
+                      >
+                        Close
+                      </button>
+                    </div>
+
+                    <div v-if="guidanceCurrentFit" class="guidance-counsellor__current">
+                      <p class="guidance-counsellor__section-label">Current Selection</p>
+                      <div class="guidance-counsellor__fit-line">
+                        <span>{{ guidanceCurrentFit.title }}</span>
+                        <strong>{{ guidanceCurrentFit.label }} · {{ guidanceCurrentFit.score }}%</strong>
+                      </div>
+                      <p class="guidance-counsellor__subtitle">{{ guidanceCurrentFit.subtitle }}</p>
+                      <ul class="guidance-counsellor__reasons">
+                        <li v-for="reason in guidanceCurrentFit.reasons.slice(0, 4)" :key="reason">{{ reason }}</li>
+                      </ul>
+                    </div>
+
+                    <div class="guidance-counsellor__lists">
+                      <div>
+                        <p class="guidance-counsellor__section-label">Career Fits</p>
+                        <button
+                          v-for="recommendation in guidanceCareerRecommendations.slice(0, 3)"
+                          :key="recommendation.id"
+                          class="guidance-counsellor__recommendation"
+                          type="button"
+                          @click="applyGuidanceRecommendation(recommendation)"
+                        >
+                          <span>
+                            <strong>{{ recommendation.title }}</strong>
+                            <small>{{ recommendation.subtitle }}</small>
+                          </span>
+                          <b>{{ recommendation.score }}%</b>
+                        </button>
+                      </div>
+
+                      <div>
+                        <p class="guidance-counsellor__section-label">Education Fits</p>
+                        <button
+                          v-for="recommendation in guidanceEducationRecommendations.slice(0, 2)"
+                          :key="recommendation.id"
+                          class="guidance-counsellor__recommendation"
+                          type="button"
+                          @click="applyGuidanceRecommendation(recommendation)"
+                        >
+                          <span>
+                            <strong>{{ recommendation.title }}</strong>
+                            <small>{{ recommendation.subtitle }}</small>
+                          </span>
+                          <b>{{ recommendation.score }}%</b>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </Teleport>
+            </div>
           </div>
 
           <div v-if="!isMobileViewport" class="creator-step-strip mt-5">
@@ -3582,6 +3913,257 @@ if (import.meta.client) {
 .creator-shell-content--roll-animating {
   opacity: 0;
   pointer-events: none;
+}
+
+.creator-direction-tools {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.creator-direction-tools .term-path-slider {
+  flex: 1 1 28rem;
+  margin-top: 0;
+  max-width: 32rem;
+}
+
+.guidance-counsellor {
+  position: relative;
+  z-index: 12;
+  flex: 0 0 auto;
+}
+
+.guidance-counsellor__trigger {
+  display: inline-grid;
+  width: 3.65rem;
+  height: 3.65rem;
+  place-items: center;
+  border: 1px solid rgb(34 211 238 / 0.38);
+  background:
+    linear-gradient(180deg, rgb(8 34 51 / 0.96), rgb(5 15 28 / 0.98)),
+    radial-gradient(circle at 0 0, rgb(34 211 238 / 0.14), transparent 8rem);
+  color: rgb(219 252 255);
+  padding: 0;
+  box-shadow:
+    inset 0 0 0 1px rgb(255 255 255 / 0.04),
+    0 12px 28px rgb(2 6 23 / 0.24);
+  clip-path: polygon(0 0, calc(100% - 0.75rem) 0, 100% 0.75rem, 100% 100%, 0.75rem 100%, 0 calc(100% - 0.75rem));
+}
+
+.guidance-counsellor__trigger:hover {
+  border-color: rgb(103 232 249 / 0.58);
+  color: rgb(255 251 235);
+}
+
+.guidance-counsellor__mark {
+  display: inline-grid;
+  width: 2.45rem;
+  height: 2.45rem;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid rgb(103 232 249 / 0.42);
+  background:
+    linear-gradient(180deg, rgb(10 81 107 / 0.86), rgb(6 28 48 / 0.96)),
+    radial-gradient(circle, rgb(255 251 235 / 0.14), transparent 70%);
+  color: rgb(236 254 255);
+  font-size: 0.76rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  box-shadow: 0 0 18px rgb(34 211 238 / 0.2);
+  clip-path: polygon(0 0, calc(100% - 0.45rem) 0, 100% 0.45rem, 100% 100%, 0.45rem 100%, 0 calc(100% - 0.45rem));
+}
+
+.guidance-counsellor__overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: grid;
+  place-items: center;
+  padding: 1.25rem;
+  background:
+    radial-gradient(circle at 50% 35%, rgb(34 211 238 / 0.1), transparent 18rem),
+    rgb(2 6 23 / 0.72);
+  backdrop-filter: blur(7px);
+}
+
+.guidance-counsellor__panel {
+  width: min(44rem, 100%);
+  max-height: min(42rem, calc(100vh - 2.5rem));
+  overflow-y: auto;
+  border: 1px solid rgb(34 211 238 / 0.38);
+  background:
+    linear-gradient(180deg, rgb(7 21 36 / 0.98), rgb(3 9 18 / 0.98)),
+    linear-gradient(135deg, rgb(34 211 238 / 0.08), rgb(245 158 11 / 0.05));
+  padding: 1rem;
+  color: rgb(219 252 255);
+  box-shadow:
+    inset 0 0 0 1px rgb(255 255 255 / 0.04),
+    0 22px 44px rgb(2 6 23 / 0.48),
+    0 0 28px rgb(34 211 238 / 0.12);
+  clip-path: polygon(0 0, calc(100% - 0.85rem) 0, 100% 0.85rem, 100% 100%, 0.85rem 100%, 0 calc(100% - 0.85rem));
+}
+
+.guidance-counsellor__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.85rem;
+}
+
+.guidance-counsellor__header h3 {
+  margin: 0.25rem 0 0;
+  color: rgb(236 254 255);
+  font-size: 1.35rem;
+  font-weight: 900;
+  line-height: 1.1;
+}
+
+.guidance-counsellor__close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.35rem;
+  border: 1px solid rgb(34 211 238 / 0.28);
+  background: rgb(8 20 35 / 0.84);
+  color: rgb(207 250 254);
+  padding: 0 0.85rem;
+  font-size: 0.78rem;
+  font-weight: 800;
+  clip-path: polygon(0 0, calc(100% - 0.55rem) 0, 100% 0.55rem, 100% 100%, 0.55rem 100%, 0 calc(100% - 0.55rem));
+}
+
+.guidance-counsellor__close:hover {
+  border-color: rgb(103 232 249 / 0.52);
+  color: rgb(255 251 235);
+}
+
+.guidance-counsellor__section-label {
+  margin: 0;
+  color: rgb(103 232 249 / 0.76);
+  font-size: 0.68rem;
+  font-weight: 900;
+  letter-spacing: 0.17em;
+  text-transform: uppercase;
+}
+
+.guidance-counsellor__current {
+  border: 1px solid rgb(34 211 238 / 0.18);
+  background: rgb(2 8 18 / 0.36);
+  padding: 0.85rem;
+}
+
+.guidance-counsellor__fit-line {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 0.45rem;
+  color: rgb(236 254 255);
+  font-size: 1rem;
+}
+
+.guidance-counsellor__fit-line span,
+.guidance-counsellor__fit-line strong {
+  min-width: 0;
+}
+
+.guidance-counsellor__fit-line strong {
+  color: rgb(252 211 77);
+  font-size: 0.88rem;
+  white-space: nowrap;
+}
+
+.guidance-counsellor__subtitle {
+  margin: 0.2rem 0 0;
+  color: rgb(207 250 254 / 0.76);
+  font-size: 0.82rem;
+}
+
+.guidance-counsellor__reasons {
+  display: grid;
+  gap: 0.25rem;
+  margin: 0.7rem 0 0;
+  padding: 0;
+  list-style: none;
+  color: rgb(207 250 254 / 0.78);
+  font-size: 0.78rem;
+}
+
+.guidance-counsellor__lists {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 0.85rem;
+  margin-top: 0.85rem;
+}
+
+.guidance-counsellor__recommendation {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  gap: 0.75rem;
+  margin-top: 0.45rem;
+  border: 1px solid rgb(34 211 238 / 0.2);
+  background: rgb(8 20 35 / 0.72);
+  color: rgb(219 252 255);
+  padding: 0.62rem 0.7rem;
+  text-align: left;
+}
+
+.guidance-counsellor__recommendation:hover {
+  border-color: rgb(103 232 249 / 0.5);
+  background: rgb(11 36 55 / 0.88);
+}
+
+.guidance-counsellor__recommendation span {
+  display: grid;
+  min-width: 0;
+  gap: 0.12rem;
+}
+
+.guidance-counsellor__recommendation strong,
+.guidance-counsellor__recommendation small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.guidance-counsellor__recommendation strong {
+  font-size: 0.86rem;
+}
+
+.guidance-counsellor__recommendation small {
+  color: rgb(207 250 254 / 0.66);
+  font-size: 0.74rem;
+}
+
+.guidance-counsellor__recommendation b {
+  color: rgb(252 211 77);
+  font-size: 0.82rem;
+  white-space: nowrap;
+}
+
+@media (max-width: 900px) {
+  .creator-direction-tools {
+    display: flex;
+  }
+
+  .guidance-counsellor {
+    flex-basis: auto;
+  }
+}
+
+@media (max-width: 639px) {
+  .guidance-counsellor__lists {
+    grid-template-columns: 1fr;
+  }
+
+  .guidance-counsellor__fit-line {
+    display: grid;
+    gap: 0.2rem;
+  }
 }
 
 .creator-step-strip {
