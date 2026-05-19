@@ -859,7 +859,7 @@ const activeTermStepComplete = computed(() => {
 
   if (activeTermStep.value === 'direction') return careerSelectionComplete.value
   if (activeTermStep.value === 'qualification') {
-    return Boolean(termRolls.value.careerQualification?.finalSuccess && !prisonerParoleThresholdRequired.value)
+    return Boolean(termRolls.value.careerQualification?.finalSuccess)
   }
   if (activeTermStep.value === 'training') {
     return Boolean(
@@ -1013,27 +1013,14 @@ const activeStepPrimaryAction = computed<CreatorStepActionDefinition | null>(() 
         helper: 'Qualification failed and no draft fallback remains.',
       }
     }
-    if (
-      selectedCareerId.value === 'prisoner'
-      && termRolls.value.careerQualification?.finalSuccess
-      && prisonerParoleThresholdRequired.value
-    ) {
-      if (termRolls.value.prisonerParoleThreshold && canRerollCreatorAction('roll-parole-threshold')) {
-        return makeRerollAction('roll-parole-threshold', 'Roll the parole threshold again and overwrite the current Prisoner term setup.')
-      }
-      return {
-        key: 'roll-parole-threshold',
-        label: 'Roll 1D',
-        helper: 'Set the parole threshold for this Prisoner term.',
-      }
-    }
-    if (termRolls.value.careerQualification && !termRolls.value.draft && canRerollCreatorAction('roll-qualification')) {
+    if (termRolls.value.careerQualification && !selectedCareer.value.qualification?.automatic && !termRolls.value.draft && canRerollCreatorAction('roll-qualification')) {
       return makeRerollAction('roll-qualification', 'Roll qualification again and reset later career progress from this term.')
     }
     if (
       !automaticCareerEntryConstraint.value
       && !sameCareerContinuationAvailable.value
       && !requiredDraftAvailable.value
+      && !selectedCareer.value.qualification?.automatic
       && !termRolls.value.careerQualification
     ) {
       return {
@@ -1112,6 +1099,23 @@ const activeStepPrimaryAction = computed<CreatorStepActionDefinition | null>(() 
 
   if (activeTermStep.value === 'advancement') {
     if (
+      selectedCareerId.value === 'prisoner'
+      && termRolls.value.careerSurvival
+      && (!termRolls.value.careerSurvival.finalSuccess ? termRolls.value.careerMishap : termRolls.value.careerEvent)
+      && !pendingEventResolutions.value.some((resolution) => !resolution.resolved)
+      && prisonerParoleThresholdRequired.value
+    ) {
+      if (termRolls.value.prisonerParoleThreshold && canRerollCreatorAction('roll-parole-threshold')) {
+        return makeRerollAction('roll-parole-threshold', 'Roll the parole threshold again and overwrite the current Prisoner term setup.')
+      }
+      return {
+        key: 'roll-parole-threshold',
+        label: 'Roll Threshold',
+        helper: 'Set the Prisoner parole threshold before the parole check.',
+      }
+    }
+
+    if (
       careerCommissionAvailable.value
       && !automaticCommissionConstraint.value
       && !termRolls.value.careerCommission
@@ -1133,6 +1137,14 @@ const activeStepPrimaryAction = computed<CreatorStepActionDefinition | null>(() 
       )
       && !termRolls.value.careerAdvancement
     ) {
+      if (selectedCareerId.value === 'prisoner') {
+        return {
+          key: 'roll-advancement',
+          label: 'Roll Parole',
+          helper: 'Roll the Prisoner advancement check as the parole check. If the total exceeds the Parole Threshold, the Traveller leaves prison.',
+        }
+      }
+
       return {
         key: 'roll-advancement',
         label: 'Roll 2D',
@@ -1140,6 +1152,8 @@ const activeStepPrimaryAction = computed<CreatorStepActionDefinition | null>(() 
       }
     }
     if (
+      selectedCareerId.value !== 'prisoner'
+      &&
       termRolls.value.careerAdvancement?.finalSuccess
       && !termRolls.value.careerAdvancementSkill
     ) {
@@ -1149,7 +1163,7 @@ const activeStepPrimaryAction = computed<CreatorStepActionDefinition | null>(() 
         helper: 'Roll the advancement skill table.',
       }
     }
-    if (termRolls.value.careerAdvancement?.finalSuccess && termRolls.value.careerAdvancementSkill && canRerollCreatorAction('roll-advancement-skill')) {
+    if (selectedCareerId.value !== 'prisoner' && termRolls.value.careerAdvancement?.finalSuccess && termRolls.value.careerAdvancementSkill && canRerollCreatorAction('roll-advancement-skill')) {
       return makeRerollAction('roll-advancement-skill', 'Roll the advancement skill table again and overwrite the extra skill result.')
     }
     if (
@@ -1164,7 +1178,12 @@ const activeStepPrimaryAction = computed<CreatorStepActionDefinition | null>(() 
       && termRolls.value.careerAdvancement
       && canRerollCreatorAction('roll-advancement')
     ) {
-      return makeRerollAction('roll-advancement', 'Roll advancement again and overwrite later rank outcomes from this term.')
+      return makeRerollAction(
+        'roll-advancement',
+        selectedCareerId.value === 'prisoner'
+          ? 'Roll parole again and overwrite the current Prisoner term outcome.'
+          : 'Roll advancement again and overwrite later rank outcomes from this term.',
+      )
     }
     if (termRolls.value.careerCommission && !automaticCommissionConstraint.value && canRerollCreatorAction('roll-commission')) {
       return makeRerollAction('roll-commission', 'Roll commission again and overwrite later advancement state from this term.')
@@ -1228,7 +1247,7 @@ const activeStepSecondaryAction = computed<CreatorStepActionDefinition | null>((
     'roll-advancement': {
       key: 'manual-advancement',
       label: 'Manual',
-      helper: 'Enter the advancement total manually.',
+      helper: selectedCareerId.value === 'prisoner' ? 'Enter the parole check total manually.' : 'Enter the advancement total manually.',
     },
     'roll-advancement-skill': {
       key: 'manual-advancement-skill',
@@ -1277,11 +1296,11 @@ const activeStepSecondaryAction = computed<CreatorStepActionDefinition | null>((
   return secondary
 })
 const showActiveStepNextAction = computed(() => {
-  if (gmRerollsEnabled.value) return false
   if (!activeCreatorTabIsTerm.value) return false
   if (activeTermStep.value === 'complete') return false
   if (activeStepPrimaryAction.value) return false
   if (!activeTermStepComplete.value) return false
+  if (gmRerollsEnabled.value && !(activeTermStep.value === 'qualification' && selectedCareer.value.qualification?.automatic)) return false
   return canFooterNavigateNext.value
 })
 const activeStepActionHelper = computed(() => {
@@ -1349,10 +1368,10 @@ const executeCreatorStepActionByKey = (key: CreatorStepActionKey, reroll = false
       if (selectedCareerCommissionCheck.value) triggerManualCheck('careerCommission', 'Commission', selectedCareerCommissionCheck.value)
       return
     case 'roll-advancement':
-      triggerRollCheck('careerAdvancement', 'Advancement', selectedAssignment.value.advancement)
+      triggerRollCheck('careerAdvancement', selectedCareerId.value === 'prisoner' ? 'Parole Check' : 'Advancement', selectedAssignment.value.advancement)
       return
     case 'manual-advancement':
-      triggerManualCheck('careerAdvancement', 'Advancement', selectedAssignment.value.advancement)
+      triggerManualCheck('careerAdvancement', selectedCareerId.value === 'prisoner' ? 'Parole Check' : 'Advancement', selectedAssignment.value.advancement)
       return
     case 'roll-advancement-skill':
       triggerRollAdvancementSkillTable()
@@ -2282,7 +2301,7 @@ if (import.meta.client) {
             <div v-if="selectedCareerId" v-show="activeTermStep === 'direction'" class="mt-5 grid gap-3 sm:grid-cols-3">
               <div class="rounded-md bg-stone-50 p-4">
                 <p class="text-xs font-semibold uppercase tracking-wide text-zinc-500">Qualification</p>
-                <p class="mt-2 text-lg font-semibold">{{ automaticCareerEntryConstraint || sameCareerContinuationAvailable ? 'Automatic' : checkLabel(selectedCareer.qualification) }}</p>
+                <p class="mt-2 text-lg font-semibold">{{ automaticCareerEntryConstraint || sameCareerContinuationAvailable || selectedCareer.qualification?.automatic ? 'Automatic' : checkLabel(selectedCareer.qualification) }}</p>
                 <p v-if="currentCareerQualificationDm" class="mt-1 text-xs text-zinc-500">
                   Career DM {{ formatDm(currentCareerQualificationDm) }}
                 </p>
@@ -2295,7 +2314,7 @@ if (import.meta.client) {
                 <p class="mt-2 text-lg font-semibold">{{ checkLabel(selectedAssignment.survival) }}</p>
               </div>
               <div class="rounded-md bg-stone-50 p-4">
-                <p class="text-xs font-semibold uppercase tracking-wide text-zinc-500">Advancement</p>
+                <p class="text-xs font-semibold uppercase tracking-wide text-zinc-500">{{ selectedCareerId === 'prisoner' ? 'Parole' : 'Advancement' }}</p>
                 <p class="mt-2 text-lg font-semibold">{{ checkLabel(selectedAssignment.advancement) }}</p>
               </div>
             </div>
@@ -2336,7 +2355,9 @@ if (import.meta.client) {
                     <p class="text-sm font-semibold">Qualification Roll</p>
                     <p class="text-sm text-zinc-600">
                       {{
-                        automaticCareerEntryConstraint
+                        selectedCareer.qualification?.automatic
+                          ? 'Automatic'
+                          : automaticCareerEntryConstraint
                           ? automaticCareerEntryConstraint.label
                           : sameCareerContinuationAvailable
                             ? `Continuing ${selectedCareer.name} - ${selectedAssignment.name}`
@@ -2351,7 +2372,7 @@ if (import.meta.client) {
                     </p>
                   </div>
                 </div>
-                <div v-if="gmManualCheckRollEntryEnabled && !automaticCareerEntryConstraint && !sameCareerContinuationAvailable && !requiredDraftAvailable" class="mt-3 flex flex-wrap gap-2">
+                <div v-if="gmManualCheckRollEntryEnabled && !selectedCareer.qualification?.automatic && !automaticCareerEntryConstraint && !sameCareerContinuationAvailable && !requiredDraftAvailable" class="mt-3 flex flex-wrap gap-2">
                   <input v-model.number="manualRollTotals.careerQualification" class="h-10 w-28 rounded-md border border-zinc-300 px-3 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200" placeholder="2D total" type="number">
                   <button class="h-10 rounded-md border border-zinc-300 px-3 text-sm font-semibold text-zinc-700 hover:border-amber-600" type="button" @click="triggerManualCheck('careerQualification', 'Qualification', selectedCareer.qualification)">
                     Manual
@@ -2407,11 +2428,11 @@ if (import.meta.client) {
                 </div>
               </div>
 
-              <div v-if="selectedCareerId === 'prisoner' && termRolls.careerQualification?.finalSuccess" v-show="activeTermStep === 'qualification'" class="rounded-md border border-zinc-200 p-3 sm:p-4">
+              <div v-if="selectedCareerId === 'prisoner' && termRolls.careerQualification?.finalSuccess" v-show="activeTermStep === 'advancement'" class="rounded-md border border-zinc-200 p-3 sm:p-4">
                 <div class="flex flex-wrap items-center gap-3">
                   <div>
                     <p class="text-sm font-semibold">Parole Threshold</p>
-                    <p class="text-sm text-zinc-600">Roll 1D+2 before resolving the Prisoner term. Advancement must exceed this value to leave prison.</p>
+                    <p class="text-sm text-zinc-600">Roll 1D+2 before the parole check. The parole total must exceed this threshold to leave prison.</p>
                   </div>
                 </div>
                 <div v-if="gmManualTableRollEntryEnabled && prisonerParoleThresholdRequired" class="mt-3 flex flex-wrap gap-2">
@@ -2751,8 +2772,11 @@ if (import.meta.client) {
               >
                 <div class="flex flex-wrap items-center gap-3">
                   <div>
-                    <p class="text-sm font-semibold">Advancement Roll</p>
-                    <p class="text-sm text-zinc-600">{{ checkLabel(selectedAssignment.advancement) }}</p>
+                    <p class="text-sm font-semibold">{{ selectedCareerId === 'prisoner' ? 'Parole Check' : 'Advancement Roll' }}</p>
+                    <p class="text-sm text-zinc-600">
+                      {{ checkLabel(selectedAssignment.advancement) }}
+                      <span v-if="selectedCareerId === 'prisoner'">. Total must exceed the Parole Threshold to leave prison.</span>
+                    </p>
                     <p v-if="mishapContinuationAvailable" class="mt-1 text-sm text-zinc-600">
                       This mishap does not force the traveller out, so resolve advancement before completing the term.
                     </p>
@@ -2760,12 +2784,15 @@ if (import.meta.client) {
                 </div>
                 <div v-if="gmManualCheckRollEntryEnabled" class="mt-3 flex flex-wrap gap-2">
                   <input v-model.number="manualRollTotals.careerAdvancement" class="h-10 w-28 rounded-md border border-zinc-300 px-3 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200" placeholder="2D total" type="number">
-                  <button class="h-10 rounded-md border border-zinc-300 px-3 text-sm font-semibold text-zinc-700 hover:border-amber-600" type="button" @click="triggerManualCheck('careerAdvancement', 'Advancement', selectedAssignment.advancement)">
+                  <button class="h-10 rounded-md border border-zinc-300 px-3 text-sm font-semibold text-zinc-700 hover:border-amber-600" type="button" @click="triggerManualCheck('careerAdvancement', selectedCareerId === 'prisoner' ? 'Parole Check' : 'Advancement', selectedAssignment.advancement)">
                     Manual
                   </button>
                 </div>
                 <div v-if="termRolls.careerAdvancement" class="mt-3 rounded-md bg-stone-50 p-3 text-sm">
-                  <p class="font-semibold">{{ rollSummary(termRolls.careerAdvancement) }} · {{ termRolls.careerAdvancement.finalSuccess ? 'Advanced' : 'No advancement' }}</p>
+                  <p class="font-semibold">
+                    {{ rollSummary(termRolls.careerAdvancement) }} ·
+                    {{ selectedCareerId === 'prisoner' ? (termRolls.careerAdvancement.finalSuccess ? 'Parole granted' : 'Parole denied') : (termRolls.careerAdvancement.finalSuccess ? 'Advanced' : 'No advancement') }}
+                  </p>
                   <p v-if="termRolls.careerAdvancement.notes" class="mt-1 text-zinc-600">{{ termRolls.careerAdvancement.notes }}</p>
                   <p v-if="selectedCareerId === 'prisoner' && prisonerParoleThreshold !== null" class="mt-1 text-zinc-600">
                     {{ termRolls.careerAdvancement.total > prisonerParoleThreshold ? 'Parole threshold exceeded: leave Prisoner after this term.' : 'Parole threshold not exceeded: continue Prisoner next term.' }}
@@ -2780,7 +2807,7 @@ if (import.meta.client) {
                     {{ termRolls.careerAdvancement.overridden ? 'Remove override' : 'Override outcome' }}
                   </button>
                 </div>
-                <div v-if="termRolls.careerAdvancement && advancementResult" class="mt-3 rounded-md border border-amber-300 bg-amber-50 px-3 py-3 text-sm text-amber-950">
+                <div v-if="selectedCareerId !== 'prisoner' && termRolls.careerAdvancement && advancementResult" class="mt-3 rounded-md border border-amber-300 bg-amber-50 px-3 py-3 text-sm text-amber-950">
                   <p class="font-semibold">{{ advancementResult.success ? 'Advancement Result' : 'Advancement Failed' }}</p>
                   <p class="mt-1">
                     <template v-if="advancementResult.success">
@@ -2796,7 +2823,7 @@ if (import.meta.client) {
                 </div>
               </div>
 
-              <div v-if="termRolls.careerAdvancement?.finalSuccess" v-show="activeTermStep === 'advancement'" class="rounded-md border border-zinc-200 p-3 sm:p-4">
+              <div v-if="selectedCareerId !== 'prisoner' && termRolls.careerAdvancement?.finalSuccess" v-show="activeTermStep === 'advancement'" class="rounded-md border border-zinc-200 p-3 sm:p-4">
                 <div class="flex flex-wrap items-start gap-3">
                   <div>
                     <p class="text-sm font-semibold">Advancement Skill Roll</p>

@@ -4255,7 +4255,18 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
 
   const applyAutomaticCareerQualification = () => {
     const constraint = automaticCareerEntryConstraint.value
-    if (selectedTermPath.value !== 'career' || termRolls.careerQualification) return
+    if (selectedTermPath.value !== 'career') return
+
+    if (selectedCareer.value.qualification?.automatic) {
+      if (termRolls.careerQualification?.finalSuccess && termRolls.careerQualification.source === 'automatic') return
+
+      const label = `${selectedCareer.value.name} qualification is automatic`
+      setAutomaticQualificationResult(label)
+      recordEventOutcome('Qualification', { type: 'automatic_career_entry' }, label)
+      return
+    }
+
+    if (termRolls.careerQualification) return
 
     if (constraint) {
       setAutomaticQualificationResult(constraint.label)
@@ -5077,13 +5088,16 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     }
   }
 
-  const resolveEventMedicalCare = (resolutionId: string, restorePoints: number) => {
+  const resolveEventMedicalCare = (resolutionId: string, restorePoints?: number | string | null) => {
     const resolution = pendingEventResolutions.value.find((item) => item.id === resolutionId)
     if (!resolution || resolution.resolved || resolution.kind !== 'medical_care' || !resolution.medicalCharacteristic) return
 
     const maxRestore = resolution.medicalMaxRestore ?? 0
     const minimumRestore = resolution.medicalCrisis ? 1 : 0
-    const restore = Math.max(minimumRestore, Math.min(maxRestore, Number.isNaN(restorePoints) ? 0 : restorePoints))
+    const requestedRestore = restorePoints === null || restorePoints === undefined || restorePoints === ''
+      ? maxRestore
+      : Number(restorePoints)
+    const restore = Math.max(minimumRestore, Math.min(maxRestore, Number.isNaN(requestedRestore) ? maxRestore : requestedRestore))
     const costPerPoint = resolution.medicalCostPerPoint ?? agingData.injury.medicalCare.restoreCostPerCharacteristicPoint
     const cost = restore * costPerPoint
 
