@@ -1,7 +1,7 @@
 import wheeledVehicleSvgRaw from '~/assets/vehicle_builder/ground_vehicles/ground_vehicles_wheeled/SciFi_Car_Silhouette.svg?raw'
 import type { TravellerVehicleBaseFamily } from '~/types/vehicle'
 
-type VehicleSilhouetteKind = '' | TravellerVehicleBaseFamily | 'wheeled' | 'tracked' | 'rail' | 'monowheel' | 'tunneller' | 'hydrofoil' | 'floats' | 'aerodyne' | 'ornithopter' | 'walker-multi' | 'open-frame' | 'open-topped'
+type VehicleSilhouetteKind = '' | TravellerVehicleBaseFamily | 'wheeled' | 'tracked' | 'ground-tracked' | 'ground-off-road' | 'ground-open-topped' | 'rail' | 'monowheel' | 'tunneller' | 'hydrofoil' | 'floats' | 'aerodyne' | 'ornithopter' | 'walker-multi' | 'open-frame' | 'open-topped'
 
 const vehicleBuilderSvgModules = import.meta.glob('../assets/vehicle_builder/**/*.svg', {
   eager: true,
@@ -10,6 +10,7 @@ const vehicleBuilderSvgModules = import.meta.glob('../assets/vehicle_builder/**/
 }) as Record<string, string>
 
 const svgEntries = Object.entries(vehicleBuilderSvgModules)
+  .filter(([path]) => !path.includes('/_backup_original_svgs/'))
 
 const findSvgByPath = (...segments: string[]) => svgEntries.find(([path]) => segments.every((segment) => path.includes(segment)))?.[1]
 
@@ -17,14 +18,17 @@ const vehicleSvgByKind: Partial<Record<VehicleSilhouetteKind, string>> = {
   aeroplane: findSvgByPath('/aeroplane_vehicles/'),
   airship: findSvgByPath('/airship_vehicles/'),
   'grav-vehicle': findSvgByPath('/grav_vehicles/'),
-  'ground-vehicle': findSvgByPath('/ground_vehicles_wheeled/'),
+  'ground-vehicle': findSvgByPath('/ground_vehicles_wheeled/', 'SciFi_Car_Silhouette.svg'),
+  'ground-tracked': findSvgByPath('/ground_vehicles_wheeled/variant/', 'Sci_Tank_Silhouette.svg'),
+  'ground-off-road': findSvgByPath('/ground_vehicles_wheeled/variant/', 'Sci_GroundVehicle__OffRoad_Silhouette.svg'),
+  'ground-open-topped': findSvgByPath('/ground_vehicles_wheeled/variant/', 'Sci_GroundVehicle_OpenTop_Silhouette.svg'),
   hovercraft: findSvgByPath('/hovercraft_vehicles/'),
   rotorcraft: findSvgByPath('/rotorcraft_vehicles/'),
   structure: findSvgByPath('/structure_vehicles/') ?? findSvgByPath('/stucture_vehicles/'),
   submersible: findSvgByPath('/submersible_vehicles/'),
   walker: findSvgByPath('/ground_vehicles_walker_biped/'),
   watercraft: findSvgByPath('/watercraft_vehicles/'),
-  wheeled: findSvgByPath('/ground_vehicles_wheeled/'),
+  wheeled: findSvgByPath('/ground_vehicles_wheeled/', 'SciFi_Car_Silhouette.svg'),
 }
 
 const fallbackKindByVisual: Partial<Record<VehicleSilhouetteKind, VehicleSilhouetteKind>> = {
@@ -111,17 +115,14 @@ export const vehicleSilhouetteSource = (kind: VehicleSilhouetteKind) => {
 
 export const vehicleSilhouetteImageClass = (kind: VehicleSilhouetteKind) => {
   const silhouetteKind = resolvedKind(kind)
-  if (silhouetteKind === 'walker') return 'max-h-[24rem] w-[42rem]'
-  if (silhouetteKind === 'airship') return 'max-h-[20rem] w-[38rem]'
-  if (silhouetteKind === 'structure') return 'max-h-[19rem] w-[33rem]'
-  if (silhouetteKind === 'watercraft') return 'max-h-[27rem] w-[50rem] -translate-y-1'
-  if (silhouetteKind === 'hovercraft') return 'max-h-[20rem] w-[36rem] translate-y-6'
-  if (silhouetteKind === 'ground-vehicle') return 'max-h-[19rem] w-[34rem] -translate-y-1'
-  return 'max-h-[20rem] w-[36rem]'
+  return `vehicle-builder-visual-art--${silhouetteKind}`
 }
 
 export const vehicleSilhouetteKindForFeature = (featureName: string, baseFamily: '' | TravellerVehicleBaseFamily): VehicleSilhouetteKind => {
   if (featureName === 'Multi-Legged') return 'walker-multi'
+  if (featureName === 'Tracks' && baseFamily === 'ground-vehicle') return 'ground-tracked'
+  if ((featureName === 'Off-Roader' || featureName === 'ATV') && baseFamily === 'ground-vehicle') return 'ground-off-road'
+  if (featureName === 'Open-Topped' && baseFamily === 'ground-vehicle') return 'ground-open-topped'
   if (featureName === 'Tracks') return 'tracked'
   if (featureName === 'Rail Rider') return 'rail'
   if (featureName === 'Monowheel') return 'monowheel'

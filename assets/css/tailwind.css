@@ -260,23 +260,54 @@
 
   .vehicle-builder-visual-art {
     position: absolute !important;
-    top: 1rem !important;
-    right: clamp(0.75rem, 3vw, 1.5rem) !important;
-    bottom: auto !important;
+    top: auto !important;
+    right: clamp(0.15rem, 0.6vw, 0.4rem) !important;
+    bottom: 0.75rem !important;
     left: auto !important;
     z-index: 0;
-    width: min(46%, 29rem) !important;
-    max-width: 46% !important;
-    height: calc(100% - 2rem) !important;
+    width: min(72%, 44rem) !important;
+    max-width: 72% !important;
+    height: calc(100% - 1.5rem) !important;
     max-height: none !important;
-    transform: none !important;
+    transform: translateX(24%) !important;
     object-fit: contain;
-    object-position: center top;
+    object-position: right bottom;
   }
 
-  @container (min-width: 72rem) {
+  @container (min-width: 60rem) {
     .vehicle-builder-two-panel {
       grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    }
+
+    .vehicle-builder-panel-card.vehicle-builder-visual-card {
+      height: auto;
+      min-height: clamp(30rem, 58vw, 35.75rem);
+    }
+
+    .vehicle-builder-visual-card .vehicle-builder-visual-art {
+      right: clamp(1rem, 3vw, 2rem) !important;
+      bottom: 1rem !important;
+      width: min(78%, 52rem) !important;
+      max-width: 78% !important;
+      height: calc(100% - 2rem) !important;
+      transform: none !important;
+      object-position: center bottom;
+    }
+
+    .vehicle-builder-panel .overflow-x-auto {
+      overflow-x: visible;
+    }
+
+    .vehicle-builder-panel .overflow-x-auto > .grid,
+    .vehicle-builder-panel [class*="min-w-"] {
+      min-width: 0 !important;
+    }
+
+    .vehicle-builder-panel .grid > span,
+    .vehicle-builder-panel .grid > div {
+      min-width: 0;
+      white-space: normal;
+      overflow-wrap: anywhere;
     }
   }
 
@@ -299,8 +330,12 @@
     .vehicle-builder-visual-art {
       top: 1rem !important;
       right: 0.25rem !important;
-      width: min(50%, 20rem) !important;
-      max-width: 50% !important;
+      bottom: auto !important;
+      width: min(72%, 29rem) !important;
+      max-width: 72% !important;
+      height: calc(100% - 2rem) !important;
+      transform: none !important;
+      object-position: center bottom;
       opacity: 0.72;
     }
   }

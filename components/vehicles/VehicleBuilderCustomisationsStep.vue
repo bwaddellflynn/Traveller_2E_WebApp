@@ -188,8 +188,8 @@ watch(
             <div class="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-zinc-400">
               <span>Hull Modification</span>
               <span class="group relative inline-flex">
-                <span class="flex h-5 w-5 items-center justify-center rounded-full border border-cyan-300/40 bg-cyan-300/10 text-[11px] font-black text-cyan-100" aria-label="Hull modification information">i</span>
-                <span class="pointer-events-none absolute right-0 top-7 z-30 hidden w-72 rounded-md border border-cyan-300/30 bg-slate-950 p-3 text-xs font-normal normal-case leading-5 tracking-normal text-cyan-50 shadow-[0_12px_34px_rgba(0,0,0,0.45)] group-hover:block">
+                <span class="flex h-3.5 w-3.5 items-center justify-center rounded-full border border-cyan-300/40 bg-cyan-300/10 p-0 text-[10px] font-black leading-none text-cyan-100" aria-label="Hull modification information">i</span>
+                <span class="pointer-events-none absolute right-0 top-5 z-30 hidden w-72 rounded-md border border-cyan-300/30 bg-slate-950 p-3 text-xs font-normal normal-case leading-5 tracking-normal text-cyan-50 shadow-[0_12px_34px_rgba(0,0,0,0.45)] group-hover:block">
                   Hull can be reinforced for more durability or lightened to reduce cost. One-Space vehicles cannot use Light or Reinforced hull modification.
                 </span>
               </span>
