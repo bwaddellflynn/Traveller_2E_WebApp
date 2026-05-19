@@ -384,6 +384,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
   const characteristicRollSequence = ref(0)
   const showRerollConfirm = ref(false)
   const skipCharacteristicRerollConfirm = ref(false)
+  const restoringCreatorDraft = ref(false)
   const currentTermNumber = ref(1)
   const activeCreatorTab = ref<CreatorTab>('creation')
   const isSetupCreatorTab = computed(() => ['creation', 'setup-stats', 'setup-skills'].includes(activeCreatorTab.value))
@@ -1308,8 +1309,64 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
 
   watch(assignedRollIds, () => {
     applyAssignedScores()
-    selectedBackgroundSkills.value = []
+    if (!restoringCreatorDraft.value) selectedBackgroundSkills.value = []
   })
+
+  const restoreCharacteristicDraftState = (snapshot: Record<string, unknown>) => {
+    restoringCreatorDraft.value = true
+
+    const snapshotRolls = Array.isArray(snapshot.statRolls)
+      ? snapshot.statRolls
+        .map((roll) => ({
+          id: typeof (roll as { id?: unknown }).id === 'string' ? (roll as { id: string }).id : '',
+          value: Number((roll as { value?: unknown }).value),
+        }))
+        .filter((roll) => roll.id && Number.isFinite(roll.value))
+      : []
+
+    if (snapshotRolls.length) {
+      statRolls.value = snapshotRolls
+    }
+
+    const rollIds = new Set(statRolls.value.map((roll) => roll.id))
+    const snapshotAssignments = snapshot.assignedRollIds && typeof snapshot.assignedRollIds === 'object'
+      ? snapshot.assignedRollIds as Partial<Record<CharacteristicId, unknown>>
+      : {}
+    const snapshotAdjustments = snapshot.characteristicAdjustments && typeof snapshot.characteristicAdjustments === 'object'
+      ? snapshot.characteristicAdjustments as Partial<Record<CharacteristicId, unknown>>
+      : {}
+    const snapshotValues = snapshot.values && typeof snapshot.values === 'object'
+      ? snapshot.values as Partial<Record<CharacteristicId, unknown>>
+      : {}
+
+    for (const id of characteristicOrder) {
+      const assignedRollId = typeof snapshotAssignments[id] === 'string' && rollIds.has(snapshotAssignments[id])
+        ? snapshotAssignments[id]
+        : ''
+      assignedRollIds[id] = assignedRollId
+
+      const selectedRoll = statRolls.value.find((roll) => roll.id === assignedRollId)
+      const savedAdjustment = Number(snapshotAdjustments[id])
+      const savedValue = Number(snapshotValues[id])
+
+      characteristicAdjustments[id] = Number.isFinite(savedAdjustment)
+        ? savedAdjustment
+        : Number.isFinite(savedValue) && selectedRoll
+          ? savedValue - selectedRoll.value
+          : 0
+    }
+
+    applyAssignedScores()
+
+    const snapshotBackgroundSkills = Array.isArray(snapshot.selectedBackgroundSkills)
+      ? snapshot.selectedBackgroundSkills.filter((skillId): skillId is string => typeof skillId === 'string')
+      : null
+    if (snapshotBackgroundSkills) selectedBackgroundSkills.value = snapshotBackgroundSkills
+
+    nextTick(() => {
+      restoringCreatorDraft.value = false
+    })
+  }
 
   const normalizeBackgroundSkillSelections = (skillIds: string[]) => {
     const normalized: string[] = []
@@ -7039,6 +7096,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     enterManualCareerMishap,
     resetTermRolls,
     resetCreatorState,
+    restoreCharacteristicDraftState,
     hydrateMusterOutTestState,
     agingEffect,
     rollAging,

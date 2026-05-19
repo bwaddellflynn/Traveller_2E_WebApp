@@ -69,6 +69,7 @@ const {
   rollPsiTest,
   enterManualPsiTest,
   resetCreatorState,
+  restoreCharacteristicDraftState,
   selectTermTab,
   modifierLabel,
   educationBenefitLabel,
@@ -1716,6 +1717,7 @@ onMounted(() => {
     characterCreator.$patch((state) => {
       Object.assign(state as any, JSON.parse(JSON.stringify(cachedDraft)))
     })
+    restoreCharacteristicDraftState(cachedDraft)
     characterCreator.characteristicRollSequence = 0
     if (mobileViewportQuery) syncCreatorViewportMode(mobileViewportQuery.matches)
     creatorSaveMessage.value = 'Restored cached character creation draft.'
