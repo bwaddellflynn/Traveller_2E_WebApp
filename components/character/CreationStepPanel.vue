@@ -205,8 +205,8 @@ onBeforeUnmount(() => {
     <div v-if="showCharacteristics" class="hud-panel rounded-lg border p-5 shadow-sm">
       <div class="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 class="text-xl font-semibold">Characteristics</h2>
-          <p class="mt-1 text-sm text-zinc-600">Roll six 2D scores, then assign each score to a characteristic.</p>
+          <h2 class="text-xl font-semibold">Stats</h2>
+          <p class="mt-1 text-sm text-zinc-600">Roll six 2D scores, then assign each score to a stat.</p>
         </div>
         <div class="flex flex-wrap gap-2">
           <button

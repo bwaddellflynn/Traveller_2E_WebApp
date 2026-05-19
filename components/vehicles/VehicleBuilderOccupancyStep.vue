@@ -85,20 +85,19 @@ const updateEntryCategory = (entry: CustomVehicleDesign['occupantEntries'][numbe
 
     <div class="vehicle-builder-step-header">
       <div class="vehicle-builder-step-header__inner">
-      <div class="vehicle-builder-step-header__title">
-        <p class="text-[11px] font-semibold uppercase tracking-[0.2em] text-cyan-200/80">Vehicle Design Step 11</p>
-        <h3 class="mt-1 text-xl font-black uppercase tracking-wide text-cyan-50">Crew & Passengers</h3>
-      </div>
-      <div class="vehicle-builder-step-header__controls">
-        <div class="vehicle-builder-step-header__control-row justify-items-start sm:justify-items-end">
-          <button class="rounded-md border border-cyan-300/30 bg-cyan-300/10 px-3 py-2 text-sm font-semibold text-cyan-50 hover:border-cyan-200" type="button" @click="$emit('add-occupant', '')">
-            Add Occupant
-          </button>
+        <div class="vehicle-builder-step-header__title">
+          <p class="text-[11px] font-semibold uppercase tracking-[0.2em] text-cyan-200/80">Vehicle Design Step 11</p>
+          <h3 class="mt-1 text-xl font-black uppercase tracking-wide text-cyan-50">Crew & Passengers</h3>
         </div>
-        <p class="vehicle-builder-step-header__message" aria-hidden="true">&nbsp;</p>
+        <div class="vehicle-builder-step-header__controls">
+          <div class="vehicle-builder-step-header__control-row justify-items-start sm:justify-items-end">
+            <button class="rounded-md border border-cyan-300/30 bg-cyan-300/10 px-3 py-2 text-sm font-semibold text-cyan-50 hover:border-cyan-200" type="button" @click="$emit('add-occupant', '')">
+              Add Occupant
+            </button>
+          </div>
+          <p class="vehicle-builder-step-header__message" aria-hidden="true">&nbsp;</p>
+        </div>
       </div>
-      </div>
-    </div>
     </div>
 
     <div class="vehicle-builder-two-panel p-4 sm:p-5">

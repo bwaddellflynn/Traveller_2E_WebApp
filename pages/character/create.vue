@@ -15,6 +15,7 @@ import RerollConfirmDialog from '~/components/character/RerollConfirmDialog.vue'
 import TermActionFooter from '~/components/character/TermActionFooter.vue'
 import questionBriefcaseIcon from '~/assets/utility_icons/question_briefcase_icon.svg'
 import careerTablesData from '~/data/traveller2e/core/career-tables.json'
+import educationTablesData from '~/data/traveller2e/core/education-tables.json'
 import { useCharacterCreatorStore } from '~/stores/characterCreator'
 import { useTravellersStore } from '~/stores/travellers'
 import { clearBuilderDraft, loadBuilderDraft, saveBuilderDraft } from '~/utils/traveller/draftCache'
@@ -171,6 +172,7 @@ const {
   psiTested,
   psiScore,
   psiTestRoll,
+  characteristicsAssigned,
   values,
 } = storeToRefs(characterCreator)
 
@@ -211,7 +213,6 @@ type GuidanceRecommendation = {
   reasons: string[]
   metrics?: {
     reliability: number
-    ambition: number
     stat: number
   }
   careerId?: string
@@ -223,6 +224,7 @@ type GuidanceRecommendationSection = {
   id: string
   title: string
   subtitle: string
+  scoreLabel: string
   recommendations: GuidanceRecommendation[]
 }
 
@@ -313,12 +315,6 @@ const guidanceCheckStatScore = (check?: GuidanceCheck | null, extraDm = 0) => {
   return clampGuidanceScore(50 + (dm * 18))
 }
 
-const guidanceCareerCashUpside = (careerTable?: Record<string, any>) => {
-  const benefits = Array.isArray(careerTable?.benefits) ? careerTable.benefits : []
-  const maximumCash = benefits.reduce((highest: number, benefit: any) => Math.max(highest, Number(benefit.cash ?? 0)), 0)
-  return Math.min(15, (maximumCash / 100000) * 15)
-}
-
 const careerSkillEntries = (careerId: string, assignmentId?: string) => {
   const careerTable = (careerTablesData.careers as Record<string, any>)[careerId]
   const skillTables = careerTable?.skillTables as Record<string, any> | undefined
@@ -375,15 +371,6 @@ const scoreCareerAssignment = (career: any, assignment: any): GuidanceRecommenda
     + ((careerTable?.commission ? guidanceCheckStatScore(careerTable.commission) : 55) * 0.05)
     + (skillSynergy * 0.15),
   )
-  const ambition = clampGuidanceScore(
-    (stat * 0.45)
-    + ((100 - qualificationChance) * 0.2)
-    + ((100 - survivalChance) * 0.15)
-    + (advancementChance * 0.1)
-    + (careerTable?.commission ? 7 : 0)
-    + guidanceCareerCashUpside(careerTable),
-  )
-
   return {
     id: `career:${career.id}:${assignment?.id ?? 'assignment'}`,
     type: 'career',
@@ -393,7 +380,6 @@ const scoreCareerAssignment = (career: any, assignment: any): GuidanceRecommenda
     label: guidanceFitLabel(reliability),
     metrics: {
       reliability,
-      ambition,
       stat,
     },
     careerId: career.id,
@@ -405,31 +391,34 @@ const scoreCareerAssignment = (career: any, assignment: any): GuidanceRecommenda
       careerTable?.commission ? guidanceCheckSummary('Commission', careerTable.commission) : 'Commission: not central to this career',
       `Skill familiarity: ${skillSynergy}%`,
       `Stat match: ${stat}%`,
-      `Ambition profile: ${ambition}%`,
     ],
   }
 }
 
+const guidanceEducationTableOptions = (educationTablesData as { options?: Array<Record<string, any>> }).options ?? []
+const guidanceEducationRecordFor = (option: any) => guidanceEducationTableOptions.find((item) => item.id === option.id) ?? option
+
 const scoreEducationOption = (option: any): GuidanceRecommendation => {
-  const entryChance = guidanceCheckChance(option.entry)
-  const graduationChance = guidanceCheckChance(option.graduation)
-  const honoursChance = guidanceCheckChance({ ...option.graduation, target: option.graduation?.honoursTarget ?? 12 })
-  const pipelineBonus = option.linkedCareerId ? 80 : option.id === 'university' ? 70 : 50
+  const educationRecord = guidanceEducationRecordFor(option)
+  const entryChance = guidanceCheckChance(educationRecord.entry)
+  const graduationChance = guidanceCheckChance(educationRecord.graduation)
+  const honoursChance = guidanceCheckChance({ ...educationRecord.graduation, target: educationRecord.graduation?.honoursTarget ?? 12 })
+  const pipelineBonus = educationRecord.linkedCareerId ? 80 : educationRecord.id === 'university' ? 70 : 50
   const score = Math.round((entryChance * 0.35) + (graduationChance * 0.35) + (honoursChance * 0.1) + (pipelineBonus * 0.2))
 
   return {
-    id: `education:${option.id}`,
+    id: `education:${educationRecord.id}`,
     type: 'education',
-    title: option.name,
-    subtitle: option.linkedCareerId ? `Pipeline to ${option.linkedCareerId}` : 'Broad career preparation',
+    title: educationRecord.name ?? option.name,
+    subtitle: educationRecord.linkedCareerId ? `Pipeline to ${educationRecord.linkedCareerId}` : 'Broad career preparation',
     score,
     label: guidanceFitLabel(score),
     educationId: option.id,
     reasons: [
-      guidanceCheckSummary('Entry', option.entry),
-      guidanceCheckSummary('Graduation', option.graduation),
-      option.graduation?.honoursTarget ? guidanceCheckSummary('Honours', { ...option.graduation, target: option.graduation.honoursTarget }) : 'Honours: not listed',
-      option.linkedCareerId ? 'Career pipeline: matching military career' : 'Career pipeline: broad qualification support',
+      guidanceCheckSummary('Entry', educationRecord.entry),
+      guidanceCheckSummary('Graduation', educationRecord.graduation),
+      educationRecord.graduation?.honoursTarget ? guidanceCheckSummary('Honours', { ...educationRecord.graduation, target: educationRecord.graduation.honoursTarget }) : 'Honours: not listed',
+      educationRecord.linkedCareerId ? 'Career pipeline: matching military career' : 'Career pipeline: broad qualification support',
     ],
   }
 }
@@ -446,12 +435,10 @@ const guidanceCareerRecommendations = computed(() => guidanceAccessibleCareers.v
   })
   .sort((left, right) => (right.metrics?.reliability ?? right.score) - (left.metrics?.reliability ?? left.score)))
 
-const guidanceCareerRecommendationForMode = (recommendation: GuidanceRecommendation, mode: 'reliability' | 'ambition' | 'stat'): GuidanceRecommendation => ({
+const guidanceCareerRecommendationForMode = (recommendation: GuidanceRecommendation, mode: 'reliability' | 'stat'): GuidanceRecommendation => ({
   ...recommendation,
   score: recommendation.metrics?.[mode] ?? recommendation.score,
-  label: mode === 'ambition'
-    ? 'Ambitious'
-    : mode === 'stat'
+  label: mode === 'stat'
       ? 'Stat Match'
       : guidanceFitLabel(recommendation.metrics?.reliability ?? recommendation.score),
 })
@@ -470,10 +457,6 @@ const guidanceCareerSections = computed<GuidanceRecommendationSection[]>(() => {
   const reliable = guidanceCareerRecommendations.value
     .slice(0, 3)
     .map((recommendation) => guidanceCareerRecommendationForMode(recommendation, 'reliability'))
-  const ambitious = [...guidanceCareerRecommendations.value]
-    .sort((left, right) => (right.metrics?.ambition ?? right.score) - (left.metrics?.ambition ?? left.score))
-    .slice(0, 3)
-    .map((recommendation) => guidanceCareerRecommendationForMode(recommendation, 'ambition'))
   const statMatches = [...guidanceCareerPrimaryRecommendations.value]
     .sort((left, right) => (right.metrics?.stat ?? right.score) - (left.metrics?.stat ?? left.score))
     .map((recommendation) => guidanceCareerRecommendationForMode(recommendation, 'stat'))
@@ -481,20 +464,16 @@ const guidanceCareerSections = computed<GuidanceRecommendationSection[]>(() => {
   return [
     {
       id: 'reliable',
-      title: 'Reliable Paths',
-      subtitle: 'Highest odds for entry, survival, and advancement.',
+      title: 'Best Chances',
+      subtitle: 'Best odds for getting in, staying alive, and moving up.',
+      scoreLabel: 'Chance',
       recommendations: reliable,
     },
     {
-      id: 'ambitious',
-      title: 'Ambitious Paths',
-      subtitle: 'Harder or more prestigious careers where your stats still line up.',
-      recommendations: ambitious,
-    },
-    {
       id: 'stat',
-      title: 'All Accessible Careers',
-      subtitle: 'Every accessible Core career except Psion and Prisoner, sorted by stat match.',
+      title: 'Good Fits',
+      subtitle: 'Every accessible Core career except Psion and Prisoner, sorted by stat fit.',
+      scoreLabel: 'Fit',
       recommendations: statMatches,
     },
   ].filter((section) => section.recommendations.length)
@@ -1943,7 +1922,7 @@ if (import.meta.client) {
               class="guidance-counsellor__trigger"
               type="button"
               :aria-expanded="guidanceCounsellorOpen"
-              aria-label="Open Guidance Counsellor"
+              aria-label="Open career and education recommendations"
               @click="guidanceCounsellorOpen = !guidanceCounsellorOpen"
             >
               <img class="guidance-counsellor__icon" :src="questionBriefcaseIcon" alt="" aria-hidden="true">
@@ -1961,80 +1940,92 @@ if (import.meta.client) {
                 <div class="guidance-counsellor__panel">
                   <div class="guidance-counsellor__header">
                     <div>
-                      <p class="guidance-counsellor__section-label">Guidance Counsellor</p>
-                      <h3 id="guidance-counsellor-title">Career & Education Fit</h3>
+                      <p class="guidance-counsellor__section-label">Recommendations</p>
+                      <h3 id="guidance-counsellor-title">Career & Education Recommendations</h3>
                     </div>
                     <button
                       class="guidance-counsellor__close"
                       type="button"
-                      aria-label="Close Guidance Counsellor"
+                      aria-label="Close career and education recommendations"
                       @click="guidanceCounsellorOpen = false"
                     >
                       Close
                     </button>
                   </div>
 
-                  <div v-if="guidanceCurrentFit" class="guidance-counsellor__current">
-                    <p class="guidance-counsellor__section-label">Current Selection</p>
+                  <div v-if="!characteristicsAssigned" class="guidance-counsellor__current">
+                    <p class="guidance-counsellor__section-label">Stats Needed</p>
                     <div class="guidance-counsellor__fit-line">
-                      <span>{{ guidanceCurrentFit.title }}</span>
-                      <strong>{{ guidanceCurrentFit.label }} · {{ guidanceCurrentFit.score }}%</strong>
+                      <span>Assign stats to receive career and education recommendations.</span>
                     </div>
-                    <p class="guidance-counsellor__subtitle">{{ guidanceCurrentFit.subtitle }}</p>
-                    <ul class="guidance-counsellor__reasons">
-                      <li v-for="reason in guidanceCurrentFit.reasons.slice(0, 4)" :key="reason">{{ reason }}</li>
-                    </ul>
+                    <p class="guidance-counsellor__subtitle">
+                      Recommendations compare your assigned stats against career entry, survival, advancement, and education checks.
+                    </p>
                   </div>
 
-                  <p class="guidance-counsellor__explain">
-                    Recommendations are stat-appropriate. Reliable paths favour success odds, while ambitious paths surface harder careers your characteristics can still support.
-                  </p>
-
-                  <div class="guidance-counsellor__sections">
-                    <section
-                      v-for="section in guidanceCareerSections"
-                      :key="section.id"
-                      class="guidance-counsellor__section"
-                    >
-                      <div class="guidance-counsellor__section-heading">
-                        <p class="guidance-counsellor__section-label">{{ section.title }}</p>
-                        <small>{{ section.subtitle }}</small>
+                  <template v-else>
+                    <div v-if="guidanceCurrentFit" class="guidance-counsellor__current">
+                      <p class="guidance-counsellor__section-label">Current Selection</p>
+                      <div class="guidance-counsellor__fit-line">
+                        <span>{{ guidanceCurrentFit.title }}</span>
+                        <strong>{{ guidanceCurrentFit.label }} · {{ guidanceCurrentFit.score }}%</strong>
                       </div>
-                      <button
-                        v-for="recommendation in section.recommendations"
-                        :key="recommendation.id"
-                        class="guidance-counsellor__recommendation"
-                        type="button"
-                        @click="applyGuidanceRecommendation(recommendation)"
-                      >
-                        <span>
-                          <strong>{{ recommendation.title }}</strong>
-                          <small>{{ recommendation.subtitle }}</small>
-                        </span>
-                        <b>{{ recommendation.score }}%</b>
-                      </button>
-                    </section>
+                      <p class="guidance-counsellor__subtitle">{{ guidanceCurrentFit.subtitle }}</p>
+                      <ul class="guidance-counsellor__reasons">
+                        <li v-for="reason in guidanceCurrentFit.reasons.slice(0, 4)" :key="reason">{{ reason }}</li>
+                      </ul>
+                    </div>
 
-                    <section class="guidance-counsellor__section">
-                      <div class="guidance-counsellor__section-heading">
-                        <p class="guidance-counsellor__section-label">Education Fits</p>
-                        <small>Pre-career routes ranked by entry, graduation, honours, and career pipeline support.</small>
-                      </div>
-                      <button
-                        v-for="recommendation in guidanceEducationRecommendations"
-                        :key="recommendation.id"
-                        class="guidance-counsellor__recommendation"
-                        type="button"
-                        @click="applyGuidanceRecommendation(recommendation)"
+                    <p class="guidance-counsellor__explain">
+                      The same career can appear in both sections because chance measures roll odds, while fit measures how well your stats line up.
+                    </p>
+
+                    <div class="guidance-counsellor__sections">
+                      <section
+                        v-for="section in guidanceCareerSections"
+                        :key="section.id"
+                        class="guidance-counsellor__section"
                       >
-                        <span>
-                          <strong>{{ recommendation.title }}</strong>
-                          <small>{{ recommendation.subtitle }}</small>
-                        </span>
-                        <b>{{ recommendation.score }}%</b>
-                      </button>
-                    </section>
-                  </div>
+                        <div class="guidance-counsellor__section-heading">
+                          <p class="guidance-counsellor__section-label">{{ section.title }}</p>
+                          <small>{{ section.subtitle }}</small>
+                        </div>
+                        <button
+                          v-for="recommendation in section.recommendations"
+                          :key="recommendation.id"
+                          class="guidance-counsellor__recommendation"
+                          type="button"
+                          @click="applyGuidanceRecommendation(recommendation)"
+                        >
+                          <span>
+                            <strong>{{ recommendation.title }}</strong>
+                            <small>{{ recommendation.subtitle }}</small>
+                          </span>
+                          <b><small>{{ section.scoreLabel }}</small>{{ recommendation.score }}%</b>
+                        </button>
+                      </section>
+
+                      <section class="guidance-counsellor__section">
+                        <div class="guidance-counsellor__section-heading">
+                          <p class="guidance-counsellor__section-label">Education Recommendations</p>
+                          <small>Pre-career routes ranked by entry, graduation, honours, and career pipeline support.</small>
+                        </div>
+                        <button
+                          v-for="recommendation in guidanceEducationRecommendations"
+                          :key="recommendation.id"
+                          class="guidance-counsellor__recommendation"
+                          type="button"
+                          @click="applyGuidanceRecommendation(recommendation)"
+                        >
+                          <span>
+                            <strong>{{ recommendation.title }}</strong>
+                            <small>{{ recommendation.subtitle }}</small>
+                          </span>
+                          <b><small>Chance</small>{{ recommendation.score }}%</b>
+                        </button>
+                      </section>
+                    </div>
+                  </template>
                 </div>
               </div>
             </Teleport>
@@ -4283,9 +4274,21 @@ if (import.meta.client) {
 }
 
 .guidance-counsellor__recommendation b {
+  display: grid;
+  justify-items: end;
+  gap: 0.08rem;
   color: rgb(252 211 77);
   font-size: 0.82rem;
   white-space: nowrap;
+}
+
+.guidance-counsellor__recommendation b small {
+  color: rgb(207 250 254 / 0.58);
+  font-size: 0.58rem;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  line-height: 1;
+  text-transform: uppercase;
 }
 
 @media (max-width: 900px) {
