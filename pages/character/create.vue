@@ -141,6 +141,7 @@ const {
   drifterFallbackAvailable,
   sameCareerContinuationAvailable,
   mishapContinuationAvailable,
+  forcedCareerConstraint,
   automaticCareerEntryConstraint,
   selectedCareerCommissionCheck,
   careerCommissionAvailable,
@@ -1021,6 +1022,7 @@ const activeStepPrimaryAction = computed<CreatorStepActionDefinition | null>(() 
     }
     if (
       !automaticCareerEntryConstraint.value
+      && forcedCareerConstraint.value?.effectType !== 'natural_12_continue'
       && !sameCareerContinuationAvailable.value
       && !requiredDraftAvailable.value
       && !selectedCareer.value.qualification?.automatic
@@ -2332,7 +2334,7 @@ if (import.meta.client) {
             <div v-if="selectedCareerId" v-show="activeTermStep === 'direction'" class="mt-5 grid gap-3 sm:grid-cols-3">
               <div class="rounded-md bg-stone-50 p-4">
                 <p class="text-xs font-semibold uppercase tracking-wide text-zinc-500">Qualification</p>
-                <p class="mt-2 text-lg font-semibold">{{ automaticCareerEntryConstraint || sameCareerContinuationAvailable || selectedCareer.qualification?.automatic ? 'Automatic' : checkLabel(selectedCareer.qualification) }}</p>
+                <p class="mt-2 text-lg font-semibold">{{ automaticCareerEntryConstraint || forcedCareerConstraint?.effectType === 'natural_12_continue' || sameCareerContinuationAvailable || selectedCareer.qualification?.automatic ? 'Automatic' : checkLabel(selectedCareer.qualification) }}</p>
                 <p v-if="currentCareerQualificationDm" class="mt-1 text-xs text-zinc-500">
                   Career DM {{ formatDm(currentCareerQualificationDm) }}
                 </p>
@@ -2392,6 +2394,8 @@ if (import.meta.client) {
                             ? `Drafted into ${selectedCareer.name}; qualification is automatic.`
                           : automaticCareerEntryConstraint
                           ? automaticCareerEntryConstraint.label
+                          : forcedCareerConstraint?.effectType === 'natural_12_continue'
+                            ? forcedCareerConstraint.label
                           : sameCareerContinuationAvailable
                             ? `Continuing ${selectedCareer.name} - ${selectedAssignment.name}`
                             : checkLabel(selectedCareer.qualification)
@@ -2405,7 +2409,7 @@ if (import.meta.client) {
                     </p>
                   </div>
                 </div>
-                <div v-if="gmManualCheckRollEntryEnabled && !selectedCareer.qualification?.automatic && !termRolls.draft && !automaticCareerEntryConstraint && !sameCareerContinuationAvailable && !requiredDraftAvailable" class="mt-3 flex flex-wrap gap-2">
+                <div v-if="gmManualCheckRollEntryEnabled && !selectedCareer.qualification?.automatic && !termRolls.draft && !automaticCareerEntryConstraint && forcedCareerConstraint?.effectType !== 'natural_12_continue' && !sameCareerContinuationAvailable && !requiredDraftAvailable" class="mt-3 flex flex-wrap gap-2">
                   <input v-model.number="manualRollTotals.careerQualification" class="h-10 w-28 rounded-md border border-zinc-300 px-3 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200" placeholder="2D total" type="number">
                   <button class="h-10 rounded-md border border-zinc-300 px-3 text-sm font-semibold text-zinc-700 hover:border-amber-600" type="button" @click="triggerManualCheck('careerQualification', 'Qualification', selectedCareer.qualification)">
                     Manual

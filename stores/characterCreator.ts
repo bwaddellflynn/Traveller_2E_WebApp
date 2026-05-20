@@ -337,7 +337,7 @@ type CommissionResult = {
   track: Array<CareerRankRow & { achieved: boolean, current: boolean }>
 }
 export const useCharacterCreatorStore = defineStore('characterCreator', () => {
-  const creatorProfileSeed = createBlankTravellerProfile('lifepath')
+  const creatorProfileSeed = ref(createBlankTravellerProfile('lifepath'))
   const characteristicOrder = characteristicsData.characteristics.map((item) => item.id as CharacteristicId)
   const statRolls = ref<StatRoll[]>(characteristicOrder.map((_, index) => ({
     id: `initial-${index}`,
@@ -3864,6 +3864,21 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
       return
     }
 
+    if ((effect.type === 'characteristic_change' || effect.type === 'characteristic_increase') && Array.isArray(effect.characteristics) && typeof effect.amount === 'number') {
+      const characteristicIds = effect.characteristics
+        .map((characteristic) => String(characteristic).toLowerCase())
+        .filter((characteristic): characteristic is CharacteristicId => characteristicOrder.includes(characteristic as CharacteristicId))
+
+      if (characteristicIds.length) {
+        for (const characteristicId of characteristicIds) {
+          if (characteristicId === 'psi') changePsiScore(effect.amount)
+          else applyCharacteristicDelta(characteristicId, effect.amount)
+        }
+        recordEventOutcome(source, effect, `${characteristicIds.map((characteristicId) => characteristicId.toUpperCase()).join(', ')} ${formatDm(effect.amount)}`)
+        return
+      }
+    }
+
     if ((effect.type === 'characteristic_change' || effect.type === 'characteristic_increase') && effect.characteristic && typeof effect.amount === 'number') {
       if (effect.characteristic === 'psi') {
         changePsiScore(effect.amount)
@@ -4258,6 +4273,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
 
   const applyAutomaticCareerQualification = () => {
     const constraint = automaticCareerEntryConstraint.value
+    const forcedConstraint = forcedCareerConstraint.value
     if (selectedTermPath.value !== 'career') return
 
     if (termRolls.draft && draftRoll.value?.careerId === selectedCareerId.value) {
@@ -4278,6 +4294,15 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
       return
     }
 
+    if (forcedConstraint?.effectType === 'natural_12_continue' && forcedConstraint.careerId === selectedCareerId.value) {
+      const label = forcedConstraint.label || `Natural 12: must continue ${selectedCareer.value.name}`
+      if (termRolls.careerQualification?.finalSuccess && termRolls.careerQualification.notes === label) return
+
+      setAutomaticQualificationResult(label)
+      recordEventOutcome('Qualification', { type: 'career_continuation' }, label)
+      return
+    }
+
     if (termRolls.careerQualification) return
 
     if (constraint) {
@@ -4293,7 +4318,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     }
   }
 
-  watch([currentTermNumber, selectedTermPath, selectedCareerId, selectedAssignmentId, automaticCareerEntryConstraint, sameCareerContinuationAvailable, draftRoll], () => {
+  watch([currentTermNumber, selectedTermPath, selectedCareerId, selectedAssignmentId, automaticCareerEntryConstraint, forcedCareerConstraint, sameCareerContinuationAvailable, draftRoll], () => {
     applyAutomaticCareerQualification()
   }, { immediate: true })
 
@@ -5331,6 +5356,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
   }
 
   const resetCreatorState = () => {
+    creatorProfileSeed.value = createBlankTravellerProfile('lifepath')
     statRolls.value = characteristicOrder.map((_, index) => ({
       id: `initial-${index}`,
       value: 7,
@@ -6728,7 +6754,12 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     if (effect.type === 'extra_benefit_roll') return 'Extra benefit roll'
     if (effect.type === 'forced_out') return 'Forced out'
     if (effect.type === 'not_forced_out') return 'Not forced out'
-    if (effect.type === 'characteristic_change') return `${effect.characteristic?.toUpperCase() ?? 'Characteristic'} ${effect.amount ?? 0}`
+    if (effect.type === 'characteristic_change') {
+      if (Array.isArray(effect.characteristics) && effect.characteristics.length) {
+        return `${effect.characteristics.map((characteristic: string) => characteristic.toUpperCase()).join(', ')} ${effect.amount ?? 0}`
+      }
+      return `${effect.characteristic?.toUpperCase() ?? 'Characteristic'} ${effect.amount ?? 0}`
+    }
     if (effect.type === 'characteristic_increase') return `${effect.characteristic?.toUpperCase() ?? 'Characteristic'} +${effect.amount ?? 1}`
     if (effect.type === 'injury_characteristic_loss') {
       if (effect.characteristics) return `Injury: reduce ${effect.characteristics.join(' or ').toUpperCase()} by ${effect.amount}`
@@ -6762,9 +6793,9 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
       other: associates.value.filter((associate) => !['ally', 'contact', 'rival', 'enemy'].includes(associate.type)),
     }
 
-    profile.id = creatorProfileSeed.id
-    profile.userId = creatorProfileSeed.userId
-    profile.createdAt = creatorProfileSeed.createdAt
+    profile.id = creatorProfileSeed.value.id
+    profile.userId = creatorProfileSeed.value.userId
+    profile.createdAt = creatorProfileSeed.value.createdAt
     profile.updatedAt = new Date().toISOString()
     profile.source = 'lifepath'
     profile.identity.name = characterName.value.trim() || 'Unnamed Traveller'
@@ -7000,6 +7031,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     canMusterOutAtTermEnd,
     musterOutAccessState,
     activeDraftNextTermConstraint,
+    forcedCareerConstraint,
     automaticCareerEntryConstraint,
     currentCareerTableData,
     previousCareerCount,
