@@ -55,6 +55,8 @@ const characteristicRollSettledIds = ref<string[]>([])
 const characteristicRollTimer = ref<number | null>(null)
 const characteristicRollFinishTimer = ref<number | null>(null)
 const characteristicRollRowTimers = ref<number[]>([])
+const characteristicRollSession = ref(0)
+const dismissedCharacteristicRollSequence = ref(0)
 
 const randomDie = () => Math.floor(Math.random() * 6) + 1
 
@@ -69,6 +71,8 @@ const clearCharacteristicRollTimers = () => {
 }
 
 const closeCharacteristicRollModal = () => {
+  dismissedCharacteristicRollSequence.value = characteristicRollSequence.value
+  characteristicRollSession.value += 1
   clearCharacteristicRollTimers()
   characteristicRollModalOpen.value = false
   characteristicRollModalRolling.value = false
@@ -125,7 +129,8 @@ const remainingCharacteristicRowIndexes = () => {
     .map((entry) => entry.index)
 }
 
-const finalizeCharacteristicRollModal = () => {
+const finalizeCharacteristicRollModal = (session = characteristicRollSession.value) => {
+  if (session !== characteristicRollSession.value || !characteristicRollModalOpen.value) return
   clearCharacteristicRollTimers()
   characteristicRollPreview.value = statRolls.value.map((roll) => ({
     id: roll.id,
@@ -136,8 +141,9 @@ const finalizeCharacteristicRollModal = () => {
 }
 
 const scheduleCharacteristicRollResolution = () => {
+  const session = characteristicRollSession.value
   if (!import.meta.client) {
-    finalizeCharacteristicRollModal()
+    finalizeCharacteristicRollModal(session)
     return
   }
 
@@ -154,21 +160,27 @@ const scheduleCharacteristicRollResolution = () => {
     return
   }
 
-  characteristicRollTimer.value = window.setInterval(randomizeUnsettledCharacteristicRows, intervalMs)
+  characteristicRollTimer.value = window.setInterval(() => {
+    if (session !== characteristicRollSession.value || !characteristicRollModalOpen.value) return
+    randomizeUnsettledCharacteristicRows()
+  }, intervalMs)
 
   remainingIndexes.forEach((index, order) => {
     const timer = window.setTimeout(() => {
+      if (session !== characteristicRollSession.value || !characteristicRollModalOpen.value) return
       settleCharacteristicRollRow(index)
     }, initialDelay + order * rowDelay)
     characteristicRollRowTimers.value.push(timer)
   })
 
   characteristicRollFinishTimer.value = window.setTimeout(() => {
-    finalizeCharacteristicRollModal()
+    finalizeCharacteristicRollModal(session)
   }, initialDelay + remainingIndexes.length * rowDelay + 180)
 }
 
 const openCharacteristicRollModal = () => {
+  characteristicRollSession.value += 1
+  clearCharacteristicRollTimers()
   characteristicRollModalOpen.value = true
   characteristicRollModalRolling.value = true
   characteristicRollSettledIds.value = []
@@ -184,6 +196,9 @@ const openCharacteristicRollModal = () => {
 
 const toggleCharacteristicRollSpeed = () => {
   characteristicRollAnimationMode.value = characteristicRollAnimationMode.value === 'fast' ? 'normal' : 'fast'
+  if (characteristicRollModalOpen.value && characteristicRollModalRolling.value) {
+    scheduleCharacteristicRollResolution()
+  }
 }
 
 const rerollCharacteristicBank = () => {
@@ -192,6 +207,7 @@ const rerollCharacteristicBank = () => {
 
 watch(characteristicRollSequence, (value, previous) => {
   if (!value || value === previous) return
+  if (value === dismissedCharacteristicRollSequence.value) return
   openCharacteristicRollModal()
 })
 
