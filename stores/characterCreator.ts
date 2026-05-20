@@ -440,6 +440,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
   const psionicsPermissionSources = ref<string[]>([])
   const psiScore = ref<number | null>(null)
   const psiTestRoll = ref<RollResult | null>(null)
+  const psiTestTermNumber = ref<number | null>(null)
   const psionicTalentAttempts = ref<PsionicTalentAttempt[]>([])
   const psionicsTrainingCost = ref(0)
   const psionicsTestCharged = ref(false)
@@ -698,6 +699,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
   const psiDm = computed(() => diceModifier(psiScore.value ?? 0))
   const psionicsTestingAvailable = computed(() => psionicsPermissionSources.value.length > 0)
   const psiTested = computed(() => Boolean(psiTestRoll.value))
+  const psiTestInCurrentTerm = computed(() => psiTested.value && psiTestTermNumber.value === currentTermNumber.value)
   const psionicsTrainingAvailable = computed(() => (psiScore.value ?? 0) > 0)
   const learnedPsionicTalentIds = computed(() => new Set(currentTravellerSkills.value
     .filter((skill) => psionicTalents.some((talent) => talent.id === skill.id))
@@ -2714,6 +2716,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
   const rollModifierScope = (effect: TravellerEventEffect): TravellerRollModifier['scope'] => {
     if (effect.type.startsWith('next_')) return 'next'
     if (effect.type.startsWith('one_')) return 'one'
+    if (effect.type === 'benefit_roll_dm') return 'one'
     if (effect.type.includes('career')) return 'career'
     return 'any'
   }
@@ -4257,6 +4260,15 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     const constraint = automaticCareerEntryConstraint.value
     if (selectedTermPath.value !== 'career') return
 
+    if (termRolls.draft && draftRoll.value?.careerId === selectedCareerId.value) {
+      const label = `Drafted into ${selectedCareer.value.name} - qualification automatic`
+      if (termRolls.careerQualification?.finalSuccess && termRolls.careerQualification.notes === label) return
+
+      setAutomaticQualificationResult(label)
+      recordEventOutcome('Draft', { type: 'draft_assignment', careerId: selectedCareerId.value, assignmentId: selectedAssignmentId.value }, label)
+      return
+    }
+
     if (selectedCareer.value.qualification?.automatic) {
       if (termRolls.careerQualification?.finalSuccess && termRolls.careerQualification.source === 'automatic') return
 
@@ -4281,7 +4293,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     }
   }
 
-  watch([currentTermNumber, selectedTermPath, selectedCareerId, selectedAssignmentId, automaticCareerEntryConstraint, sameCareerContinuationAvailable], () => {
+  watch([currentTermNumber, selectedTermPath, selectedCareerId, selectedAssignmentId, automaticCareerEntryConstraint, sameCareerContinuationAvailable, draftRoll], () => {
     applyAutomaticCareerQualification()
   }, { immediate: true })
 
@@ -4898,6 +4910,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     chargePsionicsTest()
     const score = Math.max(0, diceTotal - psiTermsServed.value)
     psiScore.value = score
+    psiTestTermNumber.value = currentTermNumber.value
     psiTestRoll.value = {
       label: 'PSI Test',
       dice,
@@ -5379,6 +5392,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     psionicsPermissionSources.value = []
     psiScore.value = null
     psiTestRoll.value = null
+    psiTestTermNumber.value = null
     psionicTalentAttempts.value = []
     psionicsTrainingCost.value = 0
     psionicsTestCharged.value = false
@@ -6405,10 +6419,10 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
       : modifier)
   }
 
-  const musteringBenefitRow = (total: number) => {
-    if (!selectedMusteringCareerBenefits.value.length) return null
+  const musteringBenefitRow = (total: number, benefits = selectedMusteringCareerBenefits.value) => {
+    if (!benefits.length) return null
     const tableRoll = Math.max(1, Math.min(7, total))
-    return selectedMusteringCareerBenefits.value.find((benefit) => benefit.roll === tableRoll) ?? null
+    return benefits.find((benefit) => benefit.roll === tableRoll) ?? null
   }
 
   const applyMusteringBenefit = (benefit: string, source: string, resultId?: string) => {
@@ -6509,32 +6523,35 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
   }
 
   const resolveMusteringOutRoll = (die: number, source: 'rolled' | 'manual') => {
-    if (!canRollMusteringOut.value || !selectedMusteringCareer.value) return
-    if (die < 1 || die > 6) return
+    const career = selectedMusteringCareer.value
+    if (!canRollMusteringOut.value || !career) return null
+    if (die < 1 || die > 6) return null
 
+    const careerBenefits = [...selectedMusteringCareerBenefits.value]
+    const rollType = selectedMusteringRollType.value
     const spentPool: MusteringOutResult['spentPool'] = selectedMusteringCareerSpecificRollsRemaining.value > 0 ? 'career' : 'flexible'
-    const modifiers = appliedMusteringRollModifiers.value
-    const gamblerCashDm = selectedMusteringRollType.value === 'cash' && skillLevel('gambler') >= 0
+    const modifiers = [...appliedMusteringRollModifiers.value]
+    const gamblerCashDm = rollType === 'cash' && skillLevel('gambler') >= 0
       ? Number(creationRulesData.benefits.gamblerCashBenefitDm ?? 1)
       : 0
-    const rankBenefitDm = rankBenefitBonusByCareer.value[selectedMusteringCareer.value.id]?.benefitDm ?? 0
+    const rankBenefitDm = rankBenefitBonusByCareer.value[career.id]?.benefitDm ?? 0
     const dm = modifiers.reduce((sum, modifier) => sum + modifier.dm, 0) + gamblerCashDm + rankBenefitDm
     const total = die + dm
-    const row = musteringBenefitRow(total)
-    if (!row) return
+    const row = musteringBenefitRow(total, careerBenefits)
+    if (!row) return null
 
     const result: MusteringOutResult = {
       id: makeEventOutcomeId('mustering-out'),
-      careerId: selectedMusteringCareer.value.id,
-      careerName: selectedMusteringCareer.value.name,
+      careerId: career.id,
+      careerName: career.name,
       spentPool,
-      rollType: selectedMusteringRollType.value,
+      rollType,
       dice: [die],
       dm,
       total,
       tableRoll: row.roll,
-      cash: selectedMusteringRollType.value === 'cash' ? row.cash : undefined,
-      benefit: selectedMusteringRollType.value === 'benefit' ? row.benefit : undefined,
+      cash: rollType === 'cash' ? row.cash : undefined,
+      benefit: rollType === 'benefit' ? row.benefit : undefined,
     }
 
     musteringOutResults.value = [...musteringOutResults.value, result]
@@ -6542,13 +6559,13 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     selectedMusteringRollModifierIds.value = selectedMusteringRollModifierIds.value.filter((id) => !modifiers.some((modifier) => modifier.id === id))
 
     if (typeof result.cash === 'number') startingCredits.value += result.cash
-    if (result.benefit) applyMusteringBenefit(result.benefit, `Mustering Out: ${selectedMusteringCareer.value.name}`, result.id)
+    if (result.benefit) applyMusteringBenefit(result.benefit, `Mustering Out: ${career.name}`, result.id)
 
     eventOutcomeLog.value = [
       {
         id: makeEventOutcomeId('mustering-out-log'),
-        source: `Mustering Out: ${selectedMusteringCareer.value.name}`,
-        label: selectedMusteringRollType.value === 'cash'
+        source: `Mustering Out: ${career.name}`,
+        label: rollType === 'cash'
           ? `Cash ${result.cash?.toLocaleString() ?? 0} credits${gamblerCashDm ? ` (includes Gambler ${formatDm(gamblerCashDm)})` : ''}`
           : result.benefit ?? 'Benefit',
         effectType: 'mustering_out',
@@ -6557,15 +6574,17 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
       },
       ...eventOutcomeLog.value,
     ].slice(0, 24)
+
+    return result
   }
 
   const rollMusteringOutBenefit = () => {
-    resolveMusteringOutRoll(Math.ceil(Math.random() * 6), 'rolled')
+    return resolveMusteringOutRoll(Math.ceil(Math.random() * 6), 'rolled')
   }
 
   const enterManualMusteringOutBenefit = (die: number) => {
-    if (Number.isNaN(die)) return
-    resolveMusteringOutRoll(die, 'manual')
+    if (Number.isNaN(die)) return null
+    return resolveMusteringOutRoll(die, 'manual')
   }
 
   const modifierLabel = (modifier: { condition: string; dm: number }) => {
@@ -6681,7 +6700,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     if (effect.type === 'gain_associate') return `Gain ${effect.count ? `${effect.count} ` : ''}${effect.associateTypes?.join(' or ') ?? 'associate'}`
     if (effect.type === 'convert_or_gain_associate') return `Convert ${effect.from?.join(' or ') ?? 'contact or ally'} to ${effect.to?.join(' or ') ?? 'rival or enemy'}`
     if (effect.type === 'convert_associate') return `Convert ${effect.associateName ?? 'associate'} to ${associateTypeLabel(String(effect.toType))}`
-    if (effect.type === 'benefit_roll_dm') return `Benefit roll DM ${formatDm(effect.dm ?? 0)}`
+    if (effect.type === 'benefit_roll_dm') return `One benefit roll DM ${formatDm(effect.dm ?? 0)}`
     if (effect.type === 'one_benefit_roll_dm') return `One benefit roll DM ${formatDm(effect.dm ?? 0)}`
     if (effect.type === 'lose_benefit_roll') return `Lose ${effect.count ?? 1} benefit roll`
     if (effect.type === 'lose_all_career_benefits') return 'Lose all career benefit rolls'
@@ -6875,6 +6894,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     psionicsPermissionSources,
     psiScore,
     psiTestRoll,
+    psiTestTermNumber,
     psionicTalentAttempts,
     psionicsTrainingCost,
     prisonerParoleThreshold,
@@ -6928,6 +6948,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     psiDm,
     psionicsTestingAvailable,
     psiTested,
+    psiTestInCurrentTerm,
     psionicsTrainingAvailable,
     learnedPsionicTalentIds,
     learnedPsionicTalents,

@@ -104,13 +104,21 @@
         {
           "roll": 5,
           "name": "No Further Effect",
-          "effects": [],
+          "effects": [
+            {
+              "type": "forced_out"
+            }
+          ],
           "text": "Nothing else happens, but you still must leave this career."
         },
         {
           "roll": 6,
           "name": "No Further Effect",
-          "effects": [],
+          "effects": [
+            {
+              "type": "forced_out"
+            }
+          ],
           "text": "Nothing else happens, but you still must leave this career."
         }
       ]

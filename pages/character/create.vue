@@ -174,6 +174,9 @@ const {
   psiScore,
   psiTestRoll,
   characteristicsAssigned,
+  statRolls,
+  assignedRollIds,
+  characteristicAdjustments,
   values,
 } = storeToRefs(characterCreator)
 
@@ -1021,6 +1024,7 @@ const activeStepPrimaryAction = computed<CreatorStepActionDefinition | null>(() 
       && !sameCareerContinuationAvailable.value
       && !requiredDraftAvailable.value
       && !selectedCareer.value.qualification?.automatic
+      && !termRolls.value.draft
       && !termRolls.value.careerQualification
     ) {
       return {
@@ -1140,8 +1144,8 @@ const activeStepPrimaryAction = computed<CreatorStepActionDefinition | null>(() 
       if (selectedCareerId.value === 'prisoner') {
         return {
           key: 'roll-advancement',
-          label: 'Roll Parole',
-          helper: 'Roll the Prisoner advancement check as the parole check. If the total exceeds the Parole Threshold, the Traveller leaves prison.',
+          label: 'Roll Advancement',
+          helper: 'Roll Prisoner advancement for rank first, then compare the same total to the Parole Threshold.',
         }
       }
 
@@ -1368,10 +1372,10 @@ const executeCreatorStepActionByKey = (key: CreatorStepActionKey, reroll = false
       if (selectedCareerCommissionCheck.value) triggerManualCheck('careerCommission', 'Commission', selectedCareerCommissionCheck.value)
       return
     case 'roll-advancement':
-      triggerRollCheck('careerAdvancement', selectedCareerId.value === 'prisoner' ? 'Parole Check' : 'Advancement', selectedAssignment.value.advancement)
+      triggerRollCheck('careerAdvancement', selectedCareerId.value === 'prisoner' ? 'Prisoner Advancement / Parole' : 'Advancement', selectedAssignment.value.advancement)
       return
     case 'manual-advancement':
-      triggerManualCheck('careerAdvancement', selectedCareerId.value === 'prisoner' ? 'Parole Check' : 'Advancement', selectedAssignment.value.advancement)
+      triggerManualCheck('careerAdvancement', selectedCareerId.value === 'prisoner' ? 'Prisoner Advancement / Parole' : 'Advancement', selectedAssignment.value.advancement)
       return
     case 'roll-advancement-skill':
       triggerRollAdvancementSkillTable()
@@ -1597,6 +1601,13 @@ const checkRollResultLabel = (key: string) => {
     careerCommission: ['Commissioned', 'No commission'],
     careerAdvancement: ['Advanced', 'No advancement'],
   }
+  if (key === 'careerAdvancement' && selectedCareerId.value === 'prisoner') {
+    const threshold = prisonerParoleThreshold.value
+    const paroleLabel = threshold !== null
+      ? roll.total > threshold ? 'parole granted' : 'parole denied'
+      : 'parole pending'
+    return `${success ? 'Rank advanced' : 'No rank advancement'}; ${paroleLabel}`
+  }
   const label = labels[key]
   if (label) return success ? label[0] : label[1]
   return success ? 'Success' : 'Failure'
@@ -1749,21 +1760,41 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  persistCreatorDraft()
   clearCreatorRollModalTimers()
   if (!mobileViewportQuery) return
   mobileViewportQuery.removeEventListener('change', handleCreatorViewportChange)
 })
 
+const creatorDraftPayload = () => {
+  const stateSnapshot = JSON.parse(JSON.stringify(characterCreator.$state)) as Record<string, unknown>
+  return {
+    ...stateSnapshot,
+    statRolls: JSON.parse(JSON.stringify(statRolls.value)),
+    assignedRollIds: { ...assignedRollIds.value },
+    characteristicAdjustments: { ...characteristicAdjustments.value },
+    values: { ...values.value },
+  }
+}
+
+const persistCreatorDraft = () => {
+  if (!characterCreatorDraftRestored.value || restartInProgress.value) return
+  saveBuilderDraft(
+    CHARACTER_CREATOR_DRAFT_CACHE_KEY,
+    CHARACTER_CREATOR_DRAFT_CACHE_VERSION,
+    creatorDraftPayload(),
+  )
+}
+
 watch(
-  () => characterCreator.$state,
-  (state) => {
-    if (!characterCreatorDraftRestored.value || restartInProgress.value) return
-    saveBuilderDraft(
-      CHARACTER_CREATOR_DRAFT_CACHE_KEY,
-      CHARACTER_CREATOR_DRAFT_CACHE_VERSION,
-      JSON.parse(JSON.stringify(state)) as Record<string, unknown>,
-    )
-  },
+  [
+    () => characterCreator.$state,
+    statRolls,
+    assignedRollIds,
+    characteristicAdjustments,
+    values,
+  ],
+  persistCreatorDraft,
   { deep: true },
 )
 
@@ -2357,6 +2388,8 @@ if (import.meta.client) {
                       {{
                         selectedCareer.qualification?.automatic
                           ? 'Automatic'
+                          : termRolls.draft
+                            ? `Drafted into ${selectedCareer.name}; qualification is automatic.`
                           : automaticCareerEntryConstraint
                           ? automaticCareerEntryConstraint.label
                           : sameCareerContinuationAvailable
@@ -2372,7 +2405,7 @@ if (import.meta.client) {
                     </p>
                   </div>
                 </div>
-                <div v-if="gmManualCheckRollEntryEnabled && !selectedCareer.qualification?.automatic && !automaticCareerEntryConstraint && !sameCareerContinuationAvailable && !requiredDraftAvailable" class="mt-3 flex flex-wrap gap-2">
+                <div v-if="gmManualCheckRollEntryEnabled && !selectedCareer.qualification?.automatic && !termRolls.draft && !automaticCareerEntryConstraint && !sameCareerContinuationAvailable && !requiredDraftAvailable" class="mt-3 flex flex-wrap gap-2">
                   <input v-model.number="manualRollTotals.careerQualification" class="h-10 w-28 rounded-md border border-zinc-300 px-3 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200" placeholder="2D total" type="number">
                   <button class="h-10 rounded-md border border-zinc-300 px-3 text-sm font-semibold text-zinc-700 hover:border-amber-600" type="button" @click="triggerManualCheck('careerQualification', 'Qualification', selectedCareer.qualification)">
                     Manual
@@ -2435,8 +2468,16 @@ if (import.meta.client) {
                     <p class="text-sm text-zinc-600">Roll 1D+2 before the parole check. The parole total must exceed this threshold to leave prison.</p>
                   </div>
                 </div>
-                <div v-if="gmManualTableRollEntryEnabled && prisonerParoleThresholdRequired" class="mt-3 flex flex-wrap gap-2">
+                <div v-if="prisonerParoleThresholdRequired" class="mt-3 flex flex-wrap gap-2">
+                  <button
+                    class="h-10 rounded-md border border-zinc-300 px-3 text-sm font-semibold text-zinc-700 hover:border-amber-600"
+                    type="button"
+                    @click="triggerRollPrisonerParoleThreshold"
+                  >
+                    Roll Threshold
+                  </button>
                   <input
+                    v-if="gmManualTableRollEntryEnabled"
                     v-model.number="manualRollTotals.prisonerParoleThreshold"
                     class="h-10 w-28 rounded-md border border-zinc-300 px-3 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200"
                     max="6"
@@ -2445,6 +2486,7 @@ if (import.meta.client) {
                     type="number"
                   >
                   <button
+                    v-if="gmManualTableRollEntryEnabled"
                     class="h-10 rounded-md border border-zinc-300 px-3 text-sm font-semibold text-zinc-700 hover:border-amber-600"
                     type="button"
                     @click="triggerManualPrisonerParoleThreshold"
@@ -2766,16 +2808,18 @@ if (import.meta.client) {
                   (termRolls.careerSurvival?.finalSuccess && termRolls.careerEvent && !termRolls.careerCommission?.finalSuccess)
                   || mishapContinuationAvailable
                   || (selectedCareerId === 'prisoner' && termRolls.careerSurvival && (!termRolls.careerSurvival.finalSuccess ? termRolls.careerMishap : termRolls.careerEvent))
-                ) && !pendingEventResolutions.some((resolution) => !resolution.resolved)"
+                )
+                && (selectedCareerId !== 'prisoner' || prisonerParoleThreshold !== null)
+                && !pendingEventResolutions.some((resolution) => !resolution.resolved)"
                 v-show="activeTermStep === 'advancement'"
                 class="rounded-md border border-zinc-200 p-3 sm:p-4"
               >
                 <div class="flex flex-wrap items-center gap-3">
                   <div>
-                    <p class="text-sm font-semibold">{{ selectedCareerId === 'prisoner' ? 'Parole Check' : 'Advancement Roll' }}</p>
+                    <p class="text-sm font-semibold">{{ selectedCareerId === 'prisoner' ? 'Advancement / Parole Roll' : 'Advancement Roll' }}</p>
                     <p class="text-sm text-zinc-600">
                       {{ checkLabel(selectedAssignment.advancement) }}
-                      <span v-if="selectedCareerId === 'prisoner'">. Total must exceed the Parole Threshold to leave prison.</span>
+                      <span v-if="selectedCareerId === 'prisoner'">. Success advances Prisoner rank; total greater than Parole Threshold releases the Traveller.</span>
                     </p>
                     <p v-if="mishapContinuationAvailable" class="mt-1 text-sm text-zinc-600">
                       This mishap does not force the traveller out, so resolve advancement before completing the term.
@@ -2784,14 +2828,14 @@ if (import.meta.client) {
                 </div>
                 <div v-if="gmManualCheckRollEntryEnabled" class="mt-3 flex flex-wrap gap-2">
                   <input v-model.number="manualRollTotals.careerAdvancement" class="h-10 w-28 rounded-md border border-zinc-300 px-3 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200" placeholder="2D total" type="number">
-                  <button class="h-10 rounded-md border border-zinc-300 px-3 text-sm font-semibold text-zinc-700 hover:border-amber-600" type="button" @click="triggerManualCheck('careerAdvancement', selectedCareerId === 'prisoner' ? 'Parole Check' : 'Advancement', selectedAssignment.advancement)">
+                  <button class="h-10 rounded-md border border-zinc-300 px-3 text-sm font-semibold text-zinc-700 hover:border-amber-600" type="button" @click="triggerManualCheck('careerAdvancement', selectedCareerId === 'prisoner' ? 'Prisoner Advancement / Parole' : 'Advancement', selectedAssignment.advancement)">
                     Manual
                   </button>
                 </div>
                 <div v-if="termRolls.careerAdvancement" class="mt-3 rounded-md bg-stone-50 p-3 text-sm">
                   <p class="font-semibold">
                     {{ rollSummary(termRolls.careerAdvancement) }} ·
-                    {{ selectedCareerId === 'prisoner' ? (termRolls.careerAdvancement.finalSuccess ? 'Parole granted' : 'Parole denied') : (termRolls.careerAdvancement.finalSuccess ? 'Advanced' : 'No advancement') }}
+                    {{ selectedCareerId === 'prisoner' ? (termRolls.careerAdvancement.finalSuccess ? 'Rank advanced' : 'No rank advancement') : (termRolls.careerAdvancement.finalSuccess ? 'Advanced' : 'No advancement') }}
                   </p>
                   <p v-if="termRolls.careerAdvancement.notes" class="mt-1 text-zinc-600">{{ termRolls.careerAdvancement.notes }}</p>
                   <p v-if="selectedCareerId === 'prisoner' && prisonerParoleThreshold !== null" class="mt-1 text-zinc-600">

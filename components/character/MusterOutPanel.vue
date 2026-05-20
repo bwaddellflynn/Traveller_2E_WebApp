@@ -3,7 +3,21 @@ import { storeToRefs } from 'pinia'
 import { computed } from 'vue'
 import EventResolutionList from '~/components/character/EventResolutionList.vue'
 import TasLogoIcon from '~/components/TasLogoIcon.vue'
+import careerTablesData from '~/data/traveller2e/core/career-tables.json'
 import { useCharacterCreatorStore } from '~/stores/characterCreator'
+
+type MusteringResult = {
+  id: string
+  careerId: string
+  careerName: string
+  rollType: 'cash' | 'benefit'
+  dice: number[]
+  dm: number
+  total: number
+  tableRoll: number
+  cash?: number
+  benefit?: string
+}
 
 const props = withDefaults(defineProps<{
   saveMessage?: string
@@ -113,8 +127,12 @@ const musteringResultDisplay = (result: { cash?: number; benefit?: string; resol
   return benefit
 }
 
-const emitMusteringResultRoll = () => {
-  const result = musteringOutResults.value[musteringOutResults.value.length - 1]
+const musteringBenefitsForCareer = (careerId: string) => {
+  return ((careerTablesData.careers as Record<string, any>)[careerId]?.benefits ?? []) as Array<{ roll: number; cash: number; benefit: string }>
+}
+
+const emitMusteringResultRoll = (rolledResult?: MusteringResult | null) => {
+  const result = rolledResult ?? musteringOutResults.value[musteringOutResults.value.length - 1]
   if (!result) return
 
   emit('show-mustering-roll', {
@@ -127,7 +145,7 @@ const emitMusteringResultRoll = () => {
     total: result.total,
     tableRoll: result.tableRoll,
     result: result.cash !== undefined ? `${result.cash.toLocaleString()} Cr` : (result.benefit ?? 'Benefit'),
-    options: selectedMusteringCareerBenefits.value.map((row) => ({
+    options: musteringBenefitsForCareer(result.careerId).map((row) => ({
       roll: row.roll,
       cash: row.cash,
       benefit: row.benefit,
@@ -136,13 +154,11 @@ const emitMusteringResultRoll = () => {
 }
 
 const triggerRollMusteringOutBenefit = () => {
-  rollMusteringOutBenefit()
-  emitMusteringResultRoll()
+  emitMusteringResultRoll(rollMusteringOutBenefit())
 }
 
 const triggerManualMusteringOutBenefit = () => {
-  enterManualMusteringOutBenefit(manualRollTotals.value.musteringOut ?? Number.NaN)
-  emitMusteringResultRoll()
+  emitMusteringResultRoll(enterManualMusteringOutBenefit(manualRollTotals.value.musteringOut ?? Number.NaN))
 }
 </script>
 

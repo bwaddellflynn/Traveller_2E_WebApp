@@ -35,6 +35,7 @@ const {
   psionicsPermissionSources,
   psionicsTestingAvailable,
   psiTested,
+  psiTestInCurrentTerm,
   psiScore,
   psiTestRoll,
   psiTermsServed,
@@ -147,12 +148,17 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div v-if="psionicsTestingAvailable || psiTested" class="mt-5 rounded-md border border-violet-300 bg-violet-50 p-4">
+  <div v-if="(psionicsTestingAvailable && !psiTested) || psiTestInCurrentTerm || psionicsTrainingAvailable" class="mt-5 rounded-md border border-violet-300 bg-violet-50 p-4">
     <div class="flex flex-wrap items-start justify-between gap-3">
       <div>
         <p class="text-sm font-semibold text-violet-950">Psionics</p>
         <p class="text-sm text-violet-900">
-          Test PSI with 2D {{ formatDm(-psiTermsServed) }}. Institute testing costs Cr5,000.
+          <template v-if="!psiTested">
+            Test PSI with 2D {{ formatDm(-psiTermsServed) }}. Institute testing costs Cr5,000.
+          </template>
+          <template v-else>
+            Psionic talent training is available for tested travellers with PSI potential.
+          </template>
         </p>
       </div>
       <span v-if="psionicsTrainingCost" class="rounded-md bg-white px-3 py-2 text-sm font-semibold text-violet-900">
@@ -180,7 +186,7 @@ onBeforeUnmount(() => {
       </button>
     </div>
 
-    <div v-if="psiTestRoll" class="mt-4 rounded-md bg-white p-3 text-sm">
+    <div v-if="psiTestRoll && psiTestInCurrentTerm" class="mt-4 rounded-md bg-white p-3 text-sm">
       <p class="font-semibold">{{ rollSummary(psiTestRoll) }} · PSI {{ psiScore }}</p>
       <p class="mt-1 text-zinc-600">
         {{ psionicsTrainingAvailable ? 'Training is available. Training costs Cr100,000 and takes four months.' : 'No psionic potential remains.' }}

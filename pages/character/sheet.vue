@@ -100,6 +100,7 @@ type SheetPageId = typeof sheetPages[number]['id']
 const activeSheetPage = ref<SheetPageId>('traveller')
 const activeSheetPageLabel = computed(() => sheetPages.find((page) => page.id === activeSheetPage.value)?.label ?? 'Traveller')
 const showOnlyTrainedSkills = ref(false)
+const selectSkillRollCharacteristic = ref(false)
 const selectedTrainingSkillId = ref('')
 const selectedTrainingSpeciality = ref('')
 const customTrainingSpeciality = ref('')
@@ -795,6 +796,27 @@ const sheetSkillCheckModifier = (label: string, characteristic?: string, explici
   return skillLevel + characteristicDm
 }
 
+const sheetSkillRollCharacteristicOptions = computed(() => visibleCharacteristicIds.value.map((id) => ({
+  id,
+  label: id.toUpperCase(),
+  dm: sheetCharacteristicDm(id),
+})))
+
+const preferredSheetSkillCharacteristic = (label: string): TravellerCharacteristicId => {
+  const suggested = sheetDefaultSkillCharacteristics(label)
+  if (suggested.length) {
+    return suggested
+      .slice()
+      .sort((left, right) => sheetCharacteristicDm(right) - sheetCharacteristicDm(left))[0]
+  }
+  return 'edu'
+}
+
+const selectedSkillRollCharacteristicOption = computed(() => {
+  return sheetSkillRollCharacteristicOptions.value.find((option) => option.id === skillRollCharacteristicSelection.value)
+    ?? sheetSkillRollCharacteristicOptions.value[0]
+})
+
 const sheetSkillRollLabel = (definition: SkillDefinition, specialityName?: string) => {
   const built = buildTravellerSkill(definition.id, 0, specialityName)
   const characteristic = sheetSkillCharacteristicLabel(built.id)
@@ -802,14 +824,42 @@ const sheetSkillRollLabel = (definition: SkillDefinition, specialityName?: strin
 }
 
 const openSheetSkillDefinitionRoll = (definition: SkillDefinition, specialityName?: string, explicitLevel?: number | null) => {
+  if (selectSkillRollCharacteristic.value) {
+    const skillId = buildTravellerSkill(definition.id, 0, specialityName).id
+    pendingSkillRoll.value = { definition, specialityName, explicitLevel }
+    skillRollCharacteristicSelection.value = preferredSheetSkillCharacteristic(skillId)
+    skillRollCharacteristicModalOpen.value = true
+    return
+  }
+
+  rollSheetSkillDefinition(definition, specialityName, explicitLevel)
+}
+
+const rollSheetSkillDefinition = (definition: SkillDefinition, specialityName?: string, explicitLevel?: number | null, characteristic?: TravellerCharacteristicId) => {
   const label = buildSheetSkillLabel(definition, specialityName)
   const skillId = buildTravellerSkill(definition.id, 0, specialityName).id
+  const subtitle = characteristic
+    ? `Skill Check · ${characteristic.toUpperCase()} ${formatDm(sheetCharacteristicDm(characteristic))}`
+    : sheetSkillRollLabel(definition, specialityName)
   startRollModal(
     label,
-    sheetSkillRollLabel(definition, specialityName),
-    sheetSkillCheckModifier(skillId, undefined, explicitLevel),
-    () => openSheetSkillDefinitionRoll(definition, specialityName, explicitLevel),
+    subtitle,
+    sheetSkillCheckModifier(skillId, characteristic, explicitLevel),
+    () => rollSheetSkillDefinition(definition, specialityName, explicitLevel, characteristic),
   )
+}
+
+const closeSkillRollCharacteristicModal = () => {
+  skillRollCharacteristicModalOpen.value = false
+  pendingSkillRoll.value = null
+}
+
+const confirmSkillRollCharacteristic = () => {
+  const pending = pendingSkillRoll.value
+  const selected = selectedSkillRollCharacteristicOption.value?.id
+  if (!pending || !selected) return
+  closeSkillRollCharacteristicModal()
+  rollSheetSkillDefinition(pending.definition, pending.specialityName, pending.explicitLevel, selected)
 }
 
 const sheetSkillViewById = computed(() => {
@@ -856,6 +906,14 @@ const rollModalDetailLines = ref<string[]>([])
 const rollModalTimer = ref<number | null>(null)
 const rollModalFinishTimer = ref<number | null>(null)
 const rollModalRerollAction = ref<null | (() => void)>(null)
+const skillRollSettingsOpen = ref(false)
+const skillRollCharacteristicModalOpen = ref(false)
+const skillRollCharacteristicSelection = ref<TravellerCharacteristicId>('edu')
+const pendingSkillRoll = ref<null | {
+  definition: SkillDefinition
+  specialityName?: string
+  explicitLevel?: number | null
+}>(null)
 const rollModalRawTotal = computed(() => rollModalDice.value[0] + rollModalDice.value[1])
 const rollModalJackpot = computed(() => !rollModalRolling.value && rollModalDiceFaces.value.length === 2 && rollModalRawTotal.value === 12)
 const historyBackgroundLines = computed({
@@ -1850,20 +1908,31 @@ watch(
             <section v-else-if="activeMobileSheetSection === 'skills'" class="sheet-panel sheet-panel--skills">
               <header class="sheet-panel-title sheet-panel-title--side sheet-panel-title--actionable">
                 <span>Skills</span>
-                <button
-                  class="sheet-skill-visibility-toggle"
-                  :aria-label="showOnlyTrainedSkills ? 'Show all skills' : 'Show trained skills only'"
-                  :title="showOnlyTrainedSkills ? 'Show all skills' : 'Show trained skills only'"
-                  type="button"
-                  @click="showOnlyTrainedSkills = !showOnlyTrainedSkills"
-                >
-                  <svg v-if="!showOnlyTrainedSkills" viewBox="0 0 24 24" class="sheet-skill-visibility-icon" aria-hidden="true">
-                    <path fill="currentColor" d="M12 5c5.6 0 9.57 4.13 10.82 6.13a1.5 1.5 0 0 1 0 1.74C21.57 14.87 17.6 19 12 19S2.43 14.87 1.18 12.87a1.5 1.5 0 0 1 0-1.74C2.43 9.13 6.4 5 12 5Zm0 2c-4.62 0-8.02 3.28-9.2 5 1.18 1.72 4.58 5 9.2 5s8.02-3.28 9.2-5C20.02 10.28 16.62 7 12 7Zm0 2.25A2.75 2.75 0 1 1 9.25 12 2.75 2.75 0 0 1 12 9.25Zm0 2A.75.75 0 1 0 12.75 12 .75.75 0 0 0 12 11.25Z" />
-                  </svg>
-                  <svg v-else viewBox="0 0 24 24" class="sheet-skill-visibility-icon" aria-hidden="true">
-                    <path fill="currentColor" d="M3.28 2.22 21.78 20.72l-1.06 1.06-3.07-3.06A12.3 12.3 0 0 1 12 20C6.4 20 2.43 15.87 1.18 13.87a1.5 1.5 0 0 1 0-1.74 18.2 18.2 0 0 1 5.07-5.19L2.22 3.28Zm8.01 8.01 2.48 2.48a1.75 1.75 0 0 0-2.48-2.48Zm5.09 5.09-1.45-1.45A4.75 4.75 0 0 1 8.13 9.07L7.09 8.03C5.19 9.17 3.7 10.81 2.8 12c1.18 1.72 4.58 6 9.2 6a10.2 10.2 0 0 0 4.38-1.68Zm1.65-1.18-1.45-1.45A9.45 9.45 0 0 0 21.2 12c-.69-1-2.25-2.82-4.62-4.07l-1.07-1.06c3.32 1.25 5.8 3.85 7.31 6.26a1.5 1.5 0 0 1 0 1.74 18.34 18.34 0 0 1-4.79 4.89Z" />
-                  </svg>
-                </button>
+                <div class="sheet-skill-header-actions">
+                  <button
+                    class="sheet-skill-visibility-toggle"
+                    :aria-label="showOnlyTrainedSkills ? 'Show all skills' : 'Show trained skills only'"
+                    :title="showOnlyTrainedSkills ? 'Show all skills' : 'Show trained skills only'"
+                    type="button"
+                    @click="showOnlyTrainedSkills = !showOnlyTrainedSkills"
+                  >
+                    <svg v-if="!showOnlyTrainedSkills" viewBox="0 0 24 24" class="sheet-skill-visibility-icon" aria-hidden="true">
+                      <path fill="currentColor" d="M12 5c5.6 0 9.57 4.13 10.82 6.13a1.5 1.5 0 0 1 0 1.74C21.57 14.87 17.6 19 12 19S2.43 14.87 1.18 12.87a1.5 1.5 0 0 1 0-1.74C2.43 9.13 6.4 5 12 5Zm0 2c-4.62 0-8.02 3.28-9.2 5 1.18 1.72 4.58 5 9.2 5s8.02-3.28 9.2-5C20.02 10.28 16.62 7 12 7Zm0 2.25A2.75 2.75 0 1 1 9.25 12 2.75 2.75 0 0 1 12 9.25Zm0 2A.75.75 0 1 0 12.75 12 .75.75 0 0 0 12 11.25Z" />
+                    </svg>
+                    <svg v-else viewBox="0 0 24 24" class="sheet-skill-visibility-icon" aria-hidden="true">
+                      <path fill="currentColor" d="M3.28 2.22 21.78 20.72l-1.06 1.06-3.07-3.06A12.3 12.3 0 0 1 12 20C6.4 20 2.43 15.87 1.18 13.87a1.5 1.5 0 0 1 0-1.74 18.2 18.2 0 0 1 5.07-5.19L2.22 3.28Zm8.01 8.01 2.48 2.48a1.75 1.75 0 0 0-2.48-2.48Zm5.09 5.09-1.45-1.45A4.75 4.75 0 0 1 8.13 9.07L7.09 8.03C5.19 9.17 3.7 10.81 2.8 12c1.18 1.72 4.58 6 9.2 6a10.2 10.2 0 0 0 4.38-1.68Zm1.65-1.18-1.45-1.45A9.45 9.45 0 0 0 21.2 12c-.69-1-2.25-2.82-4.62-4.07l-1.07-1.06c3.32 1.25 5.8 3.85 7.31 6.26a1.5 1.5 0 0 1 0 1.74 18.34 18.34 0 0 1-4.79 4.89Z" />
+                    </svg>
+                  </button>
+                  <button
+                    class="sheet-skill-visibility-toggle sheet-skill-settings-button"
+                    aria-label="Skill roll settings"
+                    title="Skill roll settings"
+                    type="button"
+                    @click="skillRollSettingsOpen = true"
+                  >
+                    <span aria-hidden="true">!</span>
+                  </button>
+                </div>
               </header>
               <div class="sheet-skills-grid" :class="{ 'sheet-skills-grid--two-column': skillColumnCount === 2 }">
                 <div v-for="(column, columnIndex) in skillGroupColumns" :key="`mobile-skills-${columnIndex}`" class="sheet-skill-column">
@@ -2359,6 +2428,7 @@ watch(
             :change-speciality-skill-level="changeSpecialitySkillLevel"
             :change-base-skill-level="changeBaseSkillLevel"
             @update:showOnlyTrainedSkills="showOnlyTrainedSkills = $event"
+            @open-skill-roll-settings="skillRollSettingsOpen = true"
             @update:selected-training-skill-id="selectedTrainingSkillId = $event"
             @update:selected-training-speciality="selectedTrainingSpeciality = $event"
             @update:custom-training-speciality="customTrainingSpeciality = $event"
@@ -2414,6 +2484,102 @@ watch(
           />
         </div>
       </template>
+
+      <Transition name="dice-roll-fade">
+        <div
+          v-if="skillRollSettingsOpen"
+          class="skill-stat-modal fixed inset-0 z-50 flex items-center justify-center bg-zinc-950/60 px-4 py-8 backdrop-blur-sm"
+          role="dialog"
+          aria-modal="true"
+          @click.self="skillRollSettingsOpen = false"
+        >
+          <div class="skill-stat-modal__panel w-full max-w-md">
+            <header class="skill-stat-modal__header">
+              <p class="skill-stat-modal__kicker">Skill Rolls</p>
+              <h2 class="skill-stat-modal__title">Stat Handling</h2>
+              <p class="skill-stat-modal__subtitle">
+                Best uses the highest suggested stat DM for a skill. Select asks which stat applies before rolling.
+              </p>
+            </header>
+
+            <div class="skill-stat-modal__body">
+              <div
+                class="skill-roll-mode-toggle"
+                :class="{ 'is-select': selectSkillRollCharacteristic }"
+                role="group"
+                aria-label="Skill roll stat mode"
+              >
+                <span class="skill-roll-mode-toggle__thumb" aria-hidden="true"></span>
+                <button
+                  class="skill-roll-mode-toggle__option"
+                  :class="{ 'is-active': !selectSkillRollCharacteristic }"
+                  type="button"
+                  @click="selectSkillRollCharacteristic = false"
+                >
+                  Best
+                </button>
+                <button
+                  class="skill-roll-mode-toggle__option"
+                  :class="{ 'is-active': selectSkillRollCharacteristic }"
+                  type="button"
+                  @click="selectSkillRollCharacteristic = true"
+                >
+                  Select
+                </button>
+              </div>
+            </div>
+
+            <footer class="skill-stat-modal__actions">
+              <button class="sheet-action-button" type="button" @click="skillRollSettingsOpen = false">Done</button>
+            </footer>
+          </div>
+        </div>
+      </Transition>
+
+      <Transition name="dice-roll-fade">
+        <div
+          v-if="skillRollCharacteristicModalOpen && pendingSkillRoll"
+          class="skill-stat-modal fixed inset-0 z-50 flex items-center justify-center bg-zinc-950/60 px-4 py-8 backdrop-blur-sm"
+          role="dialog"
+          aria-modal="true"
+          @click.self="closeSkillRollCharacteristicModal"
+        >
+          <div class="skill-stat-modal__panel w-full max-w-md">
+            <header class="skill-stat-modal__header">
+              <p class="skill-stat-modal__kicker">Skill Check</p>
+              <h2 class="skill-stat-modal__title">
+                {{ buildSheetSkillLabel(pendingSkillRoll.definition, pendingSkillRoll.specialityName) }}
+              </h2>
+              <p class="skill-stat-modal__subtitle">Choose the stat that applies to this situation.</p>
+            </header>
+
+            <div class="skill-stat-modal__body">
+              <label class="skill-stat-modal__field">
+                <span>Stat</span>
+                <select v-model="skillRollCharacteristicSelection" class="sheet-line-input">
+                  <option
+                    v-for="option in sheetSkillRollCharacteristicOptions"
+                    :key="option.id"
+                    :value="option.id"
+                  >
+                    {{ option.label }} {{ formatDm(option.dm) }}
+                  </option>
+                </select>
+              </label>
+
+              <div class="skill-stat-modal__summary">
+                <span>Selected DM</span>
+                <strong>{{ formatDm(selectedSkillRollCharacteristicOption?.dm ?? 0) }}</strong>
+              </div>
+            </div>
+
+            <footer class="skill-stat-modal__actions">
+              <button class="sheet-action-button sheet-action-button--secondary" type="button" @click="closeSkillRollCharacteristicModal">Cancel</button>
+              <button class="sheet-action-button" type="button" @click="confirmSkillRollCharacteristic">Roll 2D</button>
+            </footer>
+          </div>
+        </div>
+      </Transition>
 
       <DiceRollModal
         :open="rollModalOpen"
@@ -5146,6 +5312,17 @@ watch(
   display: block;
 }
 
+.sheet-skill-header-actions {
+  display: flex;
+  align-items: center;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.sheet-panel-title--side .sheet-skill-header-actions {
+  flex-direction: row;
+}
+
 .sheet-skill-visibility-toggle {
   display: inline-flex;
   align-items: center;
@@ -5162,6 +5339,191 @@ watch(
 .sheet-skill-visibility-toggle:focus-visible {
   color: #cffafe;
   outline: none;
+}
+
+.sheet-skill-settings-button {
+  font-size: 1.35rem;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.sheet-skill-settings-button > span {
+  display: block;
+  transform: rotate(90deg);
+}
+
+.skill-stat-modal__panel {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(34, 211, 238, 0.38);
+  border-radius: 14px 0 14px 0;
+  clip-path: polygon(0 0, calc(100% - 18px) 0, 100% 18px, 100% 100%, 18px 100%, 0 calc(100% - 18px));
+  background:
+    linear-gradient(180deg, rgba(8, 20, 35, 0.98), rgba(4, 10, 20, 0.99)),
+    radial-gradient(circle at 0 0, rgba(34, 211, 238, 0.12), transparent 12rem);
+  box-shadow:
+    0 0 0 1px rgba(14, 116, 144, 0.28),
+    0 24px 64px rgba(0, 0, 0, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.skill-stat-modal__header,
+.skill-stat-modal__body,
+.skill-stat-modal__actions {
+  position: relative;
+}
+
+.skill-stat-modal__header {
+  border-bottom: 1px solid rgba(34, 211, 238, 0.18);
+  padding: 1.25rem 1.25rem 1rem;
+}
+
+.skill-stat-modal__kicker {
+  margin: 0;
+  color: #67e8f9;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.skill-stat-modal__title {
+  margin: 0.35rem 0 0;
+  color: #ecfeff;
+  font-size: 1.35rem;
+  font-weight: 800;
+}
+
+.skill-stat-modal__subtitle {
+  margin: 0.4rem 0 0;
+  color: rgba(224, 242, 254, 0.78);
+  font-size: 0.95rem;
+}
+
+.skill-stat-modal__body {
+  display: grid;
+  gap: 1rem;
+  padding: 1.25rem;
+}
+
+.skill-stat-modal__field {
+  display: grid;
+  gap: 0.4rem;
+  color: #bfdbfe;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.skill-stat-modal__summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border: 1px solid rgba(34, 211, 238, 0.2);
+  border-radius: 10px 0 10px 0;
+  padding: 0.75rem 0.85rem;
+  color: rgba(224, 242, 254, 0.78);
+}
+
+.skill-stat-modal__summary strong {
+  color: #facc15;
+  font-size: 1.1rem;
+}
+
+.skill-roll-mode-toggle {
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.25rem;
+  border: 1px solid rgba(34, 211, 238, 0.42);
+  padding: 0.25rem;
+  background:
+    linear-gradient(135deg, rgba(8, 47, 73, 0.88), rgba(2, 6, 23, 0.92) 56%, rgba(20, 184, 166, 0.12));
+  box-shadow:
+    inset 0 0 20px rgba(34, 211, 238, 0.1),
+    0 0 16px rgba(34, 211, 238, 0.1);
+  clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px));
+}
+
+.skill-roll-mode-toggle__thumb {
+  position: absolute;
+  z-index: 0;
+  top: 0.25rem;
+  bottom: 0.25rem;
+  left: 0.25rem;
+  width: calc((100% - 0.75rem) / 2);
+  border: 1px solid rgba(103, 232, 249, 0.82);
+  background:
+    linear-gradient(135deg, rgba(34, 211, 238, 0.48), rgba(8, 47, 73, 0.96) 55%, rgba(20, 184, 166, 0.34));
+  box-shadow:
+    inset 0 0 20px rgba(34, 211, 238, 0.22),
+    0 0 18px rgba(34, 211, 238, 0.28);
+  clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px));
+  transition: transform 180ms ease;
+}
+
+.skill-roll-mode-toggle.is-select .skill-roll-mode-toggle__thumb {
+  transform: translateX(calc(100% + 0.25rem));
+}
+
+.skill-roll-mode-toggle__option {
+  position: relative;
+  z-index: 1;
+  min-height: 2.4rem;
+  border: 1px solid transparent;
+  background: transparent;
+  color: rgba(224, 242, 254, 0.72);
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.skill-roll-mode-toggle__option:hover,
+.skill-roll-mode-toggle__option:focus-visible,
+.skill-roll-mode-toggle__option.is-active {
+  color: #ecfeff;
+  outline: none;
+  text-shadow: 0 0 12px rgba(103, 232, 249, 0.62);
+}
+
+.skill-stat-modal__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  border-top: 1px solid rgba(34, 211, 238, 0.18);
+  padding: 1rem 1.25rem 1.25rem;
+}
+
+.sheet-action-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.4rem;
+  border: 1px solid rgba(34, 211, 238, 0.48);
+  border-radius: 10px 0 10px 0;
+  clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px));
+  background:
+    linear-gradient(180deg, rgba(14, 116, 144, 0.72), rgba(8, 47, 73, 0.92)),
+    radial-gradient(circle at 0 0, rgba(103, 232, 249, 0.18), transparent 8rem);
+  padding: 0.45rem 1rem;
+  color: #ecfeff;
+  font-weight: 800;
+}
+
+.sheet-action-button--secondary {
+  border-color: rgba(148, 163, 184, 0.28);
+  background: rgba(8, 18, 32, 0.82);
+  color: #cbd5e1;
+}
+
+.sheet-action-button:hover,
+.sheet-action-button:focus-visible {
+  outline: none;
+  border-color: rgba(34, 211, 238, 0.78);
+  box-shadow: 0 0 16px rgba(34, 211, 238, 0.18);
 }
 
 .sheet-voucher-card--weapon,
@@ -5313,6 +5675,10 @@ watch(
   .sheet-panel-title--side {
     writing-mode: horizontal-tb;
     transform: none;
+  }
+
+  .sheet-panel-title--side .sheet-skill-header-actions {
+    flex-direction: column;
   }
 
   .sheet-table-header {

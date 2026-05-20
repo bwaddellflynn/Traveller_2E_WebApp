@@ -360,117 +360,104 @@ onBeforeUnmount(() => {
   </div>
 
   <Teleport to="body">
-    <Transition name="characteristic-roll-fade">
-      <div
-        v-if="characteristicRollModalOpen"
-        class="fixed inset-0 z-[200] flex items-center justify-center bg-zinc-950/72 px-3 py-4 backdrop-blur-sm sm:px-4 sm:py-8"
-        role="dialog"
-        aria-modal="true"
-        @click.self="closeCharacteristicRollModal"
-      >
-        <div class="characteristic-roll-modal w-full max-w-2xl overflow-hidden">
-          <div class="characteristic-roll-modal__header">
-            <div>
-              <p class="characteristic-roll-modal__kicker">Characteristic Bank</p>
-              <h2 class="characteristic-roll-modal__title">Stat Rolls</h2>
-            </div>
-            <div class="characteristic-roll-modal__actions">
-              <button
-                class="characteristic-roll-modal__speed"
-                type="button"
-                :class="{ 'is-fast': characteristicRollAnimationMode === 'fast' }"
-                :title="characteristicRollAnimationMode === 'fast' ? 'Animation Speed: Fast' : 'Animation Speed: Normal'"
-                :aria-label="characteristicRollAnimationMode === 'fast' ? 'Animation Speed: Fast' : 'Animation Speed: Normal'"
-                :aria-pressed="characteristicRollAnimationMode === 'fast'"
-                @click="toggleCharacteristicRollSpeed"
-              >
-                <span v-if="characteristicRollAnimationMode === 'normal'" class="characteristic-roll-modal__speed-play" aria-hidden="true" />
-                <span v-else class="characteristic-roll-modal__speed-fast" aria-hidden="true">
-                  <span />
-                  <span />
-                </span>
-              </button>
-              <button
-                class="characteristic-roll-modal__reroll"
-                type="button"
-                @click="rerollCharacteristicBank"
-              >
-                <span class="characteristic-roll-modal__reroll-icon" aria-hidden="true">
-                  <AppIcon class="h-4 w-4" name="restart" />
-                </span>
-                Reroll
-              </button>
-              <button
-                class="characteristic-roll-modal__close"
-                type="button"
-                @click="closeCharacteristicRollModal"
-              >
-                Close
-              </button>
-            </div>
+    <div
+      v-if="characteristicRollModalOpen"
+      class="fixed inset-0 z-[200] flex items-center justify-center bg-zinc-950/72 px-3 py-4 backdrop-blur-sm sm:px-4 sm:py-8"
+      role="dialog"
+      aria-modal="true"
+      @click.self="closeCharacteristicRollModal"
+    >
+      <div class="characteristic-roll-modal w-full max-w-2xl overflow-hidden" @click.stop>
+        <div class="characteristic-roll-modal__header">
+          <div>
+            <p class="characteristic-roll-modal__kicker">Characteristic Bank</p>
+            <h2 class="characteristic-roll-modal__title">Stat Rolls</h2>
           </div>
-
-          <div class="characteristic-roll-modal__body">
-            <div
-              v-for="row in characteristicRollPreview"
-              :key="row.id"
-              class="characteristic-roll-modal__row"
-              :class="{
-                'is-critical': characteristicRollSettledIds.includes(row.id) && row.total === 12,
-              }"
+          <div class="characteristic-roll-modal__actions">
+            <button
+              class="characteristic-roll-modal__speed"
+              type="button"
+              :class="{ 'is-fast': characteristicRollAnimationMode === 'fast' }"
+              :title="characteristicRollAnimationMode === 'fast' ? 'Animation Speed: Fast' : 'Animation Speed: Normal'"
+              :aria-label="characteristicRollAnimationMode === 'fast' ? 'Animation Speed: Fast' : 'Animation Speed: Normal'"
+              :aria-pressed="characteristicRollAnimationMode === 'fast'"
+              @click.stop="toggleCharacteristicRollSpeed"
             >
-              <div class="characteristic-roll-modal__dice">
-                <div
-                  class="characteristic-roll-modal__die"
-                  :class="{
-                    'is-rolling': characteristicRollModalRolling,
-                    'is-critical': characteristicRollSettledIds.includes(row.id) && row.total === 12,
-                  }"
-                >
-                  {{ row.dice[0] }}
-                </div>
-                <div class="characteristic-roll-modal__plus">+</div>
-                <div
-                  class="characteristic-roll-modal__die"
-                  :class="{
-                    'is-rolling': characteristicRollModalRolling,
-                    'is-critical': characteristicRollSettledIds.includes(row.id) && row.total === 12,
-                  }"
-                >
-                  {{ row.dice[1] }}
-                </div>
-              </div>
+              <span v-if="characteristicRollAnimationMode === 'normal'" class="characteristic-roll-modal__speed-play" aria-hidden="true" />
+              <span v-else class="characteristic-roll-modal__speed-fast" aria-hidden="true">
+                <span />
+                <span />
+              </span>
+            </button>
+            <button
+              class="characteristic-roll-modal__reroll"
+              type="button"
+              @click.stop="rerollCharacteristicBank"
+            >
+              <span class="characteristic-roll-modal__reroll-icon" aria-hidden="true">
+                <AppIcon class="h-4 w-4" name="restart" />
+              </span>
+              Reroll
+            </button>
+            <button
+              class="characteristic-roll-modal__close"
+              type="button"
+              @click.stop="closeCharacteristicRollModal"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+
+        <div class="characteristic-roll-modal__body">
+          <div
+            v-for="row in characteristicRollPreview"
+            :key="row.id"
+            class="characteristic-roll-modal__row"
+            :class="{
+              'is-critical': characteristicRollSettledIds.includes(row.id) && row.total === 12,
+            }"
+          >
+            <div class="characteristic-roll-modal__dice">
               <div
-                class="characteristic-roll-modal__total"
+                class="characteristic-roll-modal__die"
                 :class="{
-                  'is-settled': characteristicRollSettledIds.includes(row.id),
+                  'is-rolling': characteristicRollModalRolling,
                   'is-critical': characteristicRollSettledIds.includes(row.id) && row.total === 12,
                 }"
               >
-                <span class="characteristic-roll-modal__total-frame">
-                  {{ row.total }}
-                </span>
+                {{ row.dice[0] }}
               </div>
+              <div class="characteristic-roll-modal__plus">+</div>
+              <div
+                class="characteristic-roll-modal__die"
+                :class="{
+                  'is-rolling': characteristicRollModalRolling,
+                  'is-critical': characteristicRollSettledIds.includes(row.id) && row.total === 12,
+                }"
+              >
+                {{ row.dice[1] }}
+              </div>
+            </div>
+            <div
+              class="characteristic-roll-modal__total"
+              :class="{
+                'is-settled': characteristicRollSettledIds.includes(row.id),
+                'is-critical': characteristicRollSettledIds.includes(row.id) && row.total === 12,
+              }"
+            >
+              <span class="characteristic-roll-modal__total-frame">
+                {{ row.total }}
+              </span>
             </div>
           </div>
         </div>
       </div>
-    </Transition>
+    </div>
   </Teleport>
 </template>
 
 <style scoped>
-.characteristic-roll-fade-enter-active,
-.characteristic-roll-fade-leave-active {
-  transition: opacity 180ms ease, transform 180ms ease;
-}
-
-.characteristic-roll-fade-enter-from,
-.characteristic-roll-fade-leave-to {
-  opacity: 0;
-  transform: translateY(8px) scale(0.98);
-}
-
 .characteristic-roll-modal {
   position: relative;
   border: 1px solid rgb(34 211 238 / 0.34);

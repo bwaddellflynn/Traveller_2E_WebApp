@@ -75,6 +75,7 @@ defineProps<{
 
 defineEmits<{
   (event: 'update:showOnlyTrainedSkills', value: boolean): void
+  (event: 'openSkillRollSettings'): void
   (event: 'update:selectedTrainingSkillId', value: string): void
   (event: 'update:selectedTrainingSpeciality', value: string): void
   (event: 'update:customTrainingSpeciality', value: string): void
@@ -311,20 +312,31 @@ defineEmits<{
         <section class="sheet-panel sheet-panel--skills">
           <header class="sheet-panel-title sheet-panel-title--side sheet-panel-title--actionable">
             <span>Skills</span>
-            <button
-              class="sheet-skill-visibility-toggle"
-              :aria-label="showOnlyTrainedSkills ? 'Show all skills' : 'Show trained skills only'"
-              :title="showOnlyTrainedSkills ? 'Show all skills' : 'Show trained skills only'"
-              type="button"
-              @click="$emit('update:showOnlyTrainedSkills', !showOnlyTrainedSkills)"
-            >
-              <svg v-if="!showOnlyTrainedSkills" viewBox="0 0 24 24" class="sheet-skill-visibility-icon" aria-hidden="true">
-                <path fill="currentColor" d="M12 5c5.6 0 9.57 4.13 10.82 6.13a1.5 1.5 0 0 1 0 1.74C21.57 14.87 17.6 19 12 19S2.43 14.87 1.18 12.87a1.5 1.5 0 0 1 0-1.74C2.43 9.13 6.4 5 12 5Zm0 2c-4.62 0-8.02 3.28-9.2 5 1.18 1.72 4.58 5 9.2 5s8.02-3.28 9.2-5C20.02 10.28 16.62 7 12 7Zm0 2.25A2.75 2.75 0 1 1 9.25 12 2.75 2.75 0 0 1 12 9.25Zm0 2A.75.75 0 1 0 12.75 12 .75.75 0 0 0 12 11.25Z" />
-              </svg>
-              <svg v-else viewBox="0 0 24 24" class="sheet-skill-visibility-icon" aria-hidden="true">
-                <path fill="currentColor" d="M3.28 2.22 21.78 20.72l-1.06 1.06-3.07-3.06A12.3 12.3 0 0 1 12 20C6.4 20 2.43 15.87 1.18 13.87a1.5 1.5 0 0 1 0-1.74 18.2 18.2 0 0 1 5.07-5.19L2.22 3.28Zm8.01 8.01 2.48 2.48a1.75 1.75 0 0 0-2.48-2.48Zm5.09 5.09-1.45-1.45A4.75 4.75 0 0 1 8.13 9.07L7.09 8.03C5.19 9.17 3.7 10.81 2.8 12c1.18 1.72 4.58 6 9.2 6a10.2 10.2 0 0 0 4.38-1.68Zm1.65-1.18-1.45-1.45A9.45 9.45 0 0 0 21.2 12c-.69-1-2.25-2.82-4.62-4.07l-1.07-1.06c3.32 1.25 5.8 3.85 7.31 6.26a1.5 1.5 0 0 1 0 1.74 18.34 18.34 0 0 1-4.79 4.89Z" />
-              </svg>
-            </button>
+            <div class="sheet-skill-header-actions">
+              <button
+                class="sheet-skill-visibility-toggle"
+                :aria-label="showOnlyTrainedSkills ? 'Show all skills' : 'Show trained skills only'"
+                :title="showOnlyTrainedSkills ? 'Show all skills' : 'Show trained skills only'"
+                type="button"
+                @click="$emit('update:showOnlyTrainedSkills', !showOnlyTrainedSkills)"
+              >
+                <svg v-if="!showOnlyTrainedSkills" viewBox="0 0 24 24" class="sheet-skill-visibility-icon" aria-hidden="true">
+                  <path fill="currentColor" d="M12 5c5.6 0 9.57 4.13 10.82 6.13a1.5 1.5 0 0 1 0 1.74C21.57 14.87 17.6 19 12 19S2.43 14.87 1.18 12.87a1.5 1.5 0 0 1 0-1.74C2.43 9.13 6.4 5 12 5Zm0 2c-4.62 0-8.02 3.28-9.2 5 1.18 1.72 4.58 5 9.2 5s8.02-3.28 9.2-5C20.02 10.28 16.62 7 12 7Zm0 2.25A2.75 2.75 0 1 1 9.25 12 2.75 2.75 0 0 1 12 9.25Zm0 2A.75.75 0 1 0 12.75 12 .75.75 0 0 0 12 11.25Z" />
+                </svg>
+                <svg v-else viewBox="0 0 24 24" class="sheet-skill-visibility-icon" aria-hidden="true">
+                  <path fill="currentColor" d="M3.28 2.22 21.78 20.72l-1.06 1.06-3.07-3.06A12.3 12.3 0 0 1 12 20C6.4 20 2.43 15.87 1.18 13.87a1.5 1.5 0 0 1 0-1.74 18.2 18.2 0 0 1 5.07-5.19L2.22 3.28Zm8.01 8.01 2.48 2.48a1.75 1.75 0 0 0-2.48-2.48Zm5.09 5.09-1.45-1.45A4.75 4.75 0 0 1 8.13 9.07L7.09 8.03C5.19 9.17 3.7 10.81 2.8 12c1.18 1.72 4.58 6 9.2 6a10.2 10.2 0 0 0 4.38-1.68Zm1.65-1.18-1.45-1.45A9.45 9.45 0 0 0 21.2 12c-.69-1-2.25-2.82-4.62-4.07l-1.07-1.06c3.32 1.25 5.8 3.85 7.31 6.26a1.5 1.5 0 0 1 0 1.74 18.34 18.34 0 0 1-4.79 4.89Z" />
+                </svg>
+              </button>
+              <button
+                class="sheet-skill-visibility-toggle sheet-skill-settings-button"
+                aria-label="Skill roll settings"
+                title="Skill roll settings"
+                type="button"
+                @click="$emit('openSkillRollSettings')"
+              >
+                <span aria-hidden="true">!</span>
+              </button>
+            </div>
           </header>
           <div class="sheet-skills-grid" :class="{ 'sheet-skills-grid--two-column': skillColumnCount === 2 }">
             <div v-for="(column, columnIndex) in skillGroupColumns" :key="`skills-${columnIndex}`" class="sheet-skill-column">
