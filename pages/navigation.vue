@@ -1,29 +1,20 @@
 <script setup lang="ts">
-type NavigationWorld = {
-  name: string
-  sector: string
-  hex: string
-  uwp: string
-  bases: string
-  remarks: string
-  zone: string
-  pbg: string
-  allegiance: string
-  stellar: string
-  ix: string
-  ex: string
-  cx: string
-  worlds: string
-}
-
-type SearchResult = {
-  id: string
-  name: string
-  sector: string
-  hex: string
-  uwp: string
-  remarks: string
-}
+import {
+  atmosphereLabels,
+  buildTravellerWorldAlerts,
+  formatTravellerPopulation,
+  groupTravellerTradeCodes,
+  normalizeTravellerMapCreditsWorld,
+  normalizeTravellerMapSearchResult,
+  normalizeTravellerMapWorld,
+  parseTravellerMapRows,
+  splitTravellerUwp,
+  starportLabels,
+  travellerHexValue,
+  travellerMapJsonp,
+  type NavigationWorld,
+  type SearchResult,
+} from '~/utils/travellerMap'
 
 const NAVIGATION_STATE_KEY = 'scoutsuite.navigation.v1'
 
@@ -32,6 +23,7 @@ const searchResults = ref<SearchResult[]>([])
 const searchLoading = ref(false)
 const searchError = ref('')
 const selectedWorld = ref<NavigationWorld | null>(null)
+const mapFocusWorld = ref<NavigationWorld | null>(null)
 const worldLoading = ref(false)
 const worldError = ref('')
 const currentLocation = ref<NavigationWorld | null>(null)
@@ -39,140 +31,12 @@ const mapStatus = ref('Click a world on the map or search by name.')
 
 let searchTimer: ReturnType<typeof setTimeout> | null = null
 
-const compact = (value: unknown) => String(value ?? '').trim()
 const navigationDebug = (...args: unknown[]) => {
   if (!import.meta.client) return
   console.debug('[ScoutSuite Navigation]', ...args)
 }
 
-const unwrapTravellerMapWorld = (raw: Record<string, unknown>): Record<string, unknown> => {
-  if (raw.World && typeof raw.World === 'object' && !Array.isArray(raw.World)) return raw.World as Record<string, unknown>
-  return raw
-}
-
-const normalizeHex = (raw: Record<string, unknown>) => {
-  const explicitHex = compact(raw.Hex ?? raw.hex)
-  if (explicitHex) return explicitHex
-  const hexX = Number(raw.HexX ?? raw.hexX)
-  const hexY = Number(raw.HexY ?? raw.hexY)
-  if (Number.isFinite(hexX) && Number.isFinite(hexY)) return `${String(hexX).padStart(2, '0')}${String(hexY).padStart(2, '0')}`
-  return ''
-}
-
-const normalizeWorld = (raw: Record<string, unknown>, fallbackSector = ''): NavigationWorld => {
-  const world = unwrapTravellerMapWorld(raw)
-  return {
-    name: compact(world.Name ?? world.name ?? world.WorldName ?? world.worldName),
-    sector: compact(world.Sector ?? world.sector ?? world.SectorName ?? world.sectorName ?? fallbackSector),
-    hex: normalizeHex(world),
-    uwp: compact(world.UWP ?? world.Uwp ?? world.uwp),
-    bases: compact(world.Bases ?? world.bases),
-    remarks: compact(world.Remarks ?? world.remarks),
-    zone: compact(world.Zone ?? world.zone),
-    pbg: compact(world.PBG ?? world.pbg),
-    allegiance: compact(world.AllegianceName ?? world.allegianceName ?? world.Allegiance ?? world.allegiance),
-    stellar: compact(world.Stellar ?? world.stellar),
-    ix: compact(world.Ix ?? world.ix),
-    ex: compact(world.Ex ?? world.ex),
-    cx: compact(world.Cx ?? world.cx),
-    worlds: compact(world.Worlds ?? world.worlds),
-  }
-}
-
-const normalizeCreditsWorld = (raw: Record<string, unknown>): NavigationWorld => ({
-  name: compact(raw.WorldName),
-  sector: compact(raw.SectorName),
-  hex: compact(raw.WorldHex),
-  uwp: compact(raw.WorldUwp),
-  bases: '',
-  remarks: compact(raw.WorldRemarks),
-  zone: '',
-  pbg: compact(raw.WorldPbg),
-  allegiance: compact(raw.WorldAllegiance),
-  stellar: '',
-  ix: compact(raw.WorldIx),
-  ex: compact(raw.WorldEx),
-  cx: compact(raw.WorldCx),
-  worlds: '',
-})
-
-const normalizeSearchResult = (raw: Record<string, unknown>, index: number): SearchResult => {
-  const world = normalizeWorld(raw)
-  return {
-    id: `${world.sector}-${world.hex}-${world.name}-${index}`,
-    name: world.name || compact(raw.label ?? raw.Label ?? 'Unknown World'),
-    sector: world.sector,
-    hex: world.hex,
-    uwp: world.uwp,
-    remarks: world.remarks,
-  }
-}
-
-const parseResponseRows = (payload: unknown): Record<string, unknown>[] => {
-  if (Array.isArray(payload)) return payload.filter((item): item is Record<string, unknown> => Boolean(item && typeof item === 'object' && !Array.isArray(item)))
-  if (!payload || typeof payload !== 'object') return []
-  const value = payload as Record<string, unknown>
-  const results = value.Results && typeof value.Results === 'object' && !Array.isArray(value.Results)
-    ? value.Results as Record<string, unknown>
-    : null
-  const candidateArrays = [
-    value.Worlds,
-    value.worlds,
-    value.Items,
-    value.items,
-    value.Results,
-    value.results,
-    results?.Items,
-    results?.items,
-    results?.Results,
-    results?.results,
-  ]
-  const rows = candidateArrays.find((item) => Array.isArray(item))
-  if (Array.isArray(rows)) return rows.filter((item): item is Record<string, unknown> => Boolean(item && typeof item === 'object' && !Array.isArray(item)))
-  return [value]
-}
-
-const travellerMapJsonp = <T>(path: string, params: Record<string, string | number>) => {
-  return new Promise<T>((resolve, reject) => {
-    if (!import.meta.client) {
-      reject(new Error('Traveller Map API is available in the browser.'))
-      return
-    }
-
-    const callbackName = `scoutsuiteTravellerMap${Date.now()}${Math.random().toString(36).slice(2)}`
-    const url = new URL(path, 'https://travellermap.com')
-    Object.entries(params).forEach(([key, value]) => url.searchParams.set(key, String(value)))
-    url.searchParams.set('jsonp', callbackName)
-    navigationDebug('request', { path, params, url: url.toString() })
-
-    const script = document.createElement('script')
-    const cleanup = () => {
-      delete (window as Window & Record<string, unknown>)[callbackName]
-      script.remove()
-    }
-    const timeout = window.setTimeout(() => {
-      cleanup()
-      reject(new Error('Traveller Map request timed out.'))
-    }, 12000)
-
-    ;(window as Window & Record<string, unknown>)[callbackName] = (payload: T) => {
-      window.clearTimeout(timeout)
-      cleanup()
-      navigationDebug('response', { path, payload })
-      resolve(payload)
-    }
-    script.onerror = () => {
-      window.clearTimeout(timeout)
-      cleanup()
-      navigationDebug('request failed', { path, params })
-      reject(new Error('Traveller Map request failed.'))
-    }
-    script.src = url.toString()
-    document.body.appendChild(script)
-  })
-}
-
-const selectedMapTarget = computed(() => selectedWorld.value ?? currentLocation.value)
+const selectedMapTarget = computed(() => mapFocusWorld.value ?? currentLocation.value)
 const mapUrl = computed(() => {
   const url = new URL('https://travellermap.com/')
   url.searchParams.set('hideui', '1')
@@ -186,9 +50,9 @@ const mapUrl = computed(() => {
   }
 
   if (currentLocation.value?.sector && currentLocation.value?.hex) {
-    url.searchParams.set('yah', '1')
-    url.searchParams.set('yah_sector', currentLocation.value.sector)
-    url.searchParams.set('yah_hex', currentLocation.value.hex)
+    url.searchParams.set('marker_url', 'res/markers/scout.png')
+    url.searchParams.set('marker_sector', currentLocation.value.sector)
+    url.searchParams.set('marker_hex', currentLocation.value.hex)
   }
 
   return url.toString()
@@ -196,49 +60,23 @@ const mapUrl = computed(() => {
 
 const splitUwp = computed(() => {
   const uwp = selectedWorld.value?.uwp ?? ''
-  const match = uwp.match(/^([A-X?])([0-9A-F?])([0-9A-F?])([0-9A-F?])([0-9A-F?])([0-9A-F?])([0-9A-F?])-?([0-9A-H?])$/i)
-  if (!match) return null
-  return {
-    starport: match[1].toUpperCase(),
-    size: match[2].toUpperCase(),
-    atmosphere: match[3].toUpperCase(),
-    hydrographics: match[4].toUpperCase(),
-    population: match[5].toUpperCase(),
-    government: match[6].toUpperCase(),
-    law: match[7].toUpperCase(),
-    techLevel: match[8].toUpperCase(),
-  }
+  return splitTravellerUwp(uwp)
 })
 
-const hexValue = (value: string) => value === '?' ? null : Number.parseInt(value, 16)
-const starportLabels: Record<string, string> = {
-  A: 'Excellent',
-  B: 'Good',
-  C: 'Routine',
-  D: 'Poor',
-  E: 'Frontier',
-  X: 'None',
-  '?': 'Unknown',
-}
-const atmosphereLabels: Record<string, string> = {
-  0: 'Vacuum',
-  1: 'Trace',
-  2: 'Very Thin, Tainted',
-  3: 'Very Thin',
-  4: 'Thin, Tainted',
-  5: 'Thin',
-  6: 'Standard',
-  7: 'Standard, Tainted',
-  8: 'Dense',
-  9: 'Dense, Tainted',
-  A: 'Exotic',
-  B: 'Corrosive',
-  C: 'Insidious',
-  D: 'Dense, High',
-  E: 'Thin, Low',
-  F: 'Unusual',
-}
 const tradeCodes = computed(() => selectedWorld.value?.remarks.split(/\s+/).filter(Boolean) ?? [])
+const groupedTradeCodes = computed(() => groupTravellerTradeCodes(tradeCodes.value))
+const tradeProfileGroups = computed(() => [
+  { label: 'Economy', items: groupedTradeCodes.value.economy },
+  { label: 'Environment', items: groupedTradeCodes.value.environment },
+  { label: 'Population', items: groupedTradeCodes.value.population },
+  { label: 'Technology', items: groupedTradeCodes.value.technology },
+  { label: 'Other', items: groupedTradeCodes.value.other },
+].filter((entry) => entry.items.length))
+const worldAlerts = computed(() => selectedWorld.value ? buildTravellerWorldAlerts(selectedWorld.value, splitUwp.value) : [])
+const populationDisplay = computed(() => {
+  if (!splitUwp.value) return null
+  return formatTravellerPopulation(splitUwp.value.population, selectedWorld.value?.pbg)
+})
 const systemBadges = computed(() => {
   const badges: Array<{ label: string; tone: 'ok' | 'warn' | 'danger' | 'info' }> = []
   if (!selectedWorld.value) return badges
@@ -252,17 +90,16 @@ const systemBadges = computed(() => {
 const uwpRows = computed(() => {
   if (!splitUwp.value) return []
   const parts = splitUwp.value
-  const tl = hexValue(parts.techLevel)
-  const pop = hexValue(parts.population)
+  const tl = travellerHexValue(parts.techLevel)
   return [
     { label: 'Starport', value: `${parts.starport} · ${starportLabels[parts.starport] ?? 'Unknown'}` },
-    { label: 'Size', value: parts.size === '0' ? 'Asteroid / small body' : `${hexValue(parts.size) ?? parts.size}` },
+    { label: 'Size', value: parts.size === '0' ? 'Asteroid / small body' : `${travellerHexValue(parts.size) ?? parts.size}` },
     { label: 'Atmosphere', value: `${parts.atmosphere} · ${atmosphereLabels[parts.atmosphere] ?? 'Unknown'}` },
-    { label: 'Hydrographics', value: `${hexValue(parts.hydrographics) ?? parts.hydrographics}` },
-    { label: 'Population', value: pop === null ? parts.population : `${parts.population} · 10^${pop}` },
-    { label: 'Government', value: `${hexValue(parts.government) ?? parts.government}` },
-    { label: 'Law Level', value: `${hexValue(parts.law) ?? parts.law}` },
-    { label: 'Tech Level', value: tl === null ? parts.techLevel : `${parts.techLevel} · TL ${tl}` },
+    { label: 'Hydrographics', value: `${travellerHexValue(parts.hydrographics) ?? parts.hydrographics}` },
+    { label: 'Population', value: populationDisplay.value?.long ?? parts.population },
+    { label: 'Government', value: `${travellerHexValue(parts.government) ?? parts.government}` },
+    { label: 'Law Level', value: `${travellerHexValue(parts.law) ?? parts.law}` },
+    { label: 'Tech Level', value: tl === null ? parts.techLevel : `TL ${tl}` },
   ]
 })
 
@@ -272,7 +109,7 @@ const uwpSummaryCards = computed(() => {
   return [
     { label: 'Port', value: parts.starport },
     { label: 'Atmo', value: parts.atmosphere },
-    { label: 'Pop', value: parts.population },
+    { label: 'Pop', value: populationDisplay.value?.short ?? parts.population, compact: true },
     { label: 'Law', value: parts.law },
     { label: 'TL', value: parts.techLevel },
   ]
@@ -295,6 +132,7 @@ const saveNavigationState = () => {
   try {
     window.localStorage.setItem(NAVIGATION_STATE_KEY, JSON.stringify({
       selectedWorld: selectedWorld.value,
+      mapFocusWorld: mapFocusWorld.value,
       currentLocation: currentLocation.value,
     }))
   } catch {
@@ -307,26 +145,30 @@ const restoreNavigationState = () => {
   try {
     const parsed = JSON.parse(window.localStorage.getItem(NAVIGATION_STATE_KEY) ?? '{}') as Partial<{
       selectedWorld: NavigationWorld
+      mapFocusWorld: NavigationWorld
       currentLocation: NavigationWorld
     }>
     selectedWorld.value = parsed.selectedWorld ?? null
+    mapFocusWorld.value = parsed.mapFocusWorld ?? parsed.selectedWorld ?? null
     currentLocation.value = parsed.currentLocation ?? null
   } catch {
     selectedWorld.value = null
+    mapFocusWorld.value = null
     currentLocation.value = null
   }
 }
 
-const fetchWorld = async (sector: string, hex: string) => {
+const fetchWorld = async (sector: string, hex: string, options: { focusMap?: boolean } = {}) => {
   if (!sector || !hex) return
   navigationDebug('fetch world start', { sector, hex })
   worldLoading.value = true
   worldError.value = ''
   try {
-    const rows = parseResponseRows(await travellerMapJsonp('/api/jumpworlds', { sector, hex, jump: 0 }))
+    const rows = parseTravellerMapRows(await travellerMapJsonp('/api/jumpworlds', { sector, hex, jump: 0 }, navigationDebug))
     navigationDebug('fetch world rows', rows)
-    const world = normalizeWorld(rows[0] ?? {}, sector)
+    const world = normalizeTravellerMapWorld(rows[0] ?? {}, sector)
     selectedWorld.value = world.hex ? world : { ...world, sector, hex }
+    if (options.focusMap) mapFocusWorld.value = { ...selectedWorld.value }
     navigationDebug('selected world', selectedWorld.value)
     saveNavigationState()
   } catch (error) {
@@ -344,9 +186,9 @@ const fetchWorldAtMapLocation = async (x: number, y: number) => {
   mapStatus.value = `Resolving map point ${x}, ${y}...`
   navigationDebug('map click resolve start', { x, y })
   try {
-    const credits = await travellerMapJsonp<Record<string, unknown>>('/api/credits', { x, y })
+    const credits = await travellerMapJsonp<Record<string, unknown>>('/api/credits', { x, y }, navigationDebug)
     navigationDebug('map click credits', credits)
-    const clickedWorld = normalizeCreditsWorld(credits)
+    const clickedWorld = normalizeTravellerMapCreditsWorld(credits)
     if (!clickedWorld.sector || !clickedWorld.hex || !clickedWorld.name) {
       mapStatus.value = 'No world found at that map point.'
       selectedWorld.value = clickedWorld.sector ? clickedWorld : selectedWorld.value
@@ -354,7 +196,7 @@ const fetchWorldAtMapLocation = async (x: number, y: number) => {
     }
     mapStatus.value = `Selected ${clickedWorld.name}.`
     selectedWorld.value = clickedWorld
-    await fetchWorld(clickedWorld.sector, clickedWorld.hex)
+    await fetchWorld(clickedWorld.sector, clickedWorld.hex, { focusMap: false })
   } catch (error) {
     worldError.value = error instanceof Error ? error.message : 'Could not resolve map click.'
     mapStatus.value = 'Map click could not be resolved.'
@@ -398,9 +240,9 @@ const runSearch = async () => {
   searchLoading.value = true
   searchError.value = ''
   try {
-    const rows = parseResponseRows(await travellerMapJsonp('/api/search', { q: query }))
+    const rows = parseTravellerMapRows(await travellerMapJsonp('/api/search', { q: query }, navigationDebug))
     navigationDebug('search rows', rows)
-    searchResults.value = rows.map(normalizeSearchResult).filter((result) => result.sector && result.hex)
+    searchResults.value = rows.map(normalizeTravellerMapSearchResult).filter((result) => result.sector && result.hex)
     navigationDebug('search results', searchResults.value)
     if (!searchResults.value.length) searchError.value = 'No matching systems found.'
   } catch (error) {
@@ -414,12 +256,13 @@ const runSearch = async () => {
 
 const selectSearchResult = async (result: SearchResult) => {
   mapStatus.value = `Selected ${result.name} from search.`
-  await fetchWorld(result.sector, result.hex)
+  await fetchWorld(result.sector, result.hex, { focusMap: true })
 }
 
 const setCurrentLocation = () => {
   if (!selectedWorld.value) return
   currentLocation.value = { ...selectedWorld.value }
+  mapFocusWorld.value = { ...selectedWorld.value }
   saveNavigationState()
 }
 
@@ -430,7 +273,7 @@ watch(searchQuery, () => {
   }, 300)
 })
 
-watch([selectedWorld, currentLocation], saveNavigationState, { deep: true })
+watch([selectedWorld, mapFocusWorld, currentLocation], saveNavigationState, { deep: true })
 watch(mapUrl, (url) => navigationDebug('map url', url), { immediate: true })
 
 onMounted(() => {
@@ -493,7 +336,7 @@ onBeforeUnmount(() => {
                 Set Current Location
               </button>
               <p class="navigation-muted">
-                The current location is saved locally and sent to Traveller Map as the party marker.
+                The current location is saved locally and shown on Traveller Map with the scout ship marker.
               </p>
               <div class="navigation-map-status">
                 {{ mapStatus }}
@@ -513,7 +356,6 @@ onBeforeUnmount(() => {
 
           <aside class="navigation-panel navigation-panel--right">
             <section class="navigation-card navigation-card--system">
-              <p class="navigation-card__label">Selected System</p>
               <div v-if="worldLoading" class="navigation-empty">Loading system profile...</div>
               <div v-else-if="worldError" class="navigation-warning">{{ worldError }}</div>
               <div v-else-if="selectedWorld">
@@ -523,15 +365,39 @@ onBeforeUnmount(() => {
                 <div v-if="uwpSummaryCards.length" class="navigation-uwp-strip">
                   <div v-for="card in uwpSummaryCards" :key="card.label" class="navigation-uwp-card">
                     <span>{{ card.label }}</span>
-                    <strong>{{ card.value }}</strong>
+                    <strong :class="{ 'navigation-uwp-card__value--compact': card.compact }">{{ card.value }}</strong>
                   </div>
                 </div>
+
+                <section v-if="worldAlerts.length" class="navigation-intel-section">
+                  <p class="navigation-intel-heading">GM Intel</p>
+                  <div class="navigation-alert-grid">
+                    <article v-for="alert in worldAlerts" :key="alert.label" :class="['navigation-alert', `navigation-alert--${alert.tone}`]">
+                      <strong>{{ alert.label }}</strong>
+                      <span>{{ alert.detail }}</span>
+                    </article>
+                  </div>
+                </section>
 
                 <div v-if="systemBadges.length" class="navigation-badges">
                   <span v-for="badge in systemBadges" :key="`${badge.label}-${badge.tone}`" :class="['navigation-badge', `navigation-badge--${badge.tone}`]">
                     {{ badge.label }}
                   </span>
                 </div>
+
+                <section v-if="tradeCodes.length" class="navigation-intel-section">
+                  <p class="navigation-intel-heading">Trade Profile</p>
+                  <div class="navigation-trade-groups">
+                    <div
+                      v-for="group in tradeProfileGroups"
+                      :key="group.label"
+                      class="navigation-trade-group"
+                    >
+                      <span>{{ group.label }}</span>
+                      <strong>{{ group.items.map((item) => item.label).join(', ') }}</strong>
+                    </div>
+                  </div>
+                </section>
 
                 <div class="navigation-stat-table">
                   <div v-for="row in uwpRows" :key="row.label" class="navigation-stat-row">
@@ -652,12 +518,14 @@ onBeforeUnmount(() => {
   grid-template-columns: minmax(17rem, 22rem) minmax(0, 1fr) minmax(19rem, 26rem);
   gap: 1rem;
   padding: 1rem;
+  align-items: stretch;
 }
 
 .navigation-panel {
   display: grid;
   align-content: start;
   gap: 1rem;
+  min-height: 0;
 }
 
 .navigation-card,
@@ -760,6 +628,7 @@ onBeforeUnmount(() => {
 }
 
 .navigation-map {
+  height: 72vh;
   min-height: 72vh;
   padding: 0.75rem;
 }
@@ -768,10 +637,16 @@ onBeforeUnmount(() => {
   display: block;
   width: 100%;
   height: 100%;
-  min-height: 70vh;
   border: 1px solid rgba(34, 211, 238, 0.24);
   background: rgba(5, 10, 19, 0.96);
   clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 14px 100%, 0 calc(100% - 14px));
+}
+
+.navigation-card--system {
+  max-height: 72vh;
+  min-height: 0;
+  overflow: auto;
+  padding-right: 0.85rem;
 }
 
 .navigation-world-name {
@@ -829,6 +704,11 @@ onBeforeUnmount(() => {
   text-shadow: 0 0 14px rgba(250, 204, 21, 0.3);
 }
 
+.navigation-uwp-card__value--compact {
+  font-size: clamp(0.82rem, 1.1vw, 1.05rem);
+  white-space: nowrap;
+}
+
 .navigation-badges {
   display: flex;
   flex-wrap: wrap;
@@ -857,6 +737,92 @@ onBeforeUnmount(() => {
 
 .navigation-badge--info {
   color: #bae6fd;
+}
+
+.navigation-intel-section {
+  margin-top: 1rem;
+}
+
+.navigation-intel-heading {
+  color: #67e8f9;
+  font-size: 0.7rem;
+  font-weight: 900;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.navigation-alert-grid {
+  display: grid;
+  gap: 0.5rem;
+  margin-top: 0.55rem;
+}
+
+.navigation-alert {
+  display: grid;
+  gap: 0.2rem;
+  border: 1px solid rgba(34, 211, 238, 0.28);
+  background: rgba(8, 47, 73, 0.18);
+  padding: 0.65rem 0.75rem;
+  clip-path: polygon(0 0, calc(100% - 9px) 0, 100% 9px, 100% 100%, 9px 100%, 0 calc(100% - 9px));
+}
+
+.navigation-alert strong {
+  color: #f8fafc;
+  font-size: 0.84rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.navigation-alert span {
+  color: #bfdbfe;
+  font-size: 0.78rem;
+  line-height: 1.38;
+}
+
+.navigation-alert--warn {
+  border-color: rgba(251, 191, 36, 0.45);
+  background: rgba(120, 53, 15, 0.18);
+}
+
+.navigation-alert--danger {
+  border-color: rgba(248, 113, 113, 0.48);
+  background: rgba(127, 29, 29, 0.22);
+}
+
+.navigation-alert--info {
+  border-color: rgba(56, 189, 248, 0.34);
+}
+
+.navigation-trade-groups {
+  display: grid;
+  gap: 0.45rem;
+  margin-top: 0.55rem;
+}
+
+.navigation-trade-group {
+  display: grid;
+  grid-template-columns: minmax(6rem, 0.72fr) minmax(0, 1.28fr);
+  border: 1px solid rgba(34, 211, 238, 0.18);
+  background: rgba(2, 6, 23, 0.46);
+}
+
+.navigation-trade-group span {
+  background: rgba(14, 116, 144, 0.32);
+  color: #dff9ff;
+  padding: 0.38rem 0.5rem;
+  font-size: 0.72rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.navigation-trade-group strong {
+  min-width: 0;
+  color: #dbeafe;
+  padding: 0.38rem 0.5rem;
+  font-size: 0.78rem;
+  font-weight: 650;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
 }
 
 .navigation-stat-table {
@@ -924,6 +890,17 @@ onBeforeUnmount(() => {
   .navigation-panel--right {
     grid-template-columns: minmax(0, 1fr);
   }
+
+  .navigation-map,
+  .navigation-card--system {
+    height: auto;
+    max-height: none;
+  }
+
+  .navigation-card--system {
+    overflow: visible;
+    padding-right: 1rem;
+  }
 }
 
 @media (max-width: 760px) {
@@ -947,6 +924,7 @@ onBeforeUnmount(() => {
 
   .navigation-map,
   .navigation-map__iframe {
+    height: auto;
     min-height: 60vh;
   }
 
