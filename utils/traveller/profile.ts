@@ -118,6 +118,7 @@ export const createBlankTravellerProfile = (source: TravellerProfileSource = 'ma
     metadata: {
       pdfTemplate: 'Character Sheet 2026_fillable.pdf',
       creatorComplete: source === 'manual' ? false : true,
+      manualPsionicsEnabled: false,
     },
   }
 }
@@ -456,6 +457,7 @@ export const normalizeTravellerProfile = (
     pdfTemplate: stringOr(metadata.pdfTemplate, profile.metadata.pdfTemplate),
     creatorComplete: booleanOr(metadata.creatorComplete, profile.metadata.creatorComplete),
     lastOpenedAt: stringOr(metadata.lastOpenedAt, ''),
+    manualPsionicsEnabled: booleanOr(metadata.manualPsionicsEnabled, false),
   }
 
   return profile

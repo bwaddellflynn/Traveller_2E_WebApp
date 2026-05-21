@@ -13,7 +13,7 @@ import skillsData from '~/data/traveller2e/core/skills.json'
 import speciesData from '~/data/traveller2e/core/species.json'
 import type { TravellerAssociate, TravellerCharacteristicId, TravellerProfile, TravellerRollRecord, TravellerSkill, TravellerSkillTrainingActive } from '~/types/traveller'
 import { useTravellersStore } from '~/stores/travellers'
-import { clearBuilderDraft, clearDraftPointer, loadBuilderDraft, saveBuilderDraft, saveDraftPointer } from '~/utils/traveller/draftCache'
+import { clearBuilderDraft, clearDraftPointer, loadBuilderDraftCache, saveBuilderDraft, saveDraftPointer } from '~/utils/traveller/draftCache'
 import { MANUAL_TRAVELLER_ACTIVE_DRAFT_POINTER_KEY, MANUAL_TRAVELLER_DRAFT_CACHE_VERSION, manualTravellerDraftCacheKey } from '~/utils/traveller/manualDraft'
 import { travellerProfileToPdfFields, validateTravellerPdfFields } from '~/utils/traveller/pdfFields'
 import { cloneTravellerProfile, createBlankTravellerProfile, normalizeTravellerProfile } from '~/utils/traveller/profile'
@@ -49,7 +49,8 @@ const psionicSkillIds = new Set((skillsData.skills as Array<{ id: string; psioni
   .filter((skill) => skill.psionic)
   .map((skill) => skill.id))
 const sheetHasPsionics = computed(() => {
-  return (draft.value.characteristics.psi?.value ?? 0) > 0
+  return Boolean(draft.value.metadata.manualPsionicsEnabled)
+    || (draft.value.characteristics.psi?.value ?? 0) > 0
     || draft.value.skills.some((skill) => psionicSkillIds.has(parseTravellerSkill(skill.id || skill.name).baseId))
 })
 const visibleCharacteristicIds = computed(() => characteristicIds.filter((id) => id !== 'psi' || sheetHasPsionics.value))
@@ -107,6 +108,9 @@ const customTrainingSpeciality = ref('')
 const selectedTrainingTargetLevel = ref(0)
 const selectedTrainingCharacteristic = ref<'edu' | 'str' | 'dex' | 'end'>('edu')
 const trainingRollSummary = ref('')
+const enableManualPsionics = () => {
+  draft.value.metadata.manualPsionicsEnabled = true
+}
 const isVoucherEquipment = (item: TravellerProfile['equipment'][number]) => /voucher$/i.test(item.name) || /voucher/i.test(item.notes ?? '')
 const voucherEquipmentEntries = computed(() => draft.value.equipment
   .map((item, index) => ({ item, index }))
@@ -218,13 +222,24 @@ const loadSheetFromRoute = () => {
   const id = activeSheetRouteId.value
   const draftId = activeSheetDraftId.value
   const existing = id ? travellers.getProfile(id) : null
-  const cachedDraft = loadBuilderDraft<TravellerProfile>(
+  const cachedDraft = loadBuilderDraftCache<TravellerProfile>(
     manualTravellerDraftCacheKey(id || draftId),
     MANUAL_TRAVELLER_DRAFT_CACHE_VERSION,
   )
+  const profileUpdatedAt = Date.parse(existing?.updatedAt || '')
+  const draftUpdatedAt = Date.parse(cachedDraft?.updatedAt || '')
+  const canUseCachedDraft = Boolean(
+    cachedDraft
+    && (
+      !existing
+      || !Number.isFinite(profileUpdatedAt)
+      || !Number.isFinite(draftUpdatedAt)
+      || draftUpdatedAt >= profileUpdatedAt
+    ),
+  )
 
-  if (cachedDraft) {
-    draft.value = normalizeTravellerProfile(cachedDraft, cachedDraft.source)
+  if (canUseCachedDraft && cachedDraft) {
+    draft.value = normalizeTravellerProfile(cachedDraft.payload, cachedDraft.payload.source)
     return
   }
 
@@ -1932,6 +1947,17 @@ watch(
                   >
                     <span aria-hidden="true">!</span>
                   </button>
+                  <button
+                    class="sheet-skill-visibility-toggle sheet-skill-psionics-button"
+                    :class="{ 'is-active': sheetHasPsionics }"
+                    :aria-label="sheetHasPsionics ? 'Psionics enabled' : 'Enable psionics'"
+                    :title="sheetHasPsionics ? 'Psionics enabled' : 'Enable PSI stat and psionic skills'"
+                    :disabled="sheetHasPsionics"
+                    type="button"
+                    @click="enableManualPsionics"
+                  >
+                    <AppIcon name="psionics" />
+                  </button>
                 </div>
               </header>
               <div class="sheet-skills-grid" :class="{ 'sheet-skills-grid--two-column': skillColumnCount === 2 }">
@@ -2365,6 +2391,7 @@ watch(
             :is-portrait-drag-active="isPortraitDragActive"
             :portrait-clear-confirm-open="portraitClearConfirmOpen"
             :show-only-trained-skills="showOnlyTrainedSkills"
+            :psionics-enabled="sheetHasPsionics"
             :skill-column-count="skillColumnCount"
             :skill-group-columns="skillGroupColumns"
             :species-options="speciesOptions"
@@ -2429,6 +2456,7 @@ watch(
             :change-base-skill-level="changeBaseSkillLevel"
             @update:showOnlyTrainedSkills="showOnlyTrainedSkills = $event"
             @open-skill-roll-settings="skillRollSettingsOpen = true"
+            @enable-psionics="enableManualPsionics"
             @update:selected-training-skill-id="selectedTrainingSkillId = $event"
             @update:selected-training-speciality="selectedTrainingSpeciality = $event"
             @update:custom-training-speciality="customTrainingSpeciality = $event"
@@ -5350,6 +5378,23 @@ watch(
 .sheet-skill-settings-button > span {
   display: block;
   transform: rotate(90deg);
+}
+
+.sheet-skill-psionics-button {
+  color: #c084fc;
+  filter: drop-shadow(0 0 7px rgba(192, 132, 252, 0.35));
+}
+
+.sheet-skill-psionics-button:hover,
+.sheet-skill-psionics-button:focus-visible,
+.sheet-skill-psionics-button.is-active {
+  color: #f5d0fe;
+  filter: drop-shadow(0 0 10px rgba(217, 70, 239, 0.55));
+}
+
+.sheet-skill-psionics-button:disabled {
+  cursor: default;
+  opacity: 0.9;
 }
 
 .skill-stat-modal__panel {

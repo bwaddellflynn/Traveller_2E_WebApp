@@ -1,6 +1,6 @@
 <script setup lang="ts">
 const props = defineProps<{
-  name: 'user' | 'portrait' | 'briefcase' | 'wrench' | 'car' | 'bot' | 'rocket' | 'ship' | 'scout-badge' | 'dice' | 'arrow' | 'check' | 'lock' | 'plus' | 'sliders' | 'sort-asc' | 'sort-desc' | 'warning' | 'close' | 'restart' | 'import' | 'export' | 'copy' | 'trash' | 'save' | 'fullscreen-enter' | 'fullscreen-exit' | 'credits' | 'airlock' | 'weapon-melee' | 'weapon-sidearm' | 'weapon-longarm' | 'weapon-shotgun' | 'weapon-support' | 'weapon-heavy' | 'weapon-launcher' | 'weapon-grenade' | 'weapon-charge' | 'weapon-energy-sidearm' | 'weapon-energy-longarm'
+  name: 'user' | 'portrait' | 'briefcase' | 'wrench' | 'car' | 'bot' | 'rocket' | 'ship' | 'scout-badge' | 'dice' | 'arrow' | 'check' | 'lock' | 'plus' | 'sliders' | 'sort-asc' | 'sort-desc' | 'warning' | 'close' | 'restart' | 'import' | 'export' | 'copy' | 'trash' | 'save' | 'fullscreen-enter' | 'fullscreen-exit' | 'credits' | 'airlock' | 'psionics' | 'weapon-melee' | 'weapon-sidearm' | 'weapon-longarm' | 'weapon-shotgun' | 'weapon-support' | 'weapon-heavy' | 'weapon-launcher' | 'weapon-grenade' | 'weapon-charge' | 'weapon-energy-sidearm' | 'weapon-energy-longarm'
 }>()
 
 const paths = {
@@ -201,6 +201,15 @@ const paths = {
     'M11 12h7',
     'M8.5 12h.01',
     'M14 9l3 3-3 3',
+  ],
+  psionics: [
+    'M12 4c3.5 0 6.5 3.1 6.5 7 0 5.5-4.2 8.2-6.5 9',
+    'M12 4c-3.5 0-6.5 3.1-6.5 7 0 5.5 4.2 8.2 6.5 9',
+    'M8.5 11.5c1.4-2 5.6-2 7 0',
+    'M8.5 14.5c1.4 2 5.6 2 7 0',
+    'M12 7v10',
+    'M10 9h4',
+    'M10 15h4',
   ],
   'weapon-melee': [
     'M5 20l7-14 3 3-7 14H5Z',

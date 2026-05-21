@@ -47,6 +47,18 @@ export const loadBuilderDraft = <T>(key: string, version: number): T | null => {
   }
 }
 
+export const loadBuilderDraftCache = <T>(key: string, version: number): BuilderDraftCache<T> | null => {
+  if (!import.meta.client) return null
+
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(key) ?? '') as Partial<BuilderDraftCache<T>>
+    if (parsed.version !== version || !parsed.payload || !parsed.updatedAt) return null
+    return parsed as BuilderDraftCache<T>
+  } catch {
+    return null
+  }
+}
+
 export const saveBuilderDraft = <T>(key: string, version: number, payload: T) => {
   if (!import.meta.client) return
 

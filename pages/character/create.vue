@@ -131,6 +131,8 @@ const {
   selectedCareer,
   selectedAssignment,
   careerSelectionComplete,
+  draftAssignmentLocked,
+  assignmentOptions,
   careerOptions,
   careerConstraintMessages,
   careerPathLocked,
@@ -2242,10 +2244,18 @@ if (import.meta.client) {
                   :disabled="!selectedCareerId"
                 >
                   <option value="">No Assignment Selected</option>
-                  <option v-for="assignment in selectedCareer.assignments" :key="assignment.id" :value="assignment.id">
-                    {{ assignment.name }}
+                  <option
+                    v-for="assignment in assignmentOptions"
+                    :key="assignment.id"
+                    :disabled="assignment.disabled"
+                    :value="assignment.id"
+                  >
+                    {{ assignment.name }}{{ assignment.disabledReason ? ` - ${assignment.disabledReason}` : '' }}
                   </option>
                 </select>
+                <span v-if="draftAssignmentLocked" class="text-xs text-cyan-100/70">
+                  Draft result fixes this assignment; other assignments are unavailable for this term.
+                </span>
               </label>
             </div>
 

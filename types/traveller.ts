@@ -252,5 +252,6 @@ export type TravellerProfile = {
     pdfTemplate?: string
     creatorComplete: boolean
     lastOpenedAt?: string
+    manualPsionicsEnabled?: boolean
   }
 }

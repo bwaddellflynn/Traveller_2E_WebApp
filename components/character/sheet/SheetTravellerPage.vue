@@ -9,6 +9,7 @@ defineProps<{
   isPortraitDragActive: boolean
   portraitClearConfirmOpen: boolean
   showOnlyTrainedSkills: boolean
+  psionicsEnabled: boolean
   skillColumnCount: number
   skillGroupColumns: any[]
   speciesOptions: string[]
@@ -76,6 +77,7 @@ defineProps<{
 defineEmits<{
   (event: 'update:showOnlyTrainedSkills', value: boolean): void
   (event: 'openSkillRollSettings'): void
+  (event: 'enablePsionics'): void
   (event: 'update:selectedTrainingSkillId', value: string): void
   (event: 'update:selectedTrainingSpeciality', value: string): void
   (event: 'update:customTrainingSpeciality', value: string): void
@@ -335,6 +337,17 @@ defineEmits<{
                 @click="$emit('openSkillRollSettings')"
               >
                 <span aria-hidden="true">!</span>
+              </button>
+              <button
+                class="sheet-skill-visibility-toggle sheet-skill-psionics-button"
+                :class="{ 'is-active': psionicsEnabled }"
+                :aria-label="psionicsEnabled ? 'Psionics enabled' : 'Enable psionics'"
+                :title="psionicsEnabled ? 'Psionics enabled' : 'Enable PSI stat and psionic skills'"
+                :disabled="psionicsEnabled"
+                type="button"
+                @click="$emit('enablePsionics')"
+              >
+                <AppIcon name="psionics" />
               </button>
             </div>
           </header>

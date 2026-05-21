@@ -901,6 +901,19 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     return assignment ?? selectedCareer.value.assignments[0] ?? blankAssignment
   })
   const careerSelectionComplete = computed(() => Boolean(selectedCareerId.value && selectedAssignmentId.value))
+  const draftLockedAssignmentId = computed(() => {
+    if (!termRolls.draft || draftRoll.value?.careerId !== selectedCareerId.value) return ''
+    return draftRoll.value.assignmentId ?? ''
+  })
+  const draftAssignmentLocked = computed(() => Boolean(draftLockedAssignmentId.value))
+  const assignmentOptions = computed(() => selectedCareer.value.assignments.map((assignment) => {
+    const disabled = Boolean(draftLockedAssignmentId.value && assignment.id !== draftLockedAssignmentId.value)
+    return {
+      ...assignment,
+      disabled,
+      disabledReason: disabled ? `Draft requires ${selectedAssignment.value.name}` : '',
+    }
+  }))
   const knownCareerIds = computed(() => new Set(careersData.careers.map((career) => career.id)))
   const activeCareerConstraints = computed(() => careerConstraints.value.filter((constraint) => {
     if (constraint.used) return false
@@ -1182,7 +1195,13 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
   const basicTrainingLabel = computed(() => `${skillTableLabel(basicTrainingTableId.value)} at level 0`)
 
   watch(selectedCareerId, (nextCareerId, previousCareerId) => {
-    selectedAssignmentId.value = selectedCareer.value.assignments[0]?.id ?? ''
+    const lockedDraftAssignment = draftRoll.value?.careerId === nextCareerId ? draftRoll.value.assignmentId : undefined
+    const lockedAssignmentExists = lockedDraftAssignment
+      ? selectedCareer.value.assignments.some((assignment) => assignment.id === lockedDraftAssignment)
+      : false
+    selectedAssignmentId.value = lockedAssignmentExists
+      ? lockedDraftAssignment as string
+      : selectedCareer.value.assignments[0]?.id ?? ''
     basicTrainingApplied.value = false
     pendingBasicTrainingChoices.value = []
 
@@ -1220,6 +1239,15 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     if (constraint.assignmentId && constraint.assignmentId !== 'any') {
       const assignmentExists = selectedCareer.value.assignments.some((assignment) => assignment.id === constraint.assignmentId)
       if (assignmentExists) selectedAssignmentId.value = constraint.assignmentId
+    }
+  }, { immediate: true })
+
+  watch([currentTermNumber, selectedCareerId, draftRoll], () => {
+    const lockedDraftAssignment = draftRoll.value?.careerId === selectedCareerId.value ? draftRoll.value.assignmentId : undefined
+    if (!lockedDraftAssignment) return
+    const assignmentExists = selectedCareer.value.assignments.some((assignment) => assignment.id === lockedDraftAssignment)
+    if (assignmentExists && selectedAssignmentId.value !== lockedDraftAssignment) {
+      selectedAssignmentId.value = lockedDraftAssignment
     }
   }, { immediate: true })
 
@@ -1529,6 +1557,13 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
   const expandSkillOptionsForLevel = (options: string[], level: number) => {
     return uniqueSkillOptions(options.flatMap((option) => expandSkillOptionForLevel(option, level)))
   }
+  const skillOptionsBelowLevel = (options: string[], level: number) => {
+    return uniqueSkillOptions(options).filter((option) => skillLevel(option) < level)
+  }
+  const skillChoiceOptionsForGrant = (options: string[], level: number, increase = false) => {
+    const expandedOptions = expandSkillOptionsForLevel(options, level)
+    return increase ? expandedOptions : skillOptionsBelowLevel(expandedOptions, level)
+  }
   const basicTrainingSkillId = (entry: string) => {
     const expanded = expandSkillOptionForLevel(entry, 0)
     const parsed = skillFromLabel(expanded[0] ?? entry)
@@ -1647,8 +1682,10 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     level?: number,
     increase?: boolean,
   ) => {
-    const options = skillSpecialityOptions(baseSkillId)
-    if (!options.length) return false
+    const options = increase || typeof level !== 'number'
+      ? skillSpecialityOptions(baseSkillId)
+      : skillOptionsBelowLevel(skillSpecialityOptions(baseSkillId), level)
+    if (!options.length) return !increase && typeof level === 'number'
     queuePendingSkillChoice({
       label,
       source,
@@ -1680,7 +1717,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
   }))
 
   const setSkillMinimum = (label: string, level: number, source: string) => {
-    const expandedOptions = expandSkillOptionForLevel(label, level)
+    const expandedOptions = skillChoiceOptionsForGrant([label], level)
     if (expandedOptions.length > 1) {
       queuePendingSkillChoice({
         label: `${skillFromLabel(label).baseName} specialty`,
@@ -1692,6 +1729,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
       })
       return
     }
+    if (!expandedOptions.length) return
     label = expandedOptions[0] ?? label
     const skill = skillFromLabel(label)
     if ((!skill.specialityId || skill.specialityId === 'any') && skillNeedsSpecialityAtLevel(skill.baseId, level)) {
@@ -2154,10 +2192,17 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     const choice = splitChoiceResult(result)
     if (choice) {
       const fixedChoices = fixedLevelSkillChoices(choice)
+      const options = fixedChoices
+        ? skillChoiceOptionsForGrant(fixedChoices.options, fixedChoices.level)
+        : choice
+      if (fixedChoices && !options.length) {
+        recordEventOutcome(source, { type: 'skill', skillId: result, level: fixedChoices.level }, `${result}: no eligible skills below level ${fixedChoices.level}`, 'automatic')
+        return true
+      }
       pendingSkillChoice.value = {
         label: result,
         source,
-        options: fixedChoices ? expandSkillOptionsForLevel(fixedChoices.options, fixedChoices.level) : choice,
+        options,
         level: fixedChoices?.level,
       }
       return false
@@ -2922,7 +2967,7 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
   }
 
   const musteringSkillChoiceOptions = (options: string[], level: number) => {
-    return expandSkillOptionsForLevel(options, level)
+    return skillChoiceOptionsForGrant(options, level)
   }
 
   const addMusteringSkillChoiceResolution = (label: string, options: string[], source: string, level = 1, resultId?: string) => {
@@ -3213,10 +3258,10 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     increase = false,
   ) => {
     const resolvedLevel = typeof level === 'number' ? level : (increase ? 1 : 0)
-    const normalizedOptions = expandSkillOptionsForLevel(options, resolvedLevel)
+    const normalizedOptions = skillChoiceOptionsForGrant(options, resolvedLevel, increase)
 
     if (!normalizedOptions.length) {
-      addManualEventResolution(effect, source, `${label} manually.`)
+      recordEventOutcome(source, effect, `${label}: no eligible skills below level ${resolvedLevel}`, 'automatic')
       return
     }
 
@@ -7020,6 +7065,8 @@ export const useCharacterCreatorStore = defineStore('characterCreator', () => {
     selectedCareer,
     selectedAssignment,
     careerSelectionComplete,
+    draftAssignmentLocked,
+    assignmentOptions,
     careerOptions,
     careerConstraintMessages,
     careerPathLocked,

@@ -6,7 +6,7 @@ import type { TravellerProfile } from '~/types/traveller'
 import type { CustomWeaponDesign, TravellerWeaponRecord } from '~/types/weapon'
 import { useWeaponsStore } from '~/stores/weapons'
 import { useTravellersStore } from '~/stores/travellers'
-import { loadBuilderDraft, saveBuilderDraft } from '~/utils/traveller/draftCache'
+import { loadBuilderDraft, loadBuilderDraftCache, saveBuilderDraft } from '~/utils/traveller/draftCache'
 import { MANUAL_TRAVELLER_DRAFT_CACHE_VERSION, manualTravellerDraftCacheKey } from '~/utils/traveller/manualDraft'
 import { cloneTravellerProfile } from '~/utils/traveller/profile'
 import { calculateFieldCatalogueWeapon, cloneWeapon, createBlankCustomWeapon, fieldCatalogueComponentSupportsWeaponType, fieldCatalogueDesign, getFieldCatalogueSelectionWarnings, makeWeaponId, resolveWeaponFamily, resolveWeaponFamilyIcon, resolveWeaponIconName } from '~/utils/traveller/weapons'
@@ -499,10 +499,17 @@ const formatCredits = (credits: number | null) => {
 
 const activeTravellerDraftProfile = computed<TravellerProfile | null>(() => {
   if (!activeProfile.value) return null
-  return loadBuilderDraft<TravellerProfile>(
+  const cachedDraft = loadBuilderDraftCache<TravellerProfile>(
     manualTravellerDraftCacheKey(activeProfile.value.id),
     MANUAL_TRAVELLER_DRAFT_CACHE_VERSION,
   )
+  if (!cachedDraft) return null
+
+  const profileUpdatedAt = Date.parse(activeProfile.value.updatedAt || '')
+  const draftUpdatedAt = Date.parse(cachedDraft.updatedAt || '')
+  if (Number.isFinite(profileUpdatedAt) && Number.isFinite(draftUpdatedAt) && draftUpdatedAt < profileUpdatedAt) return null
+
+  return cachedDraft.payload
 })
 
 const activeTravellerSourceProfile = computed<TravellerProfile | null>(() => {
@@ -1207,6 +1214,46 @@ const addTrait = () => {
 
 const removeTrait = (index: number) => {
   draft.value.traits.splice(index, 1)
+}
+
+const weaponTraitBase = (trait: string) => trait
+  .trim()
+  .replace(/\s*\([^)]*\)\s*$/g, '')
+  .replace(/\s+\d+.*$/g, '')
+  .toLowerCase()
+
+const weaponTraitRating = (trait: string) => trait.match(/\b\d+\b/)?.[0] ?? ''
+
+const weaponTraitTitle = (trait: string) => {
+  const base = weaponTraitBase(trait)
+  if (!base) return trait.trim() || 'Trait'
+  return base.split(/\s+/).map((part) => part.charAt(0).toUpperCase() + part.slice(1)).join(' ')
+}
+
+const weaponTraitExplanation = (trait: string) => {
+  const rating = weaponTraitRating(trait)
+  const rated = rating ? ` The listed rating is ${rating}.` : ''
+  const descriptions: Record<string, string> = {
+    accurate: 'Improves attack accuracy when the weapon is used in the situations covered by the trait.',
+    ap: `Armour Piercing. Reduces the target protection by the listed value before damage is applied.${rated}`,
+    artillery: 'Can be used with artillery and indirect-fire handling rather than only direct personal fire.',
+    auto: `Automatic fire. The listed Auto value is used by the automatic-fire rules for burst or full-auto attacks.${rated}`,
+    blast: `Explosive or area effect. The listed Blast value defines the affected radius or area for the attack.${rated}`,
+    bulky: 'Large or awkward to handle. The weapon has extra handling restrictions compared with a normal personal weapon.',
+    dangerous: 'Unstable or hazardous equipment. The weapon is more likely to create a serious problem when mishandled.',
+    inaccurate: 'Harder to aim or control. Applies the weapon trait penalty to attacks made with it.',
+    'one use': 'Expended after a single use or firing.',
+    'one-shot': 'Expended after a single use or firing.',
+    radiation: 'The attack can expose targets to radiation effects in addition to its normal damage.',
+    scope: 'Includes a sighting aid for aimed fire, especially at longer ranges.',
+    silent: 'Designed to reduce noise or obvious firing signature.',
+    smart: 'Uses guided, assisted, or target-aware systems when the relevant smart weapon rules apply.',
+    stun: 'Built to incapacitate or stun rather than only inflict conventional lethal damage.',
+    'very bulky': 'Extremely awkward or heavy to handle, with stronger restrictions than Bulky.',
+    'zero-g': 'Designed for use in zero gravity without the usual recoil or handling problems.',
+  }
+
+  return descriptions[weaponTraitBase(trait)] ?? 'No detailed builder explanation is available for this trait yet.'
 }
 
 const addAccessory = () => {
@@ -2101,8 +2148,17 @@ const toggleExpandedEquipment = (itemId: string) => {
               <div class="weapon-final-card__section">
                 <p class="weapon-final-card__section-title">Traits</p>
                 <div class="weapon-final-chip-list">
-                  <span v-for="trait in (designPreview.ready ? designPreview.traits : draft.traits)" :key="trait" class="weapon-final-chip">
+                  <span
+                    v-for="trait in (designPreview.ready ? designPreview.traits : draft.traits)"
+                    :key="trait"
+                    class="weapon-final-chip weapon-final-chip--trait"
+                    tabindex="0"
+                  >
                     {{ trait }}
+                    <span class="weapon-trait-tooltip" role="tooltip">
+                      <strong>{{ weaponTraitTitle(trait) }}</strong>
+                      <span>{{ weaponTraitExplanation(trait) }}</span>
+                    </span>
                   </span>
                   <span v-if="!(designPreview.ready ? designPreview.traits : draft.traits).length" class="weapon-final-chip weapon-final-chip--muted">No Traits</span>
                 </div>
@@ -2735,6 +2791,67 @@ const toggleExpandedEquipment = (itemId: string) => {
 
 .weapon-final-chip--muted {
   color: #94a3b8;
+}
+
+.weapon-final-chip--trait {
+  position: relative;
+  cursor: help;
+  outline: none;
+}
+
+.weapon-final-chip--trait:hover,
+.weapon-final-chip--trait:focus-visible {
+  border-color: rgba(103, 232, 249, 0.72);
+  color: #f8fafc;
+  box-shadow:
+    inset 0 0 18px rgba(34, 211, 238, 0.12),
+    0 0 18px rgba(34, 211, 238, 0.18);
+}
+
+.weapon-trait-tooltip {
+  position: absolute;
+  bottom: calc(100% + 0.55rem);
+  left: 50%;
+  z-index: 40;
+  display: grid;
+  width: min(19rem, 72vw);
+  gap: 0.28rem;
+  border: 1px solid rgba(103, 232, 249, 0.58);
+  background:
+    linear-gradient(180deg, rgba(8, 27, 44, 0.98), rgba(2, 6, 23, 0.98)),
+    radial-gradient(circle at 18% 0%, rgba(34, 211, 238, 0.22), transparent 12rem);
+  padding: 0.65rem 0.75rem;
+  color: #c7f9ff;
+  text-align: left;
+  white-space: normal;
+  box-shadow:
+    0 0 24px rgba(34, 211, 238, 0.18),
+    inset 0 0 24px rgba(34, 211, 238, 0.08);
+  clip-path: polygon(0 0, calc(100% - 9px) 0, 100% 9px, 100% 100%, 9px 100%, 0 calc(100% - 9px));
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(-50%) translateY(0.25rem);
+  transition: opacity 140ms ease, transform 140ms ease;
+}
+
+.weapon-trait-tooltip strong {
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #67e8f9;
+}
+
+.weapon-trait-tooltip span {
+  font-size: 0.78rem;
+  font-weight: 500;
+  line-height: 1.4;
+  color: #dbeafe;
+}
+
+.weapon-final-chip--trait:hover .weapon-trait-tooltip,
+.weapon-final-chip--trait:focus-visible .weapon-trait-tooltip {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
 }
 
 .weapon-final-card__notes {

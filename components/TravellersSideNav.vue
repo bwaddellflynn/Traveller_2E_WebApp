@@ -2,7 +2,7 @@
 import { storeToRefs } from 'pinia'
 import type { TravellerProfile } from '~/types/traveller'
 import { useTravellersStore } from '~/stores/travellers'
-import { loadBuilderDraft } from '~/utils/traveller/draftCache'
+import { loadBuilderDraftCache } from '~/utils/traveller/draftCache'
 import { makeProfileId } from '~/utils/traveller/profile'
 import { loadActiveManualTravellerDraftId, MANUAL_TRAVELLER_DRAFT_CACHE_VERSION, manualTravellerDraftCacheKey } from '~/utils/traveller/manualDraft'
 
@@ -52,10 +52,18 @@ const activeSheetDraftProfile = computed(() => {
   if (route.path !== '/character/sheet') return null
   const cacheId = activeSheetRouteId.value || activeSheetDraftId.value
   if (!cacheId) return null
-  return loadBuilderDraft<TravellerProfile>(
+  const cachedDraft = loadBuilderDraftCache<TravellerProfile>(
     manualTravellerDraftCacheKey(cacheId),
     MANUAL_TRAVELLER_DRAFT_CACHE_VERSION,
   )
+  if (!cachedDraft) return null
+
+  const savedProfile = activeSheetRouteId.value ? travellers.getProfile(activeSheetRouteId.value) : null
+  const profileUpdatedAt = Date.parse(savedProfile?.updatedAt || '')
+  const draftUpdatedAt = Date.parse(cachedDraft.updatedAt || '')
+  if (savedProfile && Number.isFinite(profileUpdatedAt) && Number.isFinite(draftUpdatedAt) && draftUpdatedAt < profileUpdatedAt) return null
+
+  return cachedDraft.payload
 })
 
 const displayedCredits = computed(() => {
