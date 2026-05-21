@@ -31,6 +31,27 @@ type UwpReferenceRow = {
   value: string
 }
 
+type TravellerMapCoordinates = {
+  x: number
+  y: number
+  sx: number | null
+  sy: number | null
+  hx: number | null
+  hy: number | null
+}
+
+type JumpCalculationResult = {
+  origin: NavigationWorld
+  destination: NavigationWorld
+  originCoordinates: TravellerMapCoordinates
+  destinationCoordinates: TravellerMapCoordinates
+  directDistance: number
+  jumpRating: number
+  reachableDirectly: boolean
+  routeFound: boolean | null
+  routeStops: number | null
+}
+
 const NAVIGATION_STATE_KEY = 'scoutsuite.navigation.v1'
 const worldProfileReferences = worldProfileReferenceData.tables as WorldProfileReference[]
 
@@ -45,8 +66,53 @@ const worldError = ref('')
 const currentLocation = ref<NavigationWorld | null>(null)
 const mapStatus = ref('Click a world on the map or search by name.')
 const activeWorldReferenceId = ref<string | null>(null)
+const jumpRating = ref(2)
+const jumpCalculationLoading = ref(false)
+const jumpCalculationError = ref('')
+const jumpCalculationResult = ref<JumpCalculationResult | null>(null)
+
+const jumpRatingOptions = [1, 2, 3, 4, 5, 6]
 
 let searchTimer: ReturnType<typeof setTimeout> | null = null
+
+const firstPayloadRecord = (payload: unknown): Record<string, unknown> => {
+  if (Array.isArray(payload)) {
+    const first = payload.find((item): item is Record<string, unknown> => Boolean(item && typeof item === 'object' && !Array.isArray(item)))
+    return first ?? {}
+  }
+  if (payload && typeof payload === 'object' && !Array.isArray(payload)) return payload as Record<string, unknown>
+  return {}
+}
+
+const numericPayloadValue = (record: Record<string, unknown>, keys: string[]) => {
+  for (const key of keys) {
+    const value = Number(record[key])
+    if (Number.isFinite(value)) return value
+  }
+  return null
+}
+
+const normalizeTravellerMapCoordinates = (payload: unknown): TravellerMapCoordinates => {
+  const record = firstPayloadRecord(payload)
+  const x = numericPayloadValue(record, ['x', 'X'])
+  const y = numericPayloadValue(record, ['y', 'Y'])
+  if (x === null || y === null) throw new Error('Traveller Map did not return usable coordinates.')
+  return {
+    x,
+    y,
+    sx: numericPayloadValue(record, ['sx', 'Sx', 'SectorX']),
+    sy: numericPayloadValue(record, ['sy', 'Sy', 'SectorY']),
+    hx: numericPayloadValue(record, ['hx', 'Hx', 'HexX']),
+    hy: numericPayloadValue(record, ['hy', 'Hy', 'HexY']),
+  }
+}
+
+const routeStopCount = (payload: unknown) => {
+  const rows = parseTravellerMapRows(payload)
+  return rows.length || null
+}
+
+const travellerMapLocation = (world: NavigationWorld) => `${world.sector} ${world.hex}`
 
 const navigationDebug = (...args: unknown[]) => {
   if (!import.meta.client) return
@@ -54,6 +120,27 @@ const navigationDebug = (...args: unknown[]) => {
 }
 
 const selectedMapTarget = computed(() => mapFocusWorld.value ?? currentLocation.value)
+const jumpDestination = computed(() => selectedWorld.value)
+const jumpCalculatorStatus = computed(() => {
+  if (jumpCalculationLoading.value) return 'Calculating jump distance...'
+  if (jumpCalculationError.value) return jumpCalculationError.value
+  if (jumpCalculationResult.value) {
+    const result = jumpCalculationResult.value
+    const direct = result.reachableDirectly ? `within Jump-${result.jumpRating}` : `beyond Jump-${result.jumpRating}`
+    const route = result.routeFound === null
+      ? ''
+      : result.routeFound
+        ? ` Traveller Map route found${result.routeStops ? ` with ${Math.max(0, result.routeStops - 1)} jumps` : ''}.`
+        : ' No Traveller Map route found at that rating.'
+    return `${result.directDistance} parsecs direct, ${direct}.${route}`
+  }
+  if (!currentLocation.value) return 'Set a current location to anchor jump calculations.'
+  if (!jumpDestination.value) return 'Select a destination system from search or the map.'
+  if (currentLocation.value.sector === jumpDestination.value.sector && currentLocation.value.hex === jumpDestination.value.hex) {
+    return 'Origin and destination are the same system.'
+  }
+  return 'Ready for Traveller Map coordinate distance lookup.'
+})
 const mapUrl = computed(() => {
   const url = new URL('https://travellermap.com/')
   url.searchParams.set('hideui', '1')
@@ -67,9 +154,15 @@ const mapUrl = computed(() => {
   }
 
   if (currentLocation.value?.sector && currentLocation.value?.hex) {
-    url.searchParams.set('marker_url', 'res/markers/scout.png')
-    url.searchParams.set('marker_sector', currentLocation.value.sector)
-    url.searchParams.set('marker_hex', currentLocation.value.hex)
+    url.searchParams.set('yah_sector', currentLocation.value.sector)
+    url.searchParams.set('yah_hex', currentLocation.value.hex)
+  }
+
+  if (jumpCalculationResult.value?.originCoordinates) {
+    url.searchParams.set('ocx', String(jumpCalculationResult.value.originCoordinates.x))
+    url.searchParams.set('ocy', String(jumpCalculationResult.value.originCoordinates.y))
+    url.searchParams.set('ocr', String(jumpCalculationResult.value.jumpRating))
+    url.searchParams.set('ocs', 'rgba(34,211,238,0.18)')
   }
 
   return url.toString()
@@ -127,12 +220,14 @@ const uwpRows = computed<UwpReferenceRow[]>(() => {
 const uwpSummaryCards = computed(() => {
   if (!splitUwp.value) return []
   const parts = splitUwp.value
+  const law = travellerHexValue(parts.law)
+  const tl = travellerHexValue(parts.techLevel)
   return [
-    { label: 'Port', value: parts.starport },
-    { label: 'Atmo', value: parts.atmosphere },
-    { label: 'Pop', value: populationDisplay.value?.short ?? parts.population, compact: true },
-    { label: 'Law', value: parts.law },
-    { label: 'TL', value: parts.techLevel },
+    { key: 'port', label: 'Port', value: parts.starport },
+    { key: 'atmo', label: 'Atmo', value: parts.atmosphere },
+    { key: 'pop', label: 'Pop', value: populationDisplay.value?.short ?? parts.population, mobileValue: populationDisplay.value?.long ?? parts.population, compact: true },
+    { key: 'law', label: 'Law', value: law === null ? parts.law : `${law}` },
+    { key: 'tl', label: 'TL', value: tl === null ? parts.techLevel : `${tl}` },
   ]
 })
 
@@ -284,7 +379,67 @@ const setCurrentLocation = () => {
   if (!selectedWorld.value) return
   currentLocation.value = { ...selectedWorld.value }
   mapFocusWorld.value = { ...selectedWorld.value }
+  jumpCalculationResult.value = null
+  jumpCalculationError.value = ''
   saveNavigationState()
+}
+
+const calculateJumpDistance = async () => {
+  if (!currentLocation.value || !jumpDestination.value) return
+  jumpCalculationLoading.value = true
+  jumpCalculationError.value = ''
+  jumpCalculationResult.value = null
+  try {
+    const [originCoordinates, destinationCoordinates] = await Promise.all([
+      travellerMapJsonp('/api/coordinates', {
+        sector: currentLocation.value.sector,
+        hex: currentLocation.value.hex,
+      }, navigationDebug).then(normalizeTravellerMapCoordinates),
+      travellerMapJsonp('/api/coordinates', {
+        sector: jumpDestination.value.sector,
+        hex: jumpDestination.value.hex,
+      }, navigationDebug).then(normalizeTravellerMapCoordinates),
+    ])
+
+    const directDistance = Math.ceil(Math.hypot(
+      destinationCoordinates.x - originCoordinates.x,
+      destinationCoordinates.y - originCoordinates.y,
+    ) - 1e-9)
+
+    let routeFound: boolean | null = null
+    let routeStops: number | null = null
+    if (directDistance > 0) {
+      try {
+        const routePayload = await travellerMapJsonp('/api/route', {
+          start: travellerMapLocation(currentLocation.value),
+          end: travellerMapLocation(jumpDestination.value),
+          jump: jumpRating.value,
+        }, navigationDebug)
+        routeFound = true
+        routeStops = routeStopCount(routePayload)
+      } catch (error) {
+        routeFound = false
+        navigationDebug('route lookup failed', error)
+      }
+    }
+
+    jumpCalculationResult.value = {
+      origin: { ...currentLocation.value },
+      destination: { ...jumpDestination.value },
+      originCoordinates,
+      destinationCoordinates,
+      directDistance,
+      jumpRating: jumpRating.value,
+      reachableDirectly: directDistance <= jumpRating.value,
+      routeFound,
+      routeStops,
+    }
+  } catch (error) {
+    jumpCalculationError.value = error instanceof Error ? error.message : 'Could not calculate jump distance.'
+    navigationDebug('jump calculation error', error)
+  } finally {
+    jumpCalculationLoading.value = false
+  }
 }
 
 const openWorldReference = (referenceId: string) => {
@@ -303,6 +458,10 @@ watch(searchQuery, () => {
 })
 
 watch([selectedWorld, mapFocusWorld, currentLocation], saveNavigationState, { deep: true })
+watch([selectedWorld, jumpRating], () => {
+  jumpCalculationError.value = ''
+  jumpCalculationResult.value = null
+})
 watch(mapUrl, (url) => navigationDebug('map url', url), { immediate: true })
 
 onMounted(() => {
@@ -360,15 +519,41 @@ onBeforeUnmount(() => {
             </section>
 
             <section class="navigation-card">
-              <p class="navigation-card__label">Location Control</p>
-              <button class="navigation-action" type="button" :disabled="!selectedWorld" @click="setCurrentLocation">
-                Set Current Location
+              <p class="navigation-card__label">Jump Distance</p>
+              <div class="navigation-jump-route">
+                <div>
+                  <span>Origin</span>
+                  <strong>{{ currentLocation?.name || 'No current location' }}</strong>
+                  <em>{{ currentLocation ? `${currentLocation.sector} ${currentLocation.hex}` : 'Use crosshairs on a selected world' }}</em>
+                </div>
+                <div>
+                  <span>Destination</span>
+                  <strong>{{ jumpDestination?.name || 'No destination selected' }}</strong>
+                  <em>{{ jumpDestination ? `${jumpDestination.sector} ${jumpDestination.hex}` : 'Search or click a world' }}</em>
+                </div>
+              </div>
+              <label class="navigation-jump-rating">
+                <span>Jump Drive</span>
+                <select v-model.number="jumpRating" title="Select the ship Jump drive rating to check reach and route availability.">
+                  <option v-for="rating in jumpRatingOptions" :key="rating" :value="rating">
+                    Jump-{{ rating }}
+                  </option>
+                </select>
+              </label>
+              <button
+                class="navigation-action"
+                type="button"
+                :disabled="!currentLocation || !jumpDestination || jumpCalculationLoading"
+                title="Calculate jump distance from the current location to the selected destination."
+                @click="calculateJumpDistance"
+              >
+                {{ jumpCalculationLoading ? 'Calculating...' : 'Calculate Jump Distance' }}
               </button>
               <p class="navigation-muted">
-                The current location is saved locally and shown on Traveller Map with the scout ship marker.
+                API-backed distance and route options will use Traveller Map coordinates.
               </p>
               <div class="navigation-map-status">
-                {{ mapStatus }}
+                {{ jumpCalculatorStatus }}
               </div>
             </section>
           </aside>
@@ -388,13 +573,33 @@ onBeforeUnmount(() => {
               <div v-if="worldLoading" class="navigation-empty">Loading system profile...</div>
               <div v-else-if="worldError" class="navigation-warning">{{ worldError }}</div>
               <div v-else-if="selectedWorld">
-                <h2 class="navigation-world-name">{{ selectedWorld.name || 'Unknown World' }}</h2>
-                <p class="navigation-world-subtitle">{{ selectedWorld.sector }} · {{ selectedWorld.hex }} · {{ selectedWorld.uwp || 'No UWP' }}</p>
+                <div class="navigation-world-heading">
+                  <div>
+                    <h2 class="navigation-world-name">{{ selectedWorld.name || 'Unknown World' }}</h2>
+                    <p class="navigation-world-subtitle">{{ selectedWorld.sector }} · {{ selectedWorld.hex }} · {{ selectedWorld.uwp || 'No UWP' }}</p>
+                  </div>
+                  <button
+                    class="navigation-location-button"
+                    type="button"
+                    title="Set this world as the party current location and show the marker on the map."
+                    aria-label="Set current location"
+                    @click="setCurrentLocation"
+                  >
+                    <span class="navigation-location-button__crosshair" aria-hidden="true" />
+                  </button>
+                </div>
 
                 <div v-if="uwpSummaryCards.length" class="navigation-uwp-strip">
-                  <div v-for="card in uwpSummaryCards" :key="card.label" class="navigation-uwp-card">
+                  <div
+                    v-for="card in uwpSummaryCards"
+                    :key="card.label"
+                    :class="['navigation-uwp-card', `navigation-uwp-card--${card.key}`]"
+                  >
                     <span>{{ card.label }}</span>
-                    <strong :class="{ 'navigation-uwp-card__value--compact': card.compact }">{{ card.value }}</strong>
+                    <strong :class="{ 'navigation-uwp-card__value--compact': card.compact }">
+                      <span class="navigation-uwp-card__desktop-value">{{ card.value }}</span>
+                      <span class="navigation-uwp-card__mobile-value">{{ card.mobileValue ?? card.value }}</span>
+                    </strong>
                   </div>
                 </div>
 
@@ -493,7 +698,11 @@ onBeforeUnmount(() => {
               </thead>
               <tbody>
                 <tr v-for="(row, rowIndex) in activeWorldReference.rows" :key="`${activeWorldReference.id}-${rowIndex}`">
-                  <td v-for="(cell, cellIndex) in row" :key="`${activeWorldReference.id}-${rowIndex}-${cellIndex}`">
+                  <td
+                    v-for="(cell, cellIndex) in row"
+                    :key="`${activeWorldReference.id}-${rowIndex}-${cellIndex}`"
+                    :data-label="activeWorldReference.columns[cellIndex]"
+                  >
                     {{ cell }}
                   </td>
                 </tr>
@@ -697,6 +906,75 @@ onBeforeUnmount(() => {
   opacity: 0.45;
 }
 
+.navigation-jump-route {
+  display: grid;
+  gap: 0.55rem;
+  margin-top: 0.85rem;
+}
+
+.navigation-jump-route div {
+  display: grid;
+  gap: 0.15rem;
+  border: 1px solid rgba(34, 211, 238, 0.22);
+  background: rgba(2, 6, 23, 0.42);
+  padding: 0.65rem 0.75rem;
+}
+
+.navigation-jump-route span {
+  color: #67e8f9;
+  font-size: 0.66rem;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.navigation-jump-route strong {
+  min-width: 0;
+  color: #f8fafc;
+  font-size: 0.92rem;
+  font-weight: 900;
+  overflow-wrap: anywhere;
+}
+
+.navigation-jump-route em {
+  color: #9cc9df;
+  font-size: 0.76rem;
+  font-style: normal;
+  line-height: 1.35;
+}
+
+.navigation-jump-rating {
+  display: grid;
+  gap: 0.4rem;
+  margin-top: 0.75rem;
+}
+
+.navigation-jump-rating span {
+  color: #bae6fd;
+  font-size: 0.68rem;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.navigation-jump-rating select {
+  width: 100%;
+  min-height: 2.55rem;
+  border: 1px solid rgba(34, 211, 238, 0.42);
+  background:
+    linear-gradient(135deg, rgba(8, 47, 73, 0.76), rgba(2, 6, 23, 0.94));
+  color: #e0f2fe;
+  font-weight: 850;
+  outline: none;
+  padding: 0 0.75rem;
+  clip-path: polygon(0 0, calc(100% - 9px) 0, 100% 9px, 100% 100%, 9px 100%, 0 calc(100% - 9px));
+}
+
+.navigation-jump-rating select:focus {
+  border-color: rgba(103, 232, 249, 0.9);
+  box-shadow: 0 0 18px rgba(34, 211, 238, 0.16);
+}
+
 .navigation-map-status {
   margin-top: 0.85rem;
   border: 1px solid rgba(34, 211, 238, 0.24);
@@ -731,8 +1009,15 @@ onBeforeUnmount(() => {
   padding-right: 0.85rem;
 }
 
-.navigation-world-name {
+.navigation-world-heading {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 2.75rem;
+  align-items: start;
+  gap: 0.85rem;
   margin-top: 0.75rem;
+}
+
+.navigation-world-name {
   color: #f8fafc;
   font-size: 1.75rem;
   font-weight: 900;
@@ -744,6 +1029,63 @@ onBeforeUnmount(() => {
 .navigation-world-subtitle {
   margin-top: 0.35rem;
   color: #bfdbfe;
+}
+
+.navigation-location-button {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 2.75rem;
+  aspect-ratio: 1;
+  border: 1px solid rgba(34, 211, 238, 0.5);
+  background:
+    radial-gradient(circle at 50% 50%, rgba(103, 232, 249, 0.2), transparent 58%),
+    linear-gradient(135deg, rgba(8, 47, 73, 0.86), rgba(2, 6, 23, 0.94));
+  box-shadow:
+    inset 0 0 18px rgba(34, 211, 238, 0.1),
+    0 0 18px rgba(34, 211, 238, 0.1);
+  clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px));
+}
+
+.navigation-location-button:hover,
+.navigation-location-button:focus-visible {
+  border-color: rgba(103, 232, 249, 0.95);
+  box-shadow:
+    inset 0 0 20px rgba(34, 211, 238, 0.16),
+    0 0 22px rgba(34, 211, 238, 0.22);
+}
+
+.navigation-location-button__crosshair {
+  position: relative;
+  width: 1.35rem;
+  aspect-ratio: 1;
+  border: 2px solid #a5f3fc;
+  border-radius: 50%;
+  filter: drop-shadow(0 0 8px rgba(103, 232, 249, 0.8));
+}
+
+.navigation-location-button__crosshair::before,
+.navigation-location-button__crosshair::after {
+  content: '';
+  position: absolute;
+  background: #a5f3fc;
+  box-shadow: 0 0 8px rgba(103, 232, 249, 0.8);
+}
+
+.navigation-location-button__crosshair::before {
+  left: 50%;
+  top: -0.35rem;
+  bottom: -0.35rem;
+  width: 2px;
+  transform: translateX(-50%);
+}
+
+.navigation-location-button__crosshair::after {
+  top: 50%;
+  left: -0.35rem;
+  right: -0.35rem;
+  height: 2px;
+  transform: translateY(-50%);
 }
 
 .navigation-uwp-strip {
@@ -776,6 +1118,13 @@ onBeforeUnmount(() => {
   text-transform: uppercase;
 }
 
+.navigation-uwp-card strong span {
+  color: inherit;
+  font: inherit;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
 .navigation-uwp-card strong {
   display: block;
   margin-top: 0.2rem;
@@ -784,6 +1133,10 @@ onBeforeUnmount(() => {
   font-weight: 950;
   line-height: 1;
   text-shadow: 0 0 14px rgba(250, 204, 21, 0.3);
+}
+
+.navigation-uwp-card strong .navigation-uwp-card__mobile-value {
+  display: none;
 }
 
 .navigation-uwp-card__value--compact {
@@ -940,11 +1293,14 @@ onBeforeUnmount(() => {
 }
 
 .navigation-stat-row span {
+  min-width: 0;
   background: rgba(14, 116, 144, 0.38);
   color: #dff9ff;
   padding: 0.42rem 0.55rem;
   font-size: 0.78rem;
   font-weight: 900;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
   text-transform: uppercase;
 }
 
@@ -1171,12 +1527,132 @@ onBeforeUnmount(() => {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
+  .navigation-uwp-card--tl {
+    order: 1;
+  }
+
+  .navigation-uwp-card--pop {
+    order: 2;
+    grid-column: span 2;
+  }
+
+  .navigation-uwp-card--port {
+    order: 3;
+  }
+
+  .navigation-uwp-card--law {
+    order: 4;
+  }
+
+  .navigation-uwp-card--atmo {
+    order: 5;
+  }
+
+  .navigation-uwp-card strong .navigation-uwp-card__desktop-value {
+    display: none;
+  }
+
+  .navigation-uwp-card strong .navigation-uwp-card__mobile-value {
+    display: block;
+  }
+
+  .navigation-uwp-card--pop .navigation-uwp-card__value--compact {
+    font-size: clamp(0.9rem, 4.2vw, 1.1rem);
+  }
+
+  .navigation-stat-row {
+    grid-template-columns: minmax(6.9rem, 0.48fr) minmax(0, 1fr);
+  }
+
+  .navigation-stat-row span {
+    font-size: 0.68rem;
+    padding-right: 0.45rem;
+  }
+
   .navigation-reference-modal {
+    width: 100%;
     max-height: 86vh;
   }
 
+  .navigation-reference-backdrop {
+    align-items: start;
+    padding: 0.7rem;
+  }
+
+  .navigation-reference-modal__header {
+    align-items: start;
+    padding: 0.85rem;
+  }
+
+  .navigation-reference-modal__header h2 {
+    font-size: 1.55rem;
+  }
+
+  .navigation-reference-modal__summary {
+    padding: 0.8rem 0.85rem;
+  }
+
+  .navigation-reference-table-wrap {
+    padding: 0.85rem;
+  }
+
   .navigation-reference-table {
-    min-width: 42rem;
+    min-width: 0;
+    border: 0;
+    display: grid;
+    gap: 0.7rem;
+  }
+
+  .navigation-reference-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+  }
+
+  .navigation-reference-table tbody {
+    display: grid;
+    gap: 0.7rem;
+  }
+
+  .navigation-reference-table tr {
+    display: grid;
+    border: 1px solid rgba(34, 211, 238, 0.26);
+    background: rgba(2, 6, 23, 0.46);
+    clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px));
+  }
+
+  .navigation-reference-table td {
+    display: grid;
+    grid-template-columns: minmax(5.5rem, 0.42fr) minmax(0, 1fr);
+    gap: 0.65rem;
+    align-items: start;
+    border-right: 0;
+    padding: 0.6rem 0.7rem;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .navigation-reference-table td::before {
+    content: attr(data-label);
+    color: #67e8f9;
+    font-size: 0.68rem;
+    font-weight: 950;
+    letter-spacing: 0.08em;
+    line-height: 1.35;
+    text-transform: uppercase;
+  }
+
+  .navigation-reference-table td:first-child {
+    background: rgba(14, 116, 144, 0.28);
+    white-space: normal;
+  }
+
+  .navigation-reference-table td:first-child::before {
+    color: #bae6fd;
   }
 }
 </style>
