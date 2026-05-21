@@ -15,8 +15,24 @@ import {
   type NavigationWorld,
   type SearchResult,
 } from '~/utils/travellerMap'
+import worldProfileReferenceData from '~/data/traveller2e/core/world-profile-tables.json'
+
+type WorldProfileReference = {
+  id: string
+  title: string
+  summary: string
+  columns: string[]
+  rows: string[][]
+}
+
+type UwpReferenceRow = {
+  id: string
+  label: string
+  value: string
+}
 
 const NAVIGATION_STATE_KEY = 'scoutsuite.navigation.v1'
+const worldProfileReferences = worldProfileReferenceData.tables as WorldProfileReference[]
 
 const searchQuery = ref('')
 const searchResults = ref<SearchResult[]>([])
@@ -28,6 +44,7 @@ const worldLoading = ref(false)
 const worldError = ref('')
 const currentLocation = ref<NavigationWorld | null>(null)
 const mapStatus = ref('Click a world on the map or search by name.')
+const activeWorldReferenceId = ref<string | null>(null)
 
 let searchTimer: ReturnType<typeof setTimeout> | null = null
 
@@ -77,6 +94,10 @@ const populationDisplay = computed(() => {
   if (!splitUwp.value) return null
   return formatTravellerPopulation(splitUwp.value.population, selectedWorld.value?.pbg)
 })
+const activeWorldReference = computed(() => {
+  if (!activeWorldReferenceId.value) return null
+  return worldProfileReferences.find((entry) => entry.id === activeWorldReferenceId.value) ?? null
+})
 const systemBadges = computed(() => {
   const badges: Array<{ label: string; tone: 'ok' | 'warn' | 'danger' | 'info' }> = []
   if (!selectedWorld.value) return badges
@@ -87,19 +108,19 @@ const systemBadges = computed(() => {
   return badges
 })
 
-const uwpRows = computed(() => {
+const uwpRows = computed<UwpReferenceRow[]>(() => {
   if (!splitUwp.value) return []
   const parts = splitUwp.value
   const tl = travellerHexValue(parts.techLevel)
   return [
-    { label: 'Starport', value: `${parts.starport} · ${starportLabels[parts.starport] ?? 'Unknown'}` },
-    { label: 'Size', value: parts.size === '0' ? 'Asteroid / small body' : `${travellerHexValue(parts.size) ?? parts.size}` },
-    { label: 'Atmosphere', value: `${parts.atmosphere} · ${atmosphereLabels[parts.atmosphere] ?? 'Unknown'}` },
-    { label: 'Hydrographics', value: `${travellerHexValue(parts.hydrographics) ?? parts.hydrographics}` },
-    { label: 'Population', value: populationDisplay.value?.long ?? parts.population },
-    { label: 'Government', value: `${travellerHexValue(parts.government) ?? parts.government}` },
-    { label: 'Law Level', value: `${travellerHexValue(parts.law) ?? parts.law}` },
-    { label: 'Tech Level', value: tl === null ? parts.techLevel : `TL ${tl}` },
+    { id: 'starport', label: 'Starport', value: `${parts.starport} · ${starportLabels[parts.starport] ?? 'Unknown'}` },
+    { id: 'size', label: 'Size', value: parts.size === '0' ? 'Asteroid / small body' : `${travellerHexValue(parts.size) ?? parts.size}` },
+    { id: 'atmosphere', label: 'Atmosphere', value: `${parts.atmosphere} · ${atmosphereLabels[parts.atmosphere] ?? 'Unknown'}` },
+    { id: 'hydrographics', label: 'Hydrographics', value: `${travellerHexValue(parts.hydrographics) ?? parts.hydrographics}` },
+    { id: 'population', label: 'Population', value: populationDisplay.value?.long ?? parts.population },
+    { id: 'government', label: 'Government', value: `${travellerHexValue(parts.government) ?? parts.government}` },
+    { id: 'law-level', label: 'Law Level', value: `${travellerHexValue(parts.law) ?? parts.law}` },
+    { id: 'tech-level', label: 'Tech Level', value: tl === null ? parts.techLevel : `TL ${tl}` },
   ]
 })
 
@@ -266,6 +287,14 @@ const setCurrentLocation = () => {
   saveNavigationState()
 }
 
+const openWorldReference = (referenceId: string) => {
+  activeWorldReferenceId.value = referenceId
+}
+
+const closeWorldReference = () => {
+  activeWorldReferenceId.value = null
+}
+
 watch(searchQuery, () => {
   if (searchTimer) clearTimeout(searchTimer)
   searchTimer = setTimeout(() => {
@@ -400,10 +429,16 @@ onBeforeUnmount(() => {
                 </section>
 
                 <div class="navigation-stat-table">
-                  <div v-for="row in uwpRows" :key="row.label" class="navigation-stat-row">
+                  <button
+                    v-for="row in uwpRows"
+                    :key="row.id"
+                    class="navigation-stat-row navigation-stat-row--button"
+                    type="button"
+                    @click="openWorldReference(row.id)"
+                  >
                     <span>{{ row.label }}</span>
                     <strong>{{ row.value }}</strong>
-                  </div>
+                  </button>
                 </div>
 
                 <div class="navigation-stat-table navigation-stat-table--meta">
@@ -421,6 +456,53 @@ onBeforeUnmount(() => {
         </div>
       </div>
     </section>
+
+    <Teleport to="body">
+      <div
+        v-if="activeWorldReference"
+        class="navigation-reference-backdrop"
+        role="presentation"
+        @click.self="closeWorldReference"
+      >
+        <section
+          class="navigation-reference-modal"
+          role="dialog"
+          aria-modal="true"
+          :aria-label="`${activeWorldReference.title} reference`"
+        >
+          <header class="navigation-reference-modal__header">
+            <div>
+              <span>Core World Profile Reference</span>
+              <h2>{{ activeWorldReference.title }}</h2>
+            </div>
+            <button class="navigation-reference-modal__close" type="button" @click="closeWorldReference">
+              Close
+            </button>
+          </header>
+
+          <p class="navigation-reference-modal__summary">{{ activeWorldReference.summary }}</p>
+
+          <div class="navigation-reference-table-wrap hud-scrollbar">
+            <table class="navigation-reference-table">
+              <thead>
+                <tr>
+                  <th v-for="column in activeWorldReference.columns" :key="column">
+                    {{ column }}
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="(row, rowIndex) in activeWorldReference.rows" :key="`${activeWorldReference.id}-${rowIndex}`">
+                  <td v-for="(cell, cellIndex) in row" :key="`${activeWorldReference.id}-${rowIndex}-${cellIndex}`">
+                    {{ cell }}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+    </Teleport>
   </main>
 </template>
 
@@ -841,6 +923,18 @@ onBeforeUnmount(() => {
   border-bottom: 1px solid rgba(34, 211, 238, 0.18);
 }
 
+.navigation-stat-row--button {
+  width: 100%;
+  border-top: 0;
+  border-right: 0;
+  border-left: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  padding: 0;
+  text-align: left;
+}
+
 .navigation-stat-row:last-child {
   border-bottom: 0;
 }
@@ -863,6 +957,22 @@ onBeforeUnmount(() => {
   overflow-wrap: anywhere;
 }
 
+.navigation-stat-row--button:hover span,
+.navigation-stat-row--button:focus-visible span {
+  background: rgba(8, 145, 178, 0.55);
+}
+
+.navigation-stat-row--button:hover strong,
+.navigation-stat-row--button:focus-visible strong {
+  color: #fef08a;
+  background: rgba(34, 211, 238, 0.08);
+}
+
+.navigation-stat-row--button:focus-visible {
+  outline: 2px solid rgba(103, 232, 249, 0.82);
+  outline-offset: -2px;
+}
+
 .navigation-empty,
 .navigation-warning {
   margin-top: 0.75rem;
@@ -876,6 +986,135 @@ onBeforeUnmount(() => {
   border-color: rgba(34, 211, 238, 0.22);
   background: rgba(8, 47, 73, 0.18);
   color: #bfdbfe;
+}
+
+.navigation-reference-backdrop {
+  position: fixed;
+  z-index: 1000;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: clamp(1rem, 3vw, 2rem);
+  background:
+    radial-gradient(circle at 50% 0, rgba(34, 211, 238, 0.16), transparent 34rem),
+    rgba(2, 6, 23, 0.78);
+  backdrop-filter: blur(10px);
+}
+
+.navigation-reference-modal {
+  width: min(64rem, 100%);
+  max-height: min(78vh, 52rem);
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  border: 1px solid rgba(34, 211, 238, 0.48);
+  background:
+    linear-gradient(180deg, rgba(8, 18, 32, 0.98), rgba(2, 6, 23, 0.98)),
+    radial-gradient(circle at 0 0, rgba(34, 211, 238, 0.16), transparent 26rem);
+  box-shadow:
+    0 0 42px rgba(34, 211, 238, 0.18),
+    inset 0 0 0 1px rgba(34, 211, 238, 0.1);
+  clip-path: polygon(0 0, calc(100% - 18px) 0, 100% 18px, 100% 100%, 18px 100%, 0 calc(100% - 18px));
+  overflow: hidden;
+}
+
+.navigation-reference-modal__header {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 1rem;
+  border-bottom: 1px solid rgba(34, 211, 238, 0.26);
+  background: rgba(14, 116, 144, 0.22);
+  padding: 1rem 1.1rem;
+}
+
+.navigation-reference-modal__header span {
+  display: block;
+  color: #67e8f9;
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.navigation-reference-modal__header h2 {
+  margin-top: 0.2rem;
+  color: #f8fafc;
+  font-size: clamp(1.45rem, 2.4vw, 2.25rem);
+  font-weight: 950;
+  line-height: 1;
+  text-transform: uppercase;
+  text-shadow: 0 0 16px rgba(34, 211, 238, 0.28);
+}
+
+.navigation-reference-modal__close {
+  flex: 0 0 auto;
+  min-height: 2.5rem;
+  border: 1px solid rgba(34, 211, 238, 0.42);
+  background: linear-gradient(135deg, rgba(8, 47, 73, 0.82), rgba(2, 6, 23, 0.92));
+  color: #cffafe;
+  font-weight: 900;
+  padding: 0 0.9rem;
+  clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px));
+}
+
+.navigation-reference-modal__close:hover,
+.navigation-reference-modal__close:focus-visible {
+  border-color: rgba(103, 232, 249, 0.9);
+  box-shadow: 0 0 18px rgba(34, 211, 238, 0.18);
+}
+
+.navigation-reference-modal__summary {
+  border-bottom: 1px solid rgba(34, 211, 238, 0.18);
+  color: #bfdbfe;
+  line-height: 1.5;
+  padding: 0.85rem 1.1rem;
+}
+
+.navigation-reference-table-wrap {
+  min-height: 0;
+  overflow: auto;
+  padding: 1rem 1.1rem 1.1rem;
+}
+
+.navigation-reference-table {
+  width: 100%;
+  border-collapse: collapse;
+  border: 1px solid rgba(34, 211, 238, 0.24);
+  color: #dbeafe;
+  font-size: 0.9rem;
+}
+
+.navigation-reference-table th,
+.navigation-reference-table td {
+  border-bottom: 1px solid rgba(34, 211, 238, 0.18);
+  border-right: 1px solid rgba(34, 211, 238, 0.14);
+  padding: 0.55rem 0.65rem;
+  text-align: left;
+  vertical-align: top;
+}
+
+.navigation-reference-table th:last-child,
+.navigation-reference-table td:last-child {
+  border-right: 0;
+}
+
+.navigation-reference-table th {
+  background: rgba(14, 116, 144, 0.48);
+  color: #e0f2fe;
+  font-size: 0.74rem;
+  font-weight: 950;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.navigation-reference-table td:first-child {
+  color: #fef08a;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.navigation-reference-table tr:last-child td {
+  border-bottom: 0;
 }
 
 @media (max-width: 1280px) {
@@ -930,6 +1169,14 @@ onBeforeUnmount(() => {
 
   .navigation-uwp-strip {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .navigation-reference-modal {
+    max-height: 86vh;
+  }
+
+  .navigation-reference-table {
+    min-width: 42rem;
   }
 }
 </style>

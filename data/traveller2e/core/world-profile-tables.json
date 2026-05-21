@@ -1,0 +1,165 @@
+{
+  "source": "Traveller Core Rulebook, World Profiles and Starports",
+  "tables": [
+    {
+      "id": "starport",
+      "title": "Starport",
+      "summary": "Starport class describes port quality, fuel, repair support, shipyard capacity, and possible bases.",
+      "columns": ["Class", "Quality", "Berthing", "Fuel", "Facilities", "Bases"],
+      "rows": [
+        ["A", "Excellent", "1D x Cr1000", "Refined", "Shipyard all ships; repair; highport 6+", "Military 8+; Naval 8+; Scout 10+"],
+        ["B", "Good", "1D x Cr500", "Refined", "Shipyard spacecraft; repair; highport 8+", "Military 8+; Naval 8+; Scout 9+"],
+        ["C", "Routine", "1D x Cr100", "Unrefined", "Shipyard small craft; repair; highport 10+", "Military 10+; Scout 9+"],
+        ["D", "Poor", "1D x Cr10", "Unrefined", "Limited repair; highport 12+", "Scout 8+; Corsair 12+"],
+        ["E", "Frontier", "0", "None", "None", "Corsair 10+"],
+        ["X", "No Starport", "0", "None", "None", "Corsair 10+"]
+      ]
+    },
+    {
+      "id": "size",
+      "title": "Size",
+      "summary": "Size measures the main world's diameter in thousands of kilometres and gives a typical surface gravity.",
+      "columns": ["Code", "Diameter", "Example", "Gravity"],
+      "rows": [
+        ["0", "Less than 1000 km", "Asteroid or orbital complex", "Negligible"],
+        ["1", "1600 km", "Triton", "0.05 G"],
+        ["2", "3200 km", "Luna or Europa", "0.15 G"],
+        ["3", "4800 km", "Mercury or Ganymede", "0.25 G"],
+        ["4", "6400 km", "Mars", "0.35 G"],
+        ["5", "8000 km", "-", "0.45 G"],
+        ["6", "9600 km", "-", "0.7 G"],
+        ["7", "11200 km", "-", "0.9 G"],
+        ["8", "12800 km", "Earth", "1.0 G"],
+        ["9", "14400 km", "-", "1.25 G"],
+        ["A", "16000 km", "-", "1.4 G"]
+      ]
+    },
+    {
+      "id": "atmosphere",
+      "title": "Atmosphere",
+      "summary": "Atmosphere describes composition, pressure, and what protection travellers need to survive outside sealed environments.",
+      "columns": ["Code", "Composition", "Pressure", "Survival Gear"],
+      "rows": [
+        ["0", "None", "0.00", "Vacc suit"],
+        ["1", "Trace", "0.001 to 0.09", "Vacc suit"],
+        ["2", "Very thin, tainted", "0.1 to 0.42", "Respirator and filter"],
+        ["3", "Very thin", "0.1 to 0.42", "Respirator"],
+        ["4", "Thin, tainted", "0.43 to 0.7", "Filter"],
+        ["5", "Thin", "0.43 to 0.7", "-"],
+        ["6", "Standard", "0.71 to 1.49", "-"],
+        ["7", "Standard, tainted", "0.71 to 1.49", "Filter"],
+        ["8", "Dense", "1.5 to 2.49", "-"],
+        ["9", "Dense, tainted", "1.5 to 2.49", "Filter"],
+        ["A", "Exotic", "Varies", "Air supply"],
+        ["B", "Corrosive", "Varies", "Vacc suit"],
+        ["C", "Insidious", "Varies", "Vacc suit"],
+        ["D", "Very dense", "2.5+", "Varies"],
+        ["E", "Low", "0.5 or less", "Varies"],
+        ["F", "Unusual", "Varies", "Varies"]
+      ]
+    },
+    {
+      "id": "hydrographics",
+      "title": "Hydrographics",
+      "summary": "Hydrographics measures the percentage of the world covered by surface liquid.",
+      "columns": ["Code", "Surface Liquid", "Description"],
+      "rows": [
+        ["0", "0-5%", "Desert world"],
+        ["1", "6-15%", "Dry world"],
+        ["2", "16-25%", "A few small seas"],
+        ["3", "26-35%", "Small seas and oceans"],
+        ["4", "36-45%", "Wet world"],
+        ["5", "46-55%", "A large ocean"],
+        ["6", "56-65%", "Large oceans"],
+        ["7", "66-75%", "Earth-like world"],
+        ["8", "76-85%", "Only a few islands and archipelagos"],
+        ["9", "86-95%", "Almost entirely water"],
+        ["A", "96-100%", "Waterworld"]
+      ]
+    },
+    {
+      "id": "population",
+      "title": "Population",
+      "summary": "Population is a scale code. The UWP digit is the number of zeroes following a one, adjusted by PBG when detailed population is available.",
+      "columns": ["Code", "Inhabitants", "Range", "Description"],
+      "rows": [
+        ["0", "None", "0", "-"],
+        ["1", "Few", "1+", "Tiny farmstead or single family"],
+        ["2", "Hundreds", "100+", "Village"],
+        ["3", "Thousands", "1000+", "-"],
+        ["4", "Tens of thousands", "10000+", "Small town"],
+        ["5", "Hundreds of thousands", "100000+", "Average city"],
+        ["6", "Millions", "1000000+", "-"],
+        ["7", "Tens of millions", "10000000+", "Large city"],
+        ["8", "Hundreds of millions", "100000000+", "-"],
+        ["9", "Billions", "1000000000+", "Present day Earth scale"],
+        ["A", "Tens of billions", "10000000000+", "-"],
+        ["B", "Hundreds of billions", "100000000000+", "Incredibly crowded world"],
+        ["C", "Trillions", "1000000000000+", "World-city"]
+      ]
+    },
+    {
+      "id": "government",
+      "title": "Government",
+      "summary": "Government is the dominant ruling structure on the world. The contraband column is a likely tendency, not an absolute rule.",
+      "columns": ["Code", "Type", "Short Description", "Common Contraband"],
+      "rows": [
+        ["0", "None", "No formal government; family, clan, or anarchy may dominate.", "None"],
+        ["1", "Company/Corporation", "Corporate management governs employees and dependants.", "Weapons; drugs; travellers"],
+        ["2", "Participating Democracy", "Citizens govern directly by advice and consent.", "Drugs"],
+        ["3", "Self-Perpetuating Oligarchy", "A restricted minority rules with little public input.", "Technology; weapons; travellers"],
+        ["4", "Representative Democracy", "Elected representatives govern.", "Drugs; weapons; psionics"],
+        ["5", "Feudal Technocracy", "Technical elites govern through mutually beneficial service relationships.", "Technology; weapons; computers"],
+        ["6", "Captive Government", "An imposed local government answers to an outside power.", "Weapons; technology; travellers"],
+        ["7", "Balkanisation", "No central authority; rival governments compete.", "Varies"],
+        ["8", "Civil Service Bureaucracy", "Government agencies run society through selected experts.", "Drugs; weapons"],
+        ["9", "Impersonal Bureaucracy", "Insulated agencies rule at a distance from citizens.", "Technology; weapons; drugs; travellers; psionics"],
+        ["A", "Charismatic Dictator", "A single leader with overwhelming public confidence directs the state.", "None"],
+        ["B", "Non-Charismatic Leader", "A former charismatic regime has passed to a normal successor.", "Weapons; technology; computers"],
+        ["C", "Charismatic Oligarchy", "A trusted select group or class governs.", "Weapons"],
+        ["D", "Religious Dictatorship", "A religious organisation governs without regard to individual needs.", "Varies"],
+        ["E", "Religious Autocracy", "A single religious leader holds absolute power.", "Varies"],
+        ["F", "Totalitarian Oligarchy", "An all-powerful minority rules through coercion.", "Varies"]
+      ]
+    },
+    {
+      "id": "law-level",
+      "title": "Law Level",
+      "summary": "Law Level describes how restrictive local law is, especially for weapons and armour carried beyond the starport.",
+      "columns": ["Code", "Weapons Restricted", "Armour Restricted"],
+      "rows": [
+        ["0", "No weapon restrictions", "-"],
+        ["1", "Poison gas, explosives, undetectable weapons, and weapons of mass destruction", "Battle dress"],
+        ["2", "Portable energy weapons and laser weapons", "Combat armour"],
+        ["3", "Military weapons", "Flak armour"],
+        ["4", "Light assault weapons and submachine guns", "Cloth armour"],
+        ["5", "Personal concealable weapons", "Mesh armour"],
+        ["6", "All firearms except shotguns and stunners; open carrying discouraged", "-"],
+        ["7", "Shotguns", "-"],
+        ["8", "All bladed weapons and stunners", "All visible armour"],
+        ["9+", "All weapons", "All armour"]
+      ]
+    },
+    {
+      "id": "tech-level",
+      "title": "Tech Level",
+      "summary": "Tech Level is the average local technology base. It affects local production, repair, communications, and environmental survival limits.",
+      "columns": ["Context", "Rule"],
+      "rows": [
+        ["General meaning", "A local average; wealthy groups or governments may access higher technology than the world average."],
+        ["Communications below TL3", "No telecom network except what the starport provides."],
+        ["Communications TL4-TL6", "Radio and telephone links between major cities at minimum."],
+        ["Communications TL7+", "Increasingly advanced communications grid."],
+        ["Communications TL9+", "Worldwide access is normal because communication satellites are cheap and easy to deploy."],
+        ["Atmosphere 0 or 1", "Minimum TL8 to maintain a population without outside support."],
+        ["Atmosphere 2 or 3", "Minimum TL5 to maintain a population without outside support."],
+        ["Atmosphere 4, 7, or 9", "Minimum TL3 to maintain a population without outside support."],
+        ["Atmosphere A", "Minimum TL8 to maintain a population without outside support."],
+        ["Atmosphere B", "Minimum TL9 to maintain a population without outside support."],
+        ["Atmosphere C", "Minimum TL10 to maintain a population without outside support."],
+        ["Atmosphere D or E", "Minimum TL5 to maintain a population without outside support."],
+        ["Atmosphere F", "Minimum TL8 to maintain a population without outside support."]
+      ]
+    }
+  ]
+}
