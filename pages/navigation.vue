@@ -55,7 +55,15 @@ type JumpCalculationResult = {
   routeStops: JumpRouteStop[]
 }
 
+type WorldPanelTab = 'profile' | 'survey' | 'notes'
+
+type WorldNotes = {
+  log: string
+  patrons: string
+}
+
 const NAVIGATION_STATE_KEY = 'scoutsuite.navigation.v1'
+const NAVIGATION_WORLD_NOTES_KEY = 'scoutsuite.navigation.worldNotes.v1'
 const worldProfileReferences = worldProfileReferenceData.tables as WorldProfileReference[]
 
 const searchQuery = ref('')
@@ -78,6 +86,9 @@ const jumpRouteImperialOnly = ref(false)
 const jumpRouteAvoidRedZones = ref(false)
 const jumpRouteAllowAnomalies = ref(false)
 const jumpRoutePlannerExpanded = ref(false)
+const activeWorldTab = ref<WorldPanelTab>('profile')
+const worldNotes = ref<Record<string, WorldNotes>>({})
+const worldNotesDraft = ref<WorldNotes>({ log: '', patrons: '' })
 
 const jumpRatingOptions = [1, 2, 3, 4, 5, 6]
 
@@ -160,6 +171,7 @@ const navigationDebug = (...args: unknown[]) => {
 
 const selectedMapTarget = computed(() => mapFocusWorld.value ?? currentLocation.value)
 const jumpDestination = computed(() => selectedWorld.value)
+const selectedWorldKey = computed(() => selectedWorld.value ? `${selectedWorld.value.sector}::${selectedWorld.value.hex}` : '')
 const jumpCalculatorStatus = computed(() => {
   if (jumpCalculationLoading.value) return 'Plotting jump route...'
   if (jumpCalculationError.value) return jumpCalculationError.value
@@ -233,6 +245,53 @@ const systemBadges = computed(() => {
   return badges
 })
 
+const worldPanelTabs = computed<Array<{ id: WorldPanelTab; label: string }>>(() => [
+  { id: 'profile', label: 'Profile' },
+  { id: 'survey', label: 'Survey' },
+  { id: 'notes', label: 'GM Notes' },
+])
+
+const worldSurveyNarrative = computed(() => {
+  if (!selectedWorld.value) return []
+  const items: Array<{ label: string; text: string }> = []
+  const world = selectedWorld.value
+  const parts = splitUwp.value
+  if (parts) {
+    const starport = starportLabels[parts.starport] ?? 'Unknown'
+    const atmosphere = atmosphereLabels[parts.atmosphere] ?? 'Unknown atmosphere'
+    const population = populationDisplay.value?.long ?? 'unknown population'
+    const tl = travellerHexValue(parts.techLevel)
+    items.push({
+      label: 'World Profile',
+      text: `${world.name || 'This world'} has a ${starport.toLowerCase()} starport, ${atmosphere.toLowerCase()} atmosphere, and an estimated population of ${population}.`,
+    })
+    items.push({
+      label: 'Operations',
+      text: `Law level ${travellerHexValue(parts.law) ?? parts.law}; ${tl === null ? `tech level ${parts.techLevel}` : `TL ${tl}`}. Check local restrictions before landing, trading, or moving military equipment through the port.`,
+    })
+  }
+  if (world.remarks) {
+    const grouped = tradeProfileGroups.value
+      .map((group) => `${group.label}: ${group.items.map((item) => item.label).join(', ')}`)
+      .join(' · ')
+    items.push({ label: 'Remarks', text: grouped || world.remarks })
+  }
+  if (world.stellar) items.push({ label: 'Primary', text: world.stellar })
+  return items
+})
+
+const worldSurveyMapUrl = computed(() => {
+  if (!selectedWorld.value?.sector || !selectedWorld.value?.hex) return ''
+  const url = new URL('https://travellermap.com/api/jumpmap')
+  url.searchParams.set('sector', selectedWorld.value.sector)
+  url.searchParams.set('hex', selectedWorld.value.hex)
+  url.searchParams.set('jump', '1')
+  url.searchParams.set('scale', '48')
+  url.searchParams.set('style', 'candy')
+  url.searchParams.set('options', '9207')
+  return url.toString()
+})
+
 const uwpRows = computed<UwpReferenceRow[]>(() => {
   if (!splitUwp.value) return []
   const parts = splitUwp.value
@@ -275,6 +334,8 @@ const worldMetaRows = computed(() => {
   ]
 })
 
+const defaultWorldNotes = (): WorldNotes => ({ log: '', patrons: '' })
+
 const saveNavigationState = () => {
   if (!import.meta.client) return
   try {
@@ -285,6 +346,15 @@ const saveNavigationState = () => {
     }))
   } catch {
     // Navigation persistence should never block page use.
+  }
+}
+
+const saveWorldNotes = () => {
+  if (!import.meta.client) return
+  try {
+    window.localStorage.setItem(NAVIGATION_WORLD_NOTES_KEY, JSON.stringify(worldNotes.value))
+  } catch {
+    // Notes are local convenience data; failures should not block navigation.
   }
 }
 
@@ -303,6 +373,16 @@ const restoreNavigationState = () => {
     selectedWorld.value = null
     mapFocusWorld.value = null
     currentLocation.value = null
+  }
+}
+
+const restoreWorldNotes = () => {
+  if (!import.meta.client) return
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(NAVIGATION_WORLD_NOTES_KEY) ?? '{}') as Record<string, WorldNotes>
+    worldNotes.value = parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {}
+  } catch {
+    worldNotes.value = {}
   }
 }
 
@@ -505,6 +585,19 @@ watch(searchQuery, () => {
 })
 
 watch([selectedWorld, mapFocusWorld, currentLocation], saveNavigationState, { deep: true })
+watch(selectedWorldKey, (key) => {
+  activeWorldTab.value = 'profile'
+  worldNotesDraft.value = key ? { ...defaultWorldNotes(), ...(worldNotes.value[key] ?? {}) } : defaultWorldNotes()
+}, { immediate: true })
+watch(worldNotesDraft, (notes) => {
+  const key = selectedWorldKey.value
+  if (!key) return
+  worldNotes.value = {
+    ...worldNotes.value,
+    [key]: { ...notes },
+  }
+  saveWorldNotes()
+}, { deep: true })
 watch([
   selectedWorld,
   jumpRating,
@@ -519,6 +612,7 @@ watch([
 watch(mapUrl, (url) => navigationDebug('map url', url), { immediate: true })
 
 onMounted(() => {
+  restoreWorldNotes()
   restoreNavigationState()
   window.addEventListener('message', handleTravellerMapMessage)
 })
@@ -703,53 +797,114 @@ onBeforeUnmount(() => {
                   </div>
                 </div>
 
-                <section v-if="worldAlerts.length" class="navigation-intel-section">
-                  <p class="navigation-intel-heading">GM Intel</p>
-                  <div class="navigation-alert-grid">
-                    <article v-for="alert in worldAlerts" :key="alert.label" :class="['navigation-alert', `navigation-alert--${alert.tone}`]">
-                      <strong>{{ alert.label }}</strong>
-                      <span>{{ alert.detail }}</span>
-                    </article>
-                  </div>
-                </section>
-
-                <div v-if="systemBadges.length" class="navigation-badges">
-                  <span v-for="badge in systemBadges" :key="`${badge.label}-${badge.tone}`" :class="['navigation-badge', `navigation-badge--${badge.tone}`]">
-                    {{ badge.label }}
-                  </span>
-                </div>
-
-                <section v-if="tradeCodes.length" class="navigation-intel-section">
-                  <p class="navigation-intel-heading">Trade Profile</p>
-                  <div class="navigation-trade-groups">
-                    <div
-                      v-for="group in tradeProfileGroups"
-                      :key="group.label"
-                      class="navigation-trade-group"
-                    >
-                      <span>{{ group.label }}</span>
-                      <strong>{{ group.items.map((item) => item.label).join(', ') }}</strong>
-                    </div>
-                  </div>
-                </section>
-
-                <div class="navigation-stat-table">
+                <div class="navigation-world-tabs" role="tablist" aria-label="Selected world details">
                   <button
-                    v-for="row in uwpRows"
-                    :key="row.id"
-                    class="navigation-stat-row navigation-stat-row--button"
+                    v-for="tab in worldPanelTabs"
+                    :key="tab.id"
+                    :class="['navigation-world-tab', { 'navigation-world-tab--active': activeWorldTab === tab.id }]"
                     type="button"
-                    @click="openWorldReference(row.id)"
+                    role="tab"
+                    :aria-selected="activeWorldTab === tab.id"
+                    @click="activeWorldTab = tab.id"
                   >
-                    <span>{{ row.label }}</span>
-                    <strong>{{ row.value }}</strong>
+                    {{ tab.label }}
                   </button>
                 </div>
 
-                <div class="navigation-stat-table navigation-stat-table--meta">
-                  <div v-for="row in worldMetaRows" :key="row.label" class="navigation-stat-row">
-                    <span>{{ row.label }}</span>
-                    <strong>{{ row.value }}</strong>
+                <div v-if="activeWorldTab === 'profile'">
+                  <section v-if="worldAlerts.length" class="navigation-intel-section">
+                    <p class="navigation-intel-heading">GM Intel</p>
+                    <div class="navigation-alert-grid">
+                      <article v-for="alert in worldAlerts" :key="alert.label" :class="['navigation-alert', `navigation-alert--${alert.tone}`]">
+                        <strong>{{ alert.label }}</strong>
+                        <span>{{ alert.detail }}</span>
+                      </article>
+                    </div>
+                  </section>
+
+                  <div v-if="systemBadges.length" class="navigation-badges">
+                    <span v-for="badge in systemBadges" :key="`${badge.label}-${badge.tone}`" :class="['navigation-badge', `navigation-badge--${badge.tone}`]">
+                      {{ badge.label }}
+                    </span>
+                  </div>
+
+                  <section v-if="tradeCodes.length" class="navigation-intel-section">
+                    <p class="navigation-intel-heading">Trade Profile</p>
+                    <div class="navigation-trade-groups">
+                      <div
+                        v-for="group in tradeProfileGroups"
+                        :key="group.label"
+                        class="navigation-trade-group"
+                      >
+                        <span>{{ group.label }}</span>
+                        <strong>{{ group.items.map((item) => item.label).join(', ') }}</strong>
+                      </div>
+                    </div>
+                  </section>
+
+                  <div class="navigation-stat-table">
+                    <button
+                      v-for="row in uwpRows"
+                      :key="row.id"
+                      class="navigation-stat-row navigation-stat-row--button"
+                      type="button"
+                      @click="openWorldReference(row.id)"
+                    >
+                      <span>{{ row.label }}</span>
+                      <strong>{{ row.value }}</strong>
+                    </button>
+                  </div>
+
+                  <div class="navigation-stat-table navigation-stat-table--meta">
+                    <div v-for="row in worldMetaRows" :key="row.label" class="navigation-stat-row">
+                      <span>{{ row.label }}</span>
+                      <strong>{{ row.value }}</strong>
+                    </div>
+                  </div>
+                </div>
+
+                <div v-else-if="activeWorldTab === 'survey'" class="navigation-survey-panel">
+                  <section class="navigation-intel-section">
+                    <p class="navigation-intel-heading">Survey Notes</p>
+                    <div v-if="worldSurveyNarrative.length" class="navigation-survey-list">
+                      <article v-for="item in worldSurveyNarrative" :key="item.label" class="navigation-survey-note">
+                        <strong>{{ item.label }}</strong>
+                        <span>{{ item.text }}</span>
+                      </article>
+                    </div>
+                    <p v-else class="navigation-empty">No descriptive survey text is available for this world.</p>
+                  </section>
+
+                  <section class="navigation-intel-section">
+                    <p class="navigation-intel-heading">Local Map</p>
+                    <figure class="navigation-survey-map">
+                      <img v-if="worldSurveyMapUrl" :src="worldSurveyMapUrl" :alt="`${selectedWorld.name} local jump map`">
+                      <figcaption>
+                        Traveller Map exposes rendered map images and world profile data. Long-form planet flavour text is not present in the current API response.
+                      </figcaption>
+                    </figure>
+                  </section>
+                </div>
+
+                <div v-else class="navigation-notes-panel">
+                  <label class="navigation-note-field">
+                    <span>Session Notes</span>
+                    <textarea
+                      v-model="worldNotesDraft.log"
+                      rows="7"
+                      placeholder="Local discoveries, rumours, hazards, factions, landing notes..."
+                    ></textarea>
+                  </label>
+                  <label class="navigation-note-field">
+                    <span>Patrons & Hooks</span>
+                    <textarea
+                      v-model="worldNotesDraft.patrons"
+                      rows="6"
+                      placeholder="Patrons, rivals, jobs, payment terms, unresolved leads..."
+                    ></textarea>
+                  </label>
+                  <div class="navigation-map-status">
+                    Notes are saved locally for {{ selectedWorld.sector }} {{ selectedWorld.hex }} and can be connected to Traveller logs in a later pass.
                   </div>
                 </div>
               </div>
@@ -1369,6 +1524,42 @@ onBeforeUnmount(() => {
   white-space: nowrap;
 }
 
+.navigation-world-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.35rem;
+  margin-top: 1rem;
+  border-bottom: 1px solid rgba(34, 211, 238, 0.22);
+  padding-bottom: 0.45rem;
+}
+
+.navigation-world-tab {
+  min-width: 0;
+  min-height: 2.25rem;
+  border: 1px solid rgba(34, 211, 238, 0.3);
+  background:
+    linear-gradient(135deg, rgba(8, 47, 73, 0.46), rgba(2, 6, 23, 0.88));
+  color: #bfdbfe;
+  font-size: 0.7rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px));
+}
+
+.navigation-world-tab:hover,
+.navigation-world-tab:focus-visible,
+.navigation-world-tab--active {
+  border-color: rgba(103, 232, 249, 0.85);
+  background:
+    linear-gradient(180deg, rgba(14, 116, 144, 0.72), rgba(8, 47, 73, 0.46)),
+    rgba(2, 6, 23, 0.9);
+  color: #f8fafc;
+  box-shadow:
+    inset 0 0 18px rgba(34, 211, 238, 0.12),
+    0 0 16px rgba(34, 211, 238, 0.12);
+}
+
 .navigation-badges {
   display: flex;
   flex-wrap: wrap;
@@ -1451,6 +1642,83 @@ onBeforeUnmount(() => {
 
 .navigation-alert--info {
   border-color: rgba(56, 189, 248, 0.34);
+}
+
+.navigation-survey-list,
+.navigation-notes-panel {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.navigation-survey-note {
+  display: grid;
+  gap: 0.25rem;
+  border: 1px solid rgba(34, 211, 238, 0.22);
+  background: rgba(2, 6, 23, 0.44);
+  padding: 0.7rem 0.8rem;
+}
+
+.navigation-survey-note strong,
+.navigation-note-field span {
+  color: #67e8f9;
+  font-size: 0.7rem;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.navigation-survey-note span {
+  color: #dbeafe;
+  font-size: 0.84rem;
+  line-height: 1.45;
+}
+
+.navigation-survey-map {
+  display: grid;
+  gap: 0.55rem;
+  margin: 0.55rem 0 0;
+}
+
+.navigation-survey-map img {
+  display: block;
+  width: 100%;
+  min-height: 12rem;
+  border: 1px solid rgba(34, 211, 238, 0.24);
+  background: rgba(2, 6, 23, 0.78);
+  object-fit: cover;
+  clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px));
+}
+
+.navigation-survey-map figcaption {
+  color: #9cc9df;
+  font-size: 0.76rem;
+  line-height: 1.4;
+}
+
+.navigation-note-field {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.navigation-note-field textarea {
+  width: 100%;
+  resize: vertical;
+  min-height: 8rem;
+  border: 1px solid rgba(34, 211, 238, 0.34);
+  background:
+    linear-gradient(135deg, rgba(8, 47, 73, 0.42), rgba(2, 6, 23, 0.9));
+  color: #e0f2fe;
+  font: inherit;
+  font-size: 0.86rem;
+  line-height: 1.45;
+  outline: none;
+  padding: 0.75rem 0.85rem;
+  clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px));
+}
+
+.navigation-note-field textarea:focus {
+  border-color: rgba(103, 232, 249, 0.9);
+  box-shadow: 0 0 18px rgba(34, 211, 238, 0.16);
 }
 
 .navigation-trade-groups {
@@ -1766,7 +2034,7 @@ onBeforeUnmount(() => {
     align-items: center;
     justify-content: space-between;
     gap: 0.75rem;
-    padding-left: 0.45rem;
+    padding-left: 0.85rem;
   }
 
   .navigation-planner-toggle strong {
