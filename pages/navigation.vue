@@ -40,16 +40,19 @@ type TravellerMapCoordinates = {
   hy: number | null
 }
 
+type JumpRouteStop = {
+  name: string
+  sector: string
+  hex: string
+  coordinates: TravellerMapCoordinates | null
+}
+
 type JumpCalculationResult = {
   origin: NavigationWorld
   destination: NavigationWorld
-  originCoordinates: TravellerMapCoordinates
-  destinationCoordinates: TravellerMapCoordinates
-  directDistance: number
   jumpRating: number
-  reachableDirectly: boolean
   routeFound: boolean | null
-  routeStops: number | null
+  routeStops: JumpRouteStop[]
 }
 
 const NAVIGATION_STATE_KEY = 'scoutsuite.navigation.v1'
@@ -70,19 +73,15 @@ const jumpRating = ref(2)
 const jumpCalculationLoading = ref(false)
 const jumpCalculationError = ref('')
 const jumpCalculationResult = ref<JumpCalculationResult | null>(null)
+const jumpRouteWildernessRefuel = ref(false)
+const jumpRouteImperialOnly = ref(false)
+const jumpRouteAvoidRedZones = ref(false)
+const jumpRouteAllowAnomalies = ref(false)
+const jumpRoutePlannerExpanded = ref(false)
 
 const jumpRatingOptions = [1, 2, 3, 4, 5, 6]
 
 let searchTimer: ReturnType<typeof setTimeout> | null = null
-
-const firstPayloadRecord = (payload: unknown): Record<string, unknown> => {
-  if (Array.isArray(payload)) {
-    const first = payload.find((item): item is Record<string, unknown> => Boolean(item && typeof item === 'object' && !Array.isArray(item)))
-    return first ?? {}
-  }
-  if (payload && typeof payload === 'object' && !Array.isArray(payload)) return payload as Record<string, unknown>
-  return {}
-}
 
 const numericPayloadValue = (record: Record<string, unknown>, keys: string[]) => {
   for (const key of keys) {
@@ -92,11 +91,19 @@ const numericPayloadValue = (record: Record<string, unknown>, keys: string[]) =>
   return null
 }
 
-const normalizeTravellerMapCoordinates = (payload: unknown): TravellerMapCoordinates => {
-  const record = firstPayloadRecord(payload)
+const recordTextValue = (record: Record<string, unknown>, keys: string[]) => {
+  for (const key of keys) {
+    const value = record[key]
+    if (typeof value === 'string' && value.trim()) return value.trim()
+    if (typeof value === 'number' && Number.isFinite(value)) return String(value)
+  }
+  return ''
+}
+
+const coordinatesFromRecord = (record: Record<string, unknown>): TravellerMapCoordinates | null => {
   const x = numericPayloadValue(record, ['x', 'X'])
   const y = numericPayloadValue(record, ['y', 'Y'])
-  if (x === null || y === null) throw new Error('Traveller Map did not return usable coordinates.')
+  if (x === null || y === null) return null
   return {
     x,
     y,
@@ -107,9 +114,41 @@ const normalizeTravellerMapCoordinates = (payload: unknown): TravellerMapCoordin
   }
 }
 
-const routeStopCount = (payload: unknown) => {
-  const rows = parseTravellerMapRows(payload)
-  return rows.length || null
+const routePayloadRows = (payload: unknown): Record<string, unknown>[] => {
+  if (Array.isArray(payload)) {
+    return payload.filter((item): item is Record<string, unknown> => Boolean(item && typeof item === 'object' && !Array.isArray(item)))
+  }
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return []
+  const record = payload as Record<string, unknown>
+  const rowCandidates = [
+    record.Route,
+    record.route,
+    record.Stops,
+    record.stops,
+    record.Worlds,
+    record.worlds,
+    record.Path,
+    record.path,
+  ]
+  const rows = rowCandidates.find(Array.isArray)
+  if (Array.isArray(rows)) {
+    return rows.filter((item): item is Record<string, unknown> => Boolean(item && typeof item === 'object' && !Array.isArray(item)))
+  }
+  return parseTravellerMapRows(payload)
+}
+
+const normalizeRouteStops = (payload: unknown, fallbackSector: string) => {
+  const rows = routePayloadRows(payload)
+  const stops = rows.map((row) => {
+    const normalized = normalizeTravellerMapWorld(row, fallbackSector)
+    const sector = normalized.sector || recordTextValue(row, ['Sector', 'sector']) || fallbackSector
+    const hex = normalized.hex || recordTextValue(row, ['Hex', 'hex'])
+    const name = normalized.name
+      || recordTextValue(row, ['Name', 'name', 'WorldName', 'worldName', 'World', 'world', 'Location', 'location'])
+      || [sector, hex].filter(Boolean).join(' ')
+    return { name, sector, hex, coordinates: coordinatesFromRecord(row) }
+  })
+  return stops.filter((stop) => stop.name || stop.hex || stop.coordinates)
 }
 
 const travellerMapLocation = (world: NavigationWorld) => `${world.sector} ${world.hex}`
@@ -122,24 +161,23 @@ const navigationDebug = (...args: unknown[]) => {
 const selectedMapTarget = computed(() => mapFocusWorld.value ?? currentLocation.value)
 const jumpDestination = computed(() => selectedWorld.value)
 const jumpCalculatorStatus = computed(() => {
-  if (jumpCalculationLoading.value) return 'Calculating jump distance...'
+  if (jumpCalculationLoading.value) return 'Plotting jump route...'
   if (jumpCalculationError.value) return jumpCalculationError.value
   if (jumpCalculationResult.value) {
     const result = jumpCalculationResult.value
-    const direct = result.reachableDirectly ? `within Jump-${result.jumpRating}` : `beyond Jump-${result.jumpRating}`
-    const route = result.routeFound === null
-      ? ''
-      : result.routeFound
-        ? ` Traveller Map route found${result.routeStops ? ` with ${Math.max(0, result.routeStops - 1)} jumps` : ''}.`
-        : ' No Traveller Map route found at that rating.'
-    return `${result.directDistance} parsecs direct, ${direct}.${route}`
+    const routeJumps = result.routeStops.length > 1 ? result.routeStops.length - 1 : null
+    if (result.routeFound) {
+      const jumpSummary = routeJumps === null ? 'Origin and destination are the same system.' : `${routeJumps} jump${routeJumps === 1 ? '' : 's'} at Jump-${result.jumpRating}.`
+      return `Route plotted by Traveller Map. ${jumpSummary}`
+    }
+    return `No Traveller Map route found at Jump-${result.jumpRating} under the selected constraints.`
   }
-  if (!currentLocation.value) return 'Set a current location to anchor jump calculations.'
+  if (!currentLocation.value) return 'Set a current location to anchor route plotting.'
   if (!jumpDestination.value) return 'Select a destination system from search or the map.'
   if (currentLocation.value.sector === jumpDestination.value.sector && currentLocation.value.hex === jumpDestination.value.hex) {
     return 'Origin and destination are the same system.'
   }
-  return 'Ready for Traveller Map coordinate distance lookup.'
+  return 'Ready to plot a Traveller Map route.'
 })
 const mapUrl = computed(() => {
   const url = new URL('https://travellermap.com/')
@@ -154,15 +192,9 @@ const mapUrl = computed(() => {
   }
 
   if (currentLocation.value?.sector && currentLocation.value?.hex) {
-    url.searchParams.set('yah_sector', currentLocation.value.sector)
-    url.searchParams.set('yah_hex', currentLocation.value.hex)
-  }
-
-  if (jumpCalculationResult.value?.originCoordinates) {
-    url.searchParams.set('ocx', String(jumpCalculationResult.value.originCoordinates.x))
-    url.searchParams.set('ocy', String(jumpCalculationResult.value.originCoordinates.y))
-    url.searchParams.set('ocr', String(jumpCalculationResult.value.jumpRating))
-    url.searchParams.set('ocs', 'rgba(34,211,238,0.18)')
+    url.searchParams.set('marker_url', 'res/markers/scout.png')
+    url.searchParams.set('marker_sector', currentLocation.value.sector)
+    url.searchParams.set('marker_hex', currentLocation.value.hex)
   }
 
   return url.toString()
@@ -384,59 +416,74 @@ const setCurrentLocation = () => {
   saveNavigationState()
 }
 
-const calculateJumpDistance = async () => {
+const jumpRouteParams = (origin: NavigationWorld, destination: NavigationWorld) => {
+  const params: Record<string, string | number> = {
+    start: travellerMapLocation(origin),
+    end: travellerMapLocation(destination),
+    jump: jumpRating.value,
+  }
+  if (jumpRouteWildernessRefuel.value) params.wild = 1
+  if (jumpRouteImperialOnly.value) params.im = 1
+  if (jumpRouteAvoidRedZones.value) params.nored = 1
+  if (jumpRouteAllowAnomalies.value) params.anomaly = 1
+  return params
+}
+
+const plotJumpRoute = async () => {
   if (!currentLocation.value || !jumpDestination.value) return
   jumpCalculationLoading.value = true
   jumpCalculationError.value = ''
   jumpCalculationResult.value = null
   try {
-    const [originCoordinates, destinationCoordinates] = await Promise.all([
-      travellerMapJsonp('/api/coordinates', {
+    let routeFound: boolean | null = null
+    let routeStops: JumpRouteStop[] = []
+    if (currentLocation.value.sector === jumpDestination.value.sector && currentLocation.value.hex === jumpDestination.value.hex) {
+      routeFound = true
+      routeStops = [{
+        name: currentLocation.value.name || 'Current Location',
         sector: currentLocation.value.sector,
         hex: currentLocation.value.hex,
-      }, navigationDebug).then(normalizeTravellerMapCoordinates),
-      travellerMapJsonp('/api/coordinates', {
-        sector: jumpDestination.value.sector,
-        hex: jumpDestination.value.hex,
-      }, navigationDebug).then(normalizeTravellerMapCoordinates),
-    ])
-
-    const directDistance = Math.ceil(Math.hypot(
-      destinationCoordinates.x - originCoordinates.x,
-      destinationCoordinates.y - originCoordinates.y,
-    ) - 1e-9)
-
-    let routeFound: boolean | null = null
-    let routeStops: number | null = null
-    if (directDistance > 0) {
+        coordinates: null,
+      }]
+    } else {
       try {
-        const routePayload = await travellerMapJsonp('/api/route', {
-          start: travellerMapLocation(currentLocation.value),
-          end: travellerMapLocation(jumpDestination.value),
-          jump: jumpRating.value,
-        }, navigationDebug)
+        const routePayload = await travellerMapJsonp('/api/route', jumpRouteParams(currentLocation.value, jumpDestination.value), navigationDebug)
         routeFound = true
-        routeStops = routeStopCount(routePayload)
+        routeStops = normalizeRouteStops(routePayload, currentLocation.value.sector)
+        if (!routeStops.length) {
+          routeStops = [
+            {
+              name: currentLocation.value.name || 'Origin',
+              sector: currentLocation.value.sector,
+              hex: currentLocation.value.hex,
+              coordinates: null,
+            },
+            {
+              name: jumpDestination.value.name || 'Destination',
+              sector: jumpDestination.value.sector,
+              hex: jumpDestination.value.hex,
+              coordinates: null,
+            },
+          ]
+        }
       } catch (error) {
         routeFound = false
+        routeStops = []
         navigationDebug('route lookup failed', error)
       }
     }
+    navigationDebug('jump route stops', routeStops)
 
     jumpCalculationResult.value = {
       origin: { ...currentLocation.value },
       destination: { ...jumpDestination.value },
-      originCoordinates,
-      destinationCoordinates,
-      directDistance,
       jumpRating: jumpRating.value,
-      reachableDirectly: directDistance <= jumpRating.value,
       routeFound,
       routeStops,
     }
   } catch (error) {
-    jumpCalculationError.value = error instanceof Error ? error.message : 'Could not calculate jump distance.'
-    navigationDebug('jump calculation error', error)
+    jumpCalculationError.value = error instanceof Error ? error.message : 'Could not plot jump route.'
+    navigationDebug('jump route error', error)
   } finally {
     jumpCalculationLoading.value = false
   }
@@ -458,7 +505,14 @@ watch(searchQuery, () => {
 })
 
 watch([selectedWorld, mapFocusWorld, currentLocation], saveNavigationState, { deep: true })
-watch([selectedWorld, jumpRating], () => {
+watch([
+  selectedWorld,
+  jumpRating,
+  jumpRouteWildernessRefuel,
+  jumpRouteImperialOnly,
+  jumpRouteAvoidRedZones,
+  jumpRouteAllowAnomalies,
+], () => {
   jumpCalculationError.value = ''
   jumpCalculationResult.value = null
 })
@@ -493,7 +547,8 @@ onBeforeUnmount(() => {
 
         <div class="navigation-console">
           <aside class="navigation-panel navigation-panel--left">
-            <section class="navigation-card">
+            <div class="navigation-panel--left-scroll hud-scrollbar">
+              <section class="navigation-card navigation-card--search">
               <p class="navigation-card__label">System Search</p>
               <input
                 v-model="searchQuery"
@@ -503,7 +558,7 @@ onBeforeUnmount(() => {
               >
               <p v-if="searchLoading" class="navigation-muted">Searching Traveller Map...</p>
               <p v-else-if="searchError" class="navigation-warning">{{ searchError }}</p>
-              <div class="navigation-results hud-scrollbar">
+              <div class="navigation-results">
                 <button
                   v-for="result in searchResults"
                   :key="result.id"
@@ -516,46 +571,91 @@ onBeforeUnmount(() => {
                   <em>{{ result.uwp || 'No UWP' }}</em>
                 </button>
               </div>
-            </section>
+              </section>
 
-            <section class="navigation-card">
-              <p class="navigation-card__label">Jump Distance</p>
-              <div class="navigation-jump-route">
-                <div>
-                  <span>Origin</span>
-                  <strong>{{ currentLocation?.name || 'No current location' }}</strong>
-                  <em>{{ currentLocation ? `${currentLocation.sector} ${currentLocation.hex}` : 'Use crosshairs on a selected world' }}</em>
-                </div>
-                <div>
-                  <span>Destination</span>
-                  <strong>{{ jumpDestination?.name || 'No destination selected' }}</strong>
-                  <em>{{ jumpDestination ? `${jumpDestination.sector} ${jumpDestination.hex}` : 'Search or click a world' }}</em>
-                </div>
-              </div>
-              <label class="navigation-jump-rating">
-                <span>Jump Drive</span>
-                <select v-model.number="jumpRating" title="Select the ship Jump drive rating to check reach and route availability.">
-                  <option v-for="rating in jumpRatingOptions" :key="rating" :value="rating">
-                    Jump-{{ rating }}
-                  </option>
-                </select>
-              </label>
+              <section class="navigation-card navigation-card--jump-planner">
               <button
-                class="navigation-action"
+                class="navigation-planner-toggle"
                 type="button"
-                :disabled="!currentLocation || !jumpDestination || jumpCalculationLoading"
-                title="Calculate jump distance from the current location to the selected destination."
-                @click="calculateJumpDistance"
+                :aria-expanded="jumpRoutePlannerExpanded"
+                @click="jumpRoutePlannerExpanded = !jumpRoutePlannerExpanded"
               >
-                {{ jumpCalculationLoading ? 'Calculating...' : 'Calculate Jump Distance' }}
+                <span class="navigation-card__label">Jump Route Planner</span>
+                <strong aria-hidden="true">
+                  <AppIcon
+                    name="arrow"
+                    :class="['navigation-planner-toggle__icon', { 'navigation-planner-toggle__icon--expanded': jumpRoutePlannerExpanded }]"
+                  />
+                </strong>
               </button>
-              <p class="navigation-muted">
-                API-backed distance and route options will use Traveller Map coordinates.
-              </p>
-              <div class="navigation-map-status">
-                {{ jumpCalculatorStatus }}
+              <div :class="['navigation-planner-body', { 'navigation-planner-body--expanded': jumpRoutePlannerExpanded }]">
+                <div class="navigation-jump-route">
+                  <div>
+                    <span>Origin</span>
+                    <strong>{{ currentLocation?.name || 'No current location' }}</strong>
+                    <em>{{ currentLocation ? `${currentLocation.sector} ${currentLocation.hex}` : 'Use crosshairs on a selected world' }}</em>
+                  </div>
+                  <div>
+                    <span>Destination</span>
+                    <strong>{{ jumpDestination?.name || 'No destination selected' }}</strong>
+                    <em>{{ jumpDestination ? `${jumpDestination.sector} ${jumpDestination.hex}` : 'Search or click a world' }}</em>
+                  </div>
+                </div>
+                <label class="navigation-jump-rating">
+                  <span>Jump Drive</span>
+                  <select v-model.number="jumpRating" title="Select the ship Jump drive rating used by Traveller Map to plot each route leg.">
+                    <option v-for="rating in jumpRatingOptions" :key="rating" :value="rating">
+                      Jump-{{ rating }}
+                    </option>
+                  </select>
+                </label>
+                <div class="navigation-route-options">
+                  <label>
+                    <input v-model="jumpRouteWildernessRefuel" type="checkbox">
+                    <span>Wilderness refuelling</span>
+                  </label>
+                  <label>
+                    <input v-model="jumpRouteImperialOnly" type="checkbox">
+                    <span>Imperial worlds</span>
+                  </label>
+                  <label>
+                    <input v-model="jumpRouteAvoidRedZones" type="checkbox">
+                    <span>Avoid red zones</span>
+                  </label>
+                  <label>
+                    <input v-model="jumpRouteAllowAnomalies" type="checkbox">
+                    <span>Allow anomalies</span>
+                  </label>
+                </div>
+                <button
+                  class="navigation-action"
+                  type="button"
+                  :disabled="!currentLocation || !jumpDestination || jumpCalculationLoading"
+                  title="Plot a Traveller Map route from the current location to the selected destination."
+                  @click="plotJumpRoute"
+                >
+                  {{ jumpCalculationLoading ? 'Plotting...' : 'Plot Route' }}
+                </button>
+                <div class="navigation-map-status">
+                  {{ jumpCalculatorStatus }}
+                </div>
+                <p class="navigation-muted navigation-route-helper">
+                  Traveller Map supplies the route from the selected origin, destination, and Jump drive rating.
+                </p>
+                <ol
+                  v-if="jumpCalculationResult?.routeFound && jumpCalculationResult.routeStops.length"
+                  class="navigation-route-stops"
+                  aria-label="Traveller Map route stops"
+                >
+                  <li v-for="(stop, index) in jumpCalculationResult.routeStops" :key="`${stop.sector}-${stop.hex}-${index}`">
+                    <span>{{ index + 1 }}</span>
+                    <strong>{{ stop.name || 'Unnamed World' }}</strong>
+                    <em>{{ stop.sector }} {{ stop.hex }}</em>
+                  </li>
+                </ol>
               </div>
-            </section>
+              </section>
+            </div>
           </aside>
 
           <section class="navigation-map">
@@ -819,6 +919,24 @@ onBeforeUnmount(() => {
   min-height: 0;
 }
 
+.navigation-panel--left {
+  height: 72vh;
+  max-height: 72vh;
+  align-content: stretch;
+  overflow: hidden;
+}
+
+.navigation-panel--left-scroll {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-height: 0;
+  max-height: 100%;
+  overflow: auto;
+  padding-bottom: 1.25rem;
+  padding-right: 0.35rem;
+}
+
 .navigation-card,
 .navigation-map {
   border: 1px solid rgba(34, 211, 238, 0.28);
@@ -833,6 +951,38 @@ onBeforeUnmount(() => {
 
 .navigation-card {
   padding: 1rem;
+}
+
+.navigation-card--search,
+.navigation-card--jump-planner {
+  flex: 0 0 auto;
+  min-height: auto;
+}
+
+.navigation-card--jump-planner {
+  display: block;
+  overflow: visible;
+  padding-bottom: 1.15rem;
+}
+
+.navigation-planner-toggle {
+  display: block;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  padding: 0;
+  text-align: left;
+}
+
+.navigation-planner-toggle strong {
+  display: none;
+}
+
+.navigation-planner-body {
+  display: block;
+  min-height: max-content;
+  overflow: visible;
 }
 
 .navigation-search {
@@ -854,9 +1004,7 @@ onBeforeUnmount(() => {
 
 .navigation-results {
   display: grid;
-  max-height: 24rem;
   margin-top: 0.75rem;
-  overflow: auto;
   gap: 0.45rem;
 }
 
@@ -975,6 +1123,28 @@ onBeforeUnmount(() => {
   box-shadow: 0 0 18px rgba(34, 211, 238, 0.16);
 }
 
+.navigation-route-options {
+  display: grid;
+  gap: 0.45rem;
+  margin-top: 0.75rem;
+}
+
+.navigation-route-options label {
+  display: grid;
+  grid-template-columns: 1rem minmax(0, 1fr);
+  align-items: center;
+  gap: 0.5rem;
+  color: #bfdbfe;
+  font-size: 0.78rem;
+  font-weight: 750;
+}
+
+.navigation-route-options input {
+  width: 1rem;
+  aspect-ratio: 1;
+  accent-color: #22d3ee;
+}
+
 .navigation-map-status {
   margin-top: 0.85rem;
   border: 1px solid rgba(34, 211, 238, 0.24);
@@ -984,7 +1154,62 @@ onBeforeUnmount(() => {
   color: #bae6fd;
   font-size: 0.78rem;
   line-height: 1.4;
+  min-height: 2.35rem;
+  overflow-wrap: anywhere;
   padding: 0.65rem 0.75rem;
+}
+
+.navigation-route-helper {
+  margin-top: 0.55rem;
+}
+
+.navigation-route-stops {
+  display: grid;
+  gap: 0.35rem;
+  margin-top: 0.75rem;
+  padding: 0;
+  list-style: none;
+}
+
+.navigation-route-stops li {
+  display: grid;
+  grid-template-columns: 1.6rem minmax(0, 1fr);
+  column-gap: 0.5rem;
+  row-gap: 0.1rem;
+  align-items: center;
+  border: 1px solid rgba(34, 211, 238, 0.18);
+  background: rgba(2, 6, 23, 0.42);
+  padding: 0.5rem 0.6rem;
+}
+
+.navigation-route-stops span {
+  grid-row: span 2;
+  display: grid;
+  place-items: center;
+  width: 1.45rem;
+  aspect-ratio: 1;
+  border: 1px solid rgba(250, 204, 21, 0.45);
+  color: #fef08a;
+  font-size: 0.72rem;
+  font-weight: 950;
+}
+
+.navigation-route-stops strong,
+.navigation-route-stops em {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.navigation-route-stops strong {
+  color: #e0f2fe;
+  font-size: 0.8rem;
+  font-weight: 900;
+}
+
+.navigation-route-stops em {
+  color: #9cc9df;
+  font-size: 0.72rem;
+  font-style: normal;
 }
 
 .navigation-map {
@@ -1492,6 +1717,19 @@ onBeforeUnmount(() => {
     max-height: none;
   }
 
+  .navigation-panel--left {
+    height: auto;
+    max-height: none;
+    overflow: visible;
+  }
+
+  .navigation-panel--left-scroll {
+    max-height: none;
+    overflow: visible;
+    padding-bottom: 0;
+    padding-right: 0;
+  }
+
   .navigation-card--system {
     overflow: visible;
     padding-right: 1rem;
@@ -1521,6 +1759,47 @@ onBeforeUnmount(() => {
   .navigation-map__iframe {
     height: auto;
     min-height: 60vh;
+  }
+
+  .navigation-planner-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding-left: 0.45rem;
+  }
+
+  .navigation-planner-toggle strong {
+    display: grid;
+    place-items: center;
+    width: 1.55rem;
+    aspect-ratio: 1;
+    border: 1px solid rgba(34, 211, 238, 0.35);
+    background: rgba(8, 47, 73, 0.35);
+    color: #bae6fd;
+    font-size: 1rem;
+    font-weight: 900;
+    line-height: 1;
+    clip-path: polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px));
+  }
+
+  .navigation-planner-toggle__icon {
+    width: 0.8rem;
+    height: 0.8rem;
+    transform: rotate(90deg);
+    transition: transform 160ms ease;
+  }
+
+  .navigation-planner-toggle__icon--expanded {
+    transform: rotate(-90deg);
+  }
+
+  .navigation-planner-body {
+    display: none;
+  }
+
+  .navigation-planner-body--expanded {
+    display: block;
   }
 
   .navigation-uwp-strip {
@@ -1561,12 +1840,14 @@ onBeforeUnmount(() => {
   }
 
   .navigation-stat-row {
-    grid-template-columns: minmax(6.9rem, 0.48fr) minmax(0, 1fr);
+    grid-template-columns: minmax(6.4rem, 0.43fr) minmax(0, 0.57fr);
   }
 
   .navigation-stat-row span {
-    font-size: 0.68rem;
-    padding-right: 0.45rem;
+    font-size: 0.6rem;
+    overflow-wrap: normal;
+    padding-left: 0.45rem;
+    padding-right: 0.3rem;
   }
 
   .navigation-reference-modal {
