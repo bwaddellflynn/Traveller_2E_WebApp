@@ -163,7 +163,7 @@ The stock catalogue should include at least:
 | Free Trader | 171 |
 | Safari Ship | 173 |
 | System Defence Boat | 175 |
-| Yacht | 175 |
+| Yacht | 179 |
 | Jump Shuttle | 177 |
 | Close Escort, Gazelle class | 181 |
 | Fleet Courier | 183 |
@@ -251,116 +251,145 @@ Phase 5 should handle the small craft layer:
 
 1. Expand `TravellerShipRecord` into a summary-plus-components model instead of flattening ships into `jump`, `thrust`, `crew`, and `cost` strings.
 2. Populate stock ship summaries first, then add component tables for a smaller pilot set: Scout/Courier, Free Trader, Far Trader, Yacht, System Defence Boat, and Fleet Courier.
-3. Rebuild Shipyard as two views: `Stock Ships` and `Custom Ship Builder`.
+3. Rebuild Shipyard as three views: `Stock Ships`, `Custom Ships`, and an integrated visual `Ship Builder`.
 4. Model the builder around the 13-step High Guard sequence, with live tonnage, cost, power, crew, hardpoint, and fuel accounting.
 5. Treat capital ships as supported by the data model, but start the custom builder UX around adventure-class spacecraft of 100 tons or more.
 6. Keep higher-tech/exotic systems selectable only as reference/manual entries until the core High Guard systems validate correctly.
 7. Use PDF stock designs as regression scenarios once the builder can reproduce component totals.
+8. Make bookkeeping authoritative and use the visual deck plan as a reconciliation layer: placeable components must match required tons, while abstract/distributed systems remain ledger-only unless explicitly represented.
 
 ## Phase 4 TODO
 
 ### 1. Define Ship Data Model
 
-- [ ] Expand `TravellerShipRecord` beyond summary fields.
-- [ ] Add component entries for hull, drives, fuel, power, bridge, computer, sensors, weapons, screens, options, crew, accommodations, cargo, software, carried craft placeholders, and notes.
-- [ ] Add cost structures for total cost, purchase cost, standard-design discount, monthly maintenance, and life support notes.
-- [ ] Add derived fields for Hull points, tons used, tons remaining, Power generated, Power required, hardpoints, bandwidth, crew, and cargo.
+- [x] Expand `TravellerShipRecord` beyond summary fields.
+- [x] Add component entries for hull, drives, fuel, power, bridge, computer, sensors, weapons, screens, options, crew, accommodations, cargo, software, carried craft placeholders, and notes.
+- [x] Add cost structures for total cost, purchase cost, standard-design discount, monthly maintenance, and life support notes.
+- [x] Add derived fields for Hull points, tons used, tons remaining, Power generated, Power required, hardpoints, bandwidth, crew, and cargo.
 
 ### 2. Create Custom Ship Design Type
 
-- [ ] Add a `CustomShipDesign` type for user-built spacecraft.
-- [ ] Include build brief fields: name, role, standard/new design, shipyard TL, commercial/military mode, target budget, intended tonnage, jump target, thrust target, crew/passenger/cargo goals, and notes.
-- [ ] Include builder selections for hull, drives, fuel, power plant, bridge, computer, sensors, weapons/screens, options, crew, accommodations, and cargo.
-- [ ] Include a layout placeholder for future visual deck/grid work.
+- [x] Add a `CustomShipDesign` type for user-built spacecraft.
+- [x] Include build brief fields: name, role, standard/new design, shipyard TL, commercial/military mode, target budget, intended tonnage, jump target, thrust target, crew/passenger/cargo goals, and notes.
+- [x] Include builder selections for hull, drives, fuel, power plant, bridge, computer, sensors, weapons/screens, options, crew, accommodations, and cargo.
+- [x] Include a layout placeholder for future visual deck/grid work.
 
 ### 3. Add High Guard Rule Tables
 
-- [ ] Add rule tables in `utils/traveller/shipBuilder.ts`, or split them from `utils/traveller/ships.ts` into a dedicated module.
-- [ ] Add hull configuration, hull armour, specialised hull, additional hull, and hull option rules.
-- [ ] Add manoeuvre drive, reaction drive, jump drive, power plant, fuel, bridge, computer/core, sensor, stateroom, low berth, crew, and hardpoint rules.
-- [ ] Keep small craft-only rules out of Phase 4 except where they are needed as placeholders for later compatibility.
+- [x] Add rule tables in `utils/traveller/shipBuilder.ts`, or split them from `utils/traveller/ships.ts` into a dedicated module.
+- [x] Add hull configuration, hull armour, specialised hull, additional hull, and hull option rules.
+- [x] Add manoeuvre drive, reaction drive, jump drive, power plant, fuel, bridge, computer/core, sensor, stateroom, low berth, crew, and hardpoint rules.
+- [x] Keep small craft-only rules out of Phase 4 except where they are needed as placeholders for later compatibility.
 
 ### 4. Build Derived Accounting Engine
 
-- [ ] Calculate hull cost and Hull points.
-- [ ] Calculate drive tons/cost and thrust/jump outputs.
-- [ ] Calculate jump fuel, reaction fuel if supported, and power plant fuel endurance.
-- [ ] Calculate power plant output and Power requirements for basic systems, manoeuvre, jump, sensors, weapons, screens, and options.
-- [ ] Calculate software bandwidth used and available.
-- [ ] Calculate hardpoints used and available.
-- [ ] Calculate crew requirements by commercial/military mode, including large-ship crew reductions.
-- [ ] Calculate tons used, tons remaining, cargo, total cost, purchase cost, and monthly maintenance.
+- [x] Calculate hull cost and Hull points.
+- [x] Calculate drive tons/cost and thrust/jump outputs.
+- [x] Calculate jump fuel, reaction fuel if supported, and power plant fuel endurance.
+- [x] Calculate power plant output and Power requirements for basic systems, manoeuvre, jump, sensors, weapons, screens, and options.
+- [x] Calculate software bandwidth used and available.
+- [x] Calculate hardpoints used and available.
+- [x] Calculate crew requirements by commercial/military mode, including large-ship crew reductions.
+- [x] Calculate tons used, tons remaining, cargo, total cost, purchase cost, and monthly maintenance.
 
 ### 5. Expand Stock Ship Display
 
-- [ ] Replace the one-row High Guard seed with stock spacecraft summary rows from the catalogue.
-- [ ] Exclude small craft records from the Phase 4 stock list and move them to Phase 5.
-- [ ] Upgrade `/shipyard` selected-ship display to show detailed datasheets.
-- [ ] Add detailed component records for the pilot stock spacecraft set: Scout/Courier, Free Trader, Far Trader, Yacht, System Defence Boat, and Fleet Courier.
+- [x] Replace the one-row High Guard seed with stock spacecraft summary rows from the catalogue.
+- [x] Exclude small craft records from the Phase 4 stock list and move them to Phase 5.
+- [x] Upgrade `/shipyard` selected-ship display to show detailed datasheets.
+- [x] Add detailed component records for the pilot stock spacecraft set: Scout/Courier, Free Trader, Far Trader, Yacht, System Defence Boat, and Fleet Courier.
 
 ### 6. Create Shipyard Tabs
 
-- [ ] Add `Stock Ships`, `Custom Ships`, and `Ship Builder` views.
-- [ ] Keep the layout consistent with the existing Garage pattern where practical.
-- [ ] Add search, category filtering, sorting, and selected-ship details for stock spacecraft.
+- [x] Add `Stock Ships`, `Custom Ships`, and `Ship Builder` views.
+- [x] Keep the layout consistent with the existing Garage pattern where practical.
+- [x] Add search, category filtering, sorting, and selected-ship details for stock spacecraft.
 
 ### 7. Create 13-Step Builder Shell
 
-- [ ] Setup.
-- [ ] Hull.
-- [ ] Drives.
-- [ ] Fuel.
-- [ ] Power Plant.
-- [ ] Bridge.
-- [ ] Computer.
-- [ ] Sensors.
-- [ ] Weapons.
-- [ ] Options.
-- [ ] Crew.
-- [ ] Accommodations & Cargo.
-- [ ] Review.
+- [x] Setup.
+- [x] Hull.
+- [x] Drives.
+- [x] Fuel.
+- [x] Power Plant.
+- [x] Bridge.
+- [x] Computer.
+- [x] Sensors.
+- [x] Weapons.
+- [x] Options.
+- [x] Crew.
+- [x] Accommodations & Cargo.
+- [x] Review.
 
 The step labels can be adjusted for UI clarity, but the builder should preserve the High Guard design sequence in descriptions and validation.
 
 ### 8. Add Persistent Ship Ledger Panel
 
-- [ ] Show tons used and total hull tons.
-- [ ] Show remaining tons.
-- [ ] Show MCr total and purchase cost.
-- [ ] Show Power generated and Power required.
-- [ ] Show jump fuel and fuel endurance.
-- [ ] Show hardpoints used.
-- [ ] Show software bandwidth used.
-- [ ] Show required crew.
-- [ ] Show monthly maintenance.
+- [x] Show tons used and total hull tons.
+- [x] Show remaining tons.
+- [x] Show MCr total and purchase cost.
+- [x] Show Power generated and Power required.
+- [x] Show jump fuel and fuel endurance.
+- [x] Show hardpoints used.
+- [x] Show software bandwidth used.
+- [x] Show required crew.
+- [x] Show monthly maintenance.
 
 ### 9. Add Validation
 
-- [ ] Validate spacecraft minimum 100 tons.
-- [ ] Validate tonnage does not exceed hull tons.
-- [ ] Validate TL minimums.
-- [ ] Validate sufficient Power or explicitly mark power trade-offs.
-- [ ] Validate jump fuel and power plant fuel requirements.
-- [ ] Validate bridge is present and correctly sized.
-- [ ] Validate computer bandwidth.
-- [ ] Validate hardpoint limits.
-- [ ] Validate crew/stateroom mismatch warnings.
-- [ ] Validate cargo cannot go negative.
+- [x] Validate spacecraft minimum 100 tons.
+- [x] Validate tonnage does not exceed hull tons.
+- [x] Validate TL minimums.
+- [x] Validate sufficient Power or explicitly mark power trade-offs.
+- [x] Validate jump fuel and power plant fuel requirements.
+- [x] Validate bridge is present and correctly sized.
+- [x] Validate computer bandwidth.
+- [x] Validate hardpoint limits.
+- [x] Validate crew/stateroom mismatch warnings.
+- [x] Validate cargo cannot go negative.
 
-### 10. Save Custom Ships
+### 10. Add Integrated Visual Builder Foundation
+
+- [x] Keep the 13-step workflow, ship ledger, component tray, and deck canvas visible as one builder experience.
+- [x] Add a deck grid surface inside the `Ship Builder` tab.
+- [x] Add deck controls for deck name, grid dimensions, and tons per cell.
+- [x] Generate an unplaced component tray from `shipConstructionSummary().components`.
+- [x] Distinguish placeable components from `abstract`, `distributed`, and `exterior` ledger-only components.
+- [x] Allow simple grid placement for required/derived/optional area components.
+- [x] Store placements in `CustomShipLayout.placements`.
+- [x] Show placed tons vs required tons for each visual component.
+- [x] Highlight unplaced, under-sized, over-sized, or invalid placement states.
+- [x] Keep rules accounting authoritative even when visual placement is incomplete.
+- [x] Add direct manipulation for moving and resizing placed components.
+- [x] Add pointer drag movement and corner-handle resizing with grid snapping.
+- [x] Add overlap validation and visual conflict feedback.
+- [ ] Add multi-deck creation and deck switching.
+
+### 11. Save Custom Ships
 
 - [ ] Persist custom spacecraft through the Shipyard store.
 - [ ] Support editing, cloning, deleting, and resuming custom ship drafts.
 - [ ] Normalize saved custom ships before rendering or validation.
 
-### 11. Prepare Visual Layout Model
+### 12. Fill Builder Step Editors
 
-- [ ] Add layout data structures without building the full visual editor yet.
-- [ ] Model decks, grid scale, component placements, and placement policy.
+- [ ] Flesh out Setup fields beyond the initial shell.
+- [ ] Flesh out Hull controls for configuration, armour, specialised hulls, additional hulls, and hull options.
+- [ ] Flesh out Drives, Fuel, Power Plant, Bridge, Computer, and Sensors with full rule-table selectors.
+- [ ] Add Weapons and Screens editors with hardpoint accounting.
+- [ ] Add Options editor for ship systems and High Guard options.
+- [ ] Add Crew editor that can accept manual overrides while preserving generated requirements.
+- [ ] Add Accommodations & Cargo editor with staterooms, berths, common areas, passengers, and cargo.
+- [ ] Add Review controls for save readiness and validation issue navigation.
+
+### 13. Prepare Visual Layout Model
+
+- [x] Add layout data structures without building the full visual editor yet.
+- [x] Model decks, grid scale, component placements, and placement policy.
 - [ ] Support placement policies such as `required-area`, `derived-area`, `optional-area`, `distributed`, `exterior`, and `abstract`.
-- [ ] Keep rules accounting authoritative while allowing future grid cells to represent tonnage.
+- [x] Keep rules accounting authoritative while allowing future grid cells to represent tonnage.
 
-### 12. Regression Targets
+### 14. Regression Targets
 
 - [ ] Use Scout/Courier as the first stock-vs-builder regression case.
 - [ ] Use Free Trader as the second regression case.
@@ -372,6 +401,7 @@ The step labels can be adjusted for UI clarity, but the builder should preserve 
 2. Add High Guard hull, drive, fuel, power, bridge, computer, and sensor rules.
 3. Build the accounting engine.
 4. Build the builder shell through Review.
-5. Implement enough UI to create and validate a simple 100-400 ton spacecraft.
+5. Add the integrated visual builder foundation: deck grid, component tray, placement records, and placement-vs-tonnage audit.
+6. Implement enough UI to create, place, validate, and save a simple 100-400 ton spacecraft.
 
-Weapons, options, detailed stock imports, and visual layout should follow once the ledger is solid.
+Weapons, options, detailed stock imports, and advanced visual layout tools should follow once the ledger and basic placement audit are solid.
