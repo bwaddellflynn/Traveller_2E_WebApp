@@ -1,5 +1,18 @@
 <script setup lang="ts">
 import { storeToRefs } from 'pinia'
+import aiIconUrl from '~/assets/open-spacecraft-icons/svg/light/AI - Light - 64x64.svg?url'
+import airlockIconUrl from '~/assets/open-spacecraft-icons/svg/light/Airlock - Light - 64x64.svg?url'
+import cabinIconUrl from '~/assets/open-spacecraft-icons/svg/light/Cabin - Light - 64x64.svg?url'
+import cargoIconUrl from '~/assets/open-spacecraft-icons/svg/light/Cargo - Light - 64x64.svg?url'
+import commandIconUrl from '~/assets/open-spacecraft-icons/svg/light/Command - Light - 64x64.svg?url'
+import fuelIconUrl from '~/assets/open-spacecraft-icons/svg/light/Fuel - Light - 64x64.svg?url'
+import jumpDriveIconUrl from '~/assets/open-spacecraft-icons/svg/light/Jumpdrive - Light - 64x64.svg?url'
+import reactorCoreIconUrl from '~/assets/open-spacecraft-icons/svg/light/Reactor core - Light - 64x64.svg?url'
+import sensorsIconUrl from '~/assets/open-spacecraft-icons/svg/light/Sensors - Light - 64x64.svg?url'
+import suppliesIconUrl from '~/assets/open-spacecraft-icons/svg/light/Supplies - Light - 64x64.svg?url'
+import terminalIconUrl from '~/assets/open-spacecraft-icons/svg/light/Intercom - Light - 64x64.svg?url'
+import weaponSystemIconUrl from '~/assets/open-spacecraft-icons/svg/light/Weapon system - Light - 64x64.svg?url'
+import workshopIconUrl from '~/assets/open-spacecraft-icons/svg/light/Workshop - Light - 64x64.svg?url'
 import type { CustomShipDesign, CustomShipLayoutDeck, CustomShipLayoutPlacement, TravellerShipCategory, TravellerShipComponent, TravellerShipRecord } from '~/types/ship'
 import { useShipsStore } from '~/stores/ships'
 import { shipConstructionSummary } from '~/utils/traveller/shipBuilder'
@@ -8,6 +21,7 @@ type ShipSortKey = 'name' | 'tons' | 'techLevel' | 'category' | 'jump' | 'thrust
 type ShipSortIcon = 'sort-asc' | 'sort-desc'
 type ShipyardTabId = 'stock' | 'custom' | 'builder'
 type ShipBuilderStep = { id: string, label: string, title: string, description: string }
+type BuilderCanvasOverlay = 'tool' | 'components' | 'ledger' | 'validation' | ''
 type LayoutDragMode = 'move' | 'resize'
 type LayoutDragState = {
   placementId: string
@@ -19,6 +33,13 @@ type LayoutDragState = {
   originWidth: number
   originHeight: number
 }
+type CanvasPanDragState = {
+  startClientX: number
+  startClientY: number
+  originX: number
+  originY: number
+}
+type FloatingPanelDragState = CanvasPanDragState
 
 const shipsStore = useShipsStore()
 const { customShips, referenceShips } = storeToRefs(shipsStore)
@@ -33,6 +54,15 @@ const categoryMenuOpen = ref(false)
 const activeBuildStep = ref(0)
 const activeDeckId = ref('main-deck')
 const selectedPlacementId = ref('')
+const builderCanvasOverlay = ref<BuilderCanvasOverlay>('')
+const deckMenuOpen = ref(false)
+const canvasZoom = ref(1)
+const canvasPanX = ref(0)
+const canvasPanY = ref(0)
+const canvasPanDrag = ref<CanvasPanDragState | null>(null)
+const builderToolbarX = ref(16)
+const builderToolbarY = ref(68)
+const builderToolbarDrag = ref<FloatingPanelDragState | null>(null)
 const deckCanvasRef = ref<HTMLElement | null>(null)
 const layoutDrag = ref<LayoutDragState | null>(null)
 
@@ -64,6 +94,14 @@ const createDefaultLayoutDeck = (): CustomShipLayoutDeck => ({
   gridColumns: 24,
   gridRows: 16,
   tonsPerCell: 1,
+})
+
+const createLayoutDeck = (deckNumber: number): CustomShipLayoutDeck => ({
+  id: `deck-${Date.now()}`,
+  name: `Deck ${deckNumber}`,
+  gridColumns: activeDeck.value.gridColumns,
+  gridRows: activeDeck.value.gridRows,
+  tonsPerCell: activeDeck.value.tonsPerCell,
 })
 
 const createBlankCustomShipDesign = (): CustomShipDesign => {
@@ -171,6 +209,7 @@ const placeableComponents = computed(() => buildSummary.value.components.filter(
 const exteriorComponents = computed(() => buildSummary.value.components.filter((component) => positiveComponentTons(component) > 0 && component.placementPolicy === 'exterior'))
 const ledgerOnlyComponents = computed(() => buildSummary.value.components.filter((component) => !placeableComponents.value.some((placeable) => placeable.id === component.id) && component.placementPolicy !== 'exterior'))
 const activeDeckPlacements = computed(() => buildDraft.value.layout.placements.filter((placement) => placement.deckId === activeDeck.value.id))
+const activeDeckPlacedTons = computed(() => activeDeckPlacements.value.reduce((total, placement) => total + (placement.width * placement.height * layoutCellTons(activeDeck.value)), 0))
 const selectedPlacement = computed(() => activeDeckPlacements.value.find((placement) => placement.id === selectedPlacementId.value) ?? null)
 const selectedPlacementComponent = computed(() => selectedPlacement.value ? placementComponent(selectedPlacement.value) : null)
 const layoutValidationNotes = computed(() => {
@@ -281,12 +320,66 @@ const shipSortIndicator = (key: ShipSortKey): ShipSortIcon | null => {
   return shipSortDirection.value === 'asc' ? 'sort-asc' : 'sort-desc'
 }
 
+const selectBuilderStep = (index: number) => {
+  activeBuildStep.value = index
+  builderCanvasOverlay.value = 'tool'
+}
+
+const builderStepIconUrl = (stepId: string) => {
+  const icons: Record<string, string> = {
+    setup: terminalIconUrl,
+    hull: commandIconUrl,
+    drives: jumpDriveIconUrl,
+    fuel: fuelIconUrl,
+    'power-plant': reactorCoreIconUrl,
+    bridge: commandIconUrl,
+    computer: aiIconUrl,
+    sensors: sensorsIconUrl,
+    weapons: weaponSystemIconUrl,
+    options: workshopIconUrl,
+    crew: cabinIconUrl,
+    'accommodations-cargo': cargoIconUrl,
+    review: suppliesIconUrl,
+  }
+  return icons[stepId] ?? terminalIconUrl
+}
 const categoryLabel = (category: string) => category.split('-').map((part) => `${part.charAt(0).toUpperCase()}${part.slice(1)}`).join(' ')
 const sourceLabel = (ship: TravellerShipRecord) => `${ship.sourceName ?? ship.sourceId}${ship.sourcePage ? ` p. ${ship.sourcePage}` : ''}`
 const componentKindLabel = (kind: string) => categoryLabel(kind)
+const componentIconUrl = (component: TravellerShipComponent) => {
+  const icons: Record<string, string> = {
+    hull: commandIconUrl,
+    armour: commandIconUrl,
+    'hull-option': workshopIconUrl,
+    'm-drive': jumpDriveIconUrl,
+    'reaction-drive': jumpDriveIconUrl,
+    'j-drive': jumpDriveIconUrl,
+    fuel: fuelIconUrl,
+    'power-plant': reactorCoreIconUrl,
+    bridge: commandIconUrl,
+    computer: aiIconUrl,
+    sensor: sensorsIconUrl,
+    weapon: weaponSystemIconUrl,
+    screen: weaponSystemIconUrl,
+    option: workshopIconUrl,
+    crew: cabinIconUrl,
+    accommodation: cabinIconUrl,
+    cargo: cargoIconUrl,
+    software: terminalIconUrl,
+    'carried-craft': airlockIconUrl,
+  }
+  return icons[component.kind] ?? suppliesIconUrl
+}
+const placementIconUrl = (placement: CustomShipLayoutPlacement) => {
+  const component = placementComponent(placement)
+  return component ? componentIconUrl(component) : suppliesIconUrl
+}
 const formatLedgerNumber = (value: number | undefined) => typeof value === 'number' ? value.toLocaleString() : '—'
 const positiveComponentTons = (component: TravellerShipComponent) => Math.max(0, component.tons)
 const layoutCellTons = (deck: CustomShipLayoutDeck | undefined) => Math.max(0.25, Number(deck?.tonsPerCell) || 1)
+const baseCanvasCellSize = 32
+const canvasCellSize = computed(() => Math.round(baseCanvasCellSize * canvasZoom.value))
+const zoomPercent = computed(() => Math.round(canvasZoom.value * 100))
 const componentRequiredCells = (component: TravellerShipComponent) => Math.max(1, Math.ceil(positiveComponentTons(component) / layoutCellTons(activeDeck.value)))
 const placedTonsForComponent = (componentId: string) => buildDraft.value.layout.placements
   .filter((placement) => placement.componentId === componentId)
@@ -319,9 +412,17 @@ const placementClass = (placement: CustomShipLayoutPlacement) => {
   return 'cursor-grab border-amber-200/70 bg-amber-300/25 hover:bg-amber-300/35'
 }
 const deckGridStyle = (deck: CustomShipLayoutDeck | undefined) => ({
-  gridTemplateColumns: `repeat(${deck?.gridColumns ?? 1}, minmax(1.5rem, 1fr))`,
-  gridTemplateRows: `repeat(${deck?.gridRows ?? 1}, minmax(1.5rem, 1fr))`,
+  gridTemplateColumns: `repeat(${deck?.gridColumns ?? 1}, ${canvasCellSize.value}px)`,
+  gridTemplateRows: `repeat(${deck?.gridRows ?? 1}, ${canvasCellSize.value}px)`,
+  width: `${(deck?.gridColumns ?? 1) * canvasCellSize.value}px`,
+  height: `${(deck?.gridRows ?? 1) * canvasCellSize.value}px`,
 })
+const canvasWorldStyle = computed(() => ({
+  transform: `translate(${canvasPanX.value}px, ${canvasPanY.value}px)`,
+}))
+const builderToolbarStyle = computed(() => ({
+  transform: `translate(${builderToolbarX.value}px, ${builderToolbarY.value}px)`,
+}))
 const placementsOverlap = (first: Pick<CustomShipLayoutPlacement, 'x' | 'y' | 'width' | 'height'>, second: Pick<CustomShipLayoutPlacement, 'x' | 'y' | 'width' | 'height'>) => (
   first.x < second.x + second.width
   && first.x + first.width > second.x
@@ -383,14 +484,119 @@ const adjustPlacement = (placement: CustomShipLayoutPlacement, delta: Partial<Pi
 const selectPlacement = (placement: CustomShipLayoutPlacement) => {
   selectedPlacementId.value = placement.id
 }
-const layoutCellPixelSize = () => {
-  const deck = activeDeck.value
-  const rect = deckCanvasRef.value?.getBoundingClientRect()
-  if (!rect) return { width: 1, height: 1 }
-  return {
-    width: Math.max(1, rect.width / deck.gridColumns),
-    height: Math.max(1, rect.height / deck.gridRows),
+const addDeck = () => {
+  const deck = createLayoutDeck(buildDraft.value.layout.decks.length + 1)
+  buildDraft.value.layout.decks.push(deck)
+  activeDeckId.value = deck.id
+  selectedPlacementId.value = ''
+}
+const duplicateActiveDeck = () => {
+  const sourceDeck = activeDeck.value
+  const deckIndex = buildDraft.value.layout.decks.length + 1
+  const deckId = `deck-${Date.now()}`
+  const copiedDeck: CustomShipLayoutDeck = {
+    ...sourceDeck,
+    id: deckId,
+    name: `${sourceDeck.name} Copy`,
   }
+  const copiedPlacements = activeDeckPlacements.value.map((placement, index) => ({
+    ...placement,
+    id: `placement-${placement.componentId}-${deckId}-${index}`,
+    deckId,
+  }))
+  if (!copiedDeck.name.trim()) copiedDeck.name = `Deck ${deckIndex}`
+  buildDraft.value.layout.decks.push(copiedDeck)
+  buildDraft.value.layout.placements.push(...copiedPlacements)
+  activeDeckId.value = deckId
+  selectedPlacementId.value = ''
+}
+const selectDeck = (deckId: string) => {
+  activeDeckId.value = deckId
+  selectedPlacementId.value = ''
+  deckMenuOpen.value = false
+}
+const moveSelectedPlacementToDeck = (deckId: string) => {
+  const placement = selectedPlacement.value
+  const targetDeck = buildDraft.value.layout.decks.find((deck) => deck.id === deckId)
+  if (!placement || !targetDeck || placement.deckId === deckId) return
+  placement.deckId = deckId
+  clampPlacement(placement)
+  activeDeckId.value = deckId
+  selectedPlacementId.value = placement.id
+}
+const selectedPlacementDeckTarget = computed({
+  get: () => selectedPlacement.value?.deckId ?? activeDeck.value.id,
+  set: (deckId: string) => moveSelectedPlacementToDeck(deckId),
+})
+const removeActiveDeck = () => {
+  if (buildDraft.value.layout.decks.length <= 1) return
+  const deckId = activeDeck.value.id
+  const nextDeck = buildDraft.value.layout.decks.find((deck) => deck.id !== deckId)
+  buildDraft.value.layout.decks = buildDraft.value.layout.decks.filter((deck) => deck.id !== deckId)
+  buildDraft.value.layout.placements = buildDraft.value.layout.placements.filter((placement) => placement.deckId !== deckId)
+  activeDeckId.value = nextDeck?.id ?? buildDraft.value.layout.decks[0]?.id ?? 'main-deck'
+  selectedPlacementId.value = ''
+}
+const layoutCellPixelSize = () => ({
+  width: canvasCellSize.value,
+  height: canvasCellSize.value,
+})
+const setCanvasZoom = (zoom: number) => {
+  canvasZoom.value = Math.max(0.5, Math.min(2.5, Number(zoom.toFixed(2))))
+}
+const adjustCanvasZoom = (delta: number) => {
+  setCanvasZoom(canvasZoom.value + delta)
+}
+const resetCanvasView = () => {
+  canvasZoom.value = 1
+  canvasPanX.value = 0
+  canvasPanY.value = 0
+}
+const startCanvasPan = (event: PointerEvent) => {
+  if (event.button !== 0 || layoutDrag.value) return
+  event.preventDefault()
+  canvasPanDrag.value = {
+    startClientX: event.clientX,
+    startClientY: event.clientY,
+    originX: canvasPanX.value,
+    originY: canvasPanY.value,
+  }
+  window.addEventListener('pointermove', updateCanvasPan)
+  window.addEventListener('pointerup', stopCanvasPan, { once: true })
+}
+const updateCanvasPan = (event: PointerEvent) => {
+  if (!canvasPanDrag.value) return
+  canvasPanX.value = canvasPanDrag.value.originX + event.clientX - canvasPanDrag.value.startClientX
+  canvasPanY.value = canvasPanDrag.value.originY + event.clientY - canvasPanDrag.value.startClientY
+}
+const stopCanvasPan = () => {
+  window.removeEventListener('pointermove', updateCanvasPan)
+  canvasPanDrag.value = null
+}
+const handleCanvasWheel = (event: WheelEvent) => {
+  if (!event.ctrlKey && !event.metaKey) return
+  event.preventDefault()
+  adjustCanvasZoom(event.deltaY > 0 ? -0.1 : 0.1)
+}
+const startBuilderToolbarDrag = (event: PointerEvent) => {
+  event.preventDefault()
+  builderToolbarDrag.value = {
+    startClientX: event.clientX,
+    startClientY: event.clientY,
+    originX: builderToolbarX.value,
+    originY: builderToolbarY.value,
+  }
+  window.addEventListener('pointermove', updateBuilderToolbarDrag)
+  window.addEventListener('pointerup', stopBuilderToolbarDrag, { once: true })
+}
+const updateBuilderToolbarDrag = (event: PointerEvent) => {
+  if (!builderToolbarDrag.value) return
+  builderToolbarX.value = Math.max(0, builderToolbarDrag.value.originX + event.clientX - builderToolbarDrag.value.startClientX)
+  builderToolbarY.value = Math.max(0, builderToolbarDrag.value.originY + event.clientY - builderToolbarDrag.value.startClientY)
+}
+const stopBuilderToolbarDrag = () => {
+  window.removeEventListener('pointermove', updateBuilderToolbarDrag)
+  builderToolbarDrag.value = null
 }
 const startPlacementDrag = (event: PointerEvent, placement: CustomShipLayoutPlacement, mode: LayoutDragMode) => {
   event.preventDefault()
@@ -429,7 +635,11 @@ const stopPlacementDrag = () => {
   layoutDrag.value = null
 }
 onBeforeUnmount(() => {
-  if (typeof window !== 'undefined') window.removeEventListener('pointermove', updatePlacementDrag)
+  if (typeof window !== 'undefined') {
+    window.removeEventListener('pointermove', updatePlacementDrag)
+    window.removeEventListener('pointermove', updateCanvasPan)
+    window.removeEventListener('pointermove', updateBuilderToolbarDrag)
+  }
 })
 </script>
 
@@ -629,37 +839,102 @@ onBeforeUnmount(() => {
       </aside>
     </section>
 
-    <section v-else-if="activeShipyardTab === 'builder'" class="mx-auto w-full max-w-[96rem] px-5 py-6 sm:px-8 lg:px-10">
-      <section class="hud-panel rounded-lg border p-5 shadow-sm">
-        <div class="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <p class="text-xs font-semibold uppercase tracking-[0.18em] text-cyan-200/70">Ship Builder</p>
-            <h1 class="mt-1 text-2xl font-semibold text-white">Custom Spacecraft Builder</h1>
-            <p class="mt-1 text-sm text-cyan-100/70">High Guard 13-step spacecraft workflow with live accounting.</p>
-          </div>
-          <button class="rounded-md border border-cyan-300/40 px-4 py-2 text-sm font-semibold text-cyan-50 hover:border-amber-300/60" type="button" @click="activeShipyardTab = 'stock'">
-            Stock Reference
-          </button>
-        </div>
+    <section v-else-if="activeShipyardTab === 'builder'" class="mx-auto w-full max-w-[112rem] px-4 py-5 sm:px-6 lg:px-8">
+      <section class="hud-panel rounded-lg border p-4 shadow-sm">
+        <div
+          class="relative"
+        >
+          <nav class="absolute left-0 top-0 z-40 rounded-md border border-cyan-400/30 bg-slate-950 p-1.5 shadow-xl shadow-black/35" :style="builderToolbarStyle">
+            <div class="mb-1 h-3 cursor-grab rounded border border-cyan-400/20 bg-cyan-300/10 active:cursor-grabbing" title="Move toolbar" @pointerdown="startBuilderToolbarDrag" />
+            <div class="grid grid-cols-2 gap-1.5">
+              <button
+                v-for="(step, index) in shipBuilderSteps"
+                :key="step.id"
+                class="flex h-8 w-8 items-center justify-center rounded-md border"
+                :class="activeBuildStep === index ? 'border-cyan-100 bg-cyan-100 text-zinc-950' : 'border-cyan-300/25 text-cyan-100/75 hover:border-amber-300/60'"
+                :title="`${index + 1}. ${step.title}`"
+                type="button"
+                @click="selectBuilderStep(index)"
+              >
+                <img :alt="step.title" class="h-5 w-5 object-contain" :src="builderStepIconUrl(step.id)">
+                <span class="sr-only">{{ index + 1 }}. {{ step.title }}</span>
+              </button>
+              <button
+                class="flex h-8 w-8 items-center justify-center rounded-md border"
+                :class="builderCanvasOverlay === 'components' ? 'border-cyan-100 bg-cyan-100 text-zinc-950' : 'border-cyan-300/25 text-cyan-100/75 hover:border-amber-300/60'"
+                title="Component Tray"
+                type="button"
+                @click="builderCanvasOverlay = builderCanvasOverlay === 'components' ? '' : 'components'"
+              >
+                <img alt="Component Tray" class="h-5 w-5 object-contain" :src="cargoIconUrl">
+                <span class="sr-only">Component Tray</span>
+              </button>
+              <button
+                class="flex h-8 w-8 items-center justify-center rounded-md border"
+                :class="builderCanvasOverlay === 'ledger' ? 'border-cyan-100 bg-cyan-100 text-zinc-950' : 'border-cyan-300/25 text-cyan-100/75 hover:border-amber-300/60'"
+                title="Ship Ledger"
+                type="button"
+                @click="builderCanvasOverlay = builderCanvasOverlay === 'ledger' ? '' : 'ledger'"
+              >
+                <AppIcon class="h-4 w-4" name="sliders" />
+                <span class="sr-only">Ship Ledger</span>
+              </button>
+              <button
+                class="relative flex h-8 w-8 items-center justify-center rounded-md border"
+                :class="builderCanvasOverlay === 'validation' ? 'border-amber-200 bg-amber-300 text-zinc-950' : 'border-amber-300/35 text-amber-100 hover:border-amber-200'"
+                title="Validation"
+                type="button"
+                @click="builderCanvasOverlay = builderCanvasOverlay === 'validation' ? '' : 'validation'"
+              >
+                <AppIcon class="h-4 w-4" name="warning" />
+                <span v-if="layoutValidationNotes.length" class="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-amber-300 px-1 text-[0.62rem] font-bold text-zinc-950">{{ layoutValidationNotes.length }}</span>
+                <span class="sr-only">Validation</span>
+              </button>
+            </div>
+          </nav>
 
-        <div class="mt-5 flex flex-wrap gap-1 border-b border-cyan-400/30">
-          <button
-            v-for="(step, index) in shipBuilderSteps"
-            :key="step.id"
-            class="-mb-px rounded-t-md border px-3 py-2 text-sm font-semibold"
-            :class="activeBuildStep === index ? 'border-zinc-300 border-b-white bg-white text-zinc-950' : 'border-transparent text-zinc-500 hover:text-zinc-950'"
-            type="button"
-            @click="activeBuildStep = index"
+          <section
+            v-if="builderCanvasOverlay && builderCanvasOverlay !== 'ledger'"
+            class="hud-scrollbar absolute left-[4.25rem] top-0 z-30 max-h-[calc(100vh-7rem)] overflow-auto rounded-md border border-cyan-400/30 bg-slate-950 p-3 shadow-2xl shadow-black/45"
+            :class="builderCanvasOverlay === 'tool' ? 'w-[min(42rem,calc(100%-5rem))]' : 'w-[min(22rem,calc(100%-5rem))]'"
           >
-            {{ index + 1 }}. {{ step.label }}
-          </button>
-        </div>
+            <div class="rounded-md border border-cyan-400/20 bg-cyan-950/30 p-3">
+              <div class="flex items-center gap-3">
+                <img :alt="builderCanvasOverlay === 'tool' ? activeBuilderStep.title : 'Component Tray'" class="h-9 w-9 shrink-0 object-contain" :src="builderCanvasOverlay === 'tool' ? builderStepIconUrl(activeBuilderStep.id) : cargoIconUrl">
+                <div class="min-w-0">
+                  <p class="text-xs font-semibold uppercase tracking-[0.16em] text-cyan-200/70">{{ builderCanvasOverlay === 'tool' ? 'Selected Tool' : 'Component Tray' }}</p>
+                  <h2 class="truncate text-base font-semibold text-white">{{ builderCanvasOverlay === 'tool' ? activeBuilderStep.title : 'Placeable Systems' }}</h2>
+                </div>
+                <button class="ml-auto flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-cyan-300/35 text-cyan-50 hover:border-amber-300/60" type="button" @click="builderCanvasOverlay = ''">
+                  <AppIcon class="h-4 w-4" name="close" />
+                  <span class="sr-only">Close overlay</span>
+                </button>
+              </div>
+              <p v-if="builderCanvasOverlay === 'tool'" class="mt-2 text-sm text-cyan-100/70">{{ activeBuilderStep.description }}</p>
+            </div>
 
-        <div class="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1fr)_24rem]">
-          <section class="rounded-md border border-cyan-400/20 bg-white/5 p-4">
-            <p class="text-xs font-semibold uppercase tracking-[0.18em] text-cyan-200/70">{{ activeBuilderStep.id }}</p>
-            <h2 class="mt-1 text-xl font-semibold text-white">{{ activeBuilderStep.title }}</h2>
-            <p class="mt-1 text-sm text-cyan-100/70">{{ activeBuilderStep.description }}</p>
+            <div v-if="builderCanvasOverlay === 'tool'" class="mt-4">
+              <section class="rounded-md border border-cyan-400/20 bg-cyan-950/30 p-3">
+                <p class="text-xs font-semibold uppercase tracking-[0.16em] text-cyan-200/70">Deck Options</p>
+                <div class="mt-3 grid gap-3 md:grid-cols-4">
+                  <label class="grid gap-1 text-xs font-semibold uppercase tracking-[0.12em] text-cyan-100/70 md:col-span-1">
+                    Deck Name
+                    <input v-model="activeDeck.name" class="h-9 rounded-md border border-zinc-300 px-2 text-sm normal-case tracking-normal text-zinc-950 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200">
+                  </label>
+                  <label class="grid gap-1 text-xs font-semibold uppercase tracking-[0.12em] text-cyan-100/70">
+                    Columns
+                    <input v-model.number="activeDeck.gridColumns" class="h-9 rounded-md border border-zinc-300 px-2 text-sm normal-case tracking-normal text-zinc-950 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200" min="8" max="60" type="number">
+                  </label>
+                  <label class="grid gap-1 text-xs font-semibold uppercase tracking-[0.12em] text-cyan-100/70">
+                    Rows
+                    <input v-model.number="activeDeck.gridRows" class="h-9 rounded-md border border-zinc-300 px-2 text-sm normal-case tracking-normal text-zinc-950 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200" min="8" max="60" type="number">
+                  </label>
+                  <label class="grid gap-1 text-xs font-semibold uppercase tracking-[0.12em] text-cyan-100/70">
+                    Tons/Cell
+                    <input v-model.number="activeDeck.tonsPerCell" class="h-9 rounded-md border border-zinc-300 px-2 text-sm normal-case tracking-normal text-zinc-950 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200" min="0.25" step="0.25" type="number">
+                  </label>
+                </div>
+              </section>
 
             <div v-if="activeBuilderStep.id === 'setup'" class="mt-5 grid gap-4 md:grid-cols-2">
               <label class="grid gap-1 text-sm font-semibold text-cyan-50">
@@ -831,36 +1106,39 @@ onBeforeUnmount(() => {
               <p class="text-sm font-semibold text-cyan-50">{{ activeBuilderStep.title }} controls are ready for the next implementation pass.</p>
               <p class="mt-1 text-sm text-cyan-100/70">This shell keeps the workflow stable while we add detailed editors step by step.</p>
             </div>
+            </div>
 
-            <div class="mt-5 grid gap-4 2xl:grid-cols-[minmax(18rem,22rem)_minmax(0,1fr)]">
-              <section class="rounded-md border border-cyan-400/20 bg-cyan-950/30 p-4">
+            <section v-if="builderCanvasOverlay === 'components'" class="mt-3 rounded-md border border-cyan-400/20 bg-cyan-950/30 p-3">
                 <div class="flex items-start justify-between gap-3">
                   <div>
                     <p class="text-xs font-semibold uppercase tracking-[0.18em] text-cyan-200/70">Component Tray</p>
-                    <h3 class="mt-1 text-lg font-semibold text-white">Placeable Systems</h3>
+                    <h3 class="mt-1 text-base font-semibold text-white">Placeable Systems</h3>
                   </div>
                   <span class="rounded-md border border-cyan-400/20 px-2 py-1 text-xs font-semibold text-cyan-100/70">{{ placeableComponents.length }}</span>
                 </div>
 
-                <div class="mt-4 grid max-h-[30rem] gap-2 overflow-auto pr-1">
+                <div class="mt-3 grid max-h-[calc(100vh-22rem)] gap-1.5 overflow-auto pr-1">
                   <article
                     v-for="component in placeableComponents"
                     :key="component.id"
-                    class="rounded-md border px-3 py-2"
+                    class="rounded-md border px-2.5 py-2"
                     :class="componentPlacementClass(component)"
                   >
-                    <div class="flex items-start justify-between gap-3">
-                      <div class="min-w-0">
-                        <p class="truncate text-sm font-semibold">{{ component.name }}</p>
-                        <p class="mt-0.5 text-xs opacity-70">{{ componentKindLabel(component.kind) }} · {{ component.placementPolicy }}</p>
+                    <div class="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2">
+                      <div class="flex min-w-0 items-start gap-2">
+                        <img :alt="component.name" class="mt-0.5 h-6 w-6 shrink-0 object-contain" :src="componentIconUrl(component)">
+                        <div class="min-w-0">
+                        <p class="truncate text-sm font-semibold leading-tight">{{ component.name }}</p>
+                        <p class="mt-0.5 truncate text-xs opacity-70">{{ componentKindLabel(component.kind) }}</p>
+                        </div>
                       </div>
-                      <span class="shrink-0 text-xs font-semibold">{{ componentPlacementStatus(component) }}</span>
+                      <span class="shrink-0 rounded border border-current/25 px-1.5 py-0.5 text-[0.68rem] font-semibold">{{ componentPlacementStatus(component) }}</span>
                     </div>
-                    <div class="mt-2 flex items-center justify-between gap-3 text-xs opacity-80">
+                    <div class="mt-2 flex items-center justify-between gap-2 text-xs opacity-80">
                       <span>{{ placedTonsForComponent(component.id) }} / {{ component.tons }} tons</span>
                       <span>{{ componentRequiredCells(component) }} cells</span>
                     </div>
-                    <div class="mt-2 flex gap-2">
+                    <div class="mt-2 flex gap-1.5">
                       <button class="rounded-md border border-cyan-300/40 px-2 py-1 text-xs font-semibold text-cyan-50 hover:border-amber-300/60" type="button" @click="placeComponent(component)">
                         Place
                       </button>
@@ -871,65 +1149,135 @@ onBeforeUnmount(() => {
                   </article>
                 </div>
 
-                <div class="mt-4 rounded-md border border-cyan-400/20 bg-white/5 px-3 py-2">
+                <div class="mt-3 rounded-md border border-cyan-400/20 bg-white/5 px-3 py-2">
                   <p class="text-xs font-semibold uppercase tracking-[0.16em] text-cyan-200/70">Ledger Only</p>
                   <p class="mt-1 text-xs text-cyan-100/66">{{ ledgerOnlyComponents.length }} abstract or distributed systems, {{ exteriorComponents.length }} exterior systems.</p>
                 </div>
-              </section>
+            </section>
+          </section>
 
-              <section class="rounded-md border border-cyan-400/20 bg-cyan-950/30 p-4">
+          <section class="relative min-h-[calc(100vh-7rem)] rounded-md border border-cyan-400/20 bg-cyan-950/30 p-4">
                 <div class="flex flex-wrap items-start justify-between gap-3">
                   <div>
-                    <p class="text-xs font-semibold uppercase tracking-[0.18em] text-cyan-200/70">Deck Canvas</p>
-                    <h3 class="mt-1 text-lg font-semibold text-white">{{ activeDeck.name }}</h3>
+                    <h3 class="text-lg font-semibold text-white">{{ activeDeck.name }}</h3>
                   </div>
-                  <p class="rounded-md border border-cyan-400/20 px-2 py-1 text-xs font-semibold text-cyan-100/70">{{ activeDeck.tonsPerCell }} ton/cell</p>
+                  <div class="flex flex-wrap gap-2">
+                    <p class="rounded-md border border-cyan-400/20 px-2 py-1 text-xs font-semibold text-cyan-100/70">{{ activeDeck.tonsPerCell }} ton/cell</p>
+                    <p class="rounded-md border border-cyan-400/20 px-2 py-1 text-xs font-semibold text-cyan-100/70">{{ activeDeckPlacedTons }} tons placed</p>
+                    <p class="rounded-md border border-cyan-400/20 px-2 py-1 text-xs font-semibold text-cyan-100/70">{{ zoomPercent }}%</p>
+                  </div>
                 </div>
 
-                <div class="mt-4 grid gap-3 md:grid-cols-4">
-                  <label class="grid gap-1 text-xs font-semibold uppercase tracking-[0.12em] text-cyan-100/70 md:col-span-1">
-                    Deck
-                    <input v-model="activeDeck.name" class="h-9 rounded-md border border-zinc-300 px-2 text-sm normal-case tracking-normal text-zinc-950 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200">
-                  </label>
-                  <label class="grid gap-1 text-xs font-semibold uppercase tracking-[0.12em] text-cyan-100/70">
-                    Columns
-                    <input v-model.number="activeDeck.gridColumns" class="h-9 rounded-md border border-zinc-300 px-2 text-sm normal-case tracking-normal text-zinc-950 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200" min="8" max="60" type="number">
-                  </label>
-                  <label class="grid gap-1 text-xs font-semibold uppercase tracking-[0.12em] text-cyan-100/70">
-                    Rows
-                    <input v-model.number="activeDeck.gridRows" class="h-9 rounded-md border border-zinc-300 px-2 text-sm normal-case tracking-normal text-zinc-950 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200" min="8" max="60" type="number">
-                  </label>
-                  <label class="grid gap-1 text-xs font-semibold uppercase tracking-[0.12em] text-cyan-100/70">
-                    Tons/Cell
-                    <input v-model.number="activeDeck.tonsPerCell" class="h-9 rounded-md border border-zinc-300 px-2 text-sm normal-case tracking-normal text-zinc-950 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200" min="0.25" step="0.25" type="number">
-                  </label>
-                </div>
-
-                <div class="mt-4 overflow-auto rounded-md border border-cyan-400/20 bg-slate-950/80 p-3">
-                  <div ref="deckCanvasRef" class="relative grid min-h-[28rem] min-w-[38rem] gap-px" :style="deckGridStyle(activeDeck)">
-                    <div
-                      v-for="cell in activeDeck.gridColumns * activeDeck.gridRows"
-                      :key="cell"
-                      class="min-h-6 border border-cyan-400/10 bg-cyan-300/[0.025]"
-                    />
-                    <div
-                      v-for="placement in activeDeckPlacements"
-                      :key="placement.id"
-                      class="relative z-10 touch-none overflow-hidden rounded border px-2 py-1 text-left text-xs font-semibold text-amber-50 shadow-sm shadow-black/30"
-                      :class="placementClass(placement)"
-                      :style="placementStyle(placement)"
-                      role="button"
-                      tabindex="0"
-                      @click="selectPlacement(placement)"
-                      @pointerdown="startPlacementDrag($event, placement, 'move')"
+                <div class="absolute left-6 top-16 z-20 rounded-md border border-cyan-400/30 bg-slate-950 p-2 shadow-xl shadow-black/35">
+                <div class="flex flex-wrap items-center gap-2">
+                  <div class="relative">
+                    <button
+                      class="flex h-9 w-9 items-center justify-center rounded-md border border-cyan-300/35 text-cyan-50 hover:border-amber-300/60"
+                      title="Select deck"
+                      type="button"
+                      @click="deckMenuOpen = !deckMenuOpen"
                     >
-                      <span class="block truncate">{{ placementComponent(placement)?.name ?? placement.componentId }}</span>
-                      <span class="block text-[0.68rem] font-medium text-amber-50/70">{{ placement.width * placement.height * activeDeck.tonsPerCell }} tons</span>
-                      <span
-                        class="absolute bottom-0 right-0 h-4 w-4 cursor-nwse-resize border-l border-t border-cyan-100/60 bg-cyan-100/25"
-                        @click.stop
-                        @pointerdown.stop="startPlacementDrag($event, placement, 'resize')"
-                      />
+                      <AppIcon class="h-4 w-4" name="sliders" />
+                      <span class="sr-only">Select Deck</span>
+                    </button>
+                    <div v-if="deckMenuOpen" class="absolute left-0 top-11 z-40 grid min-w-48 gap-1 rounded-md border border-cyan-400/30 bg-slate-950 p-2 shadow-xl shadow-black/45">
+                      <button
+                        v-for="deck in buildDraft.layout.decks"
+                        :key="deck.id"
+                        class="rounded-md border px-3 py-2 text-left text-sm font-semibold"
+                        :class="activeDeck.id === deck.id ? 'border-cyan-100 bg-cyan-100 text-zinc-950' : 'border-cyan-300/30 text-cyan-100/75 hover:border-amber-300/60'"
+                        type="button"
+                        @click="selectDeck(deck.id)"
+                      >
+                        {{ deck.name }}
+                      </button>
+                    </div>
+                  </div>
+                  <button class="flex h-9 w-9 items-center justify-center rounded-md border border-cyan-300/35 text-cyan-50 hover:border-amber-300/60" title="Add deck" type="button" @click="addDeck">
+                    <AppIcon class="h-4 w-4" name="plus" />
+                    <span class="sr-only">Add Deck</span>
+                  </button>
+                  <button class="flex h-9 w-9 items-center justify-center rounded-md border border-cyan-300/35 text-cyan-50 hover:border-amber-300/60" title="Duplicate deck" type="button" @click="duplicateActiveDeck">
+                    <AppIcon class="h-4 w-4" name="copy" />
+                    <span class="sr-only">Duplicate Deck</span>
+                  </button>
+                  <button
+                    class="flex h-9 w-9 items-center justify-center rounded-md border border-cyan-300/25 text-cyan-100/70 hover:border-rose-300/60"
+                    :disabled="buildDraft.layout.decks.length <= 1"
+                    title="Delete deck"
+                    type="button"
+                    @click="removeActiveDeck"
+                  >
+                    <AppIcon class="h-4 w-4" name="trash" />
+                    <span class="sr-only">Delete Deck</span>
+                  </button>
+                </div>
+                </div>
+
+                <div class="absolute right-6 top-16 z-20 flex items-center gap-2 rounded-md border border-cyan-400/30 bg-slate-950 p-2 shadow-xl shadow-black/35">
+                  <button class="flex h-9 w-9 items-center justify-center rounded-md border border-cyan-300/35 text-cyan-50 hover:border-amber-300/60" title="Zoom out" type="button" @click="adjustCanvasZoom(-0.1)">
+                    <span class="text-lg leading-none">-</span>
+                    <span class="sr-only">Zoom Out</span>
+                  </button>
+                  <button class="flex h-9 w-12 items-center justify-center rounded-md border border-cyan-300/25 text-xs font-semibold text-cyan-100/80 hover:border-amber-300/60" title="Reset view" type="button" @click="resetCanvasView">
+                    {{ zoomPercent }}%
+                  </button>
+                  <button class="flex h-9 w-9 items-center justify-center rounded-md border border-cyan-300/35 text-cyan-50 hover:border-amber-300/60" title="Zoom in" type="button" @click="adjustCanvasZoom(0.1)">
+                    <AppIcon class="h-4 w-4" name="plus" />
+                    <span class="sr-only">Zoom In</span>
+                  </button>
+                </div>
+
+                <div class="mt-4 min-h-[calc(100vh-14rem)] cursor-grab overflow-hidden rounded-md border border-cyan-400/20 bg-slate-950/80 p-3 active:cursor-grabbing" @pointerdown.self="startCanvasPan" @wheel="handleCanvasWheel">
+                  <div class="relative h-full min-h-[calc(100vh-16rem)] w-full" @pointerdown.self="startCanvasPan">
+                    <div class="absolute left-0 top-0 transition-transform duration-75 ease-out" :style="canvasWorldStyle">
+                      <div class="relative mb-1 ml-8 flex h-6" :style="{ width: `${activeDeck.gridColumns * canvasCellSize}px` }">
+                        <span
+                          v-for="column in activeDeck.gridColumns"
+                          :key="`x-axis-${column}`"
+                          class="flex shrink-0 items-center justify-center border-l border-cyan-400/10 text-[0.62rem] text-cyan-100/45"
+                          :style="{ width: `${canvasCellSize}px` }"
+                        >{{ column }}</span>
+                      </div>
+                      <div class="flex">
+                        <div class="mr-1 grid w-7 shrink-0" :style="{ gridTemplateRows: `repeat(${activeDeck.gridRows}, ${canvasCellSize}px)` }">
+                          <span
+                            v-for="row in activeDeck.gridRows"
+                            :key="`y-axis-${row}`"
+                            class="flex items-center justify-end border-t border-cyan-400/10 pr-1 text-[0.62rem] text-cyan-100/45"
+                          >{{ row }}</span>
+                        </div>
+                        <div ref="deckCanvasRef" class="relative grid gap-px" :style="deckGridStyle(activeDeck)" @pointerdown.self="startCanvasPan">
+                          <div
+                            v-for="cell in activeDeck.gridColumns * activeDeck.gridRows"
+                            :key="cell"
+                            class="border border-cyan-400/10 bg-cyan-300/[0.025]"
+                            @pointerdown="startCanvasPan"
+                          />
+                          <div
+                            v-for="placement in activeDeckPlacements"
+                            :key="placement.id"
+                            class="relative z-10 touch-none overflow-hidden rounded border px-2 py-1 text-left text-xs font-semibold text-amber-50 shadow-sm shadow-black/30"
+                            :class="placementClass(placement)"
+                            :style="placementStyle(placement)"
+                            role="button"
+                            tabindex="0"
+                            @click="selectPlacement(placement)"
+                            @pointerdown="startPlacementDrag($event, placement, 'move')"
+                          >
+                            <span class="flex min-w-0 items-center gap-1.5">
+                              <img :alt="placementComponent(placement)?.name ?? placement.componentId" class="h-5 w-5 shrink-0 object-contain" :src="placementIconUrl(placement)">
+                              <span class="block truncate">{{ placementComponent(placement)?.name ?? placement.componentId }}</span>
+                            </span>
+                            <span class="block text-[0.68rem] font-medium text-amber-50/70">{{ placement.width * placement.height * activeDeck.tonsPerCell }} tons</span>
+                            <span
+                              class="absolute bottom-0 right-0 h-4 w-4 cursor-nwse-resize border-l border-t border-cyan-100/60 bg-cyan-100/25"
+                              @click.stop
+                              @pointerdown.stop="startPlacementDrag($event, placement, 'resize')"
+                            />
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -946,6 +1294,12 @@ onBeforeUnmount(() => {
                   </div>
 
                   <div class="mt-3 grid gap-3 sm:grid-cols-4">
+                    <label v-if="buildDraft.layout.decks.length > 1" class="grid gap-1 text-xs font-semibold uppercase tracking-[0.12em] text-cyan-100/70 sm:col-span-4">
+                      Move To Deck
+                      <select v-model="selectedPlacementDeckTarget" class="h-9 rounded-md border border-zinc-300 px-2 text-sm normal-case tracking-normal text-zinc-950 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200">
+                        <option v-for="deck in buildDraft.layout.decks" :key="deck.id" :value="deck.id">{{ deck.name }}</option>
+                      </select>
+                    </label>
                     <label class="grid gap-1 text-xs font-semibold uppercase tracking-[0.12em] text-cyan-100/70">
                       X
                       <input v-model.number="selectedPlacement.x" class="h-9 rounded-md border border-zinc-300 px-2 text-sm normal-case tracking-normal text-zinc-950 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200" min="1" type="number" @change="clampPlacement(selectedPlacement)">
@@ -989,47 +1343,77 @@ onBeforeUnmount(() => {
                   </p>
                 </div>
 
-                <div v-if="layoutValidationNotes.length" class="mt-4 rounded-md border border-amber-300/30 bg-amber-300/10 px-3 py-3">
-                  <p class="text-sm font-semibold text-amber-100">Layout Notes</p>
-                  <ul class="mt-2 grid gap-1 text-sm text-amber-50/82">
-                    <li v-for="note in layoutValidationNotes" :key="note">{{ note }}</li>
-                  </ul>
-                </div>
-              </section>
-            </div>
           </section>
 
-          <aside class="rounded-md border border-cyan-400/20 bg-white/5 p-4 xl:sticky xl:top-24 xl:max-h-[calc(100vh-7rem)] xl:overflow-auto">
-            <p class="text-xs font-semibold uppercase tracking-[0.18em] text-cyan-200/70">Ship Ledger</p>
-            <h2 class="mt-1 text-xl font-semibold text-white">{{ buildDraft.name }}</h2>
-            <p class="mt-1 text-sm text-cyan-100/60">{{ buildDraft.buildBrief.role || 'Custom spacecraft' }}</p>
-
-            <div class="mt-4 grid grid-cols-2 gap-2">
-              <div class="rounded-md border border-cyan-400/20 bg-cyan-950/30 px-3 py-2">
-                <p class="text-xs uppercase tracking-[0.14em] text-cyan-200/60">Tonnage</p>
-                <p class="mt-1 text-lg font-semibold text-white">{{ formatLedgerNumber(buildSummary.derived.tonsUsed) }} / {{ formatLedgerNumber(buildDraft.tons) }}</p>
-                <p class="text-xs text-cyan-100/58">{{ formatLedgerNumber(buildSummary.derived.tonsRemaining) }} remaining</p>
+          <aside
+            v-if="builderCanvasOverlay === 'validation'"
+            class="hud-scrollbar absolute left-[4.25rem] top-0 z-30 max-h-[calc(100vh-7rem)] w-[min(28rem,calc(100%-5rem))] overflow-auto rounded-md border border-amber-300/40 bg-slate-950 p-3 shadow-2xl shadow-black/45"
+          >
+            <div class="flex items-start justify-between gap-3 rounded-md border border-amber-300/30 bg-amber-300/10 p-3">
+              <div class="flex min-w-0 items-start gap-3">
+                <AppIcon class="h-6 w-6 shrink-0 text-amber-200" name="warning" />
+                <div class="min-w-0">
+                  <p class="text-xs font-semibold uppercase tracking-[0.16em] text-amber-200">Validation</p>
+                  <h2 class="mt-1 text-base font-semibold text-white">{{ layoutValidationNotes.length }} layout {{ layoutValidationNotes.length === 1 ? 'note' : 'notes' }}</h2>
+                </div>
               </div>
-              <div class="rounded-md border border-cyan-400/20 bg-cyan-950/30 px-3 py-2">
-                <p class="text-xs uppercase tracking-[0.14em] text-cyan-200/60">Cost</p>
-                <p class="mt-1 text-lg font-semibold text-white">{{ buildSummary.costs.total?.label ?? '—' }}</p>
-                <p class="text-xs text-cyan-100/58">{{ buildSummary.costs.purchase?.label ?? '—' }} purchase</p>
-              </div>
-              <div class="rounded-md border border-cyan-400/20 bg-cyan-950/30 px-3 py-2">
-                <p class="text-xs uppercase tracking-[0.14em] text-cyan-200/60">Hull</p>
-                <p class="mt-1 text-lg font-semibold text-white">{{ formatLedgerNumber(buildSummary.derived.hullPoints) }}</p>
-                <p class="text-xs text-cyan-100/58">Hull points</p>
-              </div>
-              <div class="rounded-md border border-cyan-400/20 bg-cyan-950/30 px-3 py-2">
-                <p class="text-xs uppercase tracking-[0.14em] text-cyan-200/60">Crew</p>
-                <p class="mt-1 text-lg font-semibold text-white">{{ formatLedgerNumber(buildSummary.derived.crewCount) }}</p>
-                <p class="text-xs text-cyan-100/58">{{ buildDraft.buildBrief.crewMode }}</p>
-              </div>
+              <button class="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-amber-300/35 text-amber-100 hover:border-amber-200" type="button" @click="builderCanvasOverlay = ''">
+                <AppIcon class="h-4 w-4" name="close" />
+                <span class="sr-only">Close validation</span>
+              </button>
             </div>
 
-            <div class="mt-4 rounded-md border border-cyan-400/20 bg-cyan-950/30 px-3 py-3">
-              <h3 class="text-sm font-semibold uppercase tracking-[0.16em] text-cyan-200/78">Power</h3>
-              <dl class="mt-2 grid gap-2 text-sm text-cyan-100/78">
+            <ul v-if="layoutValidationNotes.length" class="mt-3 grid gap-2 text-sm text-amber-50/85">
+              <li v-for="note in layoutValidationNotes" :key="note" class="rounded-md border border-amber-300/25 bg-amber-300/10 px-3 py-2">{{ note }}</li>
+            </ul>
+            <p v-else class="mt-3 rounded-md border border-emerald-300/25 bg-emerald-300/10 px-3 py-2 text-sm text-emerald-50">No layout validation notes.</p>
+          </aside>
+
+          <aside
+            v-if="builderCanvasOverlay === 'ledger'"
+            class="hud-scrollbar absolute right-0 top-0 z-30 max-h-[calc(100vh-7rem)] w-[min(22rem,calc(100%-5rem))] overflow-auto rounded-md border border-cyan-400/30 bg-slate-950 p-3 shadow-2xl shadow-black/45"
+          >
+            <div class="flex items-start justify-between gap-3">
+              <div>
+                <p class="text-xs font-semibold uppercase tracking-[0.18em] text-cyan-200/70">Ship Ledger</p>
+                <h2 class="mt-1 text-xl font-semibold text-white">{{ buildDraft.name }}</h2>
+                <p class="mt-1 text-sm text-cyan-100/60">{{ buildDraft.buildBrief.role || 'Custom spacecraft' }}</p>
+              </div>
+              <button
+                class="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-cyan-300/35 text-cyan-50 hover:border-amber-300/60"
+                type="button"
+                @click="builderCanvasOverlay = ''"
+              >
+                <AppIcon class="h-4 w-4" name="close" />
+                <span class="sr-only">Close ship ledger</span>
+              </button>
+            </div>
+
+            <div class="mt-3 rounded-md border border-cyan-400/20 bg-cyan-950/30 px-3 py-2">
+              <dl class="grid gap-2 text-sm text-cyan-100/78">
+                <div class="flex items-center justify-between gap-4">
+                  <dt class="text-xs uppercase tracking-[0.14em] text-cyan-200/60">Tonnage</dt>
+                  <dd class="text-right font-semibold text-white">{{ formatLedgerNumber(buildSummary.derived.tonsUsed) }} / {{ formatLedgerNumber(buildDraft.tons) }}</dd>
+                </div>
+                <div class="flex items-center justify-between gap-4">
+                  <dt class="text-xs uppercase tracking-[0.14em] text-cyan-200/60">Cost</dt>
+                  <dd class="text-right font-semibold text-white">{{ buildSummary.costs.total?.label ?? '—' }}</dd>
+                </div>
+                <div class="flex items-center justify-between gap-4">
+                  <dt class="text-xs uppercase tracking-[0.14em] text-cyan-200/60">Hull</dt>
+                  <dd class="text-right font-semibold text-white">{{ formatLedgerNumber(buildSummary.derived.hullPoints) }}</dd>
+                </div>
+                <div class="flex items-center justify-between gap-4">
+                  <dt class="text-xs uppercase tracking-[0.14em] text-cyan-200/60">Crew</dt>
+                  <dd class="text-right font-semibold text-white">{{ formatLedgerNumber(buildSummary.derived.crewCount) }}</dd>
+                </div>
+              </dl>
+              <p class="mt-2 text-xs text-cyan-100/58">{{ formatLedgerNumber(buildSummary.derived.tonsRemaining) }} tons remaining · {{ buildDraft.buildBrief.crewMode }}</p>
+            </div>
+
+            <div class="mt-3 rounded-md border border-cyan-400/20 bg-cyan-950/30 px-3 py-2">
+              <h3 class="text-xs font-semibold uppercase tracking-[0.16em] text-cyan-200/78">Power</h3>
+              <dl class="mt-2 grid gap-1.5 text-sm text-cyan-100/78">
                 <div class="flex items-center justify-between gap-4"><dt>Generated</dt><dd>{{ formatLedgerNumber(buildSummary.derived.power?.output) }}</dd></div>
                 <div class="flex items-center justify-between gap-4"><dt>Routine</dt><dd>{{ formatLedgerNumber(buildSummary.derived.power?.totalRoutine) }} / {{ formatLedgerNumber(buildSummary.derived.power?.surplusRoutine) }} spare</dd></div>
                 <div class="flex items-center justify-between gap-4"><dt>Jump</dt><dd>{{ formatLedgerNumber(buildSummary.derived.power?.totalJump) }} / {{ formatLedgerNumber(buildSummary.derived.power?.surplusJump) }} spare</dd></div>
@@ -1037,18 +1421,18 @@ onBeforeUnmount(() => {
               </dl>
             </div>
 
-            <div class="mt-4 rounded-md border border-cyan-400/20 bg-cyan-950/30 px-3 py-3">
-              <h3 class="text-sm font-semibold uppercase tracking-[0.16em] text-cyan-200/78">Capacity</h3>
-              <dl class="mt-2 grid gap-2 text-sm text-cyan-100/78">
+            <div class="mt-3 rounded-md border border-cyan-400/20 bg-cyan-950/30 px-3 py-2">
+              <h3 class="text-xs font-semibold uppercase tracking-[0.16em] text-cyan-200/78">Capacity</h3>
+              <dl class="mt-2 grid gap-1.5 text-sm text-cyan-100/78">
                 <div class="flex items-center justify-between gap-4"><dt>Hardpoints</dt><dd>{{ formatLedgerNumber(buildSummary.derived.hardpoints?.used) }} / {{ formatLedgerNumber(buildSummary.derived.hardpoints?.available) }}</dd></div>
                 <div class="flex items-center justify-between gap-4"><dt>Bandwidth</dt><dd>{{ formatLedgerNumber(buildSummary.derived.bandwidth?.used) }} / {{ formatLedgerNumber(buildSummary.derived.bandwidth?.available) }}</dd></div>
                 <div class="flex items-center justify-between gap-4"><dt>Cargo</dt><dd>{{ formatLedgerNumber(buildSummary.derived.cargoTons) }} tons</dd></div>
               </dl>
             </div>
 
-            <div class="mt-4 rounded-md border border-cyan-400/20 bg-cyan-950/30 px-3 py-3">
-              <h3 class="text-sm font-semibold uppercase tracking-[0.16em] text-cyan-200/78">Fuel</h3>
-              <dl class="mt-2 grid gap-2 text-sm text-cyan-100/78">
+            <div class="mt-3 rounded-md border border-cyan-400/20 bg-cyan-950/30 px-3 py-2">
+              <h3 class="text-xs font-semibold uppercase tracking-[0.16em] text-cyan-200/78">Fuel</h3>
+              <dl class="mt-2 grid gap-1.5 text-sm text-cyan-100/78">
                 <div class="flex items-center justify-between gap-4"><dt>Total</dt><dd>{{ formatLedgerNumber(buildSummary.derived.fuel?.totalFuelTons) }} tons</dd></div>
                 <div class="flex items-center justify-between gap-4"><dt>Jump</dt><dd>{{ formatLedgerNumber(buildSummary.derived.fuel?.jumpFuelTons) }} tons</dd></div>
                 <div class="flex items-center justify-between gap-4"><dt>Reaction</dt><dd>{{ formatLedgerNumber(buildSummary.derived.fuel?.reactionFuelTons) }} tons</dd></div>
@@ -1056,15 +1440,15 @@ onBeforeUnmount(() => {
               </dl>
             </div>
 
-            <div class="mt-4 rounded-md border border-cyan-400/20 bg-cyan-950/30 px-3 py-3">
-              <h3 class="text-sm font-semibold uppercase tracking-[0.16em] text-cyan-200/78">Running Costs</h3>
-              <dl class="mt-2 grid gap-2 text-sm text-cyan-100/78">
+            <div class="mt-3 rounded-md border border-cyan-400/20 bg-cyan-950/30 px-3 py-2">
+              <h3 class="text-xs font-semibold uppercase tracking-[0.16em] text-cyan-200/78">Running Costs</h3>
+              <dl class="mt-2 grid gap-1.5 text-sm text-cyan-100/78">
                 <div class="flex items-center justify-between gap-4"><dt>Maintenance</dt><dd>Cr{{ buildSummary.costs.monthlyMaintenanceCredits?.toLocaleString() ?? '—' }}/month</dd></div>
                 <div v-if="buildSummary.costs.standardDesignDiscountCredits" class="flex items-center justify-between gap-4"><dt>Standard Discount</dt><dd>Cr{{ buildSummary.costs.standardDesignDiscountCredits.toLocaleString() }}</dd></div>
               </dl>
             </div>
 
-            <div v-if="buildSummary.validationNotes.length" class="mt-4 rounded-md border border-amber-300/30 bg-amber-300/10 px-3 py-3">
+            <div v-if="buildSummary.validationNotes.length" class="mt-3 rounded-md border border-amber-300/30 bg-amber-300/10 px-3 py-2">
               <p class="text-sm font-semibold text-amber-100">Validation</p>
               <ul class="mt-2 grid gap-1 text-sm text-amber-50/82">
                 <li v-for="note in buildSummary.validationNotes" :key="note">{{ note }}</li>

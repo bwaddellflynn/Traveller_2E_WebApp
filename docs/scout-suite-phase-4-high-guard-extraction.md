@@ -363,7 +363,16 @@ The step labels can be adjusted for UI clarity, but the builder should preserve 
 - [x] Add direct manipulation for moving and resizing placed components.
 - [x] Add pointer drag movement and corner-handle resizing with grid snapping.
 - [x] Add overlap validation and visual conflict feedback.
-- [ ] Add multi-deck creation and deck switching.
+- [x] Add multi-deck creation and deck switching.
+- [x] Reframe the builder as an image-editor-style workbench with a left tool rail, component tray, large central canvas, and horizontally collapsible ledger.
+- [x] Use the open spacecraft icon SVG set for builder tools and placed/component visual affordances.
+- [x] Move selected tool controls into a modal so the grid remains the primary workspace.
+- [x] Add deck duplication and component transfer between decks.
+- [x] Tighten builder layout density so the deck canvas has priority over the tray and ledger.
+- [x] Convert selected tool controls and the component tray into canvas overlays so opening tools does not resize the canvas.
+- [x] Move ship ledger and deck controls into opaque canvas overlays; keep the builder canvas width fixed.
+- [x] Move layout validation notes into an orange validation tool overlay.
+- [x] Add square-cell pan/zoom canvas behavior with X/Y rulers and a draggable two-column toolbar.
 
 ### 11. Save Custom Ships
 
