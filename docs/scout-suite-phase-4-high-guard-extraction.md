@@ -373,6 +373,33 @@ The step labels can be adjusted for UI clarity, but the builder should preserve 
 - [x] Move ship ledger and deck controls into opaque canvas overlays; keep the builder canvas width fixed.
 - [x] Move layout validation notes into an orange validation tool overlay.
 - [x] Add square-cell pan/zoom canvas behavior with X/Y rulers and a draggable two-column toolbar.
+- [x] Restyle the canvas as drafting graph paper with full-viewport grid lines, origin marker, and +/- axes.
+- [x] Remove finite deck boundary placement limits so the graph-paper workspace is broadly placeable.
+- [x] Add scroll-wheel zoom and a right-side zoom slider for the visual work area.
+- [x] Scale snapped grid contents with canvas zoom so placed component labels, icons, and handles zoom with their cells.
+- [x] Replace the left floating tool rail with a compact builder-tools dropdown near the deck controls.
+- [x] Remove the below-canvas selected component editor so selection and future shape controls can stay inside canvas overlays.
+- [ ] Preserve deckplan visual references from discussion: architectural graph paper, black-and-white compartment plans, dense room labels, ship outlines, and a stock/parts side-panel pattern inspired by the supplied examples.
+- [ ] Add dynamic footprint editing so ship spaces can become rectangles, polygons, cutouts, and irregular compartment shapes while tonnage still derives from occupied grid cells.
+  - [x] Add footprint tool mode state: select/move, rectangle, paint cells, erase cells, and reshape.
+  - [x] Render each placed component from occupied cells instead of one rectangle.
+  - [x] Calculate placed tonnage from occupied cell count when a custom footprint exists.
+  - [x] Validate overlaps by occupied cells instead of rectangular bounding boxes.
+  - [x] Polish footprint visuals by merging adjacent cells into cleaner compartment outlines and centering labels.
+  - [ ] Add deckplan editing commands: fill rectangle, rotate/flip, duplicate, move to deck, and auto-fit required tons.
+    - [x] Fill rectangle with the active brush.
+    - [x] Erase rectangle from the selected footprint.
+    - [x] Show hover/drag footprint previews before committing edits.
+  - [x] Auto-fit the active brush to required tons.
+  - [x] Move a footprint as a shape by dragging occupied cells in Move mode.
+  - [x] Rotate and flip selected footprints.
+  - [x] Add duplicate selected footprint and move-to-deck commands.
+  - [x] Audit current tool mechanics: build-step tools select brushes where a matching placeable component exists; Paint freehands, Fill drags rectangles, Erase removes cells/rectangles, Move drags footprints, Shape resizes, Auto-Fit sizes to required tons, Rotate/Flip transform selected footprints, right-click pans, wheel/slider zooms.
+  - [x] Remove obsolete selected-tool deck options; keep deck name and tons/cell in deck controls.
+  - [x] Compact tool menus into narrow single-column palettes.
+  - [x] Prevent footprint creation/edit commands from committing overlaps; allow move overlaps to remain visible in red.
+  - [ ] Separate component footprints from the overall ship hull/deck outline.
+- [ ] Move shape manipulation tools into the right-side canvas controls beside zoom/editing controls.
 
 ### 11. Save Custom Ships
 

@@ -252,6 +252,11 @@ export type CustomShipCargoEntry = {
   notes?: string[]
 }
 
+export type CustomShipLayoutCell = {
+  x: number
+  y: number
+}
+
 export type CustomShipLayoutPlacement = {
   id: string
   componentId: string
@@ -261,6 +266,7 @@ export type CustomShipLayoutPlacement = {
   width: number
   height: number
   rotation: number
+  footprintCells?: CustomShipLayoutCell[]
   locked?: boolean
 }
 
