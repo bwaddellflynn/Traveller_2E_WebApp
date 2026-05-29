@@ -38,7 +38,7 @@ The book has these app-relevant chapters:
 
 ## Ship Design Sequence
 
-High Guard presents a 13-step design sequence:
+High Guard page 10 presents this 13-step design sequence, which is the source of truth for Phase 4 builder TODO ordering:
 
 1. Create a hull: choose tonnage, hull configuration, armour, and hull options.
 2. Install drives: manoeuvre or reaction drive, plus jump drive when needed.
@@ -46,12 +46,12 @@ High Guard presents a 13-step design sequence:
 4. Install power plant: size power production against basic systems, drives, weapons, sensors, and optional systems.
 5. Install bridge: bridge, smaller bridge, command bridge, or cockpit.
 6. Install computer: computer or computer core, plus options such as `/bis` and `/fib`.
-7. Install sensors: basic through advanced arrays.
-8. Install weapons: hardpoint/firmpoint accounting and weapon systems.
+7. Install weapons: hardpoint/firmpoint accounting and weapon systems.
+8. Install sensors: basic through advanced arrays.
 9. Install optional systems: spacecraft options chapter.
 10. Determine crew: commercial or military requirements, with large-ship reductions.
-11. Install staterooms: staterooms, double occupancy, low berths, emergency low berths, and common areas.
-12. Allocate cargo space: remaining tonnage becomes cargo.
+11. Allocate cargo space: remaining tonnage becomes cargo.
+12. Install staterooms: staterooms, high/luxury/psion staterooms, double occupancy, low berths, emergency low berths, common areas, and accommodation options.
 13. Finalise design: validate tonnage/cost, calculate maintenance, life support, airlocks, cargo hatches, and final record.
 
 This maps well to the existing Garage builder pattern: a guided step list with persistent tonnage, cost, power, crew, and validation summaries.
@@ -224,7 +224,7 @@ Phase 4 should deliver a rules-first Shipyard builder for High Guard spacecraft:
 
 - Stock spacecraft display.
 - User-created spacecraft designs.
-- High Guard 13-step ship design flow.
+- High Guard page 10 ship design flow: hull, drives, fuel, power, bridge, computer, weapons, sensors, optional systems, crew, cargo, staterooms, finalise.
 - Component ledger with tons, cost, Power, fuel, crew, software bandwidth, hardpoints, and cargo.
 - Save/load custom spacecraft.
 - Review datasheet.
@@ -257,7 +257,7 @@ Phase 5 should handle the small craft layer:
 1. Expand `TravellerShipRecord` into a summary-plus-components model instead of flattening ships into `jump`, `thrust`, `crew`, and `cost` strings.
 2. Populate stock ship summaries first, then add component tables for a smaller pilot set: Scout/Courier, Free Trader, Far Trader, Yacht, System Defence Boat, and Fleet Courier.
 3. Rebuild Shipyard as three views: `Stock Ships`, `Custom Ships`, and an integrated visual `Ship Builder`.
-4. Model the builder around the 13-step High Guard sequence, with live tonnage, cost, power, crew, hardpoint, and fuel accounting.
+4. Model the builder around the page 10 High Guard checklist, with live tonnage, cost, power, crew, hardpoint, and fuel accounting.
 5. Treat capital ships as supported by the data model, but start the custom builder UX around adventure-class spacecraft of 100 tons or more.
 6. Keep higher-tech/exotic systems selectable only as reference/manual entries until the core High Guard systems validate correctly.
 7. Use PDF stock designs as regression scenarios once the builder can reproduce component totals.
@@ -310,24 +310,24 @@ Phase 5 should handle the small craft layer:
 - [x] Keep the layout consistent with the existing Garage pattern where practical.
 - [x] Add search, category filtering, sorting, and selected-ship details for stock spacecraft.
 
-### 7. Create 13-Step Builder Shell
+### 7. Create Page 10 Builder Flow
 
-- [x] Setup.
-- [x] Hull.
-- [x] Drives.
-- [x] Fuel.
-- [x] Power Plant.
-- [x] Bridge.
-- [x] Computer.
-- [x] Sensors.
-- [x] Weapons.
-- [x] Options.
-- [x] Crew.
-- [x] Accommodations.
-- [x] Cargo.
-- [x] Review.
+- [x] Treat `Setup` as builder metadata, not one of the numbered High Guard ship design steps.
+- [x] Step 1: Create a Hull.
+- [x] Step 2: Install Drives.
+- [x] Step 3: Install Fuel Tanks.
+- [x] Step 4: Install Power Plant.
+- [x] Step 5: Install Bridge.
+- [x] Step 6: Install Computer.
+- [x] Step 7: Install Weapons.
+- [x] Step 8: Install Sensors.
+- [x] Step 9: Install Optional Systems.
+- [x] Step 10: Determine Crew.
+- [x] Step 11: Allocate Cargo Space.
+- [x] Step 12: Install Staterooms.
+- [x] Step 13: Finalise Design.
 
-The step labels can be adjusted for UI clarity, but the builder should preserve the High Guard design sequence in descriptions and validation.
+The builder may expose supporting setup/review controls, but its numbered flow, descriptions, validation, and TODO sequencing should follow the High Guard checklist from page 10.
 
 ### 8. Add Persistent Ship Ledger Panel
 
@@ -356,7 +356,7 @@ The step labels can be adjusted for UI clarity, but the builder should preserve 
 
 ### 10. Add Integrated Visual Builder Foundation
 
-- [x] Keep the 13-step workflow, ship ledger, component tray, and deck canvas visible as one builder experience.
+- [x] Keep the page 10 checklist flow, ship ledger, component tray/tool overlays, and deck canvas visible as one builder experience.
 - [x] Add a deck grid surface inside the `Ship Builder` tab.
 - [x] Add deck controls for deck name, grid dimensions, and tons per cell.
 - [x] Generate an unplaced component tray from `shipConstructionSummary().components`.
@@ -419,6 +419,7 @@ The step labels can be adjusted for UI clarity, but the builder should preserve 
   - [x] Derive cargo tonnage from drawn cargo footprint cells, including duplicated cargo areas tied to the same cargo entry.
   - [x] Keep placement colors stable by component type/visual role and distinguish same-type entries with display numbering.
 - [x] Move shape manipulation tools into the right-side canvas controls beside zoom/editing controls.
+- [x] Add local undo/redo history for builder state snapshots with toolbar buttons and Ctrl+Z, Ctrl+Y, and Ctrl+Shift+Z shortcuts.
 
 ### 11. Save Custom Ships
 
@@ -428,21 +429,28 @@ The step labels can be adjusted for UI clarity, but the builder should preserve 
 
 ### 12. Fill Builder Step Editors
 
-- [ ] Flesh out Setup fields beyond the initial shell.
-- [ ] Flesh out Hull controls for configuration, armour, specialised hulls, additional hulls, and hull options.
-- [ ] Flesh out Drives, Fuel, Power Plant, Bridge, Computer, and Sensors with full rule-table selectors.
-- [x] Add first-pass Weapons and Screens editors with hardpoint accounting.
-- [x] Add first-pass Options editor for ship systems and High Guard options.
-- [x] Add first-pass Crew editor that can accept manual overrides while preserving generated requirements.
-  - [x] Split Accommodations and Cargo into separate builder tools.
-  - [x] Add first-pass Accommodations editor with staterooms, low berths, emergency low berths, and common areas.
-    - [x] Add High Guard option accommodations: high stateroom, luxury stateroom, acceleration bench, acceleration seat, barracks, brig, and cabin space.
-    - [x] Add Exotic Technology psion stateroom.
-    - [x] Add per-accommodation brush selection so individual accommodation rows can be painted separately.
-  - [x] Add first-pass Cargo editor with distinct cargo entries.
-    - [x] Add per-cargo brush selection so multiple cargo entries can be differentiated on the canvas.
-- [x] Add first-pass Computer software editor with bandwidth accounting.
-- [x] Add first-pass Review controls for save readiness and validation issue navigation.
+- [ ] Supporting metadata: Flesh out Setup fields beyond the initial shell.
+- [ ] Step 1 Hull: Flesh out configuration, armour, specialised hulls, additional hulls, and hull options.
+- [ ] Step 2 Drives: Flesh out manoeuvre drive, reaction drive, and jump drive selectors from full rule tables.
+- [ ] Step 3 Fuel Tanks: Flesh out jump fuel, reaction fuel, power plant fuel, fuel processors, scoops, mountable tanks, and related options.
+- [ ] Step 4 Power Plant: Flesh out power plant type, tonnage, power output, and power trade-off controls.
+- [ ] Step 5 Bridge: Flesh out bridge size, smaller bridge, command bridge, cockpit, detachable bridge, and bridge options.
+- [x] Step 6 Computer: Add first-pass Computer software editor with bandwidth accounting.
+- [ ] Step 6 Computer: Replace first-pass software/freeform controls with full computer/core/software rule-table selectors.
+- [x] Step 7 Weapons: Add first-pass Weapons and Screens editors with hardpoint accounting.
+- [ ] Step 7 Weapons: Replace first-pass weapon/screen controls with full hardpoint/firmpoint and weapon catalogue selectors.
+- [ ] Step 8 Sensors: Flesh out Basic through Advanced sensor suite selectors and sensor-related options.
+- [x] Step 9 Optional Systems: Add first-pass Options editor for ship systems and High Guard options.
+- [ ] Step 9 Optional Systems: Replace freeform options with full Spacecraft Options selectors and rule-specific constraints.
+- [x] Step 10 Crew: Add first-pass Crew editor that can accept manual overrides while preserving generated requirements.
+- [x] Step 11 Cargo: Add first-pass Cargo editor with distinct cargo entries.
+  - [x] Add per-cargo brush selection so multiple cargo entries can be differentiated on the canvas.
+- [x] Step 12 Staterooms: Split Accommodations and Cargo into separate builder tools.
+- [x] Step 12 Staterooms: Add first-pass Accommodations editor with staterooms, low berths, emergency low berths, and common areas.
+  - [x] Add High Guard option accommodations: high stateroom, luxury stateroom, acceleration bench, acceleration seat, barracks, brig, and cabin space.
+  - [x] Add Exotic Technology psion stateroom.
+  - [x] Add per-accommodation brush selection so individual accommodation rows can be painted separately.
+- [x] Step 13 Finalise Design: Add first-pass Review controls for save readiness and validation issue navigation.
 - [ ] Replace first-pass freeform entries with full High Guard catalog selectors and rule-specific constraints.
 
 ### 13. Prepare Visual Layout Model

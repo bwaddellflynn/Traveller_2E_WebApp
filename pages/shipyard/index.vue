@@ -60,6 +60,13 @@ type CanvasPanDragState = {
   originY: number
 }
 type FloatingPanelDragState = CanvasPanDragState
+type BuilderHistorySnapshot = {
+  buildDraft: CustomShipDesign
+  activeDeckId: string
+  selectedPlacementId: string
+  activeBrushComponentId: string
+  activeShapeTool: ShapeToolId
+}
 type PlacementRenderMeta = {
   cells: CustomShipLayoutCell[]
   cellKeys: Set<string>
@@ -125,6 +132,8 @@ const canvasPanFrame = ref(0)
 const footprintHoverFrame = ref(0)
 const pendingCanvasPan = ref<{ x: number, y: number } | null>(null)
 const pendingFootprintHover = ref<CustomShipLayoutCell | null>(null)
+const undoStack = ref<BuilderHistorySnapshot[]>([])
+const redoStack = ref<BuilderHistorySnapshot[]>([])
 
 const shipyardTabs: { id: ShipyardTabId, label: string }[] = [
   { id: 'stock', label: 'Stock Ships' },
@@ -360,6 +369,42 @@ const createSoftwareEntry = (): TravellerShipSoftware => ({
 })
 
 const buildDraft = ref<CustomShipDesign>(createBlankCustomShipDesign())
+const cloneBuilderState = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T
+const createBuilderHistorySnapshot = (): BuilderHistorySnapshot => ({
+  buildDraft: cloneBuilderState(buildDraft.value),
+  activeDeckId: activeDeckId.value,
+  selectedPlacementId: selectedPlacementId.value,
+  activeBrushComponentId: activeBrushComponentId.value,
+  activeShapeTool: activeShapeTool.value,
+})
+const restoreBuilderHistorySnapshot = (snapshot: BuilderHistorySnapshot) => {
+  buildDraft.value = cloneBuilderState(snapshot.buildDraft)
+  activeDeckId.value = snapshot.activeDeckId
+  selectedPlacementId.value = snapshot.selectedPlacementId
+  activeBrushComponentId.value = snapshot.activeBrushComponentId
+  activeShapeTool.value = snapshot.activeShapeTool
+  deckConfirmAction.value = ''
+  footprintEditDrag.value = null
+  footprintRectDrag.value = null
+  layoutDrag.value = null
+}
+const rememberBuilderHistory = () => {
+  undoStack.value.push(createBuilderHistorySnapshot())
+  if (undoStack.value.length > 100) undoStack.value.shift()
+  redoStack.value = []
+}
+const undoBuilderAction = () => {
+  const snapshot = undoStack.value.pop()
+  if (!snapshot) return
+  redoStack.value.push(createBuilderHistorySnapshot())
+  restoreBuilderHistorySnapshot(snapshot)
+}
+const redoBuilderAction = () => {
+  const snapshot = redoStack.value.pop()
+  if (!snapshot) return
+  undoStack.value.push(createBuilderHistorySnapshot())
+  restoreBuilderHistorySnapshot(snapshot)
+}
 const placementTonsForDraft = (draft: CustomShipDesign, placement: CustomShipLayoutPlacement) => {
   const deck = draft.layout.decks.find((entry) => entry.id === placement.deckId)
   const tonsPerCell = Math.max(0.25, Number(deck?.tonsPerCell) || 1)
@@ -1295,6 +1340,7 @@ const placeComponent = (component: TravellerShipComponent) => {
   const width = Math.min(canvasWorkspaceRadius, Math.max(1, Math.ceil(Math.sqrt(cells))))
   const height = Math.min(canvasWorkspaceRadius, Math.max(1, Math.ceil(cells / width)))
   const position = findOpenPlacement(deck, width, height, component.id)
+  rememberBuilderHistory()
   buildDraft.value.layout.placements = buildDraft.value.layout.placements.filter((placement) => placement.componentId !== component.id)
   buildDraft.value.layout.placements.push({
     id: placementIdBase(component.id),
@@ -1323,11 +1369,13 @@ const selectAccommodationBrush = (entry: CustomShipAccommodationEntry) => {
 }
 const addAccommodationEntry = (type: CustomShipAccommodationEntry['type']) => {
   const entry = createAccommodationEntry(type)
+  rememberBuilderHistory()
   buildDraft.value.accommodations.push(entry)
   nextTick(() => selectAccommodationBrush(entry))
 }
 const removeAccommodationEntry = (entry: CustomShipAccommodationEntry) => {
   const componentId = accommodationComponentId(entry)
+  rememberBuilderHistory()
   buildDraft.value.accommodations = buildDraft.value.accommodations.filter((item) => item.id !== entry.id)
   buildDraft.value.layout.placements = buildDraft.value.layout.placements.filter((placement) => placement.componentId !== componentId && placement.sourceEntryId !== entry.id)
   if (!buildDraft.value.layout.placements.some((placement) => placement.id === selectedPlacementId.value)) selectedPlacementId.value = ''
@@ -1339,11 +1387,13 @@ const selectCargoBrush = (entry: CustomShipCargoEntry) => {
 }
 const addCargoEntry = () => {
   const entry = createCargoEntry()
+  rememberBuilderHistory()
   buildDraft.value.cargoEntries.push(entry)
   nextTick(() => selectCargoBrush(entry))
 }
 const removeCargoEntry = (entry: CustomShipCargoEntry) => {
   const componentId = cargoComponentId(entry)
+  rememberBuilderHistory()
   buildDraft.value.cargoEntries = buildDraft.value.cargoEntries.filter((item) => item.id !== entry.id)
   buildDraft.value.layout.placements = buildDraft.value.layout.placements.filter((placement) => placement.componentId !== componentId && placement.sourceEntryId !== entry.id)
   if (!buildDraft.value.layout.placements.some((placement) => placement.id === selectedPlacementId.value)) selectedPlacementId.value = ''
@@ -1412,6 +1462,7 @@ const brushPlacementForCell = (cell: CustomShipLayoutCell | null) => {
 const autoFitBrushFootprint = () => {
   const component = activeBrushComponent.value
   if (!component) return
+  rememberBuilderHistory()
   const requiredCells = componentRequiredCells(component)
   const footprintCells = compactFootprintCells(requiredCells)
   const width = Math.max(...footprintCells.map((cell) => cell.x)) + 1
@@ -1433,6 +1484,7 @@ const autoFitBrushFootprint = () => {
 const rotateSelectedFootprint = () => {
   const placement = selectedLayoutPlacement.value
   if (!placement) return
+  rememberBuilderHistory()
   const cells = placementFootprintCells(placement)
   const rotatedCells = cells.map((cell) => ({
     x: placement.height - 1 - cell.y,
@@ -1446,6 +1498,7 @@ const rotateSelectedFootprint = () => {
 const flipSelectedFootprint = (axis: 'horizontal' | 'vertical') => {
   const placement = selectedLayoutPlacement.value
   if (!placement) return
+  rememberBuilderHistory()
   const cells = placementFootprintCells(placement).map((cell) => ({
     x: axis === 'horizontal' ? placement.width - 1 - cell.x : cell.x,
     y: axis === 'vertical' ? placement.height - 1 - cell.y : cell.y,
@@ -1455,6 +1508,7 @@ const flipSelectedFootprint = (axis: 'horizontal' | 'vertical') => {
 const duplicateSelectedFootprint = () => {
   const placement = selectedLayoutPlacement.value
   if (!placement) return
+  rememberBuilderHistory()
   const sourceCells = absoluteFootprintCells(placement)
   const offsets = [
     { x: 2, y: 0 },
@@ -1492,6 +1546,7 @@ const duplicateSelectedFootprint = () => {
 const moveSelectedFootprintToNextDeck = () => {
   const placement = selectedLayoutPlacement.value
   if (!placement || buildDraft.value.layout.decks.length < 2) return
+  rememberBuilderHistory()
   const currentDeckIndex = buildDraft.value.layout.decks.findIndex((deck) => deck.id === placement.deckId)
   const orderedDecks = [
     ...buildDraft.value.layout.decks.slice(currentDeckIndex + 1),
@@ -1511,6 +1566,7 @@ const moveSelectedFootprintToNextDeck = () => {
   }
 }
 const removePlacement = (componentId: string) => {
+  rememberBuilderHistory()
   buildDraft.value.layout.placements = buildDraft.value.layout.placements.filter((placement) => placement.componentId !== componentId)
   if (!buildDraft.value.layout.placements.some((placement) => placement.id === selectedPlacementId.value)) selectedPlacementId.value = ''
   if (activeBrushComponentId.value === componentId) activeBrushComponentId.value = ''
@@ -1539,12 +1595,14 @@ const clearSelectedPlacement = () => {
 const removeSelectedPlacement = () => {
   const placement = selectedLayoutPlacement.value
   if (!placement) return
+  rememberBuilderHistory()
   buildDraft.value.layout.placements = buildDraft.value.layout.placements.filter((entry) => entry.id !== placement.id)
   selectedPlacementId.value = ''
 }
 const nudgeSelectedPlacement = (deltaX: number, deltaY: number) => {
   const placement = selectedLayoutPlacement.value
   if (!placement) return
+  rememberBuilderHistory()
   placement.x += deltaX
   placement.y += deltaY
   clampPlacement(placement)
@@ -1558,12 +1616,14 @@ const closeDeckConfirm = () => {
   deckConfirmAction.value = ''
 }
 const createDeck = () => {
+  rememberBuilderHistory()
   const deck = createLayoutDeck(buildDraft.value.layout.decks.length + 1)
   buildDraft.value.layout.decks.push(deck)
   activeDeckId.value = deck.id
   selectedPlacementId.value = ''
 }
 const duplicateActiveDeck = () => {
+  rememberBuilderHistory()
   const sourceDeck = activeDeck.value
   const deckIndex = buildDraft.value.layout.decks.length + 1
   const deckId = `deck-${Date.now()}`
@@ -1597,6 +1657,7 @@ const selectDeck = (deckId: string) => {
 }
 const removeActiveDeck = () => {
   if (buildDraft.value.layout.decks.length <= 1) return
+  rememberBuilderHistory()
   const deckId = activeDeck.value.id
   const nextDeck = buildDraft.value.layout.decks.find((deck) => deck.id !== deckId)
   buildDraft.value.layout.decks = buildDraft.value.layout.decks.filter((deck) => deck.id !== deckId)
@@ -1714,6 +1775,7 @@ const startPlacementFootprintEdit = (event: PointerEvent, placement: CustomShipL
   const target = event.currentTarget
   if (!(target instanceof HTMLElement)) return
   event.preventDefault()
+  rememberBuilderHistory()
   selectedPlacementId.value = placement.id
   footprintEditDrag.value = { placementId: placement.id, mode, element: target }
   applyFootprintEdit(placement, pointerCellForDeck(event), mode)
@@ -1734,6 +1796,9 @@ const startFootprintRectDrag = (event: PointerEvent, mode: Extract<ShapeToolId, 
   if (event.button !== 0) return
   const startCell = pointerCellForDeck(event)
   if (!startCell) return
+  if (mode === 'rectangle' && !activeBrushComponent.value && !selectedLayoutPlacement.value) return
+  if (mode === 'erase' && !selectedLayoutPlacement.value) return
+  rememberBuilderHistory()
   const placement = mode === 'rectangle' ? brushPlacementForCell(startCell) : selectedLayoutPlacement.value
   if (!placement) return
   event.preventDefault()
@@ -1798,6 +1863,7 @@ const handleDeckPointerDown = (event: PointerEvent) => {
   }
   if (event.button !== 0 || mode !== 'paint') return
   const cell = pointerCellForDeck(event)
+  rememberBuilderHistory()
   const placement = brushPlacementForCell(cell)
   if (!placement) return
   event.preventDefault()
@@ -1838,6 +1904,7 @@ const startPlacementDrag = (event: PointerEvent, placement: CustomShipLayoutPlac
   if (event.button !== 0) return
   if (mode === 'move' && activeShapeTool.value !== 'select') return
   event.preventDefault()
+  rememberBuilderHistory()
   selectedPlacementId.value = placement.id
   layoutDrag.value = {
     placementId: placement.id,
@@ -1887,6 +1954,18 @@ const isEditableKeyboardTarget = (target: EventTarget | null) => target instance
   || (target instanceof HTMLElement && target.isContentEditable)
 const handleBuilderKeydown = (event: KeyboardEvent) => {
   if (activeShipyardTab.value !== 'builder' || isEditableKeyboardTarget(event.target)) return
+  const key = event.key.toLowerCase()
+  if ((event.ctrlKey || event.metaKey) && key === 'z') {
+    event.preventDefault()
+    if (event.shiftKey) redoBuilderAction()
+    else undoBuilderAction()
+    return
+  }
+  if ((event.ctrlKey || event.metaKey) && key === 'y') {
+    event.preventDefault()
+    redoBuilderAction()
+    return
+  }
   if (deckConfirmAction.value) {
     if (event.key === 'Escape') {
       event.preventDefault()
@@ -2516,7 +2595,7 @@ onBeforeUnmount(() => {
                 </div>
                 <div class="mt-3 grid gap-2">
                   <article v-for="entry in buildDraft.accommodations" :key="entry.id" class="grid gap-2 rounded-md border border-cyan-400/20 bg-slate-950/70 p-2 md:grid-cols-[minmax(8rem,0.8fr)_minmax(0,1fr)_4rem_5rem_auto_auto]">
-                    <select v-model="entry.type" class="h-8 rounded-md border border-cyan-300/25 bg-slate-900 px-2 text-xs text-cyan-50 outline-none focus:border-amber-300/60" @change="updateAccommodationType(entry, entry.type)">
+                    <select v-model="entry.type" class="h-8 rounded-md border border-cyan-300/25 bg-slate-900 px-2 text-xs text-cyan-50 outline-none focus:border-amber-300/60" @change="updateAccommodationType(entry, entry.type)" @focus="rememberBuilderHistory">
                       <option value="stateroom">Stateroom</option>
                       <option value="high-stateroom">High Stateroom</option>
                       <option value="luxury-stateroom">Luxury Stateroom</option>
@@ -2531,9 +2610,9 @@ onBeforeUnmount(() => {
                       <option value="cabin-space">Cabin Space</option>
                       <option value="other">Other Quarters</option>
                     </select>
-                    <input v-model="entry.label" class="h-8 rounded-md border border-cyan-300/25 bg-slate-900 px-2 text-xs text-cyan-50 outline-none focus:border-amber-300/60" placeholder="Label">
-                    <input v-model.number="entry.count" class="h-8 rounded-md border border-cyan-300/25 bg-slate-900 px-2 text-xs text-cyan-50 outline-none focus:border-amber-300/60" min="0" placeholder="Qty" title="Quantity" type="number">
-                    <input v-model.number="entry.tonsEach" class="h-8 rounded-md border border-cyan-300/25 bg-slate-900 px-2 text-xs text-cyan-50 outline-none focus:border-amber-300/60" min="0" placeholder="Tons" step="0.25" title="Tons each" type="number">
+                    <input v-model="entry.label" class="h-8 rounded-md border border-cyan-300/25 bg-slate-900 px-2 text-xs text-cyan-50 outline-none focus:border-amber-300/60" placeholder="Label" @focus="rememberBuilderHistory">
+                    <input v-model.number="entry.count" class="h-8 rounded-md border border-cyan-300/25 bg-slate-900 px-2 text-xs text-cyan-50 outline-none focus:border-amber-300/60" min="0" placeholder="Qty" title="Quantity" type="number" @focus="rememberBuilderHistory">
+                    <input v-model.number="entry.tonsEach" class="h-8 rounded-md border border-cyan-300/25 bg-slate-900 px-2 text-xs text-cyan-50 outline-none focus:border-amber-300/60" min="0" placeholder="Tons" step="0.25" title="Tons each" type="number" @focus="rememberBuilderHistory">
                     <button
                       class="h-8 rounded-md border px-2 text-xs font-semibold"
                       :class="activeBrushComponentId === accommodationComponentId(entry) ? 'border-cyan-100 bg-cyan-100 text-zinc-950' : 'border-cyan-300/30 text-cyan-100 hover:border-amber-300/60'"
@@ -2561,7 +2640,7 @@ onBeforeUnmount(() => {
                 </div>
                 <div class="mt-3 grid gap-2">
                   <article v-for="entry in buildDraft.cargoEntries" :key="entry.id" class="grid gap-2 rounded-md border border-cyan-400/20 bg-slate-950/70 p-2 md:grid-cols-[minmax(0,1fr)_6rem_auto_auto]">
-                    <input v-model="entry.label" class="h-8 rounded-md border border-cyan-300/25 bg-slate-900 px-2 text-xs text-cyan-50 outline-none focus:border-amber-300/60" placeholder="Label">
+                    <input v-model="entry.label" class="h-8 rounded-md border border-cyan-300/25 bg-slate-900 px-2 text-xs text-cyan-50 outline-none focus:border-amber-300/60" placeholder="Label" @focus="rememberBuilderHistory">
                     <div class="flex h-8 items-center justify-end rounded-md border border-cyan-300/20 bg-slate-900 px-2 text-xs font-semibold text-cyan-50" :title="`${drawnCargoTonsForEntry(entry.id)} tons drawn`">
                       {{ formatLedgerNumber(drawnCargoTonsForEntry(entry.id)) }} t
                     </div>
@@ -2734,6 +2813,26 @@ onBeforeUnmount(() => {
 	                      </p>
 	                    </div>
                   </div>
+                  <button
+                    class="flex h-9 w-9 items-center justify-center rounded-md border border-cyan-300/35 text-cyan-50 hover:border-amber-300/60 disabled:cursor-not-allowed disabled:opacity-35"
+                    :disabled="!undoStack.length"
+                    title="Undo (Ctrl+Z)"
+                    type="button"
+                    @click="undoBuilderAction"
+                  >
+                    <AppIcon class="h-4 w-4 rotate-180" name="arrow" />
+                    <span class="sr-only">Undo</span>
+                  </button>
+                  <button
+                    class="flex h-9 w-9 items-center justify-center rounded-md border border-cyan-300/35 text-cyan-50 hover:border-amber-300/60 disabled:cursor-not-allowed disabled:opacity-35"
+                    :disabled="!redoStack.length"
+                    title="Redo (Ctrl+Y / Ctrl+Shift+Z)"
+                    type="button"
+                    @click="redoBuilderAction"
+                  >
+                    <AppIcon class="h-4 w-4" name="arrow" />
+                    <span class="sr-only">Redo</span>
+                  </button>
                   <div class="relative">
 	                    <button
 	                      class="flex h-9 w-9 items-center justify-center rounded-md border border-cyan-300/35 text-cyan-50 hover:border-amber-300/60"
@@ -2751,11 +2850,11 @@ onBeforeUnmount(() => {
                     <div v-if="deckMenuOpen" class="absolute left-0 top-11 z-40 grid w-[min(16rem,calc(100vw-3rem))] gap-2 rounded-md border border-cyan-400/35 bg-slate-950/95 p-2 shadow-xl shadow-black/60">
                       <label class="grid gap-1 text-[0.62rem] font-semibold uppercase tracking-[0.12em] text-cyan-100/70">
                         Deck Name
-                        <input v-model="activeDeck.name" class="h-8 rounded-md border border-cyan-300/25 bg-slate-900 px-2 text-xs normal-case tracking-normal text-cyan-50 outline-none focus:border-amber-300/60">
+                        <input v-model="activeDeck.name" class="h-8 rounded-md border border-cyan-300/25 bg-slate-900 px-2 text-xs normal-case tracking-normal text-cyan-50 outline-none focus:border-amber-300/60" @focus="rememberBuilderHistory">
                       </label>
                       <label class="grid gap-1 text-[0.62rem] font-semibold uppercase tracking-[0.12em] text-cyan-100/70">
                         Tons/Cell
-                        <input v-model.number="activeDeck.tonsPerCell" class="h-8 rounded-md border border-cyan-300/25 bg-slate-900 px-2 text-xs normal-case tracking-normal text-cyan-50 outline-none focus:border-amber-300/60" min="0.25" step="0.25" type="number">
+                        <input v-model.number="activeDeck.tonsPerCell" class="h-8 rounded-md border border-cyan-300/25 bg-slate-900 px-2 text-xs normal-case tracking-normal text-cyan-50 outline-none focus:border-amber-300/60" min="0.25" step="0.25" type="number" @focus="rememberBuilderHistory">
                       </label>
                       <button
                         v-for="deck in buildDraft.layout.decks"
