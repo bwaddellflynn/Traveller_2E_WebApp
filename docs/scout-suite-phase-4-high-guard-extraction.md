@@ -429,8 +429,16 @@ The builder may expose supporting setup/review controls, but its numbered flow, 
 
 ### 12. Fill Builder Step Editors
 
-- [ ] Supporting metadata: Flesh out Setup fields beyond the initial shell.
-- [ ] Step 1 Hull: Flesh out configuration, armour, specialised hulls, additional hulls, and hull options.
+- [x] Supporting metadata: Flesh out Setup fields beyond the initial shell.
+- [x] Step 1 Hull: Flesh out configuration, armour, specialised hulls, additional hulls, and hull options.
+  - [x] Add structured Hull Step input/result types for rules-first validation.
+  - [x] Add a dedicated hull calculation function for base hull cost, usable tonnage, Hull points, armour tonnage/cost, hull option tonnage/cost, errors, and warnings.
+  - [x] Add Step 1 completion checks: TL, tonnage, configuration, armour legality, mutually exclusive options, and Phase 4 spacecraft minimum.
+  - [x] Add builder step status computation so Step 2 unlocks only after Step 1 has no blocking errors.
+  - [x] Update the Hull selected-tool panel into a compact sub-flow: size/TL, configuration, specialised hull, additional hulls, armour, and hull options.
+  - [x] Add major-redesign confirmation when hull tonnage or configuration changes after downstream systems or deck placements exist.
+  - [x] Add hull envelope/silhouette placeholder data for later visual reconciliation against tonnage.
+  - [x] Add first-pass hull shape editing with paint, erase, rectangle, regenerate, and tonnage reconciliation.
 - [ ] Step 2 Drives: Flesh out manoeuvre drive, reaction drive, and jump drive selectors from full rule tables.
 - [ ] Step 3 Fuel Tanks: Flesh out jump fuel, reaction fuel, power plant fuel, fuel processors, scoops, mountable tanks, and related options.
 - [ ] Step 4 Power Plant: Flesh out power plant type, tonnage, power output, and power trade-off controls.

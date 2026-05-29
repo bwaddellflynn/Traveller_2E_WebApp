@@ -45,6 +45,60 @@ export type ShipHullOptionRule = {
   notes: string
 }
 
+export type ShipHullStepIssueSeverity = 'error' | 'warning'
+
+export type ShipHullStepIssue = {
+  severity: ShipHullStepIssueSeverity
+  code: string
+  message: string
+}
+
+export type ShipHullStepInput = {
+  shipTons: number
+  techLevel: number
+  configurationId: string
+  armourTypeId: string
+  armourProtection: number
+  specialisedHullTypeIds: string[]
+  additionalHullTypeIds: string[]
+  hullOptionIds: string[]
+  phaseMinimumTons?: number
+}
+
+export type ShipHullStepArmourResult = {
+  rule: ShipHullArmourRule
+  protection: number
+  maximumProtection: number
+  tons: number
+  costCredits: number
+}
+
+export type ShipHullStepOptionResult = {
+  rule: ShipHullOptionRule
+  tons: number
+  costCredits: number
+}
+
+export type ShipHullStepResult = {
+  input: ShipHullStepInput
+  isComplete: boolean
+  configuration: ShipHullConfigurationRule
+  baseHullCostCredits: number
+  hullCostCredits: number
+  baseHullPoints: number
+  hullPoints: number
+  usableTons: number
+  armour?: ShipHullStepArmourResult
+  specialisedHullTypes: ShipHullStepOptionResult[]
+  additionalHullTypes: ShipHullStepOptionResult[]
+  hullOptions: ShipHullStepOptionResult[]
+  totalOptionTons: number
+  totalOptionCostCredits: number
+  issues: ShipHullStepIssue[]
+  errors: ShipHullStepIssue[]
+  warnings: ShipHullStepIssue[]
+}
+
 export type ShipDrivePotentialRule = {
   rating: number
   hullPercent: number
@@ -156,6 +210,7 @@ export const shipHullOptionRules: ShipHullOptionRule[] = [
   { id: 'heat-shielding', label: 'Heat Shielding', minimumTechLevel: 6, costPerHullTonCredits: 100000, notes: 'Protects against re-entry or close stellar heat.' },
   { id: 'radiation-shielding', label: 'Radiation Shielding', minimumTechLevel: 7, costPerHullTonCredits: 25000, notes: 'Improves radiation protection and treats bridge as Hardened.' },
   { id: 'reflec', label: 'Reflec', minimumTechLevel: 10, costPerHullTonCredits: 100000, notes: 'Protection +3 against lasers; cannot combine with Stealth.' },
+  { id: 'solar-coating', label: 'Solar Coating', minimumTechLevel: 8, notes: 'Backup solar power hull coating; cannot combine with other listed hull options.' },
   { id: 'stealth-basic', label: 'Stealth, Basic', minimumTechLevel: 8, tonsPercent: 0.02, costPerHullTonCredits: 40000, notes: 'DM-2 to Electronics (sensors) checks to detect or lock on.' },
   { id: 'stealth-improved', label: 'Stealth, Improved', minimumTechLevel: 10, costPerHullTonCredits: 100000, notes: 'DM-2 to Electronics (sensors) checks to detect or lock on.' },
   { id: 'stealth-enhanced', label: 'Stealth, Enhanced', minimumTechLevel: 12, costPerHullTonCredits: 500000, notes: 'DM-4 to Electronics (sensors) checks to detect or lock on.' },
@@ -363,12 +418,157 @@ const shipArmourTonnageMultiplierFor = (shipTons: number) => {
   ))?.multiplier ?? 1
 }
 
+const shipArmourMaximumProtectionFor = (rule: ShipHullArmourRule, techLevel: number, isMilitaryHull: boolean) => {
+  const tl = positive(techLevel)
+  const standardMaximum = (() => {
+    if (rule.maximumProtection === 'tl+4') return tl + 4
+    if (rule.maximumProtection === 'tl-or-9') return Math.min(tl, 9)
+    if (rule.maximumProtection === 'tl-or-13') return Math.min(tl, 13)
+    return tl
+  })()
+
+  return isMilitaryHull ? standardMaximum * 2 : standardMaximum
+}
+
+const hullStepIssue = (severity: ShipHullStepIssueSeverity, code: string, message: string): ShipHullStepIssue => ({
+  severity,
+  code,
+  message,
+})
+
+const hullOptionResultFor = (
+  rule: ShipHullOptionRule,
+  shipTons: number,
+  costBasis: 'hull' | 'option' | number = 'hull',
+) => {
+  const tons = rule.tons ?? (rule.tonsPercent ? shipTons * rule.tonsPercent : 0)
+  const costBasisTons = typeof costBasis === 'number'
+    ? costBasis
+    : costBasis === 'option' ? tons : shipTons
+  return {
+    rule,
+    tons: roundTons(tons),
+    costCredits: roundCredits((rule.costCredits ?? 0) + (costBasisTons * (rule.costPerHullTonCredits ?? 0))),
+  }
+}
+
 const driveRuleFor = (rules: ShipDrivePotentialRule[], rating: number) => rules.find((rule) => rule.rating === rating) ?? rules[0]
 const jumpRuleFor = (rating: number) => shipJumpDriveRules.find((rule) => rule.rating === rating) ?? null
 
 const selectedRuleList = (rules: ShipHullOptionRule[], ids: string[]) => ids
   .map((id) => rules.find((rule) => rule.id === id))
   .filter((rule): rule is ShipHullOptionRule => Boolean(rule))
+
+export const calculateHullStep = (input: ShipHullStepInput): ShipHullStepResult => {
+  const shipTons = positive(input.shipTons)
+  const techLevel = positive(input.techLevel)
+  const phaseMinimumTons = positive(input.phaseMinimumTons ?? HIGH_GUARD_MINIMUM_SPACECRAFT_TONS)
+  const issues: ShipHullStepIssue[] = []
+  const configuration = shipHullConfigurationRuleFor(input.configurationId)
+  const configurationExists = shipHullConfigurationRules.some((rule) => rule.id === input.configurationId)
+  const isPlanetoid = configuration.id === 'planetoid' || configuration.id === 'buffered-planetoid'
+  const baseHullCostCredits = isPlanetoid
+    ? shipTons * 4000
+    : shipTons * HIGH_GUARD_BASE_HULL_COST_PER_TON_CREDITS * (1 + configuration.hullCostModifier)
+  const selectedSpecialisedRules = selectedRuleList(shipSpecialisedHullRules, input.specialisedHullTypeIds)
+  const selectedAdditionalRules = selectedRuleList(shipAdditionalHullRules, input.additionalHullTypeIds)
+  const selectedHullOptionRules = selectedRuleList(shipHullOptionRules, input.hullOptionIds)
+  const hasMilitaryHull = selectedSpecialisedRules.some((rule) => rule.id === 'military')
+  const specialisedHullCostModifier = selectedSpecialisedRules.reduce((total, rule) => {
+    if (rule.id === 'reinforced') return total + 0.5
+    if (rule.id === 'light') return total - 0.25
+    if (rule.id === 'military') return total + 0.25
+    if (rule.id === 'non-gravity') return total - 0.5
+    return total
+  }, 0)
+  const specialisedHullPointModifier = selectedSpecialisedRules.reduce((total, rule) => {
+    if (rule.id === 'reinforced') return total + 0.1
+    if (rule.id === 'light') return total - 0.1
+    return total
+  }, 0)
+  const baseHullPoints = shipHullPointsFor(shipTons)
+  const hullPoints = Math.max(0, Math.round(baseHullPoints * (1 + configuration.hullPointModifier + specialisedHullPointModifier)))
+  const hullCostCredits = roundCredits(baseHullCostCredits * (1 + specialisedHullCostModifier))
+  const armourRule = shipHullArmourRules.find((rule) => rule.id === input.armourTypeId)
+  const armourProtection = positive(input.armourProtection)
+  const armourMaximumProtection = armourRule
+    ? shipArmourMaximumProtectionFor(armourRule, techLevel, hasMilitaryHull)
+    : 0
+  const armour = armourRule && armourProtection > 0
+    ? {
+        rule: armourRule,
+        protection: armourProtection,
+        maximumProtection: armourMaximumProtection,
+        tons: roundTons(shipTons
+          * armourRule.tonsPercentPerProtection
+          * armourProtection
+          * shipArmourTonnageMultiplierFor(shipTons)
+          * (1 + configuration.armourVolumeModifier)),
+        costCredits: roundCredits(shipTons
+          * armourRule.tonsPercentPerProtection
+          * armourProtection
+          * shipArmourTonnageMultiplierFor(shipTons)
+          * (1 + configuration.armourVolumeModifier)
+          * armourRule.costPerTonCredits),
+      }
+    : undefined
+  const specialisedHullTypes = selectedSpecialisedRules.map((rule) => hullOptionResultFor(rule, shipTons))
+  const additionalHullTypes = selectedAdditionalRules.map((rule) => hullOptionResultFor(rule, shipTons, 'option'))
+  const hullOptions = selectedHullOptionRules.map((rule) => hullOptionResultFor(rule, shipTons))
+
+  if (techLevel <= 0) issues.push(hullStepIssue('error', 'missing-tech-level', 'Shipyard Tech Level must be greater than 0.'))
+  if (shipTons < phaseMinimumTons) issues.push(hullStepIssue('error', 'below-phase-minimum', `Phase 4 spacecraft must be at least ${phaseMinimumTons} tons.`))
+  if (shipTons < HIGH_GUARD_MINIMUM_HULL_TONS) issues.push(hullStepIssue('error', 'below-hull-minimum', `High Guard hulls must be at least ${HIGH_GUARD_MINIMUM_HULL_TONS} tons.`))
+  if (!configurationExists) issues.push(hullStepIssue('error', 'missing-configuration', 'Choose a hull configuration.'))
+  if (isPlanetoid && (input.specialisedHullTypeIds.length || input.additionalHullTypeIds.length)) {
+    issues.push(hullStepIssue('error', 'planetoid-hull-type-conflict', 'Planetoid and buffered planetoid hulls cannot use specialised or additional hull types.'))
+  }
+  if (hasMilitaryHull && shipTons <= 5000) issues.push(hullStepIssue('error', 'military-hull-tonnage', 'Military Hull can only be applied to capital ships greater than 5,000 tons.'))
+  if (input.specialisedHullTypeIds.includes('non-gravity') && shipTons > 500000) issues.push(hullStepIssue('error', 'non-gravity-tonnage', 'Non-Gravity Hull is limited to ships of 500,000 tons or less.'))
+  if (armourRule && armourProtection > 0 && techLevel < armourRule.minimumTechLevel) issues.push(hullStepIssue('error', 'armour-tech-level', `${armourRule.label} armour requires TL ${armourRule.minimumTechLevel}+.`))
+  if (!armourRule && armourProtection > 0) issues.push(hullStepIssue('error', 'missing-armour-type', 'Choose an armour type before assigning armour Protection.'))
+  if (armourRule && armourProtection > armourMaximumProtection) issues.push(hullStepIssue('error', 'armour-maximum-protection', `${armourRule.label} armour is limited to Protection ${armourMaximumProtection}.`))
+
+  for (const rule of [...selectedSpecialisedRules, ...selectedAdditionalRules, ...selectedHullOptionRules]) {
+    if (techLevel > 0 && techLevel < rule.minimumTechLevel) issues.push(hullStepIssue('error', `${rule.id}-tech-level`, `${rule.label} requires TL ${rule.minimumTechLevel}+.`))
+  }
+
+  const stealthOptionIds = input.hullOptionIds.filter((id) => id.startsWith('stealth-'))
+  if (input.hullOptionIds.includes('reflec') && stealthOptionIds.length) issues.push(hullStepIssue('error', 'reflec-stealth-conflict', 'Reflec cannot be combined with Stealth.'))
+  if (stealthOptionIds.length > 1) issues.push(hullStepIssue('error', 'multiple-stealth-options', 'Choose only one Stealth type.'))
+  if (input.hullOptionIds.includes('solar-coating') && input.hullOptionIds.length > 1) issues.push(hullStepIssue('error', 'solar-coating-conflict', 'Solar Coating cannot be combined with other listed hull options.'))
+  if (!armourRule && armourProtection <= 0) issues.push(hullStepIssue('warning', 'no-armour', 'No armour has been installed.'))
+  if (configuration.streamlined === 'no') issues.push(hullStepIssue('warning', 'unstreamlined-hull', `${configuration.label} hulls cannot enter atmospheres safely without special handling.`))
+  if (shipTons > 0 && shipTons % 100 !== 0) issues.push(hullStepIssue('warning', 'non-round-tonnage', 'High Guard recommends round hull tonnages for ease of calculation.'))
+  for (const result of [...specialisedHullTypes, ...additionalHullTypes]) {
+    if (result.tons <= 0 && result.costCredits <= 0) issues.push(hullStepIssue('warning', `${result.rule.id}-needs-sizing`, `${result.rule.label} requires additional sizing inputs before it can be fully costed.`))
+  }
+
+  const totalOptionTons = [...additionalHullTypes, ...hullOptions].reduce((total, result) => total + result.tons, armour?.tons ?? 0)
+  const totalOptionCostCredits = [...additionalHullTypes, ...hullOptions].reduce((total, result) => total + result.costCredits, (armour?.costCredits ?? 0))
+  const errors = issues.filter((issue) => issue.severity === 'error')
+  const warnings = issues.filter((issue) => issue.severity === 'warning')
+
+  return {
+    input,
+    isComplete: errors.length === 0,
+    configuration,
+    baseHullCostCredits: roundCredits(baseHullCostCredits),
+    hullCostCredits,
+    baseHullPoints,
+    hullPoints,
+    usableTons: roundTons(shipTons * (configuration.usableVolumePercent ?? 1)),
+    armour,
+    specialisedHullTypes,
+    additionalHullTypes,
+    hullOptions,
+    totalOptionTons: roundTons(totalOptionTons),
+    totalOptionCostCredits: roundCredits(totalOptionCostCredits),
+    issues,
+    errors,
+    warnings,
+  }
+}
 
 const component = (entry: TravellerShipComponent): TravellerShipComponent => ({
   traits: [],
@@ -448,37 +648,29 @@ export const shipConstructionSummary = (design: CustomShipDesign): ShipConstruct
   const components: TravellerShipComponent[] = []
   const shipTons = positive(design.tons)
   const shipTl = positive(design.techLevel ?? design.buildBrief.shipyardTechLevel)
-  const hullConfiguration = shipHullConfigurationRuleFor(design.hull.configuration)
-  const isPlanetoid = hullConfiguration.id === 'planetoid' || hullConfiguration.id === 'buffered-planetoid'
-  const baseHullCostCredits = isPlanetoid
-    ? shipTons * 4000
-    : shipTons * HIGH_GUARD_BASE_HULL_COST_PER_TON_CREDITS * (1 + hullConfiguration.hullCostModifier)
+  const hullStep = calculateHullStep({
+    shipTons,
+    techLevel: shipTl,
+    configurationId: design.hull.configuration,
+    armourTypeId: design.hull.armourType,
+    armourProtection: design.hull.armourProtection,
+    specialisedHullTypeIds: design.hull.specialisedHullTypes,
+    additionalHullTypeIds: design.hull.additionalHullTypes,
+    hullOptionIds: design.hull.hullOptions,
+  })
+  const hullConfiguration = hullStep.configuration
 
-  let hullPointModifier = hullConfiguration.hullPointModifier
-  let hullCostCredits = baseHullCostCredits
-
-  for (const rule of selectedRuleList(shipSpecialisedHullRules, design.hull.specialisedHullTypes)) {
-    hullCostCredits += shipTons * (rule.costPerHullTonCredits ?? 0)
-    if (rule.id === 'reinforced') hullPointModifier += 0.1
-    if (rule.id === 'light') hullPointModifier -= 0.1
-  }
-
-  for (const rule of selectedRuleList(shipAdditionalHullRules, design.hull.additionalHullTypes)) {
-    const optionTons = rule.tons ?? (rule.tonsPercent ? shipTons * rule.tonsPercent : 0)
-    const optionCostCredits = (rule.costCredits ?? 0) + (optionTons * (rule.costPerHullTonCredits ?? 0))
-    if (optionTons || optionCostCredits) {
+  for (const result of hullStep.additionalHullTypes) {
+    if (result.tons || result.costCredits) {
       addComponent(components, {
-        id: `hull-additional-${rule.id}`,
+        id: `hull-additional-${result.rule.id}`,
         kind: 'hull-option',
-        name: rule.label,
-        tons: optionTons,
-        cost: costFromCredits(optionCostCredits),
+        name: result.rule.label,
+        tons: result.tons,
+        cost: costFromCredits(result.costCredits),
         placementPolicy: 'distributed',
-        notes: [rule.notes],
+        notes: [result.rule.notes],
       })
-    }
-    else {
-      notes.push(`${rule.label} requires additional sizing inputs before it can be fully costed.`)
     }
   }
 
@@ -487,7 +679,7 @@ export const shipConstructionSummary = (design: CustomShipDesign): ShipConstruct
     kind: 'hull',
     name: `${hullConfiguration.label} Hull`,
     tons: 0,
-    cost: costFromCredits(hullCostCredits),
+    cost: costFromCredits(hullStep.hullCostCredits),
     placementPolicy: 'abstract',
     notes: [
       `${shipTons.toLocaleString()} ton hull.`,
@@ -495,42 +687,31 @@ export const shipConstructionSummary = (design: CustomShipDesign): ShipConstruct
     ].filter(Boolean),
   })
 
-  const armourRule = shipHullArmourRules.find((rule) => rule.id === design.hull.armourType)
-  if (armourRule && design.hull.armourProtection > 0) {
-    const armourTons = shipTons
-      * armourRule.tonsPercentPerProtection
-      * positive(design.hull.armourProtection)
-      * shipArmourTonnageMultiplierFor(shipTons)
-      * (1 + hullConfiguration.armourVolumeModifier)
-    const armourCostCredits = armourTons * armourRule.costPerTonCredits
+  if (hullStep.armour) {
     addComponent(components, {
       id: 'armour',
       kind: 'armour',
-      name: `${armourRule.label} Armour +${design.hull.armourProtection}`,
-      techLevel: armourRule.minimumTechLevel,
-      tons: armourTons,
-      cost: costFromCredits(armourCostCredits),
+      name: `${hullStep.armour.rule.label} Armour +${hullStep.armour.protection}`,
+      techLevel: hullStep.armour.rule.minimumTechLevel,
+      tons: hullStep.armour.tons,
+      cost: costFromCredits(hullStep.armour.costCredits),
       placementPolicy: 'distributed',
-      notes: armourRule.notes ? [armourRule.notes] : [],
+      notes: hullStep.armour.rule.notes ? [hullStep.armour.rule.notes] : [],
     })
-    if (shipTl < armourRule.minimumTechLevel) notes.push(`${armourRule.label} armour requires TL ${armourRule.minimumTechLevel}+.`)
   }
 
-  for (const rule of selectedRuleList(shipHullOptionRules, design.hull.hullOptions)) {
-    const optionTons = rule.tons ?? (rule.tonsPercent ? shipTons * rule.tonsPercent : 0)
-    const optionCostCredits = (rule.costCredits ?? 0) + (shipTons * (rule.costPerHullTonCredits ?? 0))
+  for (const result of hullStep.hullOptions) {
     addComponent(components, {
-      id: `hull-option-${rule.id}`,
+      id: `hull-option-${result.rule.id}`,
       kind: 'hull-option',
-      name: rule.label,
-      techLevel: rule.minimumTechLevel,
-      tons: optionTons,
-      cost: costFromCredits(optionCostCredits),
-      powerDraw: rule.power,
-      placementPolicy: rule.tonsPercent ? 'distributed' : 'abstract',
-      notes: [rule.notes],
+      name: result.rule.label,
+      techLevel: result.rule.minimumTechLevel,
+      tons: result.tons,
+      cost: costFromCredits(result.costCredits),
+      powerDraw: result.rule.power,
+      placementPolicy: result.rule.tonsPercent ? 'distributed' : 'abstract',
+      notes: [result.rule.notes],
     })
-    if (shipTl < rule.minimumTechLevel) notes.push(`${rule.label} requires TL ${rule.minimumTechLevel}+.`)
   }
 
   const manoeuvreRule = driveRuleFor(shipManoeuvreDriveRules, positive(design.drives.manoeuvreDriveRating))
@@ -756,7 +937,7 @@ export const shipConstructionSummary = (design: CustomShipDesign): ShipConstruct
     notes: design.buildBrief.designMode === 'standard' ? ['Standard designs receive a 10% purchase discount before maintenance is calculated.'] : [],
   }
   const derived: TravellerShipDerivedProfile = {
-    hullPoints: Math.max(0, Math.round(shipHullPointsFor(shipTons) * (1 + hullPointModifier))),
+    hullPoints: hullStep.hullPoints,
     tonsUsed: roundTons(tonsUsed),
     tonsRemaining: roundTons(shipTons - tonsUsed),
     cargoTons: roundTons(cargoTons),
@@ -768,8 +949,7 @@ export const shipConstructionSummary = (design: CustomShipDesign): ShipConstruct
     notes,
   }
 
-  if (shipTons < HIGH_GUARD_MINIMUM_SPACECRAFT_TONS) notes.push(`Phase 4 spacecraft must be at least ${HIGH_GUARD_MINIMUM_SPACECRAFT_TONS} tons.`)
-  if (shipTl <= 0) notes.push('Shipyard Tech Level must be greater than 0.')
+  notes.push(...hullStep.issues.map((issue) => issue.message))
   if (derived.tonsRemaining < 0) notes.push(`Design exceeds hull capacity by ${Math.abs(derived.tonsRemaining)} tons.`)
   if (hasNegativeCargo) notes.push('Cargo tonnage cannot be negative.')
   if (hardpoints.remaining < 0) notes.push(`Design exceeds hardpoint capacity by ${Math.abs(hardpoints.remaining)}.`)

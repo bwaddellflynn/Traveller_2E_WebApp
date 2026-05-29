@@ -13,17 +13,39 @@ import suppliesIconUrl from '~/assets/open-spacecraft-icons/svg/light/Supplies -
 import terminalIconUrl from '~/assets/open-spacecraft-icons/svg/light/Intercom - Light - 64x64.svg?url'
 import weaponSystemIconUrl from '~/assets/open-spacecraft-icons/svg/light/Weapon system - Light - 64x64.svg?url'
 import workshopIconUrl from '~/assets/open-spacecraft-icons/svg/light/Workshop - Light - 64x64.svg?url'
-import type { CustomShipAccommodationEntry, CustomShipCargoEntry, CustomShipDesign, CustomShipLayoutCell, CustomShipLayoutDeck, CustomShipLayoutPlacement, CustomShipLayoutVisualRole, TravellerShipCategory, TravellerShipComponent, TravellerShipCrewRole, TravellerShipRecord, TravellerShipSoftware, TravellerShipWeaponSystem } from '~/types/ship'
+import type { CustomShipAccommodationEntry, CustomShipCargoEntry, CustomShipDesign, CustomShipHullEnvelope, CustomShipLayoutCell, CustomShipLayoutDeck, CustomShipLayoutPlacement, CustomShipLayoutVisualRole, TravellerShipCategory, TravellerShipComponent, TravellerShipCrewRole, TravellerShipRecord, TravellerShipSoftware, TravellerShipWeaponSystem } from '~/types/ship'
 import { useShipsStore } from '~/stores/ships'
-import { shipConstructionSummary } from '~/utils/traveller/shipBuilder'
+import {
+  calculateHullStep,
+  formatShipCost,
+  shipAdditionalHullRules,
+  shipConstructionSummary,
+  shipHullArmourRules,
+  shipHullConfigurationRules,
+  shipHullOptionRules,
+  shipSpecialisedHullRules,
+} from '~/utils/traveller/shipBuilder'
 
 type ShipSortKey = 'name' | 'tons' | 'techLevel' | 'category' | 'jump' | 'thrust'
 type ShipSortIcon = 'sort-asc' | 'sort-desc'
 type ShipyardTabId = 'stock' | 'custom' | 'builder'
 type ShipBuilderStep = { id: string, label: string, title: string, description: string }
+type ShipBuilderStepStatus = {
+  step: ShipBuilderStep
+  index: number
+  isUnlocked: boolean
+  isComplete: boolean
+  hasErrors: boolean
+  hasWarnings: boolean
+  title: string
+}
 type BuilderStepBrushMode = 'brush' | 'special' | 'none'
 type BuilderCanvasOverlay = 'tool' | 'components' | 'ledger' | 'validation' | ''
 type DeckConfirmAction = 'create' | 'duplicate' | 'delete' | ''
+type HullRedesignSnapshot = {
+  tons: number
+  configuration: string
+}
 type ShapeToolId = 'select' | 'rectangle' | 'paint' | 'erase' | 'reshape'
 type ShapeToolGroup = {
   id: 'select' | 'footprint'
@@ -50,6 +72,11 @@ type FootprintEditDragState = {
 type FootprintRectDragState = {
   placementId: string
   mode: Extract<ShapeToolId, 'rectangle' | 'erase'>
+  startCell: CustomShipLayoutCell
+  currentCell: CustomShipLayoutCell
+}
+type HullEnvelopeDragState = {
+  mode: Extract<ShapeToolId, 'paint' | 'erase' | 'rectangle'>
   startCell: CustomShipLayoutCell
   currentCell: CustomShipLayoutCell
 }
@@ -127,6 +154,7 @@ const deckCanvasRef = ref<HTMLElement | null>(null)
 const layoutDrag = ref<LayoutDragState | null>(null)
 const footprintEditDrag = ref<FootprintEditDragState | null>(null)
 const footprintRectDrag = ref<FootprintRectDragState | null>(null)
+const hullEnvelopeDrag = ref<HullEnvelopeDragState | null>(null)
 const footprintHoverCell = ref<CustomShipLayoutCell | null>(null)
 const canvasPanFrame = ref(0)
 const footprintHoverFrame = ref(0)
@@ -134,6 +162,9 @@ const pendingCanvasPan = ref<{ x: number, y: number } | null>(null)
 const pendingFootprintHover = ref<CustomShipLayoutCell | null>(null)
 const undoStack = ref<BuilderHistorySnapshot[]>([])
 const redoStack = ref<BuilderHistorySnapshot[]>([])
+const reachedBuildStepIds = ref<string[]>(['setup', 'hull'])
+const hullRedesignSnapshot = ref<HullRedesignSnapshot | null>(null)
+const hullRedesignConfirmOpen = ref(false)
 
 const shipyardTabs: { id: ShipyardTabId, label: string }[] = [
   { id: 'stock', label: 'Stock Ships' },
@@ -149,12 +180,12 @@ const shipBuilderSteps: ShipBuilderStep[] = [
   { id: 'power-plant', label: 'Power', title: 'Power Plant', description: 'Size the power plant against routine, jump, and combat demand.' },
   { id: 'bridge', label: 'Bridge', title: 'Bridge', description: 'Choose bridge type, smaller bridge, and command bridge options.' },
   { id: 'computer', label: 'Computer', title: 'Computer', description: 'Choose computer, backup, and hardening options.' },
-  { id: 'sensors', label: 'Sensors', title: 'Sensors', description: 'Install the primary sensor suite.' },
   { id: 'weapons', label: 'Weapons', title: 'Weapons', description: 'Reserve hardpoints and install weapons or screens.' },
+  { id: 'sensors', label: 'Sensors', title: 'Sensors', description: 'Install the primary sensor suite.' },
   { id: 'options', label: 'Options', title: 'Options', description: 'Install ship systems and other High Guard options.' },
   { id: 'crew', label: 'Crew', title: 'Crew', description: 'Review commercial or military crew requirements.' },
-  { id: 'accommodations', label: 'Accomm.', title: 'Accommodations', description: 'Assign staterooms, berths, common areas, and crew quarters.' },
   { id: 'cargo', label: 'Cargo', title: 'Cargo', description: 'Allocate cargo space and cargo-specific deck footprints.' },
+  { id: 'accommodations', label: 'Accomm.', title: 'Accommodations', description: 'Assign staterooms, berths, common areas, and crew quarters.' },
   { id: 'review', label: 'Review', title: 'Review', description: 'Check tonnage, power, cost, and validation notes before saving.' },
 ]
 
@@ -280,6 +311,15 @@ const createBlankCustomShipDesign = (): CustomShipDesign => {
       enabled: true,
       decks: [defaultDeck],
       placements: [],
+      hullEnvelope: {
+        deckId: defaultDeck.id,
+        cells: [],
+        locked: false,
+        preset: 'standard',
+        configuration: 'standard',
+        hullTons: 0,
+        tonsPerCell: defaultDeck.tonsPerCell,
+      },
       unplacedComponentIds: [],
     },
   }
@@ -421,6 +461,49 @@ const layoutDerivedBuildDraft = computed<CustomShipDesign>(() => ({
   })),
 }))
 const activeBuilderStep = computed(() => shipBuilderSteps[activeBuildStep.value] ?? shipBuilderSteps[0])
+const hullStepResult = computed(() => calculateHullStep({
+  shipTons: buildDraft.value.tons,
+  techLevel: buildDraft.value.techLevel ?? buildDraft.value.buildBrief.shipyardTechLevel,
+  configurationId: buildDraft.value.hull.configuration,
+  armourTypeId: buildDraft.value.hull.armourType,
+  armourProtection: buildDraft.value.hull.armourProtection,
+  specialisedHullTypeIds: buildDraft.value.hull.specialisedHullTypes,
+  additionalHullTypeIds: buildDraft.value.hull.additionalHullTypes,
+  hullOptionIds: buildDraft.value.hull.hullOptions,
+}))
+const builderStepStatuses = computed<ShipBuilderStepStatus[]>(() => {
+  const reached = new Set(reachedBuildStepIds.value)
+  const hullComplete = hullStepResult.value.isComplete
+
+  return shipBuilderSteps.map((step, index) => {
+    const isSetup = step.id === 'setup'
+    const isHull = step.id === 'hull'
+    const hasReachedStep = reached.has(step.id)
+    const previousStep = shipBuilderSteps[index - 1]
+    const isNextReachable = Boolean(previousStep && reached.has(previousStep.id))
+    const passesHullGate = isSetup || isHull || hasReachedStep || hullComplete
+    const isUnlocked = isSetup || isHull || hasReachedStep || (isNextReachable && passesHullGate)
+    const isComplete = isSetup || (isHull ? hullComplete : hasReachedStep)
+    const hasErrors = isHull && hullStepResult.value.errors.length > 0
+    const hasWarnings = isHull && hullStepResult.value.warnings.length > 0
+    const lockedReason = isUnlocked ? '' : 'Complete Step 1: Hull before editing this step.'
+
+    return {
+      step,
+      index,
+      isUnlocked,
+      isComplete,
+      hasErrors,
+      hasWarnings,
+      title: lockedReason || `${index + 1}. ${step.title}`,
+    }
+  })
+})
+const builderStepStatusById = computed(() => new Map(builderStepStatuses.value.map((status) => [status.step.id, status])))
+const hasDownstreamHullWork = computed(() => (
+  reachedBuildStepIds.value.some((stepId) => !['setup', 'hull'].includes(stepId))
+  || buildDraft.value.layout.placements.length > 0
+))
 const buildSummary = computed(() => shipConstructionSummary(layoutDerivedBuildDraft.value))
 const buildComponentById = computed(() => new Map(buildSummary.value.components.map((component) => [component.id, component])))
 const activeDeck = computed<CustomShipLayoutDeck>(() => {
@@ -585,6 +668,10 @@ watch(filteredReferenceShips, (ships) => {
   if (!ships.some((entry) => entry.id === selectedShipId.value)) selectedShipId.value = ships[0]?.id ?? ''
 }, { immediate: true })
 
+watch(() => buildDraft.value.techLevel, (techLevel) => {
+  buildDraft.value.buildBrief.shipyardTechLevel = Number(techLevel) || 0
+})
+
 const setShipSort = (key: ShipSortKey) => {
   if (shipSortKey.value === key) {
     shipSortDirection.value = shipSortDirection.value === 'asc' ? 'desc' : 'asc'
@@ -610,10 +697,40 @@ const shipSortIndicator = (key: ShipSortKey): ShipSortIcon | null => {
 }
 
 const selectBuilderStep = (index: number) => {
+  const step = shipBuilderSteps[index]
+  if (!step) return
+  const status = builderStepStatusById.value.get(step.id)
+  if (status && !status.isUnlocked) return
   activeBuildStep.value = index
+  if (!reachedBuildStepIds.value.includes(step.id)) reachedBuildStepIds.value = [...reachedBuildStepIds.value, step.id]
   builderCanvasOverlay.value = 'tool'
-  const component = builderStepBrushComponent(shipBuilderSteps[index]?.id ?? '')
+  const component = builderStepBrushComponent(step.id)
   if (component) selectBrushComponent(component, false)
+}
+const captureHullRedesignSnapshot = () => {
+  hullRedesignSnapshot.value = {
+    tons: Number(buildDraft.value.tons) || 0,
+    configuration: buildDraft.value.hull.configuration,
+  }
+}
+const checkHullRedesignChange = () => {
+  const snapshot = hullRedesignSnapshot.value
+  if (!snapshot) return
+  const changed = snapshot.tons !== buildDraft.value.tons || snapshot.configuration !== buildDraft.value.hull.configuration
+  if (changed && hasDownstreamHullWork.value) hullRedesignConfirmOpen.value = true
+  else hullRedesignSnapshot.value = null
+}
+const confirmHullRedesign = () => {
+  hullRedesignConfirmOpen.value = false
+  hullRedesignSnapshot.value = null
+}
+const cancelHullRedesign = () => {
+  if (hullRedesignSnapshot.value) {
+    buildDraft.value.tons = hullRedesignSnapshot.value.tons
+    buildDraft.value.hull.configuration = hullRedesignSnapshot.value.configuration
+  }
+  hullRedesignConfirmOpen.value = false
+  hullRedesignSnapshot.value = null
 }
 const toggleBuilderOverlay = (overlay: Exclude<BuilderCanvasOverlay, ''>) => {
   builderCanvasOverlay.value = builderCanvasOverlay.value === overlay ? '' : overlay
@@ -722,6 +839,117 @@ const componentRequiredCells = (component: TravellerShipComponent) => Math.max(1
 const rectangularFootprintCells = (width: number, height: number): CustomShipLayoutCell[] => Array.from({ length: Math.max(1, height) }, (_row, y) => (
   Array.from({ length: Math.max(1, width) }, (_column, x) => ({ x, y }))
 )).flat()
+const centeredShapeCells = (width: number, height: number, targetCells: number, preset: string) => {
+  const cells: Array<CustomShipLayoutCell & { score: number }> = []
+  const centerX = (width - 1) / 2
+  const centerY = (height - 1) / 2
+  const maxX = Math.max(1, centerX)
+  const maxY = Math.max(1, centerY)
+
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      const nx = (x - centerX) / maxX
+      const ny = (y - centerY) / maxY
+      const distance = Math.sqrt((nx * nx) + (ny * ny))
+      const diagonal = Math.abs(nx) + Math.abs(ny)
+      const seed = Math.sin((x * 12.9898) + (y * 78.233)) * 43758.5453
+      const noise = seed - Math.floor(seed)
+      let include = true
+
+      if (preset === 'streamlined') include = Math.abs(ny) <= (0.2 + (0.78 * (1 - ((nx + 1) / 2))))
+      else if (preset === 'sphere') include = distance <= 1.02
+      else if (preset === 'close-structure') include = Math.abs(ny) <= 0.42 || (Math.abs(nx) > 0.46 && Math.abs(ny) <= 0.72)
+      else if (preset === 'dispersed-structure') include = distance <= 0.42 || (Math.abs(nx) > 0.5 && Math.abs(ny) <= 0.44) || (Math.abs(ny) > 0.48 && Math.abs(nx) <= 0.32)
+      else if (preset === 'planetoid' || preset === 'buffered-planetoid') include = distance <= (0.82 + (noise * 0.18))
+
+      if (include) cells.push({ x: x - Math.floor(width / 2), y: y - Math.floor(height / 2), score: distance + (diagonal * 0.08) + (noise * 0.04) })
+    }
+  }
+
+  const sourceCells = cells.length >= targetCells ? cells : rectangularFootprintCells(width, height).map((cell) => ({
+    x: cell.x - Math.floor(width / 2),
+    y: cell.y - Math.floor(height / 2),
+    score: Math.hypot(cell.x - centerX, cell.y - centerY),
+  }))
+
+  return sourceCells
+    .sort((first, second) => first.score - second.score)
+    .slice(0, targetCells)
+    .map(({ x, y }) => ({ x, y }))
+    .sort((first, second) => first.y - second.y || first.x - second.x)
+}
+const createHullEnvelope = (): CustomShipHullEnvelope => {
+  const tonsPerCell = layoutCellTons(activeDeck.value)
+  const targetCells = Math.max(1, Math.round(hullStepResult.value.usableTons / tonsPerCell))
+  const aspectByConfiguration: Record<string, number> = {
+    standard: 1.7,
+    streamlined: 2.9,
+    sphere: 1,
+    'close-structure': 1.55,
+    'dispersed-structure': 1.9,
+    planetoid: 1.2,
+    'buffered-planetoid': 1.2,
+  }
+  const preset = hullStepResult.value.configuration.id
+  const aspect = aspectByConfiguration[preset] ?? 1.6
+  const width = Math.min(canvasWorkspaceCells, Math.max(1, Math.ceil(Math.sqrt(targetCells * aspect))))
+  const height = Math.min(canvasWorkspaceCells, Math.max(1, Math.ceil(targetCells / width)))
+
+  return {
+    deckId: activeDeck.value.id,
+    cells: centeredShapeCells(width, height, targetCells, preset),
+    locked: false,
+    preset,
+    configuration: hullStepResult.value.configuration.id,
+    hullTons: hullStepResult.value.usableTons,
+    tonsPerCell,
+  }
+}
+const ensureHullEnvelope = () => {
+  if (!hullStepResult.value.isComplete) return
+  const current = buildDraft.value.layout.hullEnvelope
+  const needsEnvelope = !current
+    || !current.cells.length
+    || !current.locked && (
+      current.deckId !== activeDeck.value.id
+      || current.configuration !== hullStepResult.value.configuration.id
+      || current.hullTons !== hullStepResult.value.usableTons
+      || current.tonsPerCell !== layoutCellTons(activeDeck.value)
+    )
+  if (needsEnvelope) buildDraft.value.layout.hullEnvelope = createHullEnvelope()
+}
+const activeHullEnvelope = computed(() => {
+  const envelope = buildDraft.value.layout.hullEnvelope
+  if (!envelope || envelope.deckId !== activeDeck.value.id || !hullStepResult.value.isComplete) return null
+  return envelope
+})
+const isHullShapeEditing = computed(() => activeBuilderStep.value.id === 'hull' && activeHullEnvelope.value && ['paint', 'erase', 'rectangle'].includes(activeShapeTool.value))
+const hullEnvelopeCellStyle = (cell: CustomShipLayoutCell) => ({
+  gridColumn: `${cell.x + canvasWorkspaceRadius + 1}`,
+  gridRow: `${cell.y + canvasWorkspaceRadius + 1}`,
+})
+const hullEnvelopeTonsShown = computed(() => (activeHullEnvelope.value?.cells.length ?? 0) * layoutCellTons(activeDeck.value))
+const hullEnvelopeDelta = computed(() => hullEnvelopeTonsShown.value - hullStepResult.value.usableTons)
+const hullEnvelopeLabel = computed(() => `${formatLedgerNumber(hullStepResult.value.usableTons)} usable tons / ${formatLedgerNumber(hullEnvelopeTonsShown.value)} tons shown`)
+const hullEnvelopeStatusClass = computed(() => {
+  const tolerance = Math.max(1, hullStepResult.value.usableTons * 0.02)
+  if (Math.abs(hullEnvelopeDelta.value) <= tolerance) return 'border-cyan-100/50 bg-cyan-400/10'
+  if (Math.abs(hullEnvelopeDelta.value) <= tolerance * 2) return 'border-amber-200/55 bg-amber-300/10'
+  return 'border-rose-200/55 bg-rose-400/10'
+})
+const hullEnvelopePreviewCells = computed(() => {
+  if (hullEnvelopeDrag.value?.mode === 'rectangle') return cellsInRect(hullEnvelopeDrag.value.startCell, hullEnvelopeDrag.value.currentCell)
+  if (footprintHoverCell.value && isHullShapeEditing.value) return [footprintHoverCell.value]
+  return []
+})
+const hullEnvelopeCellKeys = computed(() => new Set(activeHullEnvelope.value?.cells.map(cellKey) ?? []))
+watch([
+  () => hullStepResult.value.isComplete,
+  () => hullStepResult.value.usableTons,
+  () => hullStepResult.value.configuration.id,
+  () => activeDeck.value.id,
+  () => activeDeck.value.tonsPerCell,
+], ensureHullEnvelope, { immediate: true })
 const compactFootprintCells = (count: number) => {
   const cellCount = Math.max(1, count)
   const width = Math.max(1, Math.ceil(Math.sqrt(cellCount)))
@@ -1137,6 +1365,7 @@ const placementCellStyle = (placement: CustomShipLayoutPlacement, cell: CustomSh
   return baseStyle
 }
 const footprintPreviewCells = computed(() => {
+  if (isHullShapeEditing.value) return []
   if (footprintRectDrag.value) return cellsInRect(footprintRectDrag.value.startCell, footprintRectDrag.value.currentCell)
   if (footprintHoverCell.value && ['paint', 'erase', 'rectangle'].includes(activeShapeTool.value)) return [footprintHoverCell.value]
   return []
@@ -1571,6 +1800,46 @@ const removePlacement = (componentId: string) => {
   if (!buildDraft.value.layout.placements.some((placement) => placement.id === selectedPlacementId.value)) selectedPlacementId.value = ''
   if (activeBrushComponentId.value === componentId) activeBrushComponentId.value = ''
 }
+const setHullEnvelopeCells = (cells: CustomShipLayoutCell[]) => {
+  ensureHullEnvelope()
+  if (!buildDraft.value.layout.hullEnvelope) return
+  const uniqueCells = normaliseFootprintCells(cells)
+  if (!uniqueCells.length) return
+  buildDraft.value.layout.hullEnvelope = {
+    ...buildDraft.value.layout.hullEnvelope,
+    locked: true,
+    preset: 'custom',
+    cells: uniqueCells,
+    hullTons: hullStepResult.value.usableTons,
+    tonsPerCell: layoutCellTons(activeDeck.value),
+  }
+}
+const paintHullEnvelopeCell = (cell: CustomShipLayoutCell | null, mode: Extract<ShapeToolId, 'paint' | 'erase'>) => {
+  if (!cell || !activeHullEnvelope.value) return
+  const existing = activeHullEnvelope.value.cells
+  if (mode === 'paint') {
+    if (hullEnvelopeCellKeys.value.has(cellKey(cell))) return
+    setHullEnvelopeCells([...existing, cell])
+    return
+  }
+  const remaining = existing.filter((entry) => cellKey(entry) !== cellKey(cell))
+  setHullEnvelopeCells(remaining)
+}
+const applyHullEnvelopeRect = (startCell: CustomShipLayoutCell, endCell: CustomShipLayoutCell, mode: Extract<ShapeToolId, 'rectangle' | 'erase'>) => {
+  if (!activeHullEnvelope.value) return
+  const rectCells = cellsInRect(startCell, endCell)
+  if (mode === 'rectangle') {
+    setHullEnvelopeCells([...activeHullEnvelope.value.cells, ...rectCells])
+    return
+  }
+  const eraseKeys = new Set(rectCells.map(cellKey))
+  setHullEnvelopeCells(activeHullEnvelope.value.cells.filter((cell) => !eraseKeys.has(cellKey(cell))))
+}
+const resetHullEnvelope = () => {
+  if (!hullStepResult.value.isComplete) return
+  rememberBuilderHistory()
+  buildDraft.value.layout.hullEnvelope = createHullEnvelope()
+}
 const clampPlacement = (placement: CustomShipLayoutPlacement) => {
   placement.width = Math.max(1, Math.min(canvasWorkspaceCells, Number(placement.width) || 1))
   placement.height = Math.max(1, Math.min(canvasWorkspaceCells, Number(placement.height) || 1))
@@ -1770,6 +2039,32 @@ const stopBuilderOverlayDrag = () => {
   window.removeEventListener('pointermove', updateBuilderOverlayDrag)
   builderOverlayDrag.value = null
 }
+const startHullEnvelopeDrag = (event: PointerEvent, mode: Extract<ShapeToolId, 'paint' | 'erase' | 'rectangle'>) => {
+  if (event.button !== 0 || !isHullShapeEditing.value) return
+  const cell = pointerCellForDeck(event)
+  if (!cell) return
+  event.preventDefault()
+  rememberBuilderHistory()
+  ensureHullEnvelope()
+  if (mode === 'paint' || mode === 'erase') paintHullEnvelopeCell(cell, mode)
+  hullEnvelopeDrag.value = { mode, startCell: cell, currentCell: cell }
+  window.addEventListener('pointermove', updateHullEnvelopeDrag)
+  window.addEventListener('pointerup', stopHullEnvelopeDrag, { once: true })
+}
+const updateHullEnvelopeDrag = (event: PointerEvent) => {
+  if (!hullEnvelopeDrag.value) return
+  const cell = pointerCellForDeck(event)
+  if (!cell) return
+  hullEnvelopeDrag.value.currentCell = cell
+  if (hullEnvelopeDrag.value.mode === 'paint' || hullEnvelopeDrag.value.mode === 'erase') paintHullEnvelopeCell(cell, hullEnvelopeDrag.value.mode)
+}
+const stopHullEnvelopeDrag = () => {
+  const drag = hullEnvelopeDrag.value
+  window.removeEventListener('pointermove', updateHullEnvelopeDrag)
+  hullEnvelopeDrag.value = null
+  if (!drag || drag.mode !== 'rectangle') return
+  applyHullEnvelopeRect(drag.startCell, drag.currentCell, 'rectangle')
+}
 const startPlacementFootprintEdit = (event: PointerEvent, placement: CustomShipLayoutPlacement, mode: Extract<ShapeToolId, 'paint' | 'erase'>) => {
   if (event.button !== 0) return
   const target = event.currentTarget
@@ -1823,7 +2118,7 @@ const stopFootprintRectDrag = () => {
   else eraseRectForPlacement(placement, drag.startCell, drag.currentCell)
 }
 const updateFootprintHover = (event: PointerEvent) => {
-  if (!footprintRectDrag.value && !['paint', 'erase', 'rectangle'].includes(activeShapeTool.value)) {
+  if (!footprintRectDrag.value && !hullEnvelopeDrag.value && !['paint', 'erase', 'rectangle'].includes(activeShapeTool.value)) {
     if (footprintHoverCell.value) clearFootprintHover()
     return
   }
@@ -1849,6 +2144,10 @@ const handleDeckPointerDown = (event: PointerEvent) => {
     return
   }
   const mode = activeShapeTool.value
+  if (isHullShapeEditing.value && ['paint', 'erase', 'rectangle'].includes(mode)) {
+    startHullEnvelopeDrag(event, mode)
+    return
+  }
   if (event.button === 0 && mode === 'select') {
     clearSelectedPlacement()
     return
@@ -1876,6 +2175,10 @@ const handlePlacementPointerDown = (event: PointerEvent, placement: CustomShipLa
   event.stopPropagation()
   if (event.button === 2) {
     startCanvasPan(event)
+    return
+  }
+  if (isHullShapeEditing.value && ['paint', 'erase', 'rectangle'].includes(activeShapeTool.value)) {
+    startHullEnvelopeDrag(event, activeShapeTool.value)
     return
   }
   if (activeShapeTool.value === 'rectangle') {
@@ -2240,6 +2543,27 @@ onBeforeUnmount(() => {
             </section>
           </div>
 
+          <div
+            v-if="hullRedesignConfirmOpen"
+            class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 px-4"
+            role="dialog"
+            aria-modal="true"
+          >
+            <section class="w-[min(28rem,calc(100vw-2rem))] rounded-md border border-amber-300/45 bg-slate-950 p-4 shadow-2xl shadow-black/70">
+              <div class="flex items-start gap-3">
+                <AppIcon class="mt-1 h-8 w-8 shrink-0 text-amber-200" name="warning" />
+                <div class="min-w-0">
+                  <h2 class="text-base font-semibold text-white">Confirm Hull Redesign</h2>
+                  <p class="mt-1 text-sm text-cyan-100/70">Changing hull tonnage or configuration can invalidate drives, fuel, bridge sizing, cargo, staterooms, and deck placements.</p>
+                </div>
+              </div>
+              <div class="mt-4 flex justify-end gap-2">
+                <button class="rounded-md border border-cyan-300/30 px-3 py-2 text-sm font-semibold text-cyan-100 hover:border-cyan-100" type="button" @click="cancelHullRedesign">Cancel</button>
+                <button class="rounded-md border border-amber-200 bg-amber-300 px-3 py-2 text-sm font-semibold text-zinc-950 hover:bg-amber-200" type="button" @click="confirmHullRedesign">Keep Change</button>
+              </div>
+            </section>
+          </div>
+
           <section
             v-if="builderCanvasOverlay && builderCanvasOverlay !== 'ledger'"
             class="hud-scrollbar absolute z-30 max-h-[calc(100vh-8rem)] overflow-auto rounded-md border border-cyan-400/40 bg-slate-950/95 p-3 shadow-2xl shadow-black/60 backdrop-blur-sm [&_input]:w-full [&_select]:w-full"
@@ -2262,70 +2586,150 @@ onBeforeUnmount(() => {
             </div>
 
             <div v-if="builderCanvasOverlay === 'tool'" class="mt-4">
-            <div v-if="activeBuilderStep.id === 'setup'" class="mt-5 grid gap-4 md:grid-cols-2">
-              <label class="grid gap-1 text-sm font-semibold text-cyan-50">
+            <div v-if="activeBuilderStep.id === 'setup'" class="mt-5 grid gap-4 md:grid-cols-3">
+              <label class="grid gap-1 text-sm font-semibold text-cyan-50 md:col-span-2">
                 Ship Name
-                <input v-model="buildDraft.name" class="h-10 rounded-md border border-zinc-300 px-3 text-sm text-zinc-950 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200">
-              </label>
-              <label class="grid gap-1 text-sm font-semibold text-cyan-50">
-                Role
-                <input v-model="buildDraft.buildBrief.role" class="h-10 rounded-md border border-zinc-300 px-3 text-sm text-zinc-950 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200">
+                <input v-model="buildDraft.name" class="h-9 rounded-md border border-zinc-300 px-3 text-sm text-zinc-950 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200">
               </label>
               <label class="grid gap-1 text-sm font-semibold text-cyan-50">
                 Shipyard TL
-                <input v-model.number="buildDraft.buildBrief.shipyardTechLevel" class="h-10 rounded-md border border-zinc-300 px-3 text-sm text-zinc-950 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200" min="6" type="number">
+                <input v-model.number="buildDraft.techLevel" class="h-9 rounded-md border border-zinc-300 px-3 text-sm text-zinc-950 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200" min="6" type="number">
+              </label>
+              <label class="grid gap-1 text-sm font-semibold text-cyan-50 md:col-span-2">
+                Role
+                <input v-model="buildDraft.buildBrief.role" class="h-9 rounded-md border border-zinc-300 px-3 text-sm text-zinc-950 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200">
+              </label>
+              <label class="grid gap-1 text-sm font-semibold text-cyan-50">
+                Budget Target
+                <input v-model="buildDraft.buildBrief.targetBudgetMCr" class="h-9 rounded-md border border-zinc-300 px-3 text-sm text-zinc-950 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200" placeholder="MCr">
               </label>
               <label class="grid gap-1 text-sm font-semibold text-cyan-50">
                 Design Mode
-                <select v-model="buildDraft.buildBrief.designMode" class="h-10 rounded-md border border-zinc-300 px-3 text-sm text-zinc-950 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200">
+                <select v-model="buildDraft.buildBrief.designMode" class="h-9 rounded-md border border-zinc-300 px-3 text-sm text-zinc-950 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200">
                   <option value="new">New Design</option>
                   <option value="standard">Standard Design</option>
                 </select>
               </label>
               <label class="grid gap-1 text-sm font-semibold text-cyan-50">
                 Crew Mode
-                <select v-model="buildDraft.buildBrief.crewMode" class="h-10 rounded-md border border-zinc-300 px-3 text-sm text-zinc-950 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200">
+                <select v-model="buildDraft.buildBrief.crewMode" class="h-9 rounded-md border border-zinc-300 px-3 text-sm text-zinc-950 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200">
                   <option value="commercial">Commercial</option>
                   <option value="military">Military</option>
                 </select>
               </label>
               <label class="grid gap-1 text-sm font-semibold text-cyan-50">
-                Budget Target
-                <input v-model="buildDraft.buildBrief.targetBudgetMCr" class="h-10 rounded-md border border-zinc-300 px-3 text-sm text-zinc-950 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200" placeholder="MCr">
+                Target Tonnage
+                <input v-model.number="buildDraft.buildBrief.targetTonnage" class="h-9 rounded-md border border-zinc-300 px-3 text-sm text-zinc-950 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200" min="100" step="100" type="number">
+              </label>
+              <label class="grid gap-1 text-sm font-semibold text-cyan-50">
+                Target Jump
+                <input v-model.number="buildDraft.buildBrief.targetJump" class="h-9 rounded-md border border-zinc-300 px-3 text-sm text-zinc-950 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200" max="9" min="0" type="number">
+              </label>
+              <label class="grid gap-1 text-sm font-semibold text-cyan-50">
+                Target Thrust
+                <input v-model.number="buildDraft.buildBrief.targetThrust" class="h-9 rounded-md border border-zinc-300 px-3 text-sm text-zinc-950 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200" max="16" min="0" type="number">
+              </label>
+              <label class="grid gap-1 text-sm font-semibold text-cyan-50">
+                Passenger Target
+                <input v-model="buildDraft.buildBrief.passengerTarget" class="h-9 rounded-md border border-zinc-300 px-3 text-sm text-zinc-950 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200">
+              </label>
+              <label class="grid gap-1 text-sm font-semibold text-cyan-50">
+                Cargo Target
+                <input v-model="buildDraft.buildBrief.cargoTarget" class="h-9 rounded-md border border-zinc-300 px-3 text-sm text-zinc-950 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200">
+              </label>
+              <label class="grid gap-1 text-sm font-semibold text-cyan-50 md:col-span-3">
+                Notes
+                <textarea v-model="buildDraft.buildBrief.notes" class="min-h-20 rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-950 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200" />
               </label>
             </div>
 
-            <div v-else-if="activeBuilderStep.id === 'hull'" class="mt-5 grid gap-4 md:grid-cols-2">
-              <label class="grid gap-1 text-sm font-semibold text-cyan-50">
-                Tonnage
-                <input v-model.number="buildDraft.tons" class="h-10 rounded-md border border-zinc-300 px-3 text-sm text-zinc-950 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200" min="100" step="100" type="number">
-              </label>
-              <label class="grid gap-1 text-sm font-semibold text-cyan-50">
-                Configuration
-                <select v-model="buildDraft.hull.configuration" class="h-10 rounded-md border border-zinc-300 px-3 text-sm text-zinc-950 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200">
-                  <option value="standard">Standard</option>
-                  <option value="streamlined">Streamlined</option>
-                  <option value="sphere">Sphere</option>
-                  <option value="close-structure">Close Structure</option>
-                  <option value="dispersed-structure">Dispersed Structure</option>
-                  <option value="planetoid">Planetoid</option>
-                  <option value="buffered-planetoid">Buffered Planetoid</option>
-                </select>
-              </label>
-              <label class="grid gap-1 text-sm font-semibold text-cyan-50">
-                Armour Type
-                <select v-model="buildDraft.hull.armourType" class="h-10 rounded-md border border-zinc-300 px-3 text-sm text-zinc-950 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200">
-                  <option value="">None</option>
-                  <option value="titanium-steel">Titanium Steel</option>
-                  <option value="crystaliron">Crystaliron</option>
-                  <option value="bonded-superdense">Bonded Superdense</option>
-                  <option value="molecular-bonded">Molecular Bonded</option>
-                </select>
-              </label>
-              <label class="grid gap-1 text-sm font-semibold text-cyan-50">
-                Armour Protection
-                <input v-model.number="buildDraft.hull.armourProtection" class="h-10 rounded-md border border-zinc-300 px-3 text-sm text-zinc-950 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200" min="0" type="number">
-              </label>
+            <div v-else-if="activeBuilderStep.id === 'hull'" class="mt-5 grid gap-4">
+              <div class="grid gap-3 md:grid-cols-3">
+                <label class="grid gap-1 text-sm font-semibold text-cyan-50">
+                  Tonnage
+                  <input v-model.number="buildDraft.tons" class="h-9 rounded-md border border-zinc-300 px-3 text-sm text-zinc-950 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200" min="100" step="100" type="number" @change="checkHullRedesignChange" @focus="captureHullRedesignSnapshot">
+                </label>
+                <label class="grid gap-1 text-sm font-semibold text-cyan-50">
+                  Tech Level
+                  <input v-model.number="buildDraft.techLevel" class="h-9 rounded-md border border-zinc-300 px-3 text-sm text-zinc-950 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200" min="6" type="number">
+                </label>
+                <label class="grid gap-1 text-sm font-semibold text-cyan-50">
+                  Configuration
+                  <select v-model="buildDraft.hull.configuration" class="h-9 rounded-md border border-zinc-300 px-3 text-sm text-zinc-950 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200" @change="checkHullRedesignChange" @focus="captureHullRedesignSnapshot">
+                    <option v-for="rule in shipHullConfigurationRules" :key="rule.id" :value="rule.id">{{ rule.label }}</option>
+                  </select>
+                </label>
+              </div>
+
+              <div class="grid gap-3 md:grid-cols-3">
+                <section class="rounded-md border border-cyan-400/20 bg-slate-950/60 p-3">
+                  <p class="text-xs font-semibold uppercase tracking-[0.14em] text-cyan-200/70">Specialised Hull</p>
+                  <label v-for="rule in shipSpecialisedHullRules" :key="rule.id" class="mt-2 flex items-start gap-2 text-xs font-semibold text-cyan-50">
+                    <input v-model="buildDraft.hull.specialisedHullTypes" class="mt-0.5 h-4 w-4" type="checkbox" :value="rule.id">
+                    <span><span class="block">{{ rule.label }}</span><span class="block font-normal text-cyan-100/55">{{ rule.notes }}</span></span>
+                  </label>
+                </section>
+                <section class="rounded-md border border-cyan-400/20 bg-slate-950/60 p-3">
+                  <p class="text-xs font-semibold uppercase tracking-[0.14em] text-cyan-200/70">Additional Hull</p>
+                  <label v-for="rule in shipAdditionalHullRules" :key="rule.id" class="mt-2 flex items-start gap-2 text-xs font-semibold text-cyan-50">
+                    <input v-model="buildDraft.hull.additionalHullTypes" class="mt-0.5 h-4 w-4" type="checkbox" :value="rule.id">
+                    <span><span class="block">{{ rule.label }}</span><span class="block font-normal text-cyan-100/55">{{ rule.notes }}</span></span>
+                  </label>
+                </section>
+                <section class="rounded-md border border-cyan-400/20 bg-slate-950/60 p-3">
+                  <p class="text-xs font-semibold uppercase tracking-[0.14em] text-cyan-200/70">Hull Options</p>
+                  <label v-for="rule in shipHullOptionRules" :key="rule.id" class="mt-2 flex items-start gap-2 text-xs font-semibold text-cyan-50">
+                    <input v-model="buildDraft.hull.hullOptions" class="mt-0.5 h-4 w-4" type="checkbox" :value="rule.id">
+                    <span><span class="block">{{ rule.label }}</span><span class="block font-normal text-cyan-100/55">{{ rule.notes }}</span></span>
+                  </label>
+                </section>
+              </div>
+
+              <div class="grid gap-3 md:grid-cols-[minmax(0,1fr)_8rem]">
+                <label class="grid gap-1 text-sm font-semibold text-cyan-50">
+                  Armour Type
+                  <select v-model="buildDraft.hull.armourType" class="h-9 rounded-md border border-zinc-300 px-3 text-sm text-zinc-950 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200">
+                    <option value="">None</option>
+                    <option v-for="rule in shipHullArmourRules" :key="rule.id" :value="rule.id">{{ rule.label }}</option>
+                  </select>
+                </label>
+                <label class="grid gap-1 text-sm font-semibold text-cyan-50">
+                  Protection
+                  <input v-model.number="buildDraft.hull.armourProtection" class="h-9 rounded-md border border-zinc-300 px-3 text-sm text-zinc-950 outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-200" min="0" type="number">
+                </label>
+              </div>
+
+              <div class="grid gap-2 rounded-md border border-cyan-400/25 bg-cyan-950/70 p-3 md:grid-cols-4">
+                <div><p class="text-[0.62rem] font-semibold uppercase tracking-[0.14em] text-cyan-200/70">Hull Cost</p><p class="mt-1 text-sm font-semibold text-white">{{ formatShipCost(hullStepResult.hullCostCredits) }}</p></div>
+                <div><p class="text-[0.62rem] font-semibold uppercase tracking-[0.14em] text-cyan-200/70">Hull Points</p><p class="mt-1 text-sm font-semibold text-white">{{ hullStepResult.hullPoints }}</p></div>
+                <div><p class="text-[0.62rem] font-semibold uppercase tracking-[0.14em] text-cyan-200/70">Usable Tons</p><p class="mt-1 text-sm font-semibold text-white">{{ formatLedgerNumber(hullStepResult.usableTons) }}</p></div>
+                <div><p class="text-[0.62rem] font-semibold uppercase tracking-[0.14em] text-cyan-200/70">Armour</p><p class="mt-1 text-sm font-semibold text-white">{{ hullStepResult.armour ? `${formatLedgerNumber(hullStepResult.armour.tons)} tons` : 'None' }}</p></div>
+              </div>
+
+              <div class="grid gap-2 rounded-md border border-cyan-400/20 bg-slate-950/65 p-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
+                <div>
+                  <p class="text-xs font-semibold uppercase tracking-[0.14em] text-cyan-200/70">Hull Shape</p>
+                  <p class="mt-1 text-sm text-cyan-100/70">{{ hullEnvelopeLabel }} · {{ activeHullEnvelope?.preset === 'custom' ? 'Custom shape' : 'Generated preset' }}</p>
+                </div>
+                <button
+                  class="rounded-md border border-cyan-300/35 px-3 py-2 text-xs font-semibold text-cyan-50 hover:border-amber-300/60"
+                  type="button"
+                  @click="resetHullEnvelope"
+                >
+                  Regenerate
+                </button>
+              </div>
+
+              <div v-if="hullStepResult.issues.length" class="grid gap-2">
+                <p
+                  v-for="issue in hullStepResult.issues"
+                  :key="issue.code"
+                  class="rounded-md border px-3 py-2 text-sm"
+                  :class="issue.severity === 'error' ? 'border-rose-300/35 bg-rose-500/12 text-rose-50' : 'border-amber-300/35 bg-amber-400/12 text-amber-50'"
+                >
+                  {{ issue.message }}
+                </p>
+              </div>
             </div>
 
             <div v-else-if="activeBuilderStep.id === 'drives'" class="mt-5 grid gap-4 md:grid-cols-3">
@@ -2754,22 +3158,23 @@ onBeforeUnmount(() => {
                     <div v-if="buildToolMenuOpen" class="hud-scrollbar absolute left-0 top-11 z-40 grid max-h-[min(36rem,calc(100vh-10rem))] w-[min(15rem,calc(100vw-3rem))] gap-2 overflow-auto rounded-md border border-cyan-400/35 bg-slate-950/95 p-2 shadow-xl shadow-black/60">
                       <div class="grid gap-1.5">
                         <button
-                          v-for="(step, index) in shipBuilderSteps"
-                          :key="step.id"
+                          v-for="status in builderStepStatuses"
+                          :key="status.step.id"
                           class="grid grid-cols-[auto_auto_minmax(0,1fr)] items-center gap-2 rounded-md border px-2 py-1.5 text-left text-xs font-semibold"
-                          :class="activeBuildStep === index ? 'border-cyan-100 bg-cyan-100 text-zinc-950' : activeBrushComponentId && builderStepBrushComponent(step.id)?.id === activeBrushComponentId ? 'border-amber-300/60 bg-amber-300/12 text-amber-50' : 'border-cyan-300/25 text-cyan-100/75 hover:border-amber-300/60'"
-                          :title="`${index + 1}. ${step.title}`"
+                          :class="!status.isUnlocked ? 'cursor-not-allowed border-slate-500/25 text-slate-400/55 opacity-60' : activeBuildStep === status.index ? 'border-cyan-100 bg-cyan-100 text-zinc-950' : activeBrushComponentId && builderStepBrushComponent(status.step.id)?.id === activeBrushComponentId ? 'border-amber-300/60 bg-amber-300/12 text-amber-50' : status.hasErrors ? 'border-rose-300/50 text-rose-100 hover:border-rose-200' : status.hasWarnings ? 'border-amber-300/45 text-amber-100 hover:border-amber-200' : 'border-cyan-300/25 text-cyan-100/75 hover:border-amber-300/60'"
+                          :disabled="!status.isUnlocked"
+                          :title="status.title"
                           type="button"
-                          @click="selectBuilderStep(index)"
+                          @click="selectBuilderStep(status.index)"
                         >
-                          <img :alt="step.title" class="h-5 w-5 shrink-0 object-contain" :src="builderStepIconUrl(step.id)">
+                          <img :alt="status.step.title" class="h-5 w-5 shrink-0 object-contain" :src="builderStepIconUrl(status.step.id)">
 	                          <span
 	                            class="h-3 w-3 rounded-full border border-current/25"
-	                            :class="builderStepBrushDotClass(step.id)"
-	                            :style="builderStepBrushComponent(step.id) ? componentSwatchStyle(builderStepBrushComponent(step.id) ?? undefined) : undefined"
-	                            :title="builderStepBrushTitle(step)"
+	                            :class="builderStepBrushDotClass(status.step.id)"
+	                            :style="builderStepBrushComponent(status.step.id) ? componentSwatchStyle(builderStepBrushComponent(status.step.id) ?? undefined) : undefined"
+	                            :title="builderStepBrushTitle(status.step)"
 	                          />
-                          <span class="truncate">{{ step.title }}</span>
+                          <span class="truncate">{{ status.step.title }}</span>
                         </button>
                       </div>
                       <div class="grid gap-1.5 border-t border-cyan-400/20 pt-2">
@@ -3044,6 +3449,30 @@ onBeforeUnmount(() => {
                     <div class="absolute left-0 top-0" :style="canvasWorldStyle">
                       <div class="relative">
 	                        <div ref="deckCanvasRef" class="relative grid" :style="deckGridStyle()" @pointerdown="handleDeckPointerDown" @pointerleave="clearFootprintHover" @pointermove="updateFootprintHover">
+                            <div v-if="activeHullEnvelope" class="pointer-events-none absolute inset-0 z-[1] grid" :style="deckGridStyle()">
+                              <span
+                                v-for="cell in activeHullEnvelope.cells"
+                                :key="`hull-${cell.x}:${cell.y}`"
+                                class="border shadow-[inset_0_0_12px_rgba(34,211,238,0.08)]"
+                                :class="hullEnvelopeStatusClass"
+                                :style="hullEnvelopeCellStyle(cell)"
+                              />
+                              <span class="absolute left-[calc(50%+0.75rem)] top-[calc(50%+0.75rem)] rounded border border-cyan-300/35 bg-slate-950/80 px-2 py-1 text-[0.62rem] font-semibold uppercase tracking-[0.14em] text-cyan-100/75">
+                                Hull Shape
+                              </span>
+                              <span class="absolute bottom-[calc(50%+0.75rem)] left-[calc(50%+0.75rem)] rounded border border-cyan-300/25 bg-slate-950/80 px-2 py-1 text-[0.62rem] font-semibold text-cyan-100/70">
+                                {{ hullEnvelopeLabel }}
+                              </span>
+                            </div>
+                            <div v-if="hullEnvelopePreviewCells.length" class="pointer-events-none absolute inset-0 z-[19] grid" :style="deckGridStyle()">
+                              <span
+                                v-for="cell in hullEnvelopePreviewCells"
+                                :key="`hull-preview-${cell.x}:${cell.y}`"
+                                class="border border-dashed"
+                                :class="activeShapeTool === 'erase' ? 'border-rose-200/80 bg-rose-400/30' : 'border-cyan-50/90 bg-cyan-200/28'"
+                                :style="hullEnvelopeCellStyle(cell)"
+                              />
+                            </div>
 	                          <div class="pointer-events-none absolute inset-0 z-20 grid" :style="footprintPreviewStyle">
 	                            <span
 	                              v-for="cell in footprintPreviewCells"

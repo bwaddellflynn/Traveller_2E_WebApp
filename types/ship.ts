@@ -297,10 +297,21 @@ export type CustomShipLayoutDeck = {
   notes?: string[]
 }
 
+export type CustomShipHullEnvelope = {
+  deckId: string
+  cells: CustomShipLayoutCell[]
+  locked: boolean
+  preset: string
+  configuration: string
+  hullTons: number
+  tonsPerCell: number
+}
+
 export type CustomShipLayout = {
   enabled: boolean
   decks: CustomShipLayoutDeck[]
   placements: CustomShipLayoutPlacement[]
+  hullEnvelope?: CustomShipHullEnvelope
   unplacedComponentIds: string[]
   notes?: string[]
 }
