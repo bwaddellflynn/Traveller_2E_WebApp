@@ -386,7 +386,7 @@ The step labels can be adjusted for UI clarity, but the builder should preserve 
   - [x] Calculate placed tonnage from occupied cell count when a custom footprint exists.
   - [x] Validate overlaps by occupied cells instead of rectangular bounding boxes.
   - [x] Polish footprint visuals by merging adjacent cells into cleaner compartment outlines and centering labels.
-  - [ ] Add deckplan editing commands: fill rectangle, rotate/flip, duplicate, move to deck, and auto-fit required tons.
+  - [x] Add deckplan editing commands: fill rectangle, rotate/flip, duplicate, move to deck, and auto-fit required tons.
     - [x] Fill rectangle with the active brush.
     - [x] Erase rectangle from the selected footprint.
     - [x] Show hover/drag footprint previews before committing edits.
@@ -399,7 +399,7 @@ The step labels can be adjusted for UI clarity, but the builder should preserve 
   - [x] Compact tool menus into narrow single-column palettes.
   - [x] Prevent footprint creation/edit commands from committing overlaps; allow move overlaps to remain visible in red.
   - [ ] Separate component footprints from the overall ship hull/deck outline.
-- [ ] Move shape manipulation tools into the right-side canvas controls beside zoom/editing controls.
+- [x] Move shape manipulation tools into the right-side canvas controls beside zoom/editing controls.
 
 ### 11. Save Custom Ships
 
@@ -412,11 +412,13 @@ The step labels can be adjusted for UI clarity, but the builder should preserve 
 - [ ] Flesh out Setup fields beyond the initial shell.
 - [ ] Flesh out Hull controls for configuration, armour, specialised hulls, additional hulls, and hull options.
 - [ ] Flesh out Drives, Fuel, Power Plant, Bridge, Computer, and Sensors with full rule-table selectors.
-- [ ] Add Weapons and Screens editors with hardpoint accounting.
-- [ ] Add Options editor for ship systems and High Guard options.
-- [ ] Add Crew editor that can accept manual overrides while preserving generated requirements.
-- [ ] Add Accommodations & Cargo editor with staterooms, berths, common areas, passengers, and cargo.
-- [ ] Add Review controls for save readiness and validation issue navigation.
+- [x] Add first-pass Weapons and Screens editors with hardpoint accounting.
+- [x] Add first-pass Options editor for ship systems and High Guard options.
+- [x] Add first-pass Crew editor that can accept manual overrides while preserving generated requirements.
+- [x] Add first-pass Accommodations & Cargo editor with staterooms and cargo.
+- [x] Add first-pass Computer software editor with bandwidth accounting.
+- [x] Add first-pass Review controls for save readiness and validation issue navigation.
+- [ ] Replace first-pass freeform entries with full High Guard catalog selectors and rule-specific constraints.
 
 ### 13. Prepare Visual Layout Model
 

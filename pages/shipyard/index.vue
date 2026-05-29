@@ -13,7 +13,7 @@ import suppliesIconUrl from '~/assets/open-spacecraft-icons/svg/light/Supplies -
 import terminalIconUrl from '~/assets/open-spacecraft-icons/svg/light/Intercom - Light - 64x64.svg?url'
 import weaponSystemIconUrl from '~/assets/open-spacecraft-icons/svg/light/Weapon system - Light - 64x64.svg?url'
 import workshopIconUrl from '~/assets/open-spacecraft-icons/svg/light/Workshop - Light - 64x64.svg?url'
-import type { CustomShipDesign, CustomShipLayoutCell, CustomShipLayoutDeck, CustomShipLayoutPlacement, TravellerShipCategory, TravellerShipComponent, TravellerShipRecord } from '~/types/ship'
+import type { CustomShipAccommodationEntry, CustomShipCargoEntry, CustomShipDesign, CustomShipLayoutCell, CustomShipLayoutDeck, CustomShipLayoutPlacement, TravellerShipCategory, TravellerShipComponent, TravellerShipCrewRole, TravellerShipRecord, TravellerShipSoftware, TravellerShipWeaponSystem } from '~/types/ship'
 import { useShipsStore } from '~/stores/ships'
 import { shipConstructionSummary } from '~/utils/traveller/shipBuilder'
 
@@ -21,7 +21,9 @@ type ShipSortKey = 'name' | 'tons' | 'techLevel' | 'category' | 'jump' | 'thrust
 type ShipSortIcon = 'sort-asc' | 'sort-desc'
 type ShipyardTabId = 'stock' | 'custom' | 'builder'
 type ShipBuilderStep = { id: string, label: string, title: string, description: string }
+type BuilderStepBrushMode = 'brush' | 'special' | 'none'
 type BuilderCanvasOverlay = 'tool' | 'components' | 'ledger' | 'validation' | ''
+type DeckConfirmAction = 'create' | 'duplicate' | 'delete' | ''
 type ShapeToolId = 'select' | 'rectangle' | 'paint' | 'erase' | 'reshape'
 type ShapeToolGroup = {
   id: 'select' | 'footprint'
@@ -81,6 +83,7 @@ const selectedPlacementId = ref('')
 const builderCanvasOverlay = ref<BuilderCanvasOverlay>('')
 const buildToolMenuOpen = ref(false)
 const deckMenuOpen = ref(false)
+const deckConfirmAction = ref<DeckConfirmAction>('')
 const activeShapeTool = ref<ShapeToolId>('select')
 const activeBrushComponentId = ref('')
 const canvasZoom = ref(1)
@@ -249,6 +252,61 @@ const createBlankCustomShipDesign = (): CustomShipDesign => {
   }
 }
 
+const createBuilderEntryId = (prefix: string) => `${prefix}-${Date.now()}-${Math.round(Math.random() * 1000)}`
+const createWeaponSystem = (): TravellerShipWeaponSystem => ({
+  id: createBuilderEntryId('weapon'),
+  name: 'Beam Laser',
+  mount: 'Turret',
+  count: 1,
+  hardpointsUsed: 1,
+  tons: 1,
+  power: 4,
+  traits: ['Laser'],
+})
+const createScreenSystem = (): TravellerShipComponent => ({
+  id: createBuilderEntryId('screen'),
+  kind: 'screen',
+  name: 'Sandcaster Screen',
+  tons: 1,
+  powerDraw: 1,
+  hardpointsUsed: 1,
+  placementPolicy: 'exterior',
+  traits: ['Screen'],
+})
+const createOptionSystem = (): TravellerShipComponent => ({
+  id: createBuilderEntryId('option'),
+  kind: 'option',
+  name: 'Workshop',
+  tons: 6,
+  powerDraw: 0,
+  placementPolicy: 'optional-area',
+  traits: ['Ship Option'],
+})
+const createCrewRole = (): TravellerShipCrewRole => ({
+  role: 'Crew',
+  skill: '',
+  count: 1,
+  salaryCredits: 0,
+  mode: 'either',
+})
+const createAccommodationEntry = (): CustomShipAccommodationEntry => ({
+  id: createBuilderEntryId('accommodation'),
+  type: 'stateroom',
+  label: 'Stateroom',
+  count: 1,
+  tonsEach: 4,
+})
+const createCargoEntry = (): CustomShipCargoEntry => ({
+  id: createBuilderEntryId('cargo'),
+  label: 'Cargo',
+  tons: 10,
+})
+const createSoftwareEntry = (): TravellerShipSoftware => ({
+  id: createBuilderEntryId('software'),
+  name: 'Library',
+  bandwidth: 0,
+})
+
 const buildDraft = ref<CustomShipDesign>(createBlankCustomShipDesign())
 const activeBuilderStep = computed(() => shipBuilderSteps[activeBuildStep.value] ?? shipBuilderSteps[0])
 const buildSummary = computed(() => shipConstructionSummary(buildDraft.value))
@@ -267,7 +325,55 @@ const ledgerOnlyComponents = computed(() => buildSummary.value.components.filter
 const activeDeckPlacements = computed(() => buildDraft.value.layout.placements.filter((placement) => placement.deckId === activeDeck.value.id))
 const activeDeckPlacedTons = computed(() => activeDeckPlacements.value.reduce((total, placement) => total + placementTons(placement, activeDeck.value), 0))
 const selectedLayoutPlacement = computed(() => activeDeckPlacements.value.find((placement) => placement.id === selectedPlacementId.value) ?? null)
+const selectedPlacementComponent = computed(() => selectedLayoutPlacement.value ? placementComponent(selectedLayoutPlacement.value) : null)
 const activeBrushComponent = computed(() => placeableComponents.value.find((component) => component.id === activeBrushComponentId.value) ?? null)
+const builderStepSpecialToolLabel = (stepId: string) => {
+  const labels: Record<string, string> = {
+    hull: 'Hull outline tool pending',
+    weapons: 'Exterior hardpoint tool pending',
+    computer: 'Distributed system',
+    crew: 'Use accommodations',
+    setup: 'Build metadata',
+    review: 'Validation only',
+  }
+  return labels[stepId] ?? 'Ledger-only step'
+}
+const builderStepBrushMode = (stepId: string): BuilderStepBrushMode => {
+  if (builderStepBrushComponent(stepId)) return 'brush'
+  if (['hull', 'weapons'].includes(stepId)) return 'special'
+  return 'none'
+}
+const builderStepBrushTitle = (step: ShipBuilderStep) => {
+  const component = builderStepBrushComponent(step.id)
+  if (component) return `Brush: ${component.name}`
+  return builderStepSpecialToolLabel(step.id)
+}
+const builderStepBrushDotClass = (stepId: string) => {
+  const mode = builderStepBrushMode(stepId)
+  if (mode === 'brush') return ''
+  if (mode === 'special') return 'border-dashed bg-amber-300/20 text-amber-200'
+  return 'opacity-25'
+}
+const deckConfirmCopy = computed(() => {
+  const copy: Record<Exclude<DeckConfirmAction, ''>, { title: string, body: string, confirm: string }> = {
+    create: {
+      title: 'Create Deck',
+      body: `Create a new deck using ${activeDeck.value.name}'s current scale settings?`,
+      confirm: 'Create',
+    },
+    duplicate: {
+      title: 'Duplicate Deck',
+      body: `Duplicate ${activeDeck.value.name} and copy its placed footprints?`,
+      confirm: 'Duplicate',
+    },
+    delete: {
+      title: 'Delete Deck',
+      body: `Delete ${activeDeck.value.name} and remove every footprint on it?`,
+      confirm: 'Delete',
+    },
+  }
+  return deckConfirmAction.value ? copy[deckConfirmAction.value] : null
+})
 const builderStepBrushComponent = (stepId: string) => {
   const componentMatchers: Record<string, (component: TravellerShipComponent) => boolean> = {
     hull: (component) => component.id === 'hull',
@@ -488,6 +594,8 @@ const placementFootprintCells = (placement: CustomShipLayoutPlacement) => placem
   : rectangularFootprintCells(placement.width, placement.height)
 const placementCellCount = (placement: CustomShipLayoutPlacement) => placementFootprintCells(placement).length
 const placementTons = (placement: CustomShipLayoutPlacement, deck: CustomShipLayoutDeck | undefined = activeDeck.value) => placementCellCount(placement) * layoutCellTons(deck)
+const selectedPlacementCellCount = computed(() => selectedLayoutPlacement.value ? placementCellCount(selectedLayoutPlacement.value) : 0)
+const selectedPlacementTons = computed(() => selectedLayoutPlacement.value ? placementTons(selectedLayoutPlacement.value) : 0)
 const placedTonsForComponent = (componentId: string) => buildDraft.value.layout.placements
   .filter((placement) => placement.componentId === componentId)
   .reduce((total, placement) => {
@@ -958,7 +1066,31 @@ const adjustPlacement = (placement: CustomShipLayoutPlacement, delta: Partial<Pi
 const selectPlacement = (placement: CustomShipLayoutPlacement) => {
   selectedPlacementId.value = placement.id
 }
-const addDeck = () => {
+const clearSelectedPlacement = () => {
+  selectedPlacementId.value = ''
+}
+const removeSelectedPlacement = () => {
+  const placement = selectedLayoutPlacement.value
+  if (!placement) return
+  buildDraft.value.layout.placements = buildDraft.value.layout.placements.filter((entry) => entry.id !== placement.id)
+  selectedPlacementId.value = ''
+}
+const nudgeSelectedPlacement = (deltaX: number, deltaY: number) => {
+  const placement = selectedLayoutPlacement.value
+  if (!placement) return
+  placement.x += deltaX
+  placement.y += deltaY
+  clampPlacement(placement)
+}
+const openDeckConfirm = (action: Exclude<DeckConfirmAction, ''>) => {
+  if (action === 'delete' && buildDraft.value.layout.decks.length <= 1) return
+  deckConfirmAction.value = action
+  deckMenuOpen.value = false
+}
+const closeDeckConfirm = () => {
+  deckConfirmAction.value = ''
+}
+const createDeck = () => {
   const deck = createLayoutDeck(buildDraft.value.layout.decks.length + 1)
   buildDraft.value.layout.decks.push(deck)
   activeDeckId.value = deck.id
@@ -983,6 +1115,13 @@ const duplicateActiveDeck = () => {
   buildDraft.value.layout.placements.push(...copiedPlacements)
   activeDeckId.value = deckId
   selectedPlacementId.value = ''
+}
+const confirmDeckAction = () => {
+  const action = deckConfirmAction.value
+  if (action === 'create') createDeck()
+  if (action === 'duplicate') duplicateActiveDeck()
+  if (action === 'delete') removeActiveDeck()
+  closeDeckConfirm()
 }
 const selectDeck = (deckId: string) => {
   activeDeckId.value = deckId
@@ -1178,6 +1317,10 @@ const handleDeckPointerDown = (event: PointerEvent) => {
     return
   }
   const mode = activeShapeTool.value
+  if (event.button === 0 && mode === 'select') {
+    clearSelectedPlacement()
+    return
+  }
   if (mode === 'rectangle') {
     startFootprintRectDrag(event, 'rectangle')
     return
@@ -1271,8 +1414,42 @@ const stopPlacementDrag = () => {
   window.removeEventListener('pointermove', updatePlacementDrag)
   layoutDrag.value = null
 }
+const isEditableKeyboardTarget = (target: EventTarget | null) => target instanceof HTMLInputElement
+  || target instanceof HTMLTextAreaElement
+  || target instanceof HTMLSelectElement
+  || (target instanceof HTMLElement && target.isContentEditable)
+const handleBuilderKeydown = (event: KeyboardEvent) => {
+  if (activeShipyardTab.value !== 'builder' || isEditableKeyboardTarget(event.target)) return
+  if (deckConfirmAction.value) {
+    if (event.key === 'Escape') {
+      event.preventDefault()
+      closeDeckConfirm()
+    }
+    return
+  }
+  if (event.key === 'Delete' || event.key === 'Backspace') {
+    if (!selectedLayoutPlacement.value) return
+    event.preventDefault()
+    removeSelectedPlacement()
+    return
+  }
+  const nudges: Record<string, [number, number]> = {
+    ArrowUp: [0, -1],
+    ArrowDown: [0, 1],
+    ArrowLeft: [-1, 0],
+    ArrowRight: [1, 0],
+  }
+  const nudge = nudges[event.key]
+  if (!nudge || !selectedLayoutPlacement.value) return
+  event.preventDefault()
+  nudgeSelectedPlacement(event.shiftKey ? nudge[0] * 5 : nudge[0], event.shiftKey ? nudge[1] * 5 : nudge[1])
+}
+onMounted(() => {
+  if (typeof window !== 'undefined') window.addEventListener('keydown', handleBuilderKeydown)
+})
 onBeforeUnmount(() => {
   if (typeof window !== 'undefined') {
+    window.removeEventListener('keydown', handleBuilderKeydown)
     window.removeEventListener('pointermove', updatePlacementDrag)
     window.removeEventListener('pointermove', updatePlacementFootprintEdit)
     window.removeEventListener('pointermove', updateFootprintRectDrag)
@@ -1485,6 +1662,38 @@ onBeforeUnmount(() => {
         <div
           class="relative"
         >
+          <div
+            v-if="deckConfirmCopy"
+            class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 px-4"
+            role="dialog"
+            aria-modal="true"
+          >
+            <section class="w-[min(24rem,calc(100vw-2rem))] rounded-md border border-cyan-400/40 bg-slate-950 p-4 shadow-2xl shadow-black/70">
+              <div class="flex items-start gap-3">
+                <span class="relative mt-1 h-8 w-10 shrink-0 text-cyan-100" aria-hidden="true">
+                  <span class="absolute left-1 top-0 h-3 w-8 skew-x-[-24deg] bg-current opacity-95" />
+                  <span class="absolute left-1 top-2.5 h-3 w-8 skew-x-[-24deg] bg-current opacity-75" />
+                  <span class="absolute left-1 top-5 h-3 w-8 skew-x-[-24deg] bg-current opacity-55" />
+                </span>
+                <div class="min-w-0">
+                  <h2 class="text-base font-semibold text-white">{{ deckConfirmCopy.title }}</h2>
+                  <p class="mt-1 text-sm text-cyan-100/70">{{ deckConfirmCopy.body }}</p>
+                </div>
+              </div>
+              <div class="mt-4 flex justify-end gap-2">
+                <button class="rounded-md border border-cyan-300/30 px-3 py-2 text-sm font-semibold text-cyan-100 hover:border-cyan-100" type="button" @click="closeDeckConfirm">Cancel</button>
+                <button
+                  class="rounded-md border px-3 py-2 text-sm font-semibold"
+                  :class="deckConfirmAction === 'delete' ? 'border-rose-300/50 bg-rose-400/15 text-rose-50 hover:border-rose-200' : 'border-cyan-100 bg-cyan-100 text-zinc-950 hover:border-amber-200 hover:bg-amber-200'"
+                  type="button"
+                  @click="confirmDeckAction"
+                >
+                  {{ deckConfirmCopy.confirm }}
+                </button>
+              </div>
+            </section>
+          </div>
+
           <section
             v-if="builderCanvasOverlay && builderCanvasOverlay !== 'ledger'"
             class="hud-scrollbar absolute z-30 max-h-[calc(100vh-8rem)] overflow-auto rounded-md border border-cyan-400/40 bg-slate-950/95 p-3 shadow-2xl shadow-black/60 backdrop-blur-sm [&_input]:w-full [&_select]:w-full"
@@ -1658,6 +1867,33 @@ onBeforeUnmount(() => {
                   <option value="computer-35">Computer/35</option>
                 </select>
               </label>
+              <label class="flex items-center gap-2 text-sm font-semibold text-cyan-50">
+                <input v-model="buildDraft.computer.jumpControlSpecialisation" class="h-4 w-4" type="checkbox">
+                Jump control specialisation
+              </label>
+              <label class="flex items-center gap-2 text-sm font-semibold text-cyan-50">
+                <input v-model="buildDraft.computer.hardenedSystems" class="h-4 w-4" type="checkbox">
+                Hardened systems
+              </label>
+              <section class="rounded-md border border-cyan-400/20 bg-cyan-950/75 p-3 md:col-span-2">
+                <div class="flex items-center justify-between gap-3">
+                  <div>
+                    <h3 class="text-sm font-semibold text-white">Software</h3>
+                    <p class="mt-1 text-xs text-cyan-100/60">{{ formatLedgerNumber(buildSummary.derived.bandwidth?.used) }} / {{ formatLedgerNumber(buildSummary.derived.bandwidth?.available) }} bandwidth</p>
+                  </div>
+                  <button class="rounded-md border border-cyan-300/30 px-2 py-1 text-xs font-semibold text-cyan-100 hover:border-amber-300/60" type="button" @click="buildDraft.software.push(createSoftwareEntry())">Add Software</button>
+                </div>
+                <div class="mt-3 grid gap-2">
+                  <article v-for="software in buildDraft.software" :key="software.id" class="grid gap-2 rounded-md border border-cyan-400/20 bg-slate-950/70 p-2 md:grid-cols-[minmax(0,1fr)_5rem_auto]">
+                    <input v-model="software.name" class="h-8 rounded-md border border-cyan-300/25 bg-slate-900 px-2 text-xs text-cyan-50 outline-none focus:border-amber-300/60" placeholder="Software">
+                    <input v-model.number="software.bandwidth" class="h-8 rounded-md border border-cyan-300/25 bg-slate-900 px-2 text-xs text-cyan-50 outline-none focus:border-amber-300/60" min="0" title="Bandwidth" type="number">
+                    <button class="flex h-8 w-8 items-center justify-center rounded-md border border-rose-300/30 text-rose-100 hover:border-rose-200" title="Remove software" type="button" @click="buildDraft.software = buildDraft.software.filter((entry) => entry.id !== software.id)">
+                      <AppIcon class="h-4 w-4" name="trash" />
+                    </button>
+                  </article>
+                  <p v-if="!buildDraft.software.length" class="rounded-md border border-cyan-400/20 bg-slate-950/50 px-3 py-2 text-sm text-cyan-100/65">No software selected.</p>
+                </div>
+              </section>
             </div>
 
             <div v-else-if="activeBuilderStep.id === 'sensors'" class="mt-5 grid gap-4 md:grid-cols-2">
@@ -1673,9 +1909,182 @@ onBeforeUnmount(() => {
               </label>
             </div>
 
-            <div v-else class="mt-5 rounded-md border border-cyan-400/20 bg-cyan-950/75 px-4 py-5">
-              <p class="text-sm font-semibold text-cyan-50">{{ activeBuilderStep.title }} controls are ready for the next implementation pass.</p>
-              <p class="mt-1 text-sm text-cyan-100/70">This shell keeps the workflow stable while we add detailed editors step by step.</p>
+            <div v-else-if="activeBuilderStep.id === 'weapons'" class="mt-5 grid gap-4">
+              <div class="grid gap-3 md:grid-cols-3">
+                <div class="rounded-md border border-cyan-400/20 bg-cyan-950/75 p-3">
+                  <p class="text-xs font-semibold uppercase tracking-[0.16em] text-cyan-200/70">Hardpoints</p>
+                  <p class="mt-1 text-lg font-semibold text-white">{{ formatLedgerNumber(buildSummary.derived.hardpoints?.used) }} / {{ formatLedgerNumber(buildSummary.derived.hardpoints?.available) }}</p>
+                  <p class="text-xs text-cyan-100/60">{{ formatLedgerNumber(buildSummary.derived.hardpoints?.remaining) }} remaining</p>
+                </div>
+                <div class="rounded-md border border-cyan-400/20 bg-cyan-950/75 p-3">
+                  <p class="text-xs font-semibold uppercase tracking-[0.16em] text-cyan-200/70">Weapon Power</p>
+                  <p class="mt-1 text-lg font-semibold text-white">{{ formatLedgerNumber(buildSummary.derived.power?.weapons) }}</p>
+                  <p class="text-xs text-cyan-100/60">Combat draw</p>
+                </div>
+                <div class="rounded-md border border-cyan-400/20 bg-cyan-950/75 p-3">
+                  <p class="text-xs font-semibold uppercase tracking-[0.16em] text-cyan-200/70">Screens</p>
+                  <p class="mt-1 text-lg font-semibold text-white">{{ buildDraft.screenSystems.length }}</p>
+                  <p class="text-xs text-cyan-100/60">{{ formatLedgerNumber(buildSummary.derived.power?.screens) }} Power</p>
+                </div>
+              </div>
+
+              <section class="rounded-md border border-cyan-400/20 bg-cyan-950/75 p-3">
+                <div class="flex items-center justify-between gap-3">
+                  <h3 class="text-sm font-semibold text-white">Weapons</h3>
+                  <button class="rounded-md border border-cyan-300/30 px-2 py-1 text-xs font-semibold text-cyan-100 hover:border-amber-300/60" type="button" @click="buildDraft.weaponSystems.push(createWeaponSystem())">Add Weapon</button>
+                </div>
+                <div class="mt-3 grid gap-2">
+                  <article v-for="weapon in buildDraft.weaponSystems" :key="weapon.id" class="grid gap-2 rounded-md border border-cyan-400/20 bg-slate-950/70 p-2 md:grid-cols-[minmax(0,1.3fr)_minmax(0,0.9fr)_repeat(4,minmax(4rem,0.55fr))_auto]">
+                    <input v-model="weapon.name" class="h-8 rounded-md border border-cyan-300/25 bg-slate-900 px-2 text-xs text-cyan-50 outline-none focus:border-amber-300/60" placeholder="Weapon">
+                    <input v-model="weapon.mount" class="h-8 rounded-md border border-cyan-300/25 bg-slate-900 px-2 text-xs text-cyan-50 outline-none focus:border-amber-300/60" placeholder="Mount">
+                    <input v-model.number="weapon.count" class="h-8 rounded-md border border-cyan-300/25 bg-slate-900 px-2 text-xs text-cyan-50 outline-none focus:border-amber-300/60" min="1" title="Count" type="number">
+                    <input v-model.number="weapon.hardpointsUsed" class="h-8 rounded-md border border-cyan-300/25 bg-slate-900 px-2 text-xs text-cyan-50 outline-none focus:border-amber-300/60" min="0" title="Hardpoints" type="number">
+                    <input v-model.number="weapon.tons" class="h-8 rounded-md border border-cyan-300/25 bg-slate-900 px-2 text-xs text-cyan-50 outline-none focus:border-amber-300/60" min="0" step="0.25" title="Tons" type="number">
+                    <input v-model.number="weapon.power" class="h-8 rounded-md border border-cyan-300/25 bg-slate-900 px-2 text-xs text-cyan-50 outline-none focus:border-amber-300/60" min="0" title="Power" type="number">
+                    <button class="flex h-8 w-8 items-center justify-center rounded-md border border-rose-300/30 text-rose-100 hover:border-rose-200" title="Remove weapon" type="button" @click="buildDraft.weaponSystems = buildDraft.weaponSystems.filter((entry) => entry.id !== weapon.id)">
+                      <AppIcon class="h-4 w-4" name="trash" />
+                    </button>
+                  </article>
+                  <p v-if="!buildDraft.weaponSystems.length" class="rounded-md border border-cyan-400/20 bg-slate-950/50 px-3 py-2 text-sm text-cyan-100/65">No weapons installed.</p>
+                </div>
+              </section>
+
+              <section class="rounded-md border border-cyan-400/20 bg-cyan-950/75 p-3">
+                <div class="flex items-center justify-between gap-3">
+                  <h3 class="text-sm font-semibold text-white">Screens</h3>
+                  <button class="rounded-md border border-cyan-300/30 px-2 py-1 text-xs font-semibold text-cyan-100 hover:border-amber-300/60" type="button" @click="buildDraft.screenSystems.push(createScreenSystem())">Add Screen</button>
+                </div>
+                <div class="mt-3 grid gap-2">
+                  <article v-for="screen in buildDraft.screenSystems" :key="screen.id" class="grid gap-2 rounded-md border border-cyan-400/20 bg-slate-950/70 p-2 md:grid-cols-[minmax(0,1fr)_repeat(3,minmax(4rem,0.5fr))_auto]">
+                    <input v-model="screen.name" class="h-8 rounded-md border border-cyan-300/25 bg-slate-900 px-2 text-xs text-cyan-50 outline-none focus:border-amber-300/60" placeholder="Screen">
+                    <input v-model.number="screen.hardpointsUsed" class="h-8 rounded-md border border-cyan-300/25 bg-slate-900 px-2 text-xs text-cyan-50 outline-none focus:border-amber-300/60" min="0" title="Hardpoints" type="number">
+                    <input v-model.number="screen.tons" class="h-8 rounded-md border border-cyan-300/25 bg-slate-900 px-2 text-xs text-cyan-50 outline-none focus:border-amber-300/60" min="0" step="0.25" title="Tons" type="number">
+                    <input v-model.number="screen.powerDraw" class="h-8 rounded-md border border-cyan-300/25 bg-slate-900 px-2 text-xs text-cyan-50 outline-none focus:border-amber-300/60" min="0" title="Power" type="number">
+                    <button class="flex h-8 w-8 items-center justify-center rounded-md border border-rose-300/30 text-rose-100 hover:border-rose-200" title="Remove screen" type="button" @click="buildDraft.screenSystems = buildDraft.screenSystems.filter((entry) => entry.id !== screen.id)">
+                      <AppIcon class="h-4 w-4" name="trash" />
+                    </button>
+                  </article>
+                </div>
+              </section>
+            </div>
+
+            <div v-else-if="activeBuilderStep.id === 'options'" class="mt-5 grid gap-4">
+              <section class="rounded-md border border-cyan-400/20 bg-cyan-950/75 p-3">
+                <div class="flex items-center justify-between gap-3">
+                  <div>
+                    <h3 class="text-sm font-semibold text-white">Ship Options</h3>
+                    <p class="mt-1 text-xs text-cyan-100/60">{{ formatLedgerNumber(buildSummary.derived.power?.options) }} Power, {{ buildDraft.optionSystems.length }} systems</p>
+                  </div>
+                  <button class="rounded-md border border-cyan-300/30 px-2 py-1 text-xs font-semibold text-cyan-100 hover:border-amber-300/60" type="button" @click="buildDraft.optionSystems.push(createOptionSystem())">Add Option</button>
+                </div>
+                <div class="mt-3 grid gap-2">
+                  <article v-for="option in buildDraft.optionSystems" :key="option.id" class="grid gap-2 rounded-md border border-cyan-400/20 bg-slate-950/70 p-2 md:grid-cols-[minmax(0,1fr)_repeat(2,minmax(4rem,0.5fr))_auto]">
+                    <input v-model="option.name" class="h-8 rounded-md border border-cyan-300/25 bg-slate-900 px-2 text-xs text-cyan-50 outline-none focus:border-amber-300/60" placeholder="Option">
+                    <input v-model.number="option.tons" class="h-8 rounded-md border border-cyan-300/25 bg-slate-900 px-2 text-xs text-cyan-50 outline-none focus:border-amber-300/60" min="0" step="0.25" title="Tons" type="number">
+                    <input v-model.number="option.powerDraw" class="h-8 rounded-md border border-cyan-300/25 bg-slate-900 px-2 text-xs text-cyan-50 outline-none focus:border-amber-300/60" min="0" title="Power" type="number">
+                    <button class="flex h-8 w-8 items-center justify-center rounded-md border border-rose-300/30 text-rose-100 hover:border-rose-200" title="Remove option" type="button" @click="buildDraft.optionSystems = buildDraft.optionSystems.filter((entry) => entry.id !== option.id)">
+                      <AppIcon class="h-4 w-4" name="trash" />
+                    </button>
+                  </article>
+                </div>
+              </section>
+            </div>
+
+            <div v-else-if="activeBuilderStep.id === 'crew'" class="mt-5 grid gap-4">
+              <div class="grid gap-3 md:grid-cols-3">
+                <div class="rounded-md border border-cyan-400/20 bg-cyan-950/75 p-3">
+                  <p class="text-xs font-semibold uppercase tracking-[0.16em] text-cyan-200/70">Estimated Crew</p>
+                  <p class="mt-1 text-lg font-semibold text-white">{{ formatLedgerNumber(buildSummary.derived.crewCount) }}</p>
+                </div>
+                <label class="grid gap-1 rounded-md border border-cyan-400/20 bg-cyan-950/75 p-3 text-xs font-semibold uppercase tracking-[0.12em] text-cyan-100/70">
+                  Crew Mode
+                  <select v-model="buildDraft.buildBrief.crewMode" class="h-8 rounded-md border border-cyan-300/25 bg-slate-900 px-2 text-xs normal-case tracking-normal text-cyan-50 outline-none focus:border-amber-300/60">
+                    <option value="commercial">Commercial</option>
+                    <option value="military">Military</option>
+                  </select>
+                </label>
+                <label class="grid gap-1 rounded-md border border-cyan-400/20 bg-cyan-950/75 p-3 text-xs font-semibold uppercase tracking-[0.12em] text-cyan-100/70">
+                  Crew Target
+                  <input v-model="buildDraft.buildBrief.crewTarget" class="h-8 rounded-md border border-cyan-300/25 bg-slate-900 px-2 text-xs normal-case tracking-normal text-cyan-50 outline-none focus:border-amber-300/60" placeholder="Optional note">
+                </label>
+              </div>
+
+              <section class="rounded-md border border-cyan-400/20 bg-cyan-950/75 p-3">
+                <div class="flex items-center justify-between gap-3">
+                  <h3 class="text-sm font-semibold text-white">Crew Overrides</h3>
+                  <button class="rounded-md border border-cyan-300/30 px-2 py-1 text-xs font-semibold text-cyan-100 hover:border-amber-300/60" type="button" @click="buildDraft.crewRoles.push(createCrewRole())">Add Role</button>
+                </div>
+                <div class="mt-3 grid gap-2">
+                  <article v-for="(role, index) in buildDraft.crewRoles" :key="index" class="grid gap-2 rounded-md border border-cyan-400/20 bg-slate-950/70 p-2 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_5rem_auto]">
+                    <input v-model="role.role" class="h-8 rounded-md border border-cyan-300/25 bg-slate-900 px-2 text-xs text-cyan-50 outline-none focus:border-amber-300/60" placeholder="Role">
+                    <input v-model="role.skill" class="h-8 rounded-md border border-cyan-300/25 bg-slate-900 px-2 text-xs text-cyan-50 outline-none focus:border-amber-300/60" placeholder="Skill">
+                    <input v-model.number="role.count" class="h-8 rounded-md border border-cyan-300/25 bg-slate-900 px-2 text-xs text-cyan-50 outline-none focus:border-amber-300/60" min="0" title="Count" type="number">
+                    <button class="flex h-8 w-8 items-center justify-center rounded-md border border-rose-300/30 text-rose-100 hover:border-rose-200" title="Remove role" type="button" @click="buildDraft.crewRoles = buildDraft.crewRoles.filter((entry) => entry !== role)">
+                      <AppIcon class="h-4 w-4" name="trash" />
+                    </button>
+                  </article>
+                  <div v-if="!buildDraft.crewRoles.length" class="grid gap-1 rounded-md border border-cyan-400/20 bg-slate-950/50 px-3 py-2 text-sm text-cyan-100/70">
+                    <p v-for="role in buildSummary.crewRoles" :key="role.role" class="flex justify-between gap-3"><span>{{ role.role }}</span><strong>{{ role.count }}</strong></p>
+                  </div>
+                </div>
+              </section>
+            </div>
+
+            <div v-else-if="activeBuilderStep.id === 'accommodations-cargo'" class="mt-5 grid gap-4 md:grid-cols-2">
+              <section class="rounded-md border border-cyan-400/20 bg-cyan-950/75 p-3">
+                <div class="flex items-center justify-between gap-3">
+                  <div>
+                    <h3 class="text-sm font-semibold text-white">Accommodations</h3>
+                    <p class="mt-1 text-xs text-cyan-100/60">{{ buildDraft.accommodations.length }} entries</p>
+                  </div>
+                  <button class="rounded-md border border-cyan-300/30 px-2 py-1 text-xs font-semibold text-cyan-100 hover:border-amber-300/60" type="button" @click="buildDraft.accommodations.push(createAccommodationEntry())">Add</button>
+                </div>
+                <div class="mt-3 grid gap-2">
+                  <article v-for="entry in buildDraft.accommodations" :key="entry.id" class="grid gap-2 rounded-md border border-cyan-400/20 bg-slate-950/70 p-2 md:grid-cols-[minmax(0,1fr)_4rem_5rem_auto]">
+                    <input v-model="entry.label" class="h-8 rounded-md border border-cyan-300/25 bg-slate-900 px-2 text-xs text-cyan-50 outline-none focus:border-amber-300/60" placeholder="Label">
+                    <input v-model.number="entry.count" class="h-8 rounded-md border border-cyan-300/25 bg-slate-900 px-2 text-xs text-cyan-50 outline-none focus:border-amber-300/60" min="0" title="Count" type="number">
+                    <input v-model.number="entry.tonsEach" class="h-8 rounded-md border border-cyan-300/25 bg-slate-900 px-2 text-xs text-cyan-50 outline-none focus:border-amber-300/60" min="0" step="0.25" title="Tons each" type="number">
+                    <button class="flex h-8 w-8 items-center justify-center rounded-md border border-rose-300/30 text-rose-100 hover:border-rose-200" title="Remove accommodation" type="button" @click="buildDraft.accommodations = buildDraft.accommodations.filter((item) => item.id !== entry.id)">
+                      <AppIcon class="h-4 w-4" name="trash" />
+                    </button>
+                  </article>
+                </div>
+              </section>
+
+              <section class="rounded-md border border-cyan-400/20 bg-cyan-950/75 p-3">
+                <div class="flex items-center justify-between gap-3">
+                  <div>
+                    <h3 class="text-sm font-semibold text-white">Cargo</h3>
+                    <p class="mt-1 text-xs text-cyan-100/60">{{ formatLedgerNumber(buildSummary.derived.cargoTons) }} tons assigned</p>
+                  </div>
+                  <button class="rounded-md border border-cyan-300/30 px-2 py-1 text-xs font-semibold text-cyan-100 hover:border-amber-300/60" type="button" @click="buildDraft.cargoEntries.push(createCargoEntry())">Add</button>
+                </div>
+                <div class="mt-3 grid gap-2">
+                  <article v-for="entry in buildDraft.cargoEntries" :key="entry.id" class="grid gap-2 rounded-md border border-cyan-400/20 bg-slate-950/70 p-2 md:grid-cols-[minmax(0,1fr)_5rem_auto]">
+                    <input v-model="entry.label" class="h-8 rounded-md border border-cyan-300/25 bg-slate-900 px-2 text-xs text-cyan-50 outline-none focus:border-amber-300/60" placeholder="Label">
+                    <input v-model.number="entry.tons" class="h-8 rounded-md border border-cyan-300/25 bg-slate-900 px-2 text-xs text-cyan-50 outline-none focus:border-amber-300/60" min="0" step="0.25" title="Tons" type="number">
+                    <button class="flex h-8 w-8 items-center justify-center rounded-md border border-rose-300/30 text-rose-100 hover:border-rose-200" title="Remove cargo" type="button" @click="buildDraft.cargoEntries = buildDraft.cargoEntries.filter((item) => item.id !== entry.id)">
+                      <AppIcon class="h-4 w-4" name="trash" />
+                    </button>
+                  </article>
+                </div>
+              </section>
+            </div>
+
+            <div v-else-if="activeBuilderStep.id === 'review'" class="mt-5 grid gap-4">
+              <div class="grid gap-3 md:grid-cols-4">
+                <div class="rounded-md border border-cyan-400/20 bg-cyan-950/75 p-3"><p class="text-xs font-semibold uppercase tracking-[0.16em] text-cyan-200/70">Tons</p><p class="mt-1 text-lg font-semibold text-white">{{ formatLedgerNumber(buildSummary.derived.tonsUsed) }} / {{ buildDraft.tons }}</p></div>
+                <div class="rounded-md border border-cyan-400/20 bg-cyan-950/75 p-3"><p class="text-xs font-semibold uppercase tracking-[0.16em] text-cyan-200/70">Power</p><p class="mt-1 text-lg font-semibold text-white">{{ formatLedgerNumber(buildSummary.derived.power?.totalCombat) }} / {{ formatLedgerNumber(buildSummary.derived.power?.output) }}</p></div>
+                <div class="rounded-md border border-cyan-400/20 bg-cyan-950/75 p-3"><p class="text-xs font-semibold uppercase tracking-[0.16em] text-cyan-200/70">Hardpoints</p><p class="mt-1 text-lg font-semibold text-white">{{ formatLedgerNumber(buildSummary.derived.hardpoints?.used) }} / {{ formatLedgerNumber(buildSummary.derived.hardpoints?.available) }}</p></div>
+                <div class="rounded-md border border-cyan-400/20 bg-cyan-950/75 p-3"><p class="text-xs font-semibold uppercase tracking-[0.16em] text-cyan-200/70">Issues</p><p class="mt-1 text-lg font-semibold text-white">{{ buildSummary.validationNotes.length }}</p></div>
+              </div>
+              <section class="rounded-md border border-cyan-400/20 bg-cyan-950/75 p-3">
+                <h3 class="text-sm font-semibold text-white">Validation</h3>
+                <ul v-if="buildSummary.validationNotes.length" class="mt-3 grid gap-2 text-sm text-amber-50/85">
+                  <li v-for="issue in buildSummary.validationNotes" :key="issue" class="rounded-md border border-amber-300/25 bg-amber-300/10 px-3 py-2">{{ issue }}</li>
+                </ul>
+                <p v-else class="mt-3 rounded-md border border-emerald-300/25 bg-emerald-300/10 px-3 py-2 text-sm text-emerald-50">No rules validation issues.</p>
+              </section>
             </div>
             </div>
 
@@ -1765,11 +2174,12 @@ onBeforeUnmount(() => {
                           @click="selectBuilderStep(index)"
                         >
                           <img :alt="step.title" class="h-5 w-5 shrink-0 object-contain" :src="builderStepIconUrl(step.id)">
-                          <span
-                            class="h-3 w-3 rounded-full border border-current/25"
-                            :class="builderStepBrushComponent(step.id) ? '' : 'opacity-20'"
-                            :style="builderStepBrushComponent(step.id) ? componentSwatchStyle(builderStepBrushComponent(step.id)?.id ?? '') : undefined"
-                          />
+	                          <span
+	                            class="h-3 w-3 rounded-full border border-current/25"
+	                            :class="builderStepBrushDotClass(step.id)"
+	                            :style="builderStepBrushComponent(step.id) ? componentSwatchStyle(builderStepBrushComponent(step.id)?.id ?? '') : undefined"
+	                            :title="builderStepBrushTitle(step)"
+	                          />
                           <span class="truncate">{{ step.title }}</span>
                         </button>
                       </div>
@@ -1806,21 +2216,28 @@ onBeforeUnmount(() => {
                           <span v-if="layoutValidationNotes.length" class="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-amber-300 px-1 text-[0.62rem] font-bold text-zinc-950">{{ layoutValidationNotes.length }}</span>
                         </button>
                       </div>
-                      <p class="truncate border-t border-cyan-400/20 pt-2 text-[0.62rem] font-semibold uppercase tracking-[0.14em] text-cyan-100/60">
-                        Brush: {{ activeBrushComponent?.name ?? 'None' }}
-                      </p>
-                    </div>
+	                      <p class="truncate border-t border-cyan-400/20 pt-2 text-[0.62rem] font-semibold uppercase tracking-[0.14em] text-cyan-100/60">
+	                        Brush: {{ activeBrushComponent?.name ?? 'None' }}
+	                      </p>
+	                      <p class="text-[0.62rem] leading-snug text-cyan-100/55">
+	                        Solid dots paint deck footprints; dashed dots are special tools; dim dots are ledger-only.
+	                      </p>
+	                    </div>
                   </div>
                   <div class="relative">
-                    <button
-                      class="flex h-9 w-9 items-center justify-center rounded-md border border-cyan-300/35 text-cyan-50 hover:border-amber-300/60"
-                      title="Select deck"
-                      type="button"
-                      @click="deckMenuOpen = !deckMenuOpen"
-                    >
-                      <AppIcon class="h-4 w-4" name="sliders" />
-                      <span class="sr-only">Select Deck</span>
-                    </button>
+	                    <button
+	                      class="flex h-9 w-9 items-center justify-center rounded-md border border-cyan-300/35 text-cyan-50 hover:border-amber-300/60"
+	                      title="Select deck"
+	                      type="button"
+	                      @click="deckMenuOpen = !deckMenuOpen"
+	                    >
+	                      <span class="relative h-5 w-6 text-cyan-50" aria-hidden="true">
+	                        <span class="absolute left-0.5 top-0 h-2 w-5 skew-x-[-24deg] bg-current" />
+	                        <span class="absolute left-0.5 top-[0.42rem] h-2 w-5 skew-x-[-24deg] bg-current opacity-80" />
+	                        <span class="absolute left-0.5 top-[0.84rem] h-2 w-5 skew-x-[-24deg] bg-current opacity-60" />
+	                      </span>
+	                      <span class="sr-only">Select Deck</span>
+	                    </button>
                     <div v-if="deckMenuOpen" class="absolute left-0 top-11 z-40 grid w-[min(16rem,calc(100vw-3rem))] gap-2 rounded-md border border-cyan-400/35 bg-slate-950/95 p-2 shadow-xl shadow-black/60">
                       <label class="grid gap-1 text-[0.62rem] font-semibold uppercase tracking-[0.12em] text-cyan-100/70">
                         Deck Name
@@ -1842,21 +2259,21 @@ onBeforeUnmount(() => {
                       </button>
                     </div>
                   </div>
-                  <button class="flex h-9 w-9 items-center justify-center rounded-md border border-cyan-300/35 text-cyan-50 hover:border-amber-300/60" title="Add deck" type="button" @click="addDeck">
-                    <AppIcon class="h-4 w-4" name="plus" />
-                    <span class="sr-only">Add Deck</span>
-                  </button>
-                  <button class="flex h-9 w-9 items-center justify-center rounded-md border border-cyan-300/35 text-cyan-50 hover:border-amber-300/60" title="Duplicate deck" type="button" @click="duplicateActiveDeck">
-                    <AppIcon class="h-4 w-4" name="copy" />
-                    <span class="sr-only">Duplicate Deck</span>
-                  </button>
+	                  <button class="flex h-9 w-9 items-center justify-center rounded-md border border-cyan-300/35 text-cyan-50 hover:border-amber-300/60" title="Add deck" type="button" @click="openDeckConfirm('create')">
+	                    <AppIcon class="h-4 w-4" name="plus" />
+	                    <span class="sr-only">Add Deck</span>
+	                  </button>
+	                  <button class="flex h-9 w-9 items-center justify-center rounded-md border border-cyan-300/35 text-cyan-50 hover:border-amber-300/60" title="Duplicate deck" type="button" @click="openDeckConfirm('duplicate')">
+	                    <AppIcon class="h-4 w-4" name="copy" />
+	                    <span class="sr-only">Duplicate Deck</span>
+	                  </button>
                   <button
                     class="flex h-9 w-9 items-center justify-center rounded-md border border-cyan-300/25 text-cyan-100/70 hover:border-rose-300/60"
-                    :disabled="buildDraft.layout.decks.length <= 1"
-                    title="Delete deck"
-                    type="button"
-                    @click="removeActiveDeck"
-                  >
+	                    :disabled="buildDraft.layout.decks.length <= 1"
+	                    title="Delete deck"
+	                    type="button"
+	                    @click="openDeckConfirm('delete')"
+	                  >
                     <AppIcon class="h-4 w-4" name="trash" />
                     <span class="sr-only">Delete Deck</span>
                   </button>
@@ -1889,6 +2306,19 @@ onBeforeUnmount(() => {
                     <p class="truncate text-[0.62rem] font-semibold uppercase tracking-[0.14em] text-cyan-100/62">
                       Brush: {{ activeBrushComponent?.name ?? 'None' }}
                     </p>
+                    <div class="grid gap-1 rounded-md border border-cyan-400/20 bg-white/5 p-2 text-[0.68rem] text-cyan-100/70">
+                      <p class="truncate text-[0.62rem] font-semibold uppercase tracking-[0.14em] text-cyan-100/55">Selection</p>
+                      <template v-if="selectedLayoutPlacement">
+                        <p class="truncate font-semibold text-cyan-50">{{ selectedPlacementComponent?.name ?? selectedLayoutPlacement.componentId }}</p>
+                        <dl class="grid grid-cols-2 gap-x-2 gap-y-1">
+                          <div class="flex justify-between gap-1"><dt>X</dt><dd class="font-semibold text-white">{{ selectedLayoutPlacement.x }}</dd></div>
+                          <div class="flex justify-between gap-1"><dt>Y</dt><dd class="font-semibold text-white">{{ selectedLayoutPlacement.y }}</dd></div>
+                          <div class="flex justify-between gap-1"><dt>Cells</dt><dd class="font-semibold text-white">{{ selectedPlacementCellCount }}</dd></div>
+                          <div class="flex justify-between gap-1"><dt>Tons</dt><dd class="font-semibold text-white">{{ selectedPlacementTons }}</dd></div>
+                        </dl>
+                      </template>
+                      <p v-else class="text-cyan-100/55">None</p>
+                    </div>
                     <div class="grid gap-1 border-t border-cyan-400/15 pt-2">
                       <button
                         class="flex h-8 items-center justify-start gap-2 rounded-md border border-cyan-300/25 px-2 text-xs font-semibold text-cyan-100/75 hover:border-amber-300/60 disabled:cursor-not-allowed disabled:opacity-35"
@@ -1949,6 +2379,16 @@ onBeforeUnmount(() => {
                       >
                         <AppIcon class="h-4 w-4" name="sliders" />
                         <span>Move Deck</span>
+                      </button>
+                      <button
+                        class="flex h-8 items-center justify-start gap-2 rounded-md border border-rose-300/30 px-2 text-xs font-semibold text-rose-100 hover:border-rose-200 disabled:cursor-not-allowed disabled:opacity-35"
+                        :disabled="!selectedLayoutPlacement"
+                        title="Delete selected footprint"
+                        type="button"
+                        @click="removeSelectedPlacement"
+                      >
+                        <AppIcon class="h-4 w-4" name="trash" />
+                        <span>Delete</span>
                       </button>
                     </div>
                   </div>
