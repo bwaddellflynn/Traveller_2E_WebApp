@@ -118,9 +118,14 @@ Required rule data:
 - Crew formulas need separate commercial and military modes.
 - Large-ship crew reduction applies above 5,000 tons to engineer, maintenance, gunner, administrator, and sensor operator roles.
 - Staterooms consume 4 tons and cost MCr0.5.
+- High staterooms are Spacecraft Options: 6 tons, MCr0.8, Cr3000 life support, and grant DM+1 when seeking high passengers.
+- Luxury staterooms are Spacecraft Options: 10 tons, MCr1.5, Cr5000 life support, and grant DM+2 when seeking high passengers.
+- Psion staterooms are Exotic Technology: 4 tons, MCr2, TL12, and improve PSI regeneration for a psion within.
 - Low berths consume 0.5 tons and cost Cr50,000.
 - Emergency low berths consume 1 ton, cost MCr1, and require Power.
 - Common areas are suggested at around 25% of stateroom tonnage and cost MCr0.1 per ton.
+- Acceleration benches and seats are distinct Spacecraft Options for temporary passenger seating: bench seats 4 in 1 ton for Cr10000, seat carries 1 in 0.5 tons for Cr30000.
+- Barracks, brig, and cabin space are Spacecraft Options distinct from staterooms: barracks use 1 ton per passenger/soldier, brig holds 6 prisoners in 4 tons, and cabin space carries one passenger per 1.5 tons.
 - Remaining unallocated tonnage becomes cargo.
 - Maintenance cost is total purchase cost divided by 12,000 per month.
 
@@ -318,7 +323,8 @@ Phase 5 should handle the small craft layer:
 - [x] Weapons.
 - [x] Options.
 - [x] Crew.
-- [x] Accommodations & Cargo.
+- [x] Accommodations.
+- [x] Cargo.
 - [x] Review.
 
 The step labels can be adjusted for UI clarity, but the builder should preserve the High Guard design sequence in descriptions and validation.
@@ -394,11 +400,24 @@ The step labels can be adjusted for UI clarity, but the builder should preserve 
   - [x] Move a footprint as a shape by dragging occupied cells in Move mode.
   - [x] Rotate and flip selected footprints.
   - [x] Add duplicate selected footprint and move-to-deck commands.
+    - [x] Duplicate row-backed footprints as new builder rows for cargo and accommodations instead of adding more layout area to the original row.
   - [x] Audit current tool mechanics: build-step tools select brushes where a matching placeable component exists; Paint freehands, Fill drags rectangles, Erase removes cells/rectangles, Move drags footprints, Shape resizes, Auto-Fit sizes to required tons, Rotate/Flip transform selected footprints, right-click pans, wheel/slider zooms.
   - [x] Remove obsolete selected-tool deck options; keep deck name and tons/cell in deck controls.
   - [x] Compact tool menus into narrow single-column palettes.
   - [x] Prevent footprint creation/edit commands from committing overlaps; allow move overlaps to remain visible in red.
   - [ ] Separate component footprints from the overall ship hull/deck outline.
+  - [ ] Add deterministic generative visual fills for footprint subtypes: stateroom furniture, low berth capsules, common-area furnishings, cargo crates/pallets, tanks, machinery, and other component-specific deckplan patterns.
+    - [x] Prototype cargo crate/pallet fills inside occupied footprint cells.
+    - [ ] Add fuel fill inspired by High Guard deckplan grey/blue mottled tank regions: broad patterned regions rather than sparse cargo symbols.
+    - [ ] Add manoeuvre drive visuals with optional thruster/nozzle extensions beyond one component border to suggest exterior engine bells.
+    - [ ] Add jump drive machinery visuals that can visually align/connect with manoeuvre drive footprints when adjacent, but do not require adjacency.
+    - [ ] Add sensor visuals inspired by High Guard forward sensor clusters: compact repeated dishes/consoles rather than full-room clutter.
+    - [x] Add mirrored stateroom visual variants so paired cabins can flip furniture for symmetry.
+    - [x] Add first-pass accommodation visuals for staterooms, high staterooms, luxury staterooms, psion staterooms, low berths, emergency low berths, common areas, acceleration seating, barracks, brig, cabin space, and crew quarters.
+    - [x] Add passenger seating as distinct acceleration bench and acceleration seat accommodation brushes.
+  - [x] Store visual subtype metadata on placements so decorative fills remain separate from authoritative tonnage/cell accounting.
+  - [x] Derive cargo tonnage from drawn cargo footprint cells, including duplicated cargo areas tied to the same cargo entry.
+  - [x] Keep placement colors stable by component type/visual role and distinguish same-type entries with display numbering.
 - [x] Move shape manipulation tools into the right-side canvas controls beside zoom/editing controls.
 
 ### 11. Save Custom Ships
@@ -415,7 +434,13 @@ The step labels can be adjusted for UI clarity, but the builder should preserve 
 - [x] Add first-pass Weapons and Screens editors with hardpoint accounting.
 - [x] Add first-pass Options editor for ship systems and High Guard options.
 - [x] Add first-pass Crew editor that can accept manual overrides while preserving generated requirements.
-- [x] Add first-pass Accommodations & Cargo editor with staterooms and cargo.
+  - [x] Split Accommodations and Cargo into separate builder tools.
+  - [x] Add first-pass Accommodations editor with staterooms, low berths, emergency low berths, and common areas.
+    - [x] Add High Guard option accommodations: high stateroom, luxury stateroom, acceleration bench, acceleration seat, barracks, brig, and cabin space.
+    - [x] Add Exotic Technology psion stateroom.
+    - [x] Add per-accommodation brush selection so individual accommodation rows can be painted separately.
+  - [x] Add first-pass Cargo editor with distinct cargo entries.
+    - [x] Add per-cargo brush selection so multiple cargo entries can be differentiated on the canvas.
 - [x] Add first-pass Computer software editor with bandwidth accounting.
 - [x] Add first-pass Review controls for save readiness and validation issue navigation.
 - [ ] Replace first-pass freeform entries with full High Guard catalog selectors and rule-specific constraints.

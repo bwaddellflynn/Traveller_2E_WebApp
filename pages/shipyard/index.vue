@@ -13,7 +13,7 @@ import suppliesIconUrl from '~/assets/open-spacecraft-icons/svg/light/Supplies -
 import terminalIconUrl from '~/assets/open-spacecraft-icons/svg/light/Intercom - Light - 64x64.svg?url'
 import weaponSystemIconUrl from '~/assets/open-spacecraft-icons/svg/light/Weapon system - Light - 64x64.svg?url'
 import workshopIconUrl from '~/assets/open-spacecraft-icons/svg/light/Workshop - Light - 64x64.svg?url'
-import type { CustomShipAccommodationEntry, CustomShipCargoEntry, CustomShipDesign, CustomShipLayoutCell, CustomShipLayoutDeck, CustomShipLayoutPlacement, TravellerShipCategory, TravellerShipComponent, TravellerShipCrewRole, TravellerShipRecord, TravellerShipSoftware, TravellerShipWeaponSystem } from '~/types/ship'
+import type { CustomShipAccommodationEntry, CustomShipCargoEntry, CustomShipDesign, CustomShipLayoutCell, CustomShipLayoutDeck, CustomShipLayoutPlacement, CustomShipLayoutVisualRole, TravellerShipCategory, TravellerShipComponent, TravellerShipCrewRole, TravellerShipRecord, TravellerShipSoftware, TravellerShipWeaponSystem } from '~/types/ship'
 import { useShipsStore } from '~/stores/ships'
 import { shipConstructionSummary } from '~/utils/traveller/shipBuilder'
 
@@ -65,6 +65,29 @@ type PlacementRenderMeta = {
   cellKeys: Set<string>
   overlappingPlacementIds: Set<string>
   hue: number
+}
+type CargoVisualItem = {
+  id: string
+  cell: CustomShipLayoutCell
+  hash: number
+  spanX: number
+  spanY: number
+  leftCells: number
+  topCells: number
+  wide: boolean
+}
+type AccommodationVisualItem = {
+  id: string
+  kind: 'bed' | 'fresher' | 'galley' | 'desk' | 'capsule' | 'table' | 'seat' | 'locker'
+  leftCells: number
+  topCells: number
+  spanX: number
+  spanY: number
+  angle: number
+  fill: string
+  border: string
+  backgroundImage?: string
+  borderRadius?: string
 }
 
 const shipsStore = useShipsStore()
@@ -121,7 +144,8 @@ const shipBuilderSteps: ShipBuilderStep[] = [
   { id: 'weapons', label: 'Weapons', title: 'Weapons', description: 'Reserve hardpoints and install weapons or screens.' },
   { id: 'options', label: 'Options', title: 'Options', description: 'Install ship systems and other High Guard options.' },
   { id: 'crew', label: 'Crew', title: 'Crew', description: 'Review commercial or military crew requirements.' },
-  { id: 'accommodations-cargo', label: 'Cargo', title: 'Accommodations & Cargo', description: 'Assign staterooms, berths, common areas, and cargo.' },
+  { id: 'accommodations', label: 'Accomm.', title: 'Accommodations', description: 'Assign staterooms, berths, common areas, and crew quarters.' },
+  { id: 'cargo', label: 'Cargo', title: 'Cargo', description: 'Allocate cargo space and cargo-specific deck footprints.' },
   { id: 'review', label: 'Review', title: 'Review', description: 'Check tonnage, power, cost, and validation notes before saving.' },
 ]
 
@@ -289,18 +313,46 @@ const createCrewRole = (): TravellerShipCrewRole => ({
   salaryCredits: 0,
   mode: 'either',
 })
-const createAccommodationEntry = (): CustomShipAccommodationEntry => ({
-  id: createBuilderEntryId('accommodation'),
-  type: 'stateroom',
-  label: 'Stateroom',
-  count: 1,
-  tonsEach: 4,
-})
+const accommodationDefaults: Record<CustomShipAccommodationEntry['type'], { label: string, tonsEach: number, powerDraw?: number }> = {
+  stateroom: { label: 'Stateroom', tonsEach: 4 },
+  'high-stateroom': { label: 'High Stateroom', tonsEach: 6 },
+  'luxury-stateroom': { label: 'Luxury Stateroom', tonsEach: 10 },
+  'psion-stateroom': { label: 'Psion Stateroom', tonsEach: 4 },
+  'low-berth': { label: 'Low Berth', tonsEach: 0.5 },
+  'emergency-low-berth': { label: 'Emergency Low Berth', tonsEach: 1, powerDraw: 1 },
+  'common-area': { label: 'Common Area', tonsEach: 1 },
+  'acceleration-bench': { label: 'Acceleration Bench', tonsEach: 1 },
+  'acceleration-seat': { label: 'Acceleration Seat', tonsEach: 0.5 },
+  barracks: { label: 'Barracks', tonsEach: 1 },
+  brig: { label: 'Brig', tonsEach: 4 },
+  'cabin-space': { label: 'Cabin Space', tonsEach: 1.5 },
+  other: { label: 'Crew Quarters', tonsEach: 4 },
+}
+const createAccommodationEntry = (type: CustomShipAccommodationEntry['type'] = 'stateroom'): CustomShipAccommodationEntry => {
+  const defaults = accommodationDefaults[type]
+  return {
+    id: createBuilderEntryId('accommodation'),
+    type,
+    label: defaults.label,
+    count: 1,
+    tonsEach: defaults.tonsEach,
+    powerDraw: defaults.powerDraw,
+  }
+}
 const createCargoEntry = (): CustomShipCargoEntry => ({
   id: createBuilderEntryId('cargo'),
   label: 'Cargo',
-  tons: 10,
+  tons: 0,
 })
+const accommodationComponentId = (entry: Pick<CustomShipAccommodationEntry, 'id'>) => `accommodation-${entry.id}`
+const cargoComponentId = (entry: Pick<CustomShipCargoEntry, 'id'>) => `cargo-${entry.id}`
+const updateAccommodationType = (entry: CustomShipAccommodationEntry, type: CustomShipAccommodationEntry['type']) => {
+  const defaults = accommodationDefaults[type]
+  entry.type = type
+  entry.label = defaults.label
+  entry.tonsEach = defaults.tonsEach
+  entry.powerDraw = defaults.powerDraw
+}
 const createSoftwareEntry = (): TravellerShipSoftware => ({
   id: createBuilderEntryId('software'),
   name: 'Library',
@@ -308,8 +360,23 @@ const createSoftwareEntry = (): TravellerShipSoftware => ({
 })
 
 const buildDraft = ref<CustomShipDesign>(createBlankCustomShipDesign())
+const placementTonsForDraft = (draft: CustomShipDesign, placement: CustomShipLayoutPlacement) => {
+  const deck = draft.layout.decks.find((entry) => entry.id === placement.deckId)
+  const tonsPerCell = Math.max(0.25, Number(deck?.tonsPerCell) || 1)
+  return placementCellCount(placement) * tonsPerCell
+}
+const drawnCargoTonsForEntry = (entryId: string, draft: CustomShipDesign = buildDraft.value) => draft.layout.placements
+  .filter((placement) => placement.sourceEntryId === entryId || placement.componentId === `cargo-${entryId}`)
+  .reduce((total, placement) => total + placementTonsForDraft(draft, placement), 0)
+const layoutDerivedBuildDraft = computed<CustomShipDesign>(() => ({
+  ...buildDraft.value,
+  cargoEntries: buildDraft.value.cargoEntries.map((entry) => ({
+    ...entry,
+    tons: drawnCargoTonsForEntry(entry.id),
+  })),
+}))
 const activeBuilderStep = computed(() => shipBuilderSteps[activeBuildStep.value] ?? shipBuilderSteps[0])
-const buildSummary = computed(() => shipConstructionSummary(buildDraft.value))
+const buildSummary = computed(() => shipConstructionSummary(layoutDerivedBuildDraft.value))
 const buildComponentById = computed(() => new Map(buildSummary.value.components.map((component) => [component.id, component])))
 const activeDeck = computed<CustomShipLayoutDeck>(() => {
   if (!buildDraft.value.layout.decks.length) buildDraft.value.layout.decks.push(createDefaultLayoutDeck())
@@ -317,7 +384,7 @@ const activeDeck = computed<CustomShipLayoutDeck>(() => {
 })
 const placeableComponentPolicies = ['required-area', 'derived-area', 'optional-area']
 const placeableComponents = computed(() => buildSummary.value.components.filter((component) => (
-  positiveComponentTons(component) > 0
+  (positiveComponentTons(component) > 0 || component.kind === 'cargo')
   && placeableComponentPolicies.includes(component.placementPolicy ?? 'abstract')
 )))
 const exteriorComponents = computed(() => buildSummary.value.components.filter((component) => positiveComponentTons(component) > 0 && component.placementPolicy === 'exterior'))
@@ -326,6 +393,7 @@ const activeDeckPlacements = computed(() => buildDraft.value.layout.placements.f
 const activeDeckPlacedTons = computed(() => activeDeckPlacements.value.reduce((total, placement) => total + placementTons(placement, activeDeck.value), 0))
 const selectedLayoutPlacement = computed(() => activeDeckPlacements.value.find((placement) => placement.id === selectedPlacementId.value) ?? null)
 const selectedPlacementComponent = computed(() => selectedLayoutPlacement.value ? placementComponent(selectedLayoutPlacement.value) : null)
+const selectedPlacementVisualLabel = computed(() => selectedLayoutPlacement.value ? placementVisualLabel(selectedLayoutPlacement.value) : '')
 const activeBrushComponent = computed(() => placeableComponents.value.find((component) => component.id === activeBrushComponentId.value) ?? null)
 const builderStepSpecialToolLabel = (stepId: string) => {
   const labels: Record<string, string> = {
@@ -386,7 +454,8 @@ const builderStepBrushComponent = (stepId: string) => {
     weapons: (component) => component.kind === 'weapon' || component.kind === 'screen',
     options: (component) => component.kind === 'option',
     crew: (component) => component.kind === 'crew',
-    'accommodations-cargo': (component) => component.kind === 'accommodation' || component.kind === 'cargo',
+    accommodations: (component) => component.kind === 'accommodation',
+    cargo: (component) => component.kind === 'cargo',
   }
   const matchesStep = componentMatchers[stepId]
   return matchesStep ? placeableComponents.value.find(matchesStep) ?? null : null
@@ -519,7 +588,8 @@ const builderStepIconUrl = (stepId: string) => {
     weapons: weaponSystemIconUrl,
     options: workshopIconUrl,
     crew: cabinIconUrl,
-    'accommodations-cargo': cargoIconUrl,
+    accommodations: cabinIconUrl,
+    cargo: cargoIconUrl,
     review: suppliesIconUrl,
   }
   return icons[stepId] ?? terminalIconUrl
@@ -550,6 +620,46 @@ const componentIconUrl = (component: TravellerShipComponent) => {
     'carried-craft': airlockIconUrl,
   }
   return icons[component.kind] ?? suppliesIconUrl
+}
+function sourceEntryIdForComponent(component: TravellerShipComponent) {
+  if (component.kind === 'accommodation') return component.id.replace(/^accommodation-/, '')
+  if (component.kind === 'cargo') return component.id.replace(/^cargo-/, '')
+  return undefined
+}
+function placementVisualRoleForComponent(component: TravellerShipComponent): CustomShipLayoutVisualRole | undefined {
+  const sourceEntryId = sourceEntryIdForComponent(component)
+  if (component.kind === 'cargo') return 'cargo'
+  if (component.kind !== 'accommodation' || !sourceEntryId) return undefined
+
+  const accommodation = buildDraft.value.accommodations.find((entry) => entry.id === sourceEntryId)
+  if (!accommodation) return undefined
+  return accommodation.type === 'other' ? 'crew-quarters' : accommodation.type
+}
+function visualRoleLabel(role: CustomShipLayoutVisualRole | undefined) {
+  const labels: Record<CustomShipLayoutVisualRole, string> = {
+    stateroom: 'Stateroom',
+    'high-stateroom': 'High Stateroom',
+    'luxury-stateroom': 'Luxury Stateroom',
+    'psion-stateroom': 'Psion Stateroom',
+    'low-berth': 'Low Berth',
+    'emergency-low-berth': 'Emergency Low Berth',
+    'common-area': 'Common Area',
+    'acceleration-bench': 'Acceleration Bench',
+    'acceleration-seat': 'Acceleration Seat',
+    barracks: 'Barracks',
+    brig: 'Brig',
+    'cabin-space': 'Cabin Space',
+    'crew-quarters': 'Crew Quarters',
+    cargo: 'Cargo',
+  }
+  return role ? labels[role] : ''
+}
+function placementVisualLabel(placement: CustomShipLayoutPlacement) {
+  return visualRoleLabel(placementVisualRole(placement))
+}
+function placementVisualRole(placement: CustomShipLayoutPlacement) {
+  const component = placementComponent(placement)
+  return placement.visualRole ?? (component ? placementVisualRoleForComponent(component) : undefined)
 }
 const placementIconUrl = (placement: CustomShipLayoutPlacement) => {
   const component = placementComponent(placement)
@@ -605,6 +715,7 @@ const placedTonsForComponent = (componentId: string) => buildDraft.value.layout.
 const componentPlacementStatus = (component: TravellerShipComponent) => {
   const placedTons = placedTonsForComponent(component.id)
   const requiredTons = positiveComponentTons(component)
+  if (component.kind === 'cargo') return placedTons > 0 ? 'Placed' : 'Unplaced'
   if (placedTons <= 0) return 'Unplaced'
   if (placedTons < requiredTons) return 'Undersized'
   if (placedTons > requiredTons + layoutCellTons(activeDeck.value)) return 'Oversized'
@@ -617,18 +728,44 @@ const componentPlacementClass = (component: TravellerShipComponent) => {
   if (status === 'Undersized' || status === 'Oversized') return 'border-amber-300/35 bg-amber-300/12 text-amber-50'
   return 'border-cyan-400/20 bg-cyan-950/30 text-cyan-50'
 }
-const componentColorHue = (componentId: string) => {
+const componentColorHue = (componentKey: string) => {
   let hash = 0
-  for (const character of componentId) hash = ((hash << 5) - hash) + character.charCodeAt(0)
+  for (const character of componentKey) hash = ((hash << 5) - hash) + character.charCodeAt(0)
   return Math.abs(hash) % 360
 }
-const componentSwatchStyle = (componentId: string) => {
-  const hue = componentColorHue(componentId)
+const componentColorKey = (component: TravellerShipComponent | undefined) => {
+  if (!component) return 'unknown'
+  if (component.kind === 'cargo') return 'cargo'
+  if (component.kind === 'accommodation') {
+    const sourceEntryId = sourceEntryIdForComponent(component)
+    const accommodation = sourceEntryId ? buildDraft.value.accommodations.find((entry) => entry.id === sourceEntryId) : null
+    return accommodation?.type ?? 'accommodation'
+  }
+  return component.kind
+}
+const placementColorKey = (placement: CustomShipLayoutPlacement) => {
+  const role = placementVisualRole(placement)
+  if (role) return role === 'crew-quarters' ? 'other' : role
+  return componentColorKey(placementComponent(placement))
+}
+const componentSwatchStyle = (component: TravellerShipComponent | undefined) => {
+  const hue = componentColorHue(componentColorKey(component))
   return {
     backgroundColor: `hsla(${hue}, 78%, 52%, 0.7)`,
     borderColor: `hsla(${hue}, 90%, 78%, 0.85)`,
   }
 }
+const componentInstanceNumber = (component: TravellerShipComponent) => {
+  const sameTypeComponents = buildSummary.value.components.filter((entry) => componentColorKey(entry) === componentColorKey(component))
+  if (sameTypeComponents.length <= 1) return 0
+  return sameTypeComponents.findIndex((entry) => entry.id === component.id) + 1
+}
+const componentDisplayName = (component: TravellerShipComponent | undefined) => {
+  if (!component) return ''
+  const instanceNumber = componentInstanceNumber(component)
+  return instanceNumber ? `${component.name} ${instanceNumber}` : component.name
+}
+const placementDisplayName = (placement: CustomShipLayoutPlacement) => componentDisplayName(placementComponent(placement)) || placement.componentId
 const placementComponent = (placement: CustomShipLayoutPlacement) => buildComponentById.value.get(placement.componentId)
 const activePlacementRenderMeta = computed(() => {
   const metaEntries = new Map<string, PlacementRenderMeta>()
@@ -642,7 +779,7 @@ const activePlacementRenderMeta = computed(() => {
       cells,
       cellKeys,
       overlappingPlacementIds: new Set(),
-      hue: componentColorHue(placement.componentId),
+      hue: componentColorHue(placementColorKey(placement)),
     }
 
     for (const key of absoluteCellKeys) {
@@ -677,6 +814,259 @@ const placementFootprintStyle = (placement: CustomShipLayoutPlacement) => ({
   gridTemplateColumns: `repeat(${placement.width}, minmax(0, 1fr))`,
   gridTemplateRows: `repeat(${placement.height}, minmax(0, 1fr))`,
 })
+const cargoCellHash = (placement: CustomShipLayoutPlacement, cell: CustomShipLayoutCell) => {
+  const seed = `${placement.id}:${cell.x}:${cell.y}`
+  let hash = 0
+  for (const character of seed) hash = ((hash << 5) - hash) + character.charCodeAt(0)
+  return Math.abs(hash)
+}
+const cargoSeedHash = (placement: CustomShipLayoutPlacement, seed: string) => {
+  let hash = 0
+  for (const character of `${placement.id}:${seed}`) hash = ((hash << 5) - hash) + character.charCodeAt(0)
+  return Math.abs(hash)
+}
+const cargoItemFootprintCells = (item: Pick<CargoVisualItem, 'leftCells' | 'topCells' | 'spanX' | 'spanY'>) => {
+  const minX = Math.floor(item.leftCells)
+  const maxX = Math.ceil(item.leftCells + item.spanX) - 1
+  const minY = Math.floor(item.topCells)
+  const maxY = Math.ceil(item.topCells + item.spanY) - 1
+  const cells: CustomShipLayoutCell[] = []
+  for (let y = minY; y <= maxY; y += 1) {
+    for (let x = minX; x <= maxX; x += 1) cells.push({ x, y })
+  }
+  return cells
+}
+const cargoItemFits = (item: Pick<CargoVisualItem, 'leftCells' | 'topCells' | 'spanX' | 'spanY'>, occupiedCells: Set<string>) => (
+  item.leftCells >= 0
+  && item.topCells >= 0
+  && cargoItemFootprintCells(item).every((cell) => occupiedCells.has(cellKey(cell)))
+)
+const createCargoVisualItem = (placement: CustomShipLayoutPlacement, cell: CustomShipLayoutCell, occupiedCells: Set<string>) => {
+  const hash = cargoCellHash(placement, cell)
+  const wide = hash % 5 !== 0
+  const large = hash % 7 < 3
+  const spanX = wide
+    ? (large ? 1.72 + ((hash % 4) * 0.18) : 0.78 + ((hash % 3) * 0.12))
+    : (large ? 0.92 + ((hash % 3) * 0.12) : 0.58 + ((hash % 3) * 0.1))
+  const spanY = wide
+    ? (large ? 0.74 + ((Math.floor(hash / 11) % 3) * 0.1) : 0.52 + ((Math.floor(hash / 11) % 3) * 0.08))
+    : (large ? 1.16 + ((Math.floor(hash / 13) % 3) * 0.12) : 0.64 + ((Math.floor(hash / 13) % 3) * 0.09))
+  const item: CargoVisualItem = {
+    id: `${placement.id}-cargo-${cell.x}:${cell.y}`,
+    cell,
+    hash,
+    spanX,
+    spanY,
+    leftCells: cell.x + 0.08 + ((Math.floor(hash / 17) % 5) * 0.04),
+    topCells: cell.y + 0.1 + ((Math.floor(hash / 19) % 5) * 0.035),
+    wide,
+  }
+  return cargoItemFits(item, occupiedCells) ? item : null
+}
+const cargoHotspotCells = (placement: CustomShipLayoutPlacement, cells: CustomShipLayoutCell[]) => {
+  if (cells.length <= 12) return cells.slice(0, 1)
+  const clusterCount = Math.min(8, Math.max(2, Math.ceil(Math.sqrt(cells.length) / 4)))
+  const columns = Math.ceil(Math.sqrt(clusterCount))
+  const rows = Math.ceil(clusterCount / columns)
+  const zones: CustomShipLayoutCell[][] = Array.from({ length: rows * columns }, () => [])
+
+  for (const cell of cells) {
+    const column = Math.min(columns - 1, Math.floor((cell.x / Math.max(1, placement.width)) * columns))
+    const row = Math.min(rows - 1, Math.floor((cell.y / Math.max(1, placement.height)) * rows))
+    zones[(row * columns) + column]?.push(cell)
+  }
+
+  return zones
+    .map((zoneCells, zoneIndex) => {
+      if (!zoneCells.length) return null
+      return [...zoneCells].sort((first, second) => (
+        cargoSeedHash(placement, `hotspot-${zoneIndex}:${first.x}:${first.y}`)
+        - cargoSeedHash(placement, `hotspot-${zoneIndex}:${second.x}:${second.y}`)
+      ))[0]
+    })
+    .filter((cell): cell is CustomShipLayoutCell => Boolean(cell))
+}
+const cargoHotspotScore = (placement: CustomShipLayoutPlacement, item: CargoVisualItem, hotspots: CustomShipLayoutCell[]) => {
+  if (!hotspots.length) return item.hash
+  const centerX = item.leftCells + (item.spanX / 2)
+  const centerY = item.topCells + (item.spanY / 2)
+  const nearestDistance = Math.min(...hotspots.map((hotspot) => {
+    const dx = centerX - (hotspot.x + 0.5)
+    const dy = centerY - (hotspot.y + 0.5)
+    return Math.sqrt((dx * dx) + (dy * dy))
+  }))
+  const noise = (cargoSeedHash(placement, `item-noise:${item.cell.x}:${item.cell.y}`) % 100) / 100
+  return nearestDistance + noise
+}
+const cargoVisualItems = (placement: CustomShipLayoutPlacement): CargoVisualItem[] => {
+  if (placementVisualRole(placement) !== 'cargo') return []
+  const cells = placementRenderCells(placement)
+  const occupiedCells = new Set(cells.map(cellKey))
+  const hotspots = cargoHotspotCells(placement, cells)
+  const maxItems = Math.min(72, Math.max(3, Math.ceil(cells.length * 0.17)))
+  return cells
+    .map((cell) => createCargoVisualItem(placement, cell, occupiedCells))
+    .filter((item): item is CargoVisualItem => Boolean(item))
+    .sort((first, second) => cargoHotspotScore(placement, first, hotspots) - cargoHotspotScore(placement, second, hotspots))
+    .slice(0, maxItems)
+}
+const cargoCrateStyle = (placement: CustomShipLayoutPlacement, item: CargoVisualItem) => {
+  const hash = item.hash
+  const palette = [
+    { fill: 'rgba(117, 124, 93, 0.82)', border: 'rgba(205, 211, 177, 0.68)', line: 'rgba(35, 40, 32, 0.48)' },
+    { fill: 'rgba(128, 105, 66, 0.82)', border: 'rgba(220, 194, 135, 0.68)', line: 'rgba(42, 33, 22, 0.5)' },
+    { fill: 'rgba(82, 97, 104, 0.86)', border: 'rgba(180, 205, 210, 0.68)', line: 'rgba(22, 33, 38, 0.52)' },
+  ][hash % 3]
+  const angle = ((hash % 11) - 5) * 1.7
+  const slats = item.wide
+    ? `linear-gradient(90deg, transparent 28%, ${palette.line} 29%, ${palette.line} 34%, transparent 35%, transparent 64%, ${palette.line} 65%, ${palette.line} 70%, transparent 71%)`
+    : `linear-gradient(180deg, transparent 28%, ${palette.line} 29%, ${palette.line} 34%, transparent 35%, transparent 64%, ${palette.line} 65%, ${palette.line} 70%, transparent 71%)`
+  const cornerBrace = hash % 2 === 0
+    ? `linear-gradient(135deg, transparent 43%, ${palette.line} 44%, ${palette.line} 50%, transparent 51%)`
+    : `linear-gradient(45deg, transparent 43%, ${palette.line} 44%, ${palette.line} 50%, transparent 51%)`
+  return {
+    left: `${(item.leftCells / placement.width) * 100}%`,
+    top: `${(item.topCells / placement.height) * 100}%`,
+    width: `${(item.spanX / placement.width) * 100}%`,
+    height: `${(item.spanY / placement.height) * 100}%`,
+    backgroundColor: palette.fill,
+    backgroundImage: `${slats}, ${cornerBrace}`,
+    borderColor: palette.border,
+    boxShadow: 'inset 0 0 0 1px rgba(2, 6, 23, 0.4), 0 1px 2px rgba(0, 0, 0, 0.35)',
+    transform: `rotate(${angle}deg)`,
+  }
+}
+const accommodationVisualRoles = new Set<CustomShipLayoutVisualRole>(['stateroom', 'high-stateroom', 'luxury-stateroom', 'psion-stateroom', 'crew-quarters', 'low-berth', 'emergency-low-berth', 'common-area', 'acceleration-bench', 'acceleration-seat', 'barracks', 'brig', 'cabin-space'])
+const placementHasAccommodationVisual = (placement: CustomShipLayoutPlacement) => {
+  const role = placementVisualRole(placement)
+  return Boolean(role && accommodationVisualRoles.has(role))
+}
+const accommodationCellHash = (placement: CustomShipLayoutPlacement, cell: CustomShipLayoutCell, salt = '') => {
+  let hash = 0
+  for (const character of `${placement.id}:${cell.x}:${cell.y}:${salt}`) hash = ((hash << 5) - hash) + character.charCodeAt(0)
+  return Math.abs(hash)
+}
+const accommodationItem = (
+  placement: CustomShipLayoutPlacement,
+  cell: CustomShipLayoutCell,
+  kind: AccommodationVisualItem['kind'],
+  salt: string,
+  left: number,
+  top: number,
+  spanX: number,
+  spanY: number,
+): AccommodationVisualItem => {
+  const hash = accommodationCellHash(placement, cell, salt)
+  const palette: Record<AccommodationVisualItem['kind'], { fill: string, border: string }> = {
+    bed: { fill: 'rgba(225, 140, 78, 0.86)', border: 'rgba(255, 219, 180, 0.72)' },
+    fresher: { fill: 'rgba(150, 178, 188, 0.82)', border: 'rgba(220, 240, 244, 0.72)' },
+    galley: { fill: 'rgba(176, 153, 98, 0.82)', border: 'rgba(238, 220, 166, 0.7)' },
+    desk: { fill: 'rgba(100, 121, 142, 0.84)', border: 'rgba(190, 214, 232, 0.68)' },
+    capsule: { fill: 'rgba(114, 164, 174, 0.86)', border: 'rgba(211, 250, 255, 0.72)' },
+    table: { fill: 'rgba(165, 136, 82, 0.82)', border: 'rgba(236, 210, 151, 0.7)' },
+    seat: { fill: 'rgba(207, 119, 70, 0.84)', border: 'rgba(255, 207, 169, 0.7)' },
+    locker: { fill: 'rgba(100, 112, 122, 0.82)', border: 'rgba(196, 207, 216, 0.66)' },
+  }
+  const line = 'rgba(7, 14, 24, 0.42)'
+  const backgroundImage = kind === 'bed'
+    ? `linear-gradient(90deg, transparent 68%, ${line} 69%, ${line} 73%, transparent 74%)`
+    : kind === 'capsule'
+      ? `linear-gradient(90deg, transparent 44%, ${line} 45%, ${line} 55%, transparent 56%)`
+      : kind === 'table'
+        ? `radial-gradient(circle at 50% 50%, rgba(255,255,255,0.22) 0 18%, transparent 19%)`
+        : undefined
+  return {
+    id: `${placement.id}-${kind}-${cell.x}:${cell.y}:${salt}`,
+    kind,
+    leftCells: cell.x + left,
+    topCells: cell.y + top,
+    spanX,
+    spanY,
+    angle: ((hash % 7) - 3) * 0.9,
+    fill: palette[kind].fill,
+    border: palette[kind].border,
+    backgroundImage,
+    borderRadius: kind === 'capsule' ? '999px' : kind === 'table' ? '999px' : '2px',
+  }
+}
+const accommodationVisualItems = (placement: CustomShipLayoutPlacement): AccommodationVisualItem[] => {
+  const role = placementVisualRole(placement)
+  if (!role || !accommodationVisualRoles.has(role)) return []
+  const cells = placementRenderCells(placement)
+  const items: AccommodationVisualItem[] = []
+
+  for (const cell of cells) {
+    const hash = accommodationCellHash(placement, cell)
+    const mirror = hash % 2 === 0
+    if (role === 'stateroom' || role === 'high-stateroom' || role === 'luxury-stateroom' || role === 'psion-stateroom' || role === 'crew-quarters') {
+      const bedLeft = mirror ? 0.12 : 0.42
+      const premium = role === 'high-stateroom' || role === 'luxury-stateroom' || role === 'psion-stateroom'
+      items.push(accommodationItem(placement, cell, 'bed', 'bed', bedLeft, premium ? 0.12 : 0.16, premium ? 0.5 : 0.46, premium ? 0.3 : 0.26))
+      if (premium || hash % 3 === 0) items.push(accommodationItem(placement, cell, 'fresher', 'fresher', mirror ? 0.66 : 0.1, 0.58, 0.24, 0.25))
+      if (role === 'luxury-stateroom' || role === 'high-stateroom') items.push(accommodationItem(placement, cell, 'seat', 'lounge', mirror ? 0.62 : 0.18, 0.42, 0.2, 0.18))
+      else if (role === 'psion-stateroom') items.push(accommodationItem(placement, cell, 'table', 'psion', 0.38, 0.42, 0.24, 0.24))
+      else if (hash % 3 === 1) items.push(accommodationItem(placement, cell, 'desk', 'desk', mirror ? 0.64 : 0.12, 0.58, 0.26, 0.18))
+      else items.push(accommodationItem(placement, cell, 'galley', 'galley', mirror ? 0.65 : 0.11, 0.56, 0.22, 0.28))
+      continue
+    }
+    if (role === 'low-berth') {
+      items.push(accommodationItem(placement, cell, 'capsule', 'low-a', 0.16, 0.22, 0.68, 0.2))
+      items.push(accommodationItem(placement, cell, 'locker', 'low-b', 0.22, 0.58, 0.56, 0.16))
+      continue
+    }
+    if (role === 'emergency-low-berth') {
+      items.push(accommodationItem(placement, cell, 'capsule', 'em-a', 0.12, 0.16, 0.32, 0.18))
+      items.push(accommodationItem(placement, cell, 'capsule', 'em-b', 0.56, 0.16, 0.32, 0.18))
+      items.push(accommodationItem(placement, cell, 'capsule', 'em-c', 0.12, 0.58, 0.32, 0.18))
+      items.push(accommodationItem(placement, cell, 'capsule', 'em-d', 0.56, 0.58, 0.32, 0.18))
+      continue
+    }
+    if (role === 'common-area' && hash % 5 < 3) {
+      items.push(accommodationItem(placement, cell, 'table', 'table', 0.34, 0.28, 0.32, 0.32))
+      items.push(accommodationItem(placement, cell, 'seat', 'seat-a', 0.18, 0.34, 0.14, 0.2))
+      items.push(accommodationItem(placement, cell, 'seat', 'seat-b', 0.68, 0.34, 0.14, 0.2))
+      continue
+    }
+    if (role === 'acceleration-bench') {
+      items.push(accommodationItem(placement, cell, 'seat', 'bench-a', 0.14, 0.18, 0.72, 0.2))
+      items.push(accommodationItem(placement, cell, 'seat', 'bench-b', 0.14, 0.58, 0.72, 0.2))
+      continue
+    }
+    if (role === 'acceleration-seat') {
+      items.push(accommodationItem(placement, cell, 'seat', 'seat', 0.32, 0.24, 0.36, 0.46))
+      continue
+    }
+    if (role === 'barracks') {
+      items.push(accommodationItem(placement, cell, 'bed', 'bunk-a', 0.12, 0.16, 0.32, 0.22))
+      items.push(accommodationItem(placement, cell, 'bed', 'bunk-b', 0.56, 0.16, 0.32, 0.22))
+      items.push(accommodationItem(placement, cell, 'locker', 'locker', 0.18, 0.62, 0.64, 0.16))
+      continue
+    }
+    if (role === 'brig') {
+      items.push(accommodationItem(placement, cell, 'bed', 'slab-a', 0.12, 0.18, 0.28, 0.18))
+      items.push(accommodationItem(placement, cell, 'bed', 'slab-b', 0.6, 0.18, 0.28, 0.18))
+      items.push(accommodationItem(placement, cell, 'fresher', 'curtain', 0.38, 0.6, 0.24, 0.2))
+      continue
+    }
+    if (role === 'cabin-space' && hash % 4 < 2) {
+      items.push(accommodationItem(placement, cell, 'seat', 'cabin-seat', 0.22, 0.28, 0.2, 0.22))
+      items.push(accommodationItem(placement, cell, 'locker', 'cabin-locker', 0.58, 0.28, 0.22, 0.3))
+    }
+  }
+  return items.slice(0, 120)
+}
+const accommodationVisualItemStyle = (placement: CustomShipLayoutPlacement, item: AccommodationVisualItem) => ({
+  left: `${(item.leftCells / placement.width) * 100}%`,
+  top: `${(item.topCells / placement.height) * 100}%`,
+  width: `${(item.spanX / placement.width) * 100}%`,
+  height: `${(item.spanY / placement.height) * 100}%`,
+  backgroundColor: item.fill,
+  backgroundImage: item.backgroundImage,
+  borderColor: item.border,
+  borderRadius: item.borderRadius,
+  boxShadow: 'inset 0 0 0 1px rgba(2, 6, 23, 0.34), 0 1px 2px rgba(0, 0, 0, 0.28)',
+  transform: `rotate(${item.angle}deg)`,
+})
 const placementCellStyle = (placement: CustomShipLayoutPlacement, cell: CustomShipLayoutCell) => {
   const meta = placementRenderMeta(placement)
   const occupiedCells = meta?.cellKeys ?? new Set(placementFootprintCells(placement).map(cellKey))
@@ -684,20 +1074,22 @@ const placementCellStyle = (placement: CustomShipLayoutPlacement, cell: CustomSh
   const hasEast = occupiedCells.has(`${cell.x + 1}:${cell.y}`)
   const hasSouth = occupiedCells.has(`${cell.x}:${cell.y + 1}`)
   const hasWest = occupiedCells.has(`${cell.x - 1}:${cell.y}`)
-  const hue = meta?.hue ?? componentColorHue(placement.componentId)
+  const hue = meta?.hue ?? componentColorHue(placementColorKey(placement))
   const selected = selectedPlacementId.value === placement.id
   const overlapping = (meta?.overlappingPlacementIds.size ?? 0) > 0
-  return {
+  const baseStyle = {
     gridColumn: `${cell.x + 1}`,
     gridRow: `${cell.y + 1}`,
     borderTopWidth: hasNorth ? '0' : '1px',
     borderRightWidth: hasEast ? '0' : '1px',
     borderBottomWidth: hasSouth ? '0' : '1px',
     borderLeftWidth: hasWest ? '0' : '1px',
+    position: 'relative',
     backgroundColor: overlapping ? 'rgba(244, 63, 94, 0.28)' : `hsla(${hue}, 78%, ${selected ? 58 : 50}%, ${selected ? 0.36 : 0.27})`,
     borderColor: overlapping ? 'rgba(253, 164, 175, 0.88)' : `hsla(${hue}, 90%, ${selected ? 82 : 74}%, ${selected ? 0.9 : 0.55})`,
     boxShadow: selected ? `0 0 12px hsla(${hue}, 90%, 72%, 0.22)` : '0 1px 4px rgba(0,0,0,0.22)',
   }
+  return baseStyle
 }
 const footprintPreviewCells = computed(() => {
   if (footprintRectDrag.value) return cellsInRect(footprintRectDrag.value.startCell, footprintRectDrag.value.currentCell)
@@ -835,6 +1227,8 @@ const applyPlacementCandidate = (placement: CustomShipLayoutPlacement, candidate
   placement.height = candidate.height
   placement.deckId = candidate.deckId
   placement.footprintCells = candidate.footprintCells
+  placement.visualRole = candidate.visualRole
+  placement.sourceEntryId = candidate.sourceEntryId
   clampPlacement(placement)
   return true
 }
@@ -912,6 +1306,8 @@ const placeComponent = (component: TravellerShipComponent) => {
     height,
     rotation: 0,
     footprintCells: rectangularFootprintCells(width, height),
+    visualRole: placementVisualRoleForComponent(component),
+    sourceEntryId: sourceEntryIdForComponent(component),
   })
   selectedPlacementId.value = placementIdBase(component.id)
 }
@@ -920,6 +1316,70 @@ const selectBrushComponent = (component: TravellerShipComponent, switchToPaint =
   if (switchToPaint) activeShapeTool.value = 'paint'
   const existingPlacement = activeDeckPlacements.value.find((placement) => placement.componentId === component.id)
   selectedPlacementId.value = existingPlacement?.id ?? ''
+}
+const selectAccommodationBrush = (entry: CustomShipAccommodationEntry) => {
+  const component = buildComponentById.value.get(accommodationComponentId(entry))
+  if (component) selectBrushComponent(component)
+}
+const addAccommodationEntry = (type: CustomShipAccommodationEntry['type']) => {
+  const entry = createAccommodationEntry(type)
+  buildDraft.value.accommodations.push(entry)
+  nextTick(() => selectAccommodationBrush(entry))
+}
+const removeAccommodationEntry = (entry: CustomShipAccommodationEntry) => {
+  const componentId = accommodationComponentId(entry)
+  buildDraft.value.accommodations = buildDraft.value.accommodations.filter((item) => item.id !== entry.id)
+  buildDraft.value.layout.placements = buildDraft.value.layout.placements.filter((placement) => placement.componentId !== componentId && placement.sourceEntryId !== entry.id)
+  if (!buildDraft.value.layout.placements.some((placement) => placement.id === selectedPlacementId.value)) selectedPlacementId.value = ''
+  if (activeBrushComponentId.value === componentId) activeBrushComponentId.value = ''
+}
+const selectCargoBrush = (entry: CustomShipCargoEntry) => {
+  const component = buildComponentById.value.get(cargoComponentId(entry))
+  if (component) selectBrushComponent(component)
+}
+const addCargoEntry = () => {
+  const entry = createCargoEntry()
+  buildDraft.value.cargoEntries.push(entry)
+  nextTick(() => selectCargoBrush(entry))
+}
+const removeCargoEntry = (entry: CustomShipCargoEntry) => {
+  const componentId = cargoComponentId(entry)
+  buildDraft.value.cargoEntries = buildDraft.value.cargoEntries.filter((item) => item.id !== entry.id)
+  buildDraft.value.layout.placements = buildDraft.value.layout.placements.filter((placement) => placement.componentId !== componentId && placement.sourceEntryId !== entry.id)
+  if (!buildDraft.value.layout.placements.some((placement) => placement.id === selectedPlacementId.value)) selectedPlacementId.value = ''
+  if (activeBrushComponentId.value === componentId) activeBrushComponentId.value = ''
+}
+const duplicatePlacementSource = (placement: CustomShipLayoutPlacement) => {
+  const component = placementComponent(placement)
+  const sourceEntryId = placement.sourceEntryId ?? component?.id.replace(/^(accommodation|cargo)-/, '')
+  if (component?.kind === 'cargo' && sourceEntryId) {
+    const source = buildDraft.value.cargoEntries.find((entry) => entry.id === sourceEntryId)
+    if (!source) return { componentId: placement.componentId, sourceEntryId: placement.sourceEntryId, visualRole: placement.visualRole }
+    const entry: CustomShipCargoEntry = {
+      ...source,
+      id: createBuilderEntryId('cargo'),
+      notes: source.notes ? [...source.notes] : undefined,
+    }
+    buildDraft.value.cargoEntries.push(entry)
+    return { componentId: cargoComponentId(entry), sourceEntryId: entry.id, visualRole: 'cargo' as CustomShipLayoutVisualRole }
+  }
+  if (component?.kind === 'accommodation' && sourceEntryId) {
+    const source = buildDraft.value.accommodations.find((entry) => entry.id === sourceEntryId)
+    if (!source) return { componentId: placement.componentId, sourceEntryId: placement.sourceEntryId, visualRole: placement.visualRole }
+    const entry: CustomShipAccommodationEntry = {
+      ...source,
+      id: createBuilderEntryId('accommodation'),
+      notes: source.notes ? [...source.notes] : undefined,
+      cost: source.cost ? { ...source.cost } : undefined,
+    }
+    buildDraft.value.accommodations.push(entry)
+    return {
+      componentId: accommodationComponentId(entry),
+      sourceEntryId: entry.id,
+      visualRole: entry.type === 'other' ? 'crew-quarters' as CustomShipLayoutVisualRole : entry.type as CustomShipLayoutVisualRole,
+    }
+  }
+  return { componentId: placement.componentId, sourceEntryId: placement.sourceEntryId, visualRole: placement.visualRole }
 }
 const createBrushPlacement = (component: TravellerShipComponent, cell: CustomShipLayoutCell) => {
   const placement: CustomShipLayoutPlacement = {
@@ -932,9 +1392,10 @@ const createBrushPlacement = (component: TravellerShipComponent, cell: CustomShi
     height: 1,
     rotation: 0,
     footprintCells: [{ x: 0, y: 0 }],
+    visualRole: placementVisualRoleForComponent(component),
+    sourceEntryId: sourceEntryIdForComponent(component),
   }
   if (placementWouldOverlap(placement, placement)) return null
-  buildDraft.value.layout.placements = buildDraft.value.layout.placements.filter((entry) => entry.componentId !== component.id)
   buildDraft.value.layout.placements.push(placement)
   selectedPlacementId.value = placement.id
   return placement
@@ -1016,8 +1477,14 @@ const duplicateSelectedFootprint = () => {
         y: cell.y + (offset.y * distance),
       })))
       if (!candidate || placementWouldOverlap(duplicate, candidate)) continue
+      const source = duplicatePlacementSource(placement)
+      candidate.id = uniquePlacementId(source.componentId)
+      candidate.componentId = source.componentId
+      candidate.sourceEntryId = source.sourceEntryId
+      candidate.visualRole = source.visualRole
       buildDraft.value.layout.placements.push(candidate)
       selectedPlacementId.value = candidate.id
+      activeBrushComponentId.value = source.componentId
       return
     }
   }
@@ -2030,40 +2497,83 @@ onBeforeUnmount(() => {
               </section>
             </div>
 
-            <div v-else-if="activeBuilderStep.id === 'accommodations-cargo'" class="mt-5 grid gap-4 md:grid-cols-2">
+            <div v-else-if="activeBuilderStep.id === 'accommodations'" class="mt-5 grid gap-4">
               <section class="rounded-md border border-cyan-400/20 bg-cyan-950/75 p-3">
-                <div class="flex items-center justify-between gap-3">
+                <div class="flex flex-wrap items-center justify-between gap-3">
                   <div>
                     <h3 class="text-sm font-semibold text-white">Accommodations</h3>
                     <p class="mt-1 text-xs text-cyan-100/60">{{ buildDraft.accommodations.length }} entries</p>
                   </div>
-                  <button class="rounded-md border border-cyan-300/30 px-2 py-1 text-xs font-semibold text-cyan-100 hover:border-amber-300/60" type="button" @click="buildDraft.accommodations.push(createAccommodationEntry())">Add</button>
+                  <div class="flex flex-wrap gap-1.5">
+                    <button class="rounded-md border border-cyan-300/30 px-2 py-1 text-xs font-semibold text-cyan-100 hover:border-amber-300/60" type="button" @click="addAccommodationEntry('stateroom')">Stateroom</button>
+                    <button class="rounded-md border border-cyan-300/30 px-2 py-1 text-xs font-semibold text-cyan-100 hover:border-amber-300/60" type="button" @click="addAccommodationEntry('high-stateroom')">High</button>
+                    <button class="rounded-md border border-cyan-300/30 px-2 py-1 text-xs font-semibold text-cyan-100 hover:border-amber-300/60" type="button" @click="addAccommodationEntry('luxury-stateroom')">Luxury</button>
+                    <button class="rounded-md border border-cyan-300/30 px-2 py-1 text-xs font-semibold text-cyan-100 hover:border-amber-300/60" type="button" @click="addAccommodationEntry('low-berth')">Low Berth</button>
+                    <button class="rounded-md border border-cyan-300/30 px-2 py-1 text-xs font-semibold text-cyan-100 hover:border-amber-300/60" type="button" @click="addAccommodationEntry('emergency-low-berth')">Emergency</button>
+                    <button class="rounded-md border border-cyan-300/30 px-2 py-1 text-xs font-semibold text-cyan-100 hover:border-amber-300/60" type="button" @click="addAccommodationEntry('common-area')">Common</button>
+                    <button class="rounded-md border border-cyan-300/30 px-2 py-1 text-xs font-semibold text-cyan-100 hover:border-amber-300/60" type="button" @click="addAccommodationEntry('acceleration-seat')">Seat</button>
+                  </div>
                 </div>
                 <div class="mt-3 grid gap-2">
-                  <article v-for="entry in buildDraft.accommodations" :key="entry.id" class="grid gap-2 rounded-md border border-cyan-400/20 bg-slate-950/70 p-2 md:grid-cols-[minmax(0,1fr)_4rem_5rem_auto]">
+                  <article v-for="entry in buildDraft.accommodations" :key="entry.id" class="grid gap-2 rounded-md border border-cyan-400/20 bg-slate-950/70 p-2 md:grid-cols-[minmax(8rem,0.8fr)_minmax(0,1fr)_4rem_5rem_auto_auto]">
+                    <select v-model="entry.type" class="h-8 rounded-md border border-cyan-300/25 bg-slate-900 px-2 text-xs text-cyan-50 outline-none focus:border-amber-300/60" @change="updateAccommodationType(entry, entry.type)">
+                      <option value="stateroom">Stateroom</option>
+                      <option value="high-stateroom">High Stateroom</option>
+                      <option value="luxury-stateroom">Luxury Stateroom</option>
+                      <option value="psion-stateroom">Psion Stateroom</option>
+                      <option value="low-berth">Low Berth</option>
+                      <option value="emergency-low-berth">Emergency Low Berth</option>
+                      <option value="common-area">Common Area</option>
+                      <option value="acceleration-bench">Acceleration Bench</option>
+                      <option value="acceleration-seat">Acceleration Seat</option>
+                      <option value="barracks">Barracks</option>
+                      <option value="brig">Brig</option>
+                      <option value="cabin-space">Cabin Space</option>
+                      <option value="other">Other Quarters</option>
+                    </select>
                     <input v-model="entry.label" class="h-8 rounded-md border border-cyan-300/25 bg-slate-900 px-2 text-xs text-cyan-50 outline-none focus:border-amber-300/60" placeholder="Label">
-                    <input v-model.number="entry.count" class="h-8 rounded-md border border-cyan-300/25 bg-slate-900 px-2 text-xs text-cyan-50 outline-none focus:border-amber-300/60" min="0" title="Count" type="number">
-                    <input v-model.number="entry.tonsEach" class="h-8 rounded-md border border-cyan-300/25 bg-slate-900 px-2 text-xs text-cyan-50 outline-none focus:border-amber-300/60" min="0" step="0.25" title="Tons each" type="number">
-                    <button class="flex h-8 w-8 items-center justify-center rounded-md border border-rose-300/30 text-rose-100 hover:border-rose-200" title="Remove accommodation" type="button" @click="buildDraft.accommodations = buildDraft.accommodations.filter((item) => item.id !== entry.id)">
+                    <input v-model.number="entry.count" class="h-8 rounded-md border border-cyan-300/25 bg-slate-900 px-2 text-xs text-cyan-50 outline-none focus:border-amber-300/60" min="0" placeholder="Qty" title="Quantity" type="number">
+                    <input v-model.number="entry.tonsEach" class="h-8 rounded-md border border-cyan-300/25 bg-slate-900 px-2 text-xs text-cyan-50 outline-none focus:border-amber-300/60" min="0" placeholder="Tons" step="0.25" title="Tons each" type="number">
+                    <button
+                      class="h-8 rounded-md border px-2 text-xs font-semibold"
+                      :class="activeBrushComponentId === accommodationComponentId(entry) ? 'border-cyan-100 bg-cyan-100 text-zinc-950' : 'border-cyan-300/30 text-cyan-100 hover:border-amber-300/60'"
+                      type="button"
+                      @click="selectAccommodationBrush(entry)"
+                    >
+                      Brush
+                    </button>
+                    <button class="flex h-8 w-8 items-center justify-center rounded-md border border-rose-300/30 text-rose-100 hover:border-rose-200" title="Remove accommodation" type="button" @click="removeAccommodationEntry(entry)">
                       <AppIcon class="h-4 w-4" name="trash" />
                     </button>
                   </article>
                 </div>
               </section>
+            </div>
 
+            <div v-else-if="activeBuilderStep.id === 'cargo'" class="mt-5 grid gap-4">
               <section class="rounded-md border border-cyan-400/20 bg-cyan-950/75 p-3">
                 <div class="flex items-center justify-between gap-3">
                   <div>
                     <h3 class="text-sm font-semibold text-white">Cargo</h3>
-                    <p class="mt-1 text-xs text-cyan-100/60">{{ formatLedgerNumber(buildSummary.derived.cargoTons) }} tons assigned</p>
+                    <p class="mt-1 text-xs text-cyan-100/60">{{ formatLedgerNumber(buildSummary.derived.cargoTons) }} tons drawn on deck plans</p>
                   </div>
-                  <button class="rounded-md border border-cyan-300/30 px-2 py-1 text-xs font-semibold text-cyan-100 hover:border-amber-300/60" type="button" @click="buildDraft.cargoEntries.push(createCargoEntry())">Add</button>
+                  <button class="rounded-md border border-cyan-300/30 px-2 py-1 text-xs font-semibold text-cyan-100 hover:border-amber-300/60" type="button" @click="addCargoEntry">Add</button>
                 </div>
                 <div class="mt-3 grid gap-2">
-                  <article v-for="entry in buildDraft.cargoEntries" :key="entry.id" class="grid gap-2 rounded-md border border-cyan-400/20 bg-slate-950/70 p-2 md:grid-cols-[minmax(0,1fr)_5rem_auto]">
+                  <article v-for="entry in buildDraft.cargoEntries" :key="entry.id" class="grid gap-2 rounded-md border border-cyan-400/20 bg-slate-950/70 p-2 md:grid-cols-[minmax(0,1fr)_6rem_auto_auto]">
                     <input v-model="entry.label" class="h-8 rounded-md border border-cyan-300/25 bg-slate-900 px-2 text-xs text-cyan-50 outline-none focus:border-amber-300/60" placeholder="Label">
-                    <input v-model.number="entry.tons" class="h-8 rounded-md border border-cyan-300/25 bg-slate-900 px-2 text-xs text-cyan-50 outline-none focus:border-amber-300/60" min="0" step="0.25" title="Tons" type="number">
-                    <button class="flex h-8 w-8 items-center justify-center rounded-md border border-rose-300/30 text-rose-100 hover:border-rose-200" title="Remove cargo" type="button" @click="buildDraft.cargoEntries = buildDraft.cargoEntries.filter((item) => item.id !== entry.id)">
+                    <div class="flex h-8 items-center justify-end rounded-md border border-cyan-300/20 bg-slate-900 px-2 text-xs font-semibold text-cyan-50" :title="`${drawnCargoTonsForEntry(entry.id)} tons drawn`">
+                      {{ formatLedgerNumber(drawnCargoTonsForEntry(entry.id)) }} t
+                    </div>
+                    <button
+                      class="h-8 rounded-md border px-2 text-xs font-semibold"
+                      :class="activeBrushComponentId === cargoComponentId(entry) ? 'border-cyan-100 bg-cyan-100 text-zinc-950' : 'border-cyan-300/30 text-cyan-100 hover:border-amber-300/60'"
+                      type="button"
+                      @click="selectCargoBrush(entry)"
+                    >
+                      Brush
+                    </button>
+                    <button class="flex h-8 w-8 items-center justify-center rounded-md border border-rose-300/30 text-rose-100 hover:border-rose-200" title="Remove cargo" type="button" @click="removeCargoEntry(entry)">
                       <AppIcon class="h-4 w-4" name="trash" />
                     </button>
                   </article>
@@ -2106,11 +2616,11 @@ onBeforeUnmount(() => {
 	                  >
 	                    <div class="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2">
 	                      <div class="flex min-w-0 items-start gap-2">
-	                        <span class="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded border" :style="componentSwatchStyle(component.id)">
+	                        <span class="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded border" :style="componentSwatchStyle(component)">
 	                          <img :alt="component.name" class="h-5 w-5 object-contain" :src="componentIconUrl(component)">
 	                        </span>
 	                        <div class="min-w-0">
-	                        <p class="truncate text-sm font-semibold leading-tight">{{ component.name }}</p>
+	                        <p class="truncate text-sm font-semibold leading-tight">{{ componentDisplayName(component) }}</p>
 	                        <p class="mt-0.5 truncate text-xs opacity-70">{{ componentKindLabel(component.kind) }}</p>
                         </div>
                       </div>
@@ -2177,7 +2687,7 @@ onBeforeUnmount(() => {
 	                          <span
 	                            class="h-3 w-3 rounded-full border border-current/25"
 	                            :class="builderStepBrushDotClass(step.id)"
-	                            :style="builderStepBrushComponent(step.id) ? componentSwatchStyle(builderStepBrushComponent(step.id)?.id ?? '') : undefined"
+	                            :style="builderStepBrushComponent(step.id) ? componentSwatchStyle(builderStepBrushComponent(step.id) ?? undefined) : undefined"
 	                            :title="builderStepBrushTitle(step)"
 	                          />
                           <span class="truncate">{{ step.title }}</span>
@@ -2309,7 +2819,8 @@ onBeforeUnmount(() => {
                     <div class="grid gap-1 rounded-md border border-cyan-400/20 bg-white/5 p-2 text-[0.68rem] text-cyan-100/70">
                       <p class="truncate text-[0.62rem] font-semibold uppercase tracking-[0.14em] text-cyan-100/55">Selection</p>
                       <template v-if="selectedLayoutPlacement">
-                        <p class="truncate font-semibold text-cyan-50">{{ selectedPlacementComponent?.name ?? selectedLayoutPlacement.componentId }}</p>
+                        <p class="truncate font-semibold text-cyan-50">{{ componentDisplayName(selectedPlacementComponent ?? undefined) || selectedLayoutPlacement.componentId }}</p>
+                        <p v-if="selectedPlacementVisualLabel" class="truncate text-[0.62rem] font-semibold uppercase tracking-[0.12em] text-cyan-100/55">{{ selectedPlacementVisualLabel }}</p>
                         <dl class="grid grid-cols-2 gap-x-2 gap-y-1">
                           <div class="flex justify-between gap-1"><dt>X</dt><dd class="font-semibold text-white">{{ selectedLayoutPlacement.x }}</dd></div>
                           <div class="flex justify-between gap-1"><dt>Y</dt><dd class="font-semibold text-white">{{ selectedLayoutPlacement.y }}</dd></div>
@@ -2462,10 +2973,26 @@ onBeforeUnmount(() => {
                                 @pointerdown="handlePlacementPointerDown($event, placement)"
                               />
                             </div>
+                            <div v-if="placementVisualRole(placement) === 'cargo'" class="pointer-events-none absolute inset-0 z-[5] overflow-hidden">
+                              <span
+                                v-for="item in cargoVisualItems(placement)"
+                                :key="item.id"
+                                class="absolute rounded-[2px] border"
+                                :style="cargoCrateStyle(placement, item)"
+                              />
+                            </div>
+                            <div v-else-if="placementHasAccommodationVisual(placement)" class="pointer-events-none absolute inset-0 z-[5] overflow-hidden">
+                              <span
+                                v-for="item in accommodationVisualItems(placement)"
+                                :key="item.id"
+                                class="absolute border"
+                                :style="accommodationVisualItemStyle(placement, item)"
+                              />
+                            </div>
                             <div class="pointer-events-none relative z-10 flex h-full flex-col justify-center">
                               <span class="flex min-w-0 items-center justify-center gap-1.5">
-                                <img :alt="placementComponent(placement)?.name ?? placement.componentId" class="shrink-0 object-contain" :src="placementIconUrl(placement)" :style="placementIconStyle">
-                                <span class="block truncate">{{ placementComponent(placement)?.name ?? placement.componentId }}</span>
+                                <img :alt="placementDisplayName(placement)" class="shrink-0 object-contain" :src="placementIconUrl(placement)" :style="placementIconStyle">
+                                <span class="block truncate">{{ placementDisplayName(placement) }}</span>
                               </span>
                               <span class="block text-center font-medium text-amber-50/70" :style="placementTonsStyle">{{ placementTons(placement) }} tons</span>
                             </div>

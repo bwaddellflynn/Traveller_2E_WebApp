@@ -236,7 +236,7 @@ export type CustomShipSensorSelection = {
 
 export type CustomShipAccommodationEntry = {
   id: string
-  type: 'stateroom' | 'low-berth' | 'emergency-low-berth' | 'common-area' | 'other'
+  type: 'stateroom' | 'high-stateroom' | 'luxury-stateroom' | 'psion-stateroom' | 'low-berth' | 'emergency-low-berth' | 'common-area' | 'acceleration-bench' | 'acceleration-seat' | 'barracks' | 'brig' | 'cabin-space' | 'other'
   label: string
   count: number
   tonsEach: number
@@ -257,6 +257,22 @@ export type CustomShipLayoutCell = {
   y: number
 }
 
+export type CustomShipLayoutVisualRole =
+  | 'stateroom'
+  | 'high-stateroom'
+  | 'luxury-stateroom'
+  | 'psion-stateroom'
+  | 'low-berth'
+  | 'emergency-low-berth'
+  | 'common-area'
+  | 'acceleration-bench'
+  | 'acceleration-seat'
+  | 'barracks'
+  | 'brig'
+  | 'cabin-space'
+  | 'crew-quarters'
+  | 'cargo'
+
 export type CustomShipLayoutPlacement = {
   id: string
   componentId: string
@@ -267,6 +283,8 @@ export type CustomShipLayoutPlacement = {
   height: number
   rotation: number
   footprintCells?: CustomShipLayoutCell[]
+  visualRole?: CustomShipLayoutVisualRole
+  sourceEntryId?: string
   locked?: boolean
 }
 

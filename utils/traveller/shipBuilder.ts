@@ -258,9 +258,16 @@ export const shipSensorRules: ShipSensorRule[] = [
 
 export const shipAccommodationRules: ShipAccommodationRule[] = [
   { id: 'stateroom', label: 'Stateroom', tons: 4, costMCr: 0.5, capacity: 1 },
+  { id: 'high-stateroom', label: 'High Stateroom', tons: 6, costMCr: 0.8, capacity: 1, notes: 'Grants DM+1 when seeking high passengers; life support cost Cr3000.' },
+  { id: 'luxury-stateroom', label: 'Luxury Stateroom', tons: 10, costMCr: 1.5, capacity: 1, notes: 'Grants DM+2 when seeking high passengers; life support cost Cr5000.' },
+  { id: 'psion-stateroom', label: 'Psion Stateroom', tons: 4, costMCr: 2, capacity: 1, notes: 'TL12 exotic option; increases PSI regeneration rate by +50% for a psion within.' },
   { id: 'low-berth', label: 'Low Berth', tons: 0.5, costMCr: 0.05, capacity: 1, notes: 'Requires 1 Power per 10 berths or part thereof.' },
   { id: 'emergency-low-berth', label: 'Emergency Low Berth', tons: 1, costMCr: 1, power: 1, capacity: 4 },
   { id: 'common-area', label: 'Common Area', tons: 1, costMCr: 0.1, capacity: 0, notes: 'Cost is MCr0.1 per ton; suggested allocation is around 25% of stateroom tonnage.' },
+  { id: 'acceleration-bench', label: 'Acceleration Bench', tons: 1, costMCr: 0.01, capacity: 4, notes: 'Temporary passenger seating.' },
+  { id: 'acceleration-seat', label: 'Acceleration Seat', tons: 0.5, costMCr: 0.03, capacity: 1, notes: 'Temporary passenger seating, more comfortable but less space efficient.' },
+  { id: 'barracks', label: 'Barracks', tons: 1, costMCr: 0.05, capacity: 1, notes: 'One ton per soldier/basic passenger; life support cost Cr500 per ton.' },
+  { id: 'brig', label: 'Brig', tons: 4, costMCr: 0.25, capacity: 6, notes: 'Secure chamber for up to six prisoners; life support cost Cr1000.' },
 ]
 
 export const shipCrewRequirementRules: ShipCrewRequirementRule[] = [
@@ -388,7 +395,7 @@ const crewReductionMultiplierFor = (shipTons: number) => {
 const reducedCrew = (count: number, multiplier: number) => Math.ceil(positive(count) * multiplier)
 const sumAccommodationCapacity = (design: CustomShipDesign) => {
   return design.accommodations.reduce((total, accommodation) => {
-    if (accommodation.type === 'stateroom') return total + positive(accommodation.count)
+    if (['stateroom', 'high-stateroom', 'luxury-stateroom', 'psion-stateroom'].includes(accommodation.type)) return total + positive(accommodation.count)
     if (accommodation.type === 'other') return total + positive(accommodation.count)
     return total
   }, 0)
